@@ -22,12 +22,13 @@
 import sys
 import pprint
 import inspect
-import bridge
+
+import pdfbridge
 
 def main():
     pp = pprint.PrettyPrinter()
 
-    obj = inspect.getmembers(bridge, inspect.isclass)
+    obj = inspect.getmembers(pdfbridge, inspect.isclass)
     pp.pprint(obj)
     
 if __name__ == '__main__':

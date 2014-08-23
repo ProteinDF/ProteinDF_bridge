@@ -25,7 +25,7 @@ import copy
 import math
 import numpy
 
-import bridge
+import pdfbridge
 
 """
 Matrix (for general matrix) and SymmetricMatrix (for symmetric matrix) class
@@ -200,7 +200,7 @@ class Matrix(object):
         assert(row < self.rows)
 
         cols = self.cols
-        v = bridge.Vector(cols)
+        v = pdfbridge.Vector(cols)
         for i in range(cols):
             v[i] = self.get(row, i)
         return v
@@ -296,7 +296,7 @@ class Matrix(object):
             answer = Matrix(self.rows, other.cols)
             answer._data = C.getA()
             return answer
-        elif isinstance(other, bridge.Vector):
+        elif isinstance(other, pdfbridge.Vector):
             # matrix * (coulmn)vector
             assert(self.cols == other.size())
 
@@ -308,7 +308,7 @@ class Matrix(object):
             # TODO: to be simply!
             C = C.getT()
             a = C.tolist()
-            answer = bridge.Vector(a[0])
+            answer = pdfbridge.Vector(a[0])
             return answer
 
     def __eq__(self, other):
@@ -448,7 +448,7 @@ class SymmetricMatrix(Matrix):
         """
         return the eigenvalues and eigenvectors.
         """
-        w = bridge.Vector(self.dim)
+        w = pdfbridge.Vector(self.dim)
         v = Matrix(self.dim, self.dim)
         if (self.dim > 1):
             w._data, v._data = numpy.linalg.eigh(self._data, 'L')

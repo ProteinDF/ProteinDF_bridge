@@ -28,7 +28,7 @@ try:
 except:
     import msgpack_pure as msgpack
     
-import bridge
+import pdfbridge
 
 
 def main():
@@ -59,7 +59,7 @@ def main():
     # load PDB file
     if (verbose == True):
         print("reading: %s\n" % (pdb_file_path))
-    pdb_obj = bridge.Pdb()
+    pdb_obj = pdfbridge.Pdb()
     pdb_obj.debug = debug
     pdb_obj.load(pdb_file_path)
     #print(pdb_obj)

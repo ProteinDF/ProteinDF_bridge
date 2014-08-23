@@ -26,7 +26,7 @@ try:
 except:
     import msgpack_pure as msgpack
 
-import bridge
+import pdfbridge
 
 def main():
     # parse args
@@ -50,7 +50,7 @@ def main():
     # reading
     if (verbose == True):
         print("reading: %s\n" % (xyz_file_path))
-    xyz = bridge.Xyz()
+    xyz = pdfbridge.Xyz()
     xyz.load(xyz_file_path)
     atomgroup = xyz.get_atom_group()
     

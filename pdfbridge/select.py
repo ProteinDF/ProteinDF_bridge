@@ -21,8 +21,7 @@
 
 import re
 
-from .position import Position
-from .atom import Atom
+import pdfbridge
 
 class Select(object):
     """
@@ -92,7 +91,7 @@ class Select_Atom(Select):
 
     def is_match(self, obj):
         answer = False
-        if isinstance(obj, Atom):
+        if isinstance(obj, pdfbridge.Atom):
             symbol = obj.symbol.upper()
             if symbol == self._atom_symbol:
                 answer = True
@@ -103,12 +102,12 @@ class Select_Range(Select):
     半径で選択する
     '''
     def __init__(self, pos, d):
-        self._pos = Position(pos)
+        self._pos = pdfbridge.Position(pos)
         self._d = float(d)
 
     def is_match(self, obj):
         answer = False
-        if isinstance(obj, Atom):
+        if isinstance(obj, pdfbridge.Atom):
             d = self._pos.distance_from(obj.xyz)
             if d < self._d:
                 answer = True

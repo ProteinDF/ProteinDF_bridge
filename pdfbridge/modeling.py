@@ -27,15 +27,8 @@ try:
 except:
     import msgpack_pure as msgpack
 
-from .common import NullHandler
-from .position import Position
-from .atom import Atom
-from .atomgroup import AtomGroup
-from .superposer import Superposer
-from .select import *
-from .matrix import Matrix
-from .xyz import Xyz
-
+import pdfbridge
+    
 class Modeling:
     _ACE_ALA_NME_data_path = os.path.join(
         os.environ.get('PDF_HOME', '.'),
@@ -43,7 +36,7 @@ class Modeling:
         "ACE_ALA_NME.brd")
 
     def __init__(self):
-        nullHandler = NullHandler()
+        nullHandler = pdfbridge.NullHandler()
         self._logger = logging.getLogger(__name__)
         self._logger.addHandler(nullHandler)
 
@@ -56,7 +49,7 @@ class Modeling:
             res_file = open(self._ACE_ALA_NME_data_path, "rb")
             res_data = msgpack.unpackb(res_file.read())
             res_file.close()
-            self._ACE_ALA_NME = AtomGroup(res_data)
+            self._ACE_ALA_NME = pdfbridge.AtomGroup(res_data)
         return self._ACE_ALA_NME
 
     ACE_ALA_NME = property(_get_ACE_ALA_NME)
@@ -66,7 +59,7 @@ class Modeling:
         """
         隣のC-alphaの位置をメチル基にする。
         """
-        answer = AtomGroup()
+        answer = pdfbridge.AtomGroup()
         answer.set_atom('CA', next_aa['CA'])
         answer.set_atom('C',  next_aa['C'])
         answer.set_atom('O',  next_aa['O'])
@@ -78,14 +71,14 @@ class Modeling:
         """
         隣のC-alphaの位置をメチル基にする。
         """
-        answer = AtomGroup()
+        answer = pdfbridge.AtomGroup()
         answer.set_atom('CA', next_aa['CA'])
         answer.set_atom('N',  next_aa['N'])
         if next_aa.has_atom('H'):
             answer.set_atom('H',  next_aa['H'])
         elif next_aa.has_atom('CD'):
             # for proline
-            dummy_H = Atom(next_aa['CD'])
+            dummy_H = pdfbridge.Atom(next_aa['CD'])
             dummy_H.symbol = 'H'
             answer.set_atom('H', dummy_H)
         else:
@@ -102,7 +95,7 @@ class Modeling:
                      ||   | |      ||    |
                      O    H CB     O     H
         """
-        AA3 = AtomGroup(self.ACE_ALA_NME)
+        AA3 = pdfbridge.AtomGroup(self.ACE_ALA_NME)
         (AA3_part, res_part) = self._match_residues(AA3['2'], res)
 
         if next_aa != None:
@@ -116,14 +109,14 @@ class Modeling:
                 AA3_part.set_atom('CH3', AA3['1']['CH3'])
                 res_part.set_atom('CH3', next_aa['CA'])
                 
-        sp = Superposer(AA3_part, res_part)
+        sp = pdfbridge.Superposer(AA3_part, res_part)
         rmsd = sp.rmsd
         rotation_mat = sp.rotation_mat
         if rmsd > 1.0:
             self._logger.warn("RMSD value is too large: {}".format(rmsd))
         
         spAA3 = sp.superimpose(AA3)
-        answer = AtomGroup(spAA3['1'])
+        answer = pdfbridge.AtomGroup(spAA3['1'])
         answer.path = '/ACE'
         
         return answer
@@ -135,10 +128,10 @@ class Modeling:
                      ||   | |      ||    |
                      O    H CB     O     H
         """
-        AA3 = AtomGroup(self.ACE_ALA_NME)
+        AA3 = pdfbridge.AtomGroup(self.ACE_ALA_NME)
 
-        AA3_part = AtomGroup()
-        res_part = AtomGroup()
+        AA3_part = pdfbridge.AtomGroup()
+        res_part = pdfbridge.AtomGroup()
         if next_aa != None:
             if next_aa.has_atom('N'):
                 AA3_part.set_atom('N2', AA3['3']['N'])
@@ -155,14 +148,14 @@ class Modeling:
         AA3_part |= AA3_part_tmp
         res_part |= res_part_tmp
 
-        sp = Superposer(AA3_part, res_part)
+        sp = pdfbridge.Superposer(AA3_part, res_part)
         rmsd = sp.rmsd
         rotation_mat = sp.rotation_mat
         if rmsd > 1.0:
             self._logger.warn("RMSD value is too large: {}".format(rmsd))
         
         spAA3 = sp.superimpose(AA3)
-        answer = AtomGroup(spAA3['3'])
+        answer = pdfbridge.AtomGroup(spAA3['3'])
         answer.path = '/NME'
         
         return answer
@@ -176,8 +169,8 @@ class Modeling:
         atom_names = ['CA', 'N', 'O', 'C', 'HA']
         if max_number_of_atoms == -1:
             max_number_of_atoms = len(atom_names)
-        ans_res1 = AtomGroup()
-        ans_res2 = AtomGroup()
+        ans_res1 = pdfbridge.AtomGroup()
+        ans_res2 = pdfbridge.AtomGroup()
 
         for atom_name in atom_names:
             if ((res1.has_atom(atom_name) == True) and
@@ -213,26 +206,26 @@ class Modeling:
 
         C1に水素を付加
         """
-        assert(isinstance(C1, Atom))
-        assert(isinstance(C2, Atom))
+        assert(isinstance(C1, pdfbridge.Atom))
+        assert(isinstance(C2, pdfbridge.Atom))
 
-        ethane = AtomGroup()
-        ethane.set_atom('C1', Atom(symbol = 'C', name = 'C1',
-                                   position = Position( 0.00000, 0.00000, 0.00000)))
-        ethane.set_atom('H11', Atom(symbol = 'H', name = 'H11',
-                                    position = Position(-0.85617, -0.58901, -0.35051)))
-        ethane.set_atom('H12', Atom(symbol = 'H', name = 'H12',
-                                    position = Position(-0.08202,  1.03597, -0.35051)))
-        ethane.set_atom('H13', Atom(symbol = 'H', name = 'H13',
-                                    position = Position( 0.93818, -0.44696, -0.35051)))
-        ethane.set_atom('C2', Atom(symbol = 'C', name = 'C2',
-                                   position = Position( 0.00000, 0.00000, 1.47685)))
-        ethane.set_atom('H21', Atom(symbol = 'H', name = 'H21',
-                                    position = Position(-0.93818,  0.44696, 1.82736)))
-        ethane.set_atom('H22', Atom(symbol = 'H', name = 'H22',
-                                    position = Position( 0.85617,  0.58901, 1.82736)))
-        ethane.set_atom('H23', Atom(symbol = 'H', name = 'H23',
-                                    position = Position( 0.08202, -1.03597, 1.82736)))
+        ethane = pdfbridge.AtomGroup()
+        ethane.set_atom('C1', pdfbridge.Atom(symbol = 'C', name = 'C1',
+                                             position = pdfbridge.Position( 0.00000, 0.00000, 0.00000)))
+        ethane.set_atom('H11', pdfbridge.Atom(symbol = 'H', name = 'H11',
+                                              position = pdfbridge.Position(-0.85617, -0.58901, -0.35051)))
+        ethane.set_atom('H12', pdfbridge.Atom(symbol = 'H', name = 'H12',
+                                              position = pdfbridge.Position(-0.08202,  1.03597, -0.35051)))
+        ethane.set_atom('H13', pdfbridge.Atom(symbol = 'H', name = 'H13',
+                                              position = pdfbridge.Position( 0.93818, -0.44696, -0.35051)))
+        ethane.set_atom('C2', pdfbridge.Atom(symbol = 'C', name = 'C2',
+                                             position = pdfbridge.Position( 0.00000, 0.00000, 1.47685)))
+        ethane.set_atom('H21', pdfbridge.Atom(symbol = 'H', name = 'H21',
+                                              position = pdfbridge.Position(-0.93818,  0.44696, 1.82736)))
+        ethane.set_atom('H22', pdfbridge.Atom(symbol = 'H', name = 'H22',
+                                              position = pdfbridge.Position( 0.85617,  0.58901, 1.82736)))
+        ethane.set_atom('H23', pdfbridge.Atom(symbol = 'H', name = 'H23',
+                                              position = pdfbridge.Position( 0.08202, -1.03597, 1.82736)))
 
         inC21 = C2.xyz - C1.xyz
         refC21 = ethane['C2'].xyz - ethane['C1'].xyz
@@ -244,7 +237,7 @@ class Modeling:
         ethane.shift_by(shift)
         assert(C1.xyz == ethane['C1'].xyz)
 
-        answer = AtomGroup()
+        answer = pdfbridge.AtomGroup()
         answer.set_atom('H11', ethane['H11'])
         answer.set_atom('H12', ethane['H12'])
         answer.set_atom('H13', ethane['H13'])
@@ -263,41 +256,41 @@ class Modeling:
         cos_input = math.cos(angle)
 
         # z軸まわりに120度回転
-        #z1_rot = bridge.Matrix(3, 3)
+        #z1_rot = pdfbridge.Matrix(3, 3)
         #z1_rot.set(0, 0,  cos23)
         #z1_rot.set(0, 1, -sin23)
         #z1_rot.set(1, 0,  sin23)
         #z1_rot.set(1, 1,  cos23)
         #z1_rot.set(2, 2,  1.0)
         # z軸まわりに240度回転
-        #z2_rot = bridge.Matrix(3, 3)
+        #z2_rot = pdfbridge.Matrix(3, 3)
         #z2_rot.set(0, 0,  cos43)
         #z2_rot.set(0, 1, -sin43)
         #z2_rot.set(1, 0,  sin43)
         #z2_rot.set(1, 1,  cos43)
         #z2_rot.set(2, 2,  1.0)
         # y軸まわりに回転
-        #y_rot = bridge.Matrix(3, 3)
+        #y_rot = pdfbridge.Matrix(3, 3)
         #y_rot.set(0, 0,  cos_input)
         #y_rot.set(0, 2, -sin_input)
         #y_rot.set(2, 0,  sin_input)
         #y_rot.set(2, 2,  cos_input)
         #y_rot.set(1, 1,  1.0)
 
-        #pos_H1 = bridge.Position(1.0, 0.0, 0.0)
+        #pos_H1 = pdfbridge.Position(1.0, 0.0, 0.0)
         #pos_H1.rotate(y_rot)
         #pos_H1 *= length
-        #pos_H2 = bridge.Position(1.0, 0.0, 0.0)
+        #pos_H2 = pdfbridge.Position(1.0, 0.0, 0.0)
         #pos_H2.rotate(y_rot)
         #pos_H2.rotate(z1_rot)
         #pos_H2 *= length
-        #pos_H3 = bridge.Position(1.0, 0.0, 0.0)
+        #pos_H3 = pdfbridge.Position(1.0, 0.0, 0.0)
         #pos_H3.rotate(y_rot)
         #pos_H3.rotate(z2_rot)
         #pos_H3 *= length
 
         # X-Z平面上、Y軸に対してangle度開く
-        xz_rot = bridge.Matrix(3, 3)
+        xz_rot = pdfbridge.Matrix(3, 3)
         xz_rot.set(0, 0,  cos_input)
         xz_rot.set(0, 2, -sin_input)
         xz_rot.set(2, 0,  sin_input)
@@ -305,21 +298,21 @@ class Modeling:
         xz_rot.set(1, 1,  1.0)
 
         # X-Y平面上、Z軸に対して120度開く
-        xy_rot = bridge.Matrix(3, 3)
+        xy_rot = pdfbridge.Matrix(3, 3)
         xy_rot.set(0, 0,  cos23)
         xy_rot.set(0, 1, -sin23)
         xy_rot.set(1, 0,  sin23)
         xy_rot.set(1, 1,  cos23)
         xy_rot.set(2, 2,  1.0)
 
-        pos_H1 = bridge.Position(0.0, 0.0, 1.0)
+        pos_H1 = pdfbridge.Position(0.0, 0.0, 1.0)
         pos_H1.rotate(xz_rot)
 
-        pos_H2 = bridge.Position(0.0, 0.0, 1.0)
+        pos_H2 = pdfbridge.Position(0.0, 0.0, 1.0)
         pos_H2.rotate(xz_rot)
         pos_H2.rotate(xy_rot)
 
-        pos_H3 = bridge.Position(0.0, 0.0, 1.0)
+        pos_H3 = pdfbridge.Position(0.0, 0.0, 1.0)
         pos_H3.rotate(xz_rot)
         pos_H3.rotate(xy_rot)
         pos_H3.rotate(xy_rot)
@@ -328,21 +321,21 @@ class Modeling:
         pos_H2 *= length
         pos_H3 *= length
 
-        NH3 = bridge.AtomGroup()
-        N = bridge.Atom(symbol = 'N',
-                        position = bridge.Position(0.0, 0.0, 0.0))
-        H1 = bridge.Atom(symbol = 'H',
+        NH3 = pdfbridge.AtomGroup()
+        N = pdfbridge.Atom(symbol = 'N',
+                        position = pdfbridge.Position(0.0, 0.0, 0.0))
+        H1 = pdfbridge.Atom(symbol = 'H',
                          position = pos_H1)
-        H2 = bridge.Atom(symbol = 'H',
+        H2 = pdfbridge.Atom(symbol = 'H',
                          position = pos_H2)
-        H3 = bridge.Atom(symbol = 'H',
+        H3 = pdfbridge.Atom(symbol = 'H',
                          position = pos_H3)
-        #X1 = bridge.Atom(symbol = 'X',
-        #                position = bridge.Position(1.0, 0.0, 0.0))
-        #X2 = bridge.Atom(symbol = 'X',
-        #                position = bridge.Position(0.0, 1.0, 0.0))
-        #X3 = bridge.Atom(symbol = 'X',
-        #                position = bridge.Position(0.0, 0.0, 1.0))
+        #X1 = pdfbridge.Atom(symbol = 'X',
+        #                position = pdfbridge.Position(1.0, 0.0, 0.0))
+        #X2 = pdfbridge.Atom(symbol = 'X',
+        #                position = pdfbridge.Position(0.0, 1.0, 0.0))
+        #X3 = pdfbridge.Atom(symbol = 'X',
+        #                position = pdfbridge.Position(0.0, 0.0, 1.0))
 
         NH3.set_atom('N', N)
         NH3.set_atom('H1', H1)
@@ -359,7 +352,7 @@ class Modeling:
         '''
         連続したアミノ酸残基を返す
         '''
-        answer = AtomGroup()
+        answer = pdfbridge.AtomGroup()
         for resid, res in chain.groups():
             resid = int(resid)
             if from_resid <= resid <= to_resid:
@@ -372,11 +365,11 @@ class Modeling:
         """
         ベクトルaをbへ合わせる回転行列(3x3)を返す
         """
-        assert(isinstance(in_a, Position))
-        assert(isinstance(in_b, Position))
+        assert(isinstance(in_a, pdfbridge.Position))
+        assert(isinstance(in_b, pdfbridge.Position))
 
-        a = Position(in_a)
-        b = Position(in_b)
+        a = pdfbridge.Position(in_a)
+        b = pdfbridge.Position(in_b)
         a.norm()
         b.norm()
 
@@ -390,7 +383,7 @@ class Modeling:
         ny = n.y
         nz = n.z
 
-        rot = Matrix(3, 3)
+        rot = pdfbridge.Matrix(3, 3)
         rot.set(0, 0, nx*nx * (1.0 - cos_theta) +      cos_theta)
         rot.set(0, 1, nx*ny * (1.0 - cos_theta) + nz * sin_theta)
         rot.set(0, 2, nx*nz * (1.0 - cos_theta) - ny * sin_theta)
@@ -421,16 +414,16 @@ class Modeling:
 
         H1, N2, HXTが指定されている必要があります。
         """
-        ag = AtomGroup()
+        ag = pdfbridge.AtomGroup()
         ag.set_atom('N', res['N'])
         ag.set_atom('H1', res['H'])
         ag.set_atom('H2', res['H2'])
         ag.set_atom('H3', res['HXT'])
         pos = self._get_neutralize_pos_NH3_type(ag)
         
-        answer = AtomGroup()
-        Cl = Atom(symbol = 'Cl',
-                  position = pos)
+        answer = pdfbridge.AtomGroup()
+        Cl = pdfbridge.Atom(symbol = 'Cl',
+                            position = pos)
         answer.set_atom('Cl', Cl)
         return answer
 
@@ -438,58 +431,58 @@ class Modeling:
         """
         C末端側を中性化するためにNa+(AtomGroup)を返す
         """
-        ag = AtomGroup()
+        ag = pdfbridge.AtomGroup()
         ag.set_atom('C', res['C'])
         ag.set_atom('O1', res['O'])
         ag.set_atom('O2', res['OXT'])
         pos = self._get_neutralize_pos_COO_type(ag)
 
-        answer = AtomGroup()
-        Na = Atom(symbol = 'Na',
-                  position = pos)
+        answer = pdfbridge.AtomGroup()
+        Na = pdfbridge.Atom(symbol = 'Na',
+                            position = pos)
         answer.set_atom('Na', Na)
         return answer
 
     # -----------------------------------------------------------------
     def neutralize_GLU(self, res):
-        ag = AtomGroup()
+        ag = pdfbridge.AtomGroup()
         ag.set_atom('C', res['CD'])
         ag.set_atom('O1', res['OE1'])
         ag.set_atom('O2', res['OE2'])
         pos = self._get_neutralize_pos_COO_type(ag)
 
-        answer = AtomGroup()
-        Na = Atom(symbol = 'Na',
-                  position = pos)
+        answer = pdfbridge.AtomGroup()
+        Na = pdfbridge.Atom(symbol = 'Na',
+                            position = pos)
         key = self.get_last_index(res)
         answer.set_atom('{}_Na'.format(key+1), Na)
         return answer
 
     def neutralize_ASP(self, res):
-        ag = AtomGroup()
+        ag = pdfbridge.AtomGroup()
         ag.set_atom('C', res['CG'])
         ag.set_atom('O1', res['OD1'])
         ag.set_atom('O2', res['OD2'])
         pos = self._get_neutralize_pos_COO_type(ag)
 
-        answer = AtomGroup()
-        Na = Atom(symbol = 'Na',
-                  position = pos)
+        answer = pdfbridge.AtomGroup()
+        Na = pdfbridge.Atom(symbol = 'Na',
+                            position = pos)
         key = self.get_last_index(res)
         answer.set_atom('{}_Na'.format(key+1), Na)
         return answer
 
     def neutralize_LYS(self, res):
-        ag = AtomGroup()
+        ag = pdfbridge.AtomGroup()
         ag.set_atom('N', res['NZ'])
         ag.set_atom('H1', res['HZ1'])
         ag.set_atom('H2', res['HZ2'])
         ag.set_atom('H3', res['HZ3'])
         pos = self._get_neutralize_pos_NH3_type(ag)
         
-        answer = AtomGroup()
-        Cl = Atom(symbol = 'Cl',
-                  position = pos)
+        answer = pdfbridge.AtomGroup()
+        Cl = pdfbridge.Atom(symbol = 'Cl',
+                            position = pos)
         key = self.get_last_index(res)
         answer.set_atom('{}_Cl'.format(key+1), Cl)
         return answer
@@ -501,15 +494,15 @@ class Modeling:
         case: 2; NH2側
         """
         case = int(case)
-        pos = Position()
+        pos = pdfbridge.Position()
         if case == 0:
             length = 3.0
             NH1 = res['NH1']
             NH2 = res['NH2']
             CZ = res['CZ']
-            M = Position(0.5 * (NH1.x + NH2.x),
-                         0.5 * (NH1.y + NH2.y),
-                         0.5 * (BH1.z + NH2.z))
+            M = pdfbridge.Position(0.5 * (NH1.x + NH2.x),
+                                   0.5 * (NH1.y + NH2.y),
+                                   0.5 * (BH1.z + NH2.z))
             vCM = M - CZ.xyz
             vCM.norm()
             pos = CZ.xyz + length * vCM
@@ -518,9 +511,9 @@ class Modeling:
             HH11 = res['HH11']
             HH12 = res['HH12']
             N = res['NH1']
-            M = Position(0.5 * (HH11.x + HH12.x),
-                         0.5 * (HH11.y + HH12.y),
-                         0.5 * (HH11.z + HH12.z))
+            M = pdfbridge.Position(0.5 * (HH11.x + HH12.x),
+                                   0.5 * (HH11.y + HH12.y),
+                                   0.5 * (HH11.z + HH12.z))
             vNM = M - N.xyz
             vNM.norm()
             pos = N.xyz + length * vNM
@@ -529,18 +522,18 @@ class Modeling:
             HH21 = res['HH21']
             HH22 = res['HH22']
             N = res['NH2']
-            M = Position(0.5 * (HH21.x + HH22.x),
-                         0.5 * (HH21.y + HH22.y),
-                         0.5 * (HH21.z + HH22.z))
+            M = pdfbridge.Position(0.5 * (HH21.x + HH22.x),
+                                   0.5 * (HH21.y + HH22.y),
+                                   0.5 * (HH21.z + HH22.z))
             vNM = M - N.xyz
             vNM.norm()
             pos = N.xyz + length * vNM
         else:
             pass
         
-        answer = AtomGroup()
-        Cl = Atom(symbol = 'Cl',
-                  position = pos)
+        answer = pdfbridge.AtomGroup()
+        Cl = pdfbridge.Atom(symbol = 'Cl',
+                            position = pos)
         key = self.get_last_index(res)
         answer.set_atom('{}_Cl'.format(key+1), Cl)
         return answer
@@ -553,9 +546,9 @@ class Modeling:
         N  = ag['N']
 
         # 重心を計算
-        M = Position((H1.xyz.x + H2.xyz.x + H3.xyz.x) / 3.0,
-                     (H1.xyz.y + H2.xyz.y + H3.xyz.y) / 3.0,
-                     (H1.xyz.z + H2.xyz.z + H3.xyz.z) / 3.0)
+        M = pdfbridge.Position((H1.xyz.x + H2.xyz.x + H3.xyz.x) / 3.0,
+                               (H1.xyz.y + H2.xyz.y + H3.xyz.y) / 3.0,
+                               (H1.xyz.z + H2.xyz.z + H3.xyz.z) / 3.0)
         vNM = M - N.xyz
         vNM.norm()
 
@@ -568,9 +561,9 @@ class Modeling:
         C  = ag['C']
 
         # 中点を計算
-        M = Position(0.5 * (O1.xyz.x + O2.xyz.x),
-                     0.5 * (O1.xyz.y + O2.xyz.y),
-                     0.5 * (O1.xyz.z + O2.xyz.z))
+        M = pdfbridge.Position(0.5 * (O1.xyz.x + O2.xyz.x),
+                               0.5 * (O1.xyz.y + O2.xyz.y),
+                               0.5 * (O1.xyz.z + O2.xyz.z))
         vCM = M - C.xyz
         vCM.norm()
 
