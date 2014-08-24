@@ -211,18 +211,6 @@ class Atom(object):
             self.charge)
         return answer
     
-    def __eq__(self, rhs):
-        answer = False
-        if ((isinstance(rhs, Atom) == True) and
-            (self.atomic_number == rhs.atomic_number) and
-            (math.fabs(self.charge - rhs.charge) < 1.0E-10) and
-            (self.position == rhs.position)):
-            answer = True
-        return answer
-
-    def __ne__(self, rhs):
-        return not(self.__eq__(rhs))
-
     # ------------------------------------------------------------------
     # serialize
     # ------------------------------------------------------------------
