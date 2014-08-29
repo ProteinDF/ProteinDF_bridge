@@ -55,6 +55,8 @@ class AtomGroup(object):
         self._name = kwargs.get('name', '')
         self._path = "/"
         self._parent = kwargs.get('parent', None)
+
+        # 'nice'を指定すると数字順にアクセスできる
         self._sort_atoms = None
         self._sort_groups = None
 
@@ -143,12 +145,14 @@ class AtomGroup(object):
         """
         原子団のリストを返す
         """
-        keys = list(self._groups.keys())
         if self._sort_atoms == 'nice':
+            keys = list(self._groups.keys())
             keys = pdfbridge.Utils.sort_nicely(keys)
-        
-        for k in keys:
-            yield(k, self._groups[k])
+            for k in keys:
+                yield(k, self._groups[k])
+        else:
+            for k, v in self._groups.items():
+                yield(k, v)
 
     def get_group(self, key_or_name):
         """
@@ -216,12 +220,14 @@ class AtomGroup(object):
         """
         原子のリストを返す
         """
-        keys = list(self._atoms.keys())
         if self._sort_atoms == 'nice':
+            keys = list(self._atoms.keys())
             keys = pdfbridge.Utils.sort_nicely(keys)
-
-        for k in keys:
-            yield(k, self._atoms[k])
+            for k in keys:
+                yield(k, self._atoms[k])
+        else:
+            for k, v in self._atoms.items():
+                yield(k, v)
 
     def get_atom(self, key_or_name):
         """
@@ -488,7 +494,9 @@ class AtomGroup(object):
     def set_by_dict_data(self, data):
         assert(isinstance(data, dict) == True)
         data = pdfbridge.Utils.byte2str(data)
-        
+
+        tmp_groups = {}
+        tmp_atoms = {}
         for key, value in data.items():
             if isinstance(key, bytes):
                 key = key.decode('utf-8')
@@ -496,11 +504,11 @@ class AtomGroup(object):
             if key == 'groups':
                 for grp_key, grp_data in value.items():
                     atomgroup = AtomGroup(grp_data)
-                    self.set_group(grp_key, atomgroup)
+                    tmp_groups[grp_key] = AtomGroup(grp_data)
             elif key == 'atoms':
                 for atm_key, atm_data in value.items():
                     atom = pdfbridge.Atom(atm_data)
-                    self.set_atom(atm_key, atom)
+                    tmp_atoms[atm_key] = atom
             elif key == 'name':
                 self.name = value
             elif key == 'bonds':
@@ -508,6 +516,16 @@ class AtomGroup(object):
             else:
                 print('unknown key: {}'.format(key))
 
+        # store groups and atoms in order
+        grp_keys = tmp_groups.keys()
+        grp_keys = pdfbridge.Utils.sort_nicely(grp_keys)
+        for grp_key in grp_keys:
+            self.set_group(grp_key, tmp_groups[grp_key])
+        atom_keys = tmp_atoms.keys()
+        atom_keys = pdfbridge.Utils.sort_nicely(atom_keys)
+        for atom_key in atom_keys:
+            self.set_atom(atom_key, tmp_atoms[atom_key])
+                
         self._update_path()
         return self
 
