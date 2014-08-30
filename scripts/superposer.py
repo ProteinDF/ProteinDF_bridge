@@ -26,7 +26,7 @@ try:
 except:
     import msgpack_pure as msgpack
 
-import bridge
+import pdfbridge
 
 def load_brd(path, verbose=False):
     if verbose:
@@ -34,7 +34,7 @@ def load_brd(path, verbose=False):
     mpac_file = open(path, "rb")
     mpac_data =msgpack.unpackb(mpac_file.read())
     mpac_file.close()
-    atomgroup = bridge.AtomGroup(mpac_data)
+    atomgroup = pdfbridge.AtomGroup(mpac_data)
     return atomgroup
 
 def main():
@@ -66,9 +66,9 @@ def main():
     atomgroup2 = load_brd(mpac_file_path2, verbose)
 
     if use_quaternion:
-        sp = bridge.Superposer_quaternion(atomgroup1, atomgroup2)
+        sp = pdfbridge.Superposer_quaternion(atomgroup1, atomgroup2)
     else:
-        sp = bridge.Superposer(atomgroup1, atomgroup2)
+        sp = pdfbridge.Superposer(atomgroup1, atomgroup2)
     rmsd = sp.rmsd
     print('rmsd: {}'.format(rmsd))
 

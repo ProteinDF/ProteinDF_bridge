@@ -20,7 +20,7 @@
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
-import bridge
+import pdfbridge
 
 
 def main():
@@ -38,7 +38,7 @@ def main():
     db_file = args.FILE[0]
     verbose = args.verbose
 
-    db = bridge.DbManager(db = db_file, sql_debugout = verbose)
+    db = pdfbridge.DbManager(db = db_file, sql_debugout = verbose)
     print(db)
     
     # end

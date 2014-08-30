@@ -21,15 +21,12 @@
 
 import math
 
-from .position import Position
-from .atomgroup import AtomGroup
-from .vector import Vector
-from .matrix import Matrix, SymmetricMatrix
+import pdfbridge
 
 class Superposer_quaternion(object):
     def __init__(self, atomgroup1, atomgroup2):
-        self._atomgroup1 = AtomGroup(atomgroup1)
-        self._atomgroup2 = AtomGroup(atomgroup2)
+        self._atomgroup1 = pdfbridge.AtomGroup(atomgroup1)
+        self._atomgroup2 = pdfbridge.AtomGroup(atomgroup2)
 
         (self._positions1, self._positions2) = self._match_positions(self._atomgroup1, self._atomgroup2)
 
@@ -191,7 +188,7 @@ class Superposer_quaternion(object):
         """
         return the center position of input positions
         """
-        c = Position()
+        c = pdfbridge.Position()
 
         num_of_positions = len(positions)
         for i in range(num_of_positions):
@@ -205,7 +202,7 @@ class Superposer_quaternion(object):
         answer = [ p - center for p in positions ]
 
         # check
-        sum_of_positions = Position()
+        sum_of_positions = pdfbridge.Position()
         for p in answer:
             sum_of_positions += p
         assert(sum_of_positions.distance_from() < 1.0E-5)
@@ -218,7 +215,7 @@ class Superposer_quaternion(object):
         num_of_positions = len(r_A)
         assert(num_of_positions == len(r_B))
 
-        va = [ Position() for x in range(num_of_positions) ]
+        va = [ pdfbridge.Position() for x in range(num_of_positions) ]
         for i in range(num_of_positions):
             va[i] = r_B[i] + r_A[i]
 
@@ -231,7 +228,7 @@ class Superposer_quaternion(object):
         num_of_positions = len(r_A)
         assert(num_of_positions == len(r_B))
 
-        vb = [ Position() for x in range(num_of_positions) ]
+        vb = [ pdfbridge.Position() for x in range(num_of_positions) ]
         for i in range(num_of_positions):
             vb[i] = r_B[i] - r_A[i]
 
@@ -244,7 +241,7 @@ class Superposer_quaternion(object):
         num_of_positions = len(va)
         assert(num_of_positions == len(vb))
 
-        B = SymmetricMatrix(4)
+        B = pdfbridge.SymmetricMatrix(4)
         for i in range(num_of_positions):
             a = va[i]
             b = vb[i]
@@ -309,8 +306,8 @@ class Superposer_quaternion(object):
         assert(num_of_positions == len(r_B))
 
         for i in range(num_of_positions):
-            R_r_A = R * Vector(r_A[i].xyz)
-            r = r_B[i] - Position(R_r_A)
+            R_r_A = R * pdfbridge.Vector(r_A[i].xyz)
+            r = r_B[i] - pdfbridge.Position(R_r_A)
             rmsd += r.square_distance_from()
 
         rmsd *= 1.0 / float(num_of_positions)

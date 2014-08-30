@@ -20,9 +20,9 @@
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
-from bridge import position
+import pdfbridge
 
 class PositionTest(unittest.TestCase):
     def test_constructor(self):
-        p = position.Position([5.0, 3.0, -1.2])
+        p = pdfbridge.Position([5.0, 3.0, -1.2])
         self.assertTrue(math.fabs(p.x - 5.0) < 1.0E-5)

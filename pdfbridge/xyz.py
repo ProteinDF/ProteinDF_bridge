@@ -24,7 +24,7 @@ import os
 import argparse
 import re
 
-from .atomgroup import AtomGroup
+import pdfbridge
 
 class Xyz(object):
     """
@@ -41,7 +41,7 @@ class Xyz(object):
                 rhs = args[0]
                 if isinstance(rhs, str):
                     self.load(file_path)
-                elif isinstance(rhs, AtomGroup):
+                elif isinstance(rhs, pdfbridge.AtomGroup):
                     self.set_by_atomgroup(rhs)
                 else:
                     raise InputError('Xyz.__init__', 'illegal object type')
@@ -75,7 +75,7 @@ class Xyz(object):
         """
         return AtomGroup object
         """
-        root = bridge.AtomGroup()
+        root = pdfbridge.AtomGroup()
         root.name = self._comment
         for i in range(len(self._atoms)):
             atom = bridge.Atom(symbol = self._atoms[i]['symbol'],
@@ -84,7 +84,7 @@ class Xyz(object):
         return root
 
     def set_by_atomgroup(self, atomgroup):
-        assert(isinstance(atomgroup, AtomGroup))
+        assert(isinstance(atomgroup, pdfbridge.AtomGroup))
 
         for model_key, model in atomgroup.groups():
             self.set_by_atomgroup(model)

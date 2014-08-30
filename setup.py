@@ -19,7 +19,9 @@
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys, os
-from setuptools import setup, find_packages
+#from setuptools import setup, find_packages
+from distutils.core import setup
+from imp import reload
 
 sys.path.append('./pdfbridge')
 sys.path.append('./pdftests')
@@ -31,11 +33,11 @@ setup(name='ProteinDF_bridge',
       author_email='hiracchi@gmail.com',
       url='http://proteindf.github.io/',
 
-      install_requires = [
-          'configparser',
-          'msgpack-python',
-          'pyyaml',
-      ],
+      #install_requires = [
+      #    'configparser',
+      #    'msgpack-python',
+      #    'pyyaml',
+      #],
       
       packages=['pdfbridge'],
       scripts=[
@@ -59,5 +61,5 @@ setup(name='ProteinDF_bridge',
           'scripts/superposer.py'
       ],
       data_files=[('data', ['data/ACE_ALA_NME.brd'])],
-      test_suite='tests'
+      #test_suite='tests'
 )

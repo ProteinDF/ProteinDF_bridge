@@ -27,7 +27,7 @@ try:
 except:
     import msgpack_pure as msgpack
 
-import bridge
+import pdfbridge
     
 def main():
     # initialize
@@ -42,11 +42,11 @@ def main():
     f = open(file_path, "rb")
     contents = f.read()
     data = msgpack.unpackb(contents)
-    data = bridge.Utils.byte2str(data)
+    data = pdfbridge.Utils.byte2str(data)
     f.close()
 
     #for k, v in data.items():
-    #    k = bridge.Utils.byte2str(k)
+    #    k = pdfbridge.Utils.byte2str(k)
     #    print(k, v)
     
     #yaml_str = yaml.dump(data,

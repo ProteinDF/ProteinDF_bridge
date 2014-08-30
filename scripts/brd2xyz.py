@@ -26,7 +26,7 @@ try:
 except:
     import msgpack_pure as msgpack
 
-import bridge
+import pdfbridge
 
 def main():
     # parse args
@@ -55,11 +55,11 @@ def main():
     mpac_file.close()
     
     # prepare atomgroup
-    atom_group = bridge.AtomGroup(mpac_data)
+    atom_group = pdfbridge.AtomGroup(mpac_data)
     #print(atom_group)
 
     # prepare XYZ object
-    xyz_obj = bridge.Xyz()
+    xyz_obj = pdfbridge.Xyz()
     xyz_obj.set_by_atomgroup(atom_group)
     
     # output XYZ

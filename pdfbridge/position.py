@@ -26,9 +26,7 @@ import copy
 import numpy
 import logging
 
-from .common import NullHandler
-from .vector import Vector
-from .error import InputError
+import pdfbridge
 
 class Position(object):
     """
@@ -97,7 +95,7 @@ class Position(object):
     _position = [0.0, 0.0, 0.0]
 
     def __init__(self, *args, **kwds):
-        nullHandler = NullHandler()
+        nullHandler = pdfbridge.NullHandler()
         self._logger = logging.getLogger(__name__)
         self._logger.addHandler(nullHandler)
 
@@ -120,7 +118,7 @@ class Position(object):
                     self._position[1] = float(args[0][1])
                     self._position[2] = float(args[0][2])
             else:
-                raise InputError("position::__init__", "illegal input")
+                raise pdfbridge.InputError("position::__init__", "illegal input")
 
     # --------------------------------------------------------------------------
     @property
@@ -181,7 +179,7 @@ class Position(object):
     def rotate(self, mat):
         assert(mat.rows == 3)
         assert(mat.cols == 3)
-        v1 = Vector(self._position)
+        v1 = pdfbridge.Vector(self._position)
         v2 = mat * v1
         self._position = v2.to_list()
         return self
@@ -226,7 +224,7 @@ class Position(object):
         if (isinstance(rhs, Position) == True):
             return Position([ x + y for x, y in zip(self._position, rhs._position)])
         else:
-            raise InputError("position.__add__", "illegal input: Position is required.")
+            raise pdfbridge.InputError("position.__add__", "illegal input: Position is required.")
 
     def __sub__(self, rhs):
         return self.__add__(-rhs)
@@ -242,7 +240,7 @@ class Position(object):
             rhs1._position = [x * rhs2 for x in rhs1._position]
             return rhs1
         else:
-            raise InputError("position.__add__", "illegal input: Position is required.")
+            raise pdfbridge.InputError("position.__add__", "illegal input: Position is required.")
 
     __rmul__ = __mul__
 

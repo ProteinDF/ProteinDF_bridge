@@ -25,7 +25,11 @@ import smtplib
 from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formatdate
-import configparser
+try:
+    import configparser
+except ImportError:
+    # for Python 2.x
+    import ConfigParser as configparser
 
 class Mail(object):
     def __init__(self):

@@ -23,10 +23,7 @@ import copy
 import math
 import logging
 
-from .common import NullHandler
-from .utils import Utils
-from .position import Position
-from .periodictable import PeriodicTable
+import pdfbridge 
 
 class Atom(object):
     """
@@ -47,12 +44,12 @@ class Atom(object):
     'Na'
     """
     def __init__(self, *args, **kwargs):
-        nullHandler = NullHandler()
+        nullHandler = pdfbridge.NullHandler()
         self._logger = logging.getLogger(__name__)
         self._logger.addHandler(nullHandler)
 
-        self._atomic_number = PeriodicTable.get_atomic_number(kwargs.get('symbol', 'X'))
-        self._xyz = kwargs.get('position', Position())
+        self._atomic_number = pdfbridge.PeriodicTable.get_atomic_number(kwargs.get('symbol', 'X'))
+        self._xyz = kwargs.get('position', pdfbridge.Position())
         self._name = kwargs.get('name', '')
         self._label = kwargs.get('label', '')
         self._charge = kwargs.get('charge', 0.0)
@@ -64,11 +61,11 @@ class Atom(object):
                 rhs = args[0]
                 if (isinstance(rhs, Atom) == True):
                     self._atomic_number = rhs._atomic_number
-                    self._xyz = Position(rhs._xyz)
-                    self._name = Utils.byte2str(rhs._name)
-                    self._label = Utils.byte2str(rhs.label)
+                    self._xyz = pdfbridge.Position(rhs._xyz)
+                    self._name = pdfbridge.Utils.byte2str(rhs._name)
+                    self._label = pdfbridge.Utils.byte2str(rhs.label)
                     self._charge = float(rhs._charge)
-                    self._path = Utils.byte2str(rhs._path)
+                    self._path = pdfbridge.Utils.byte2str(rhs._path)
                 elif (isinstance(rhs, dict) == True):
                     self.set_by_raw_data(rhs)
             else:
@@ -80,7 +77,7 @@ class Atom(object):
         return self
 
     def shift_by(self, direction):
-        direction = Position(direction)
+        direction = pdfbridge.Position(direction)
         self.xyz += direction
         return self
 
@@ -92,7 +89,7 @@ class Atom(object):
         return self._xyz
 
     def _set_xyz(self, p):
-        self._xyz = Position(p)
+        self._xyz = pdfbridge.Position(p)
 
     xyz = property(_get_xyz, _set_xyz)
         
@@ -107,11 +104,11 @@ class Atom(object):
         
     # --------------------------------------------------------------------------
     def __get_symbol(self):
-        answer = PeriodicTable.get_symbol(self.atomic_number)
+        answer = pdfbridge.PeriodicTable.get_symbol(self.atomic_number)
         return answer
 
     def __set_symbol(self, symbol):
-        self._atomic_number = PeriodicTable.get_atomic_number(symbol)
+        self._atomic_number = pdfbridge.PeriodicTable.get_atomic_number(symbol)
 
     symbol = property(__get_symbol, __set_symbol)
 
@@ -120,7 +117,7 @@ class Atom(object):
         return self._name
 
     def _set_name(self, name):
-        self._name = Utils.byte2str(name)
+        self._name = pdfbridge.Utils.byte2str(name)
 
     name = property(_get_name, _set_name)
 
@@ -129,7 +126,7 @@ class Atom(object):
         return self._label
 
     def _set_label(self, label):
-        self._label = Utils.byte2str(label)
+        self._label = pdfbridge.Utils.byte2str(label)
 
     label = property(_get_label, _set_label)
     
@@ -144,7 +141,7 @@ class Atom(object):
 
     # --------------------------------------------------------------------------
     def __get_vdw(self):
-        return PeriodicTable.vdw(self._atomic_number)
+        return pdfbridge.PeriodicTable.vdw(self._atomic_number)
 
     vdw = property(__get_vdw)
 
@@ -153,7 +150,7 @@ class Atom(object):
         return self._path
 
     def _set_path(self, path):
-        self._path = Utils.byte2str(path)
+        self._path = pdfbridge.Utils.byte2str(path)
 
     path = property(_get_path, _set_path)
 
@@ -187,7 +184,7 @@ class Atom(object):
             elif key == 'Q':
                 self.charge = value
             elif key == 'xyz':
-                self.xyz = Position(value)
+                self.xyz = pdfbridge.Position(value)
             else:
                 self._logger.warning("bridge::Atom > unknown key: {}".format(key))
         return self
@@ -214,18 +211,6 @@ class Atom(object):
             self.charge)
         return answer
     
-    def __eq__(self, rhs):
-        answer = False
-        if ((isinstance(rhs, Atom) == True) and
-            (self.atomic_number == rhs.atomic_number) and
-            (math.fabs(self.charge - rhs.charge) < 1.0E-10) and
-            (self.position == rhs.position)):
-            answer = True
-        return answer
-
-    def __ne__(self, rhs):
-        return not(self.__eq__(rhs))
-
     # ------------------------------------------------------------------
     # serialize
     # ------------------------------------------------------------------

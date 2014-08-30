@@ -26,10 +26,7 @@ import re
 import copy
 import logging
 
-from .common import NullHandler
-from .position import Position
-from .atom import Atom
-from .atomgroup import AtomGroup
+import pdfbridge
 
 class Pdb(object):
     """
@@ -38,7 +35,7 @@ class Pdb(object):
         """
         create empty PDB object
         """
-        nullHandler = NullHandler()
+        nullHandler = pdfbridge.NullHandler()
         self._logger = logging.getLogger(__name__)
         self._logger.addHandler(nullHandler)
 
@@ -230,10 +227,10 @@ class Pdb(object):
         """
         return AtomGroup object
         """
-        root = AtomGroup()
+        root = pdfbridge.AtomGroup()
 
         for model_serial, model_items in self._data.items():
-            model = AtomGroup()
+            model = pdfbridge.AtomGroup()
             model_name = "model_%d" % (model_serial)
             model.name = model_name
 
@@ -261,19 +258,19 @@ class Pdb(object):
                         chain_id = "_"
 
                     if (model.has_group(chain_id) == False):
-                        chain = AtomGroup()
+                        chain = pdfbridge.AtomGroup()
                         chain.name = chain_id
                         model.set_group(chain_id, chain)
 
                     res_key = "%d" % (res_seq)
                     if (model[chain_id].has_group(res_key) == False):
-                        residue = AtomGroup()
+                        residue = pdfbridge.AtomGroup()
                         residue.name = res_name
                         model[chain_id].set_group(res_key, residue)
 
-                    atom = Atom()
+                    atom = pdfbridge.Atom()
                     atom.symbol = element
-                    atom.xyz = Position(coord)
+                    atom.xyz = pdfbridge.Position(coord)
                     atom.name = name
                     atom.charge = charge
                     atom_key = "%d_%s" % (serial, name)
@@ -284,7 +281,7 @@ class Pdb(object):
         return root
 
     def set_by_atomgroup(self, atomgroup, set_b_factor=None):
-        assert(isinstance(atomgroup, AtomGroup))
+        assert(isinstance(atomgroup, pdfbridge.AtomGroup))
 
         re_model_serial = re.compile("^model_(\d+)")
         re_res_seq = re.compile("^(\d+)")
