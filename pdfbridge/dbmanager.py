@@ -254,14 +254,14 @@ class DbManager(object):
             field_str = ', '.join(fields)
 
         where_str = ''
-        if isinstance(where, str):
-            where_str = 'WHERE ' + where
-        elif isinstance(where, dict):
+        if isinstance(where, dict):
             where_sections = []
             for key, value in where.items():
                 where_sections.append('%s=?' % (key))
                 parameters.append(value)
             where_str = 'WHERE ' + ' and '.join(where_sections)
+        elif where != None:
+            where_str = 'WHERE ' + str(where)
 
         sql = 'SELECT {field_str} FROM {table} {where_str};'
         sql = sql.format(table=table,
