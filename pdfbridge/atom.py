@@ -44,9 +44,7 @@ class Atom(object):
     'Na'
     """
     def __init__(self, *args, **kwargs):
-        nullHandler = pdfbridge.NullHandler()
         self._logger = logging.getLogger(__name__)
-        self._logger.addHandler(nullHandler)
 
         self._atomic_number = pdfbridge.PeriodicTable.get_atomic_number(kwargs.get('symbol', 'X'))
         self._xyz = kwargs.get('position', pdfbridge.Position())

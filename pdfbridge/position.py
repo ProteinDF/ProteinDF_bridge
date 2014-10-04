@@ -95,9 +95,7 @@ class Position(object):
     _position = [0.0, 0.0, 0.0]
 
     def __init__(self, *args, **kwds):
-        nullHandler = pdfbridge.NullHandler()
         self._logger = logging.getLogger(__name__)
-        self._logger.addHandler(nullHandler)
 
         self.epsilon = 1.0E-5
         self._position = [0.0, 0.0, 0.0]
