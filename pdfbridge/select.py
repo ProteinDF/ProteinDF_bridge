@@ -57,7 +57,7 @@ class Select_Path(Select):
 
     def is_match(self, obj):
         answer = False
-        path = obj.get_path()
+        path = obj.path
         if (self._query == path):
             answer = True
         return answer

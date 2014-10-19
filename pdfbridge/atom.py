@@ -46,13 +46,13 @@ class Atom(object):
     def __init__(self, *args, **kwargs):
         self._logger = logging.getLogger(__name__)
 
-        self._atomic_number = pdfbridge.PeriodicTable.get_atomic_number(kwargs.get('symbol', 'X'))
+        self._atomic_number = pdfbridge.PeriodicTable.get_atomic_number('X')
         self._xyz = pdfbridge.Position()
-        self._name = kwargs.get('name', '')
-        self._label = kwargs.get('label', '')
-        self._charge = kwargs.get('charge', 0.0)
-        self._path = kwargs.get('path', '')
-        self._parent = kwargs.get('parent', None)  # expected AtomGroup object
+        self._name = ''
+        self._label = ''
+        self._charge = 0.0
+        self._path = ''
+        self._parent = None
 
         if len(args) > 0:
             if len(args) == 1:

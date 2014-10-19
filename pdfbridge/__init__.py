@@ -34,7 +34,7 @@ from .atom import Atom
 from .atomgroup import AtomGroup
 #from bond import Bond
 
-from .select import Select_Name, Select_Path, Select_PathRegex, Select_Atom, Select_Range
+from .select import Select, Select_Name, Select_Path, Select_PathRegex, Select_Atom, Select_Range
 
 from .biopdb import Pdb
 from .xyz import Xyz

@@ -31,17 +31,21 @@ import pdfbridge
 class Pdb(object):
     """
     """
-    def __init__(self, file_path = None):
+    def __init__(self, file_path = None, mode = None):
         """
         create empty PDB object
+
+        mode: None or amber
         """
         nullHandler = pdfbridge.NullHandler()
         self._logger = logging.getLogger(__name__)
         self._logger.addHandler(nullHandler)
 
         self._data = {}
+        self._ssbonds = []
         if (file_path):
             self.load(file_path)
+        self._mode = mode
 
     def __get_debug(self):
         if not '_debug' in self.__dict__:
@@ -122,6 +126,7 @@ class Pdb(object):
             return
 
         model_serial = 1
+        chain_serial = 0
         self._data.setdefault(model_serial, [])
 
         fin = open(file_path, 'r')
@@ -137,7 +142,22 @@ class Pdb(object):
                 print(line)
 
             record_name = line[0:6]
-            if ((record_name == 'ATOM  ') or (record_name == 'HETATM')):
+            if record_name == 'SSBOND':
+                serNum = line[7:10]
+                chainID1 = str(line[15])
+                seqNum1 = int(line[17:21])
+                icode1 = str(line[21])
+                chainID2 = str(line[29])
+                seqNum2 = int(line[31:35])
+                icode2 = str(line[35])
+
+                ssbond = ({'chain_id': chainID1,
+                           'seq_num': seqNum1},
+                          {'chain_id': chainID2,
+                           'seq_num': seqNum2})
+                self._ssbonds.append(ssbond)
+                
+            elif ((record_name == 'ATOM  ') or (record_name == 'HETATM')):
 
                 if (len(line) < 80):
                     line = line + (' ' * (80 - len(line)))
@@ -147,6 +167,8 @@ class Pdb(object):
                 alt_loc = line[16]
                 res_name = line[17:20]
                 chain_id = line[21]
+                if (chain_id == ' ') and (res_name != 'WAT'):
+                    chain_id = chr(ord('A') + chain_serial)
                 res_seq = line[22:26]
                 i_code = line[26]
                 coord_x = line[30:38]
@@ -181,10 +203,18 @@ class Pdb(object):
                     item['element'] = element
                 else:
                     # TODO: テーブルを持って変換するように変更
-                    if (name == ' MG '):
+                    name2 = name.lstrip().upper()
+
+                    if name2[0:2] == 'CL':
+                        element = 'Cl'
+                    elif name2[0:2] == 'NA':
+                        element = 'Na'
+                    elif name2[0:2] == 'MG':
                         element = 'Mg'
-                    elif (name == 'FE  '):
+                    elif name2[0:2] == 'FE':
                         element = 'Fe'
+                    elif name2[0] == 'H':
+                        element = 'H'
                     else:
                         element = name[1]
                     item['element'] = element
@@ -203,6 +233,7 @@ class Pdb(object):
                 serial = int(line[10:14])
                 model_serial = serial
                 self._data.setdefault(model_serial, [])
+                chain_serial = 0
                 continue
             elif (record_name == 'TER   '):
                 if (len(line) < 27):
@@ -210,6 +241,9 @@ class Pdb(object):
                 serial = int(line[6:11]) if line[6:11].isdigit() else 0
                 resname = line[17:20]
                 chain_id = line[21]
+                if (chain_id == ' ') and (res_name != 'WAT'):
+                    chain_id = chr(ord('A') + chain_serial)
+                    chain_serial += 1
                 res_seq = line[22:26]
                 i_code = line[26]
                 item = {}
@@ -267,17 +301,35 @@ class Pdb(object):
                         residue = pdfbridge.AtomGroup()
                         residue.name = res_name
                         model[chain_id].set_group(res_key, residue)
-
+                        
                     atom = pdfbridge.Atom()
                     atom.symbol = element
                     atom.xyz = pdfbridge.Position(coord)
-                    atom.name = name
+                    if alt_loc == ' ':
+                        atom.name = name
+                    else:
+                        atom.name = '{}.{}'.format(name, alt_loc)
                     atom.charge = charge
                     atom_key = "%d_%s" % (serial, name)
                     self._logger.warning('found X, but charge: %s', str(charge))
                     model[chain_id][res_key].set_atom(atom_key, atom)
 
+            for ssbond in self._ssbonds:
+                chain_id1 = ssbond[0]['chain_id']
+                seq_num1 = ssbond[0]['seq_num']
+                chain_id2 = ssbond[1]['chain_id']
+                seq_num2 = ssbond[1]['seq_num']
+
+                path1 = '/{chain_id}/{res_key}/SG'.format(chain_id=chain_id1,
+                                                        res_key=seq_num1)
+                path2 = '/{chain_id}/{res_key}/SG'.format(chain_id=chain_id2,
+                                                        res_key=seq_num2)
+                SG1 = model[chain_id1][seq_num1]['SG']
+                SG2 = model[chain_id2][seq_num2]['SG']
+                model.add_bond(SG1, SG2, 1)
+
             root.set_group(model_name, model)
+
         return root
 
     def set_by_atomgroup(self, atomgroup, set_b_factor=None):
@@ -329,18 +381,23 @@ class Pdb(object):
                             name = self.__match_name_table(atom.name,
                                                            atom.symbol)
                         item["name"] = name
-                        item["coord"] = atom.xyz
-
+                        item["coord"] = [ atom.xyz.x, atom.xyz.y, atom.xyz.z ]
+                                          
                         if set_b_factor == 'charge':
                             item['temp_factor'] = atom.charge
 
-                        self._data[model_serial].append(copy.deepcopy(item))
+                        self._data[model_serial].append(copy.copy(item))
+
+                # TER
+                item["record_name"] = "TER   "
+                item["serial"] = serial
+                serial += 1
+                self._data[model_serial].append(copy.copy(item))
+
         self._sort_by_serial()
 
     def _sort_by_serial(self):
         for model_serial, model in self._data.items():
-            #print(model_serial, model)
-            #model.sort(cmp = lambda x, y: cmp(int(x['serial']), int(y['serial'])))
             model.sort(key = lambda x: int(x['serial']))
 
     def __str__(self):
@@ -367,7 +424,7 @@ class Pdb(object):
                     line = "ATOM  %5d %4s%c%3s %c%4d%c   %8.3f%8.3f%8.3f%6.2f%6.2f          %2s%2s\n" % (
                         serial, name, alt_loc,
                         res_name, chain_id, res_seq, i_code,
-                        coord.x, coord.y, coord.z,
+                        coord[0], coord[1], coord[2],
                         occupancy, temp_factor, element.upper(), charge)
                     output += line
                 elif (record_name == 'TER   '):
@@ -381,9 +438,15 @@ class Pdb(object):
         capital_name = name.upper()
         capital_symbol = symbol.upper()
         if (capital_symbol == "NA"):
-            name = "NA  "
+            if self._mode == 'amber':
+                name = "Na+ "
+            else:
+                name = "NA  "
         elif (capital_symbol == "CL"):
-            name = "CL  "
+            if self._mode == 'amber':
+                name = "Cl- "
+            else:
+                name = "CL  "
         elif (capital_name[0] == capital_symbol[0]):
             name = " %s" % (name)
         name += " " * (4 - len(name))

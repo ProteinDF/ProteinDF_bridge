@@ -58,6 +58,7 @@ setup(name='ProteinDF_bridge',
           'scripts/db2txt.py',
 
           'scripts/brd-setup-bond.py',
+          'scripts/brd-show-bonds.py',
           'scripts/superposer.py'
       ],
       data_files=[('data', ['data/ACE_ALA_NME.brd'])],
