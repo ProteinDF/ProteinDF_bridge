@@ -21,6 +21,7 @@
 
 import os
 import math
+import re
 import logging
 try:
     import msgpack
@@ -412,13 +413,16 @@ class Modeling:
         """
         N末端側を中性化するためにCl-(AtomGroup)を返す
 
-        H1, N2, HXTが指定されている必要があります。
+        H1, N2, HXT(or H3)が指定されている必要があります。
         """
         ag = pdfbridge.AtomGroup()
         ag.set_atom('N', res['N'])
-        ag.set_atom('H1', res['H'])
+        ag.set_atom('H1', res['H1'])
         ag.set_atom('H2', res['H2'])
-        ag.set_atom('H3', res['HXT'])
+        if res.has_atom('HXT'):
+            ag.set_atom('H3', res['HXT'])
+        elif res.has_atom('H3'):
+            ag.set_atom('H3', res['H3'])
         pos = self._get_neutralize_pos_NH3_type(ag)
         
         answer = pdfbridge.AtomGroup()
@@ -453,6 +457,7 @@ class Modeling:
 
         answer = pdfbridge.AtomGroup()
         Na = pdfbridge.Atom(symbol = 'Na',
+                            name = 'Na+',
                             position = pos)
         key = self.get_last_index(res)
         answer.set_atom('{}_Na'.format(key+1), Na)
@@ -467,6 +472,7 @@ class Modeling:
 
         answer = pdfbridge.AtomGroup()
         Na = pdfbridge.Atom(symbol = 'Na',
+                            name = 'Na+',
                             position = pos)
         key = self.get_last_index(res)
         answer.set_atom('{}_Na'.format(key+1), Na)
@@ -482,6 +488,7 @@ class Modeling:
         
         answer = pdfbridge.AtomGroup()
         Cl = pdfbridge.Atom(symbol = 'Cl',
+                            name = 'Cl-',
                             position = pos)
         key = self.get_last_index(res)
         answer.set_atom('{}_Cl'.format(key+1), Cl)
@@ -500,9 +507,9 @@ class Modeling:
             NH1 = res['NH1']
             NH2 = res['NH2']
             CZ = res['CZ']
-            M = pdfbridge.Position(0.5 * (NH1.x + NH2.x),
-                                   0.5 * (NH1.y + NH2.y),
-                                   0.5 * (BH1.z + NH2.z))
+            M = pdfbridge.Position(0.5 * (NH1.xyz.x + NH2.xyz.x),
+                                   0.5 * (NH1.xyz.y + NH2.xyz.y),
+                                   0.5 * (NH1.xyz.z + NH2.xyz.z))
             vCM = M - CZ.xyz
             vCM.norm()
             pos = CZ.xyz + length * vCM
@@ -511,9 +518,9 @@ class Modeling:
             HH11 = res['HH11']
             HH12 = res['HH12']
             N = res['NH1']
-            M = pdfbridge.Position(0.5 * (HH11.x + HH12.x),
-                                   0.5 * (HH11.y + HH12.y),
-                                   0.5 * (HH11.z + HH12.z))
+            M = pdfbridge.Position(0.5 * (HH11.xyz.x + HH12.xyz.x),
+                                   0.5 * (HH11.xyz.y + HH12.xyz.y),
+                                   0.5 * (HH11.xyz.z + HH12.xyz.z))
             vNM = M - N.xyz
             vNM.norm()
             pos = N.xyz + length * vNM
@@ -522,9 +529,9 @@ class Modeling:
             HH21 = res['HH21']
             HH22 = res['HH22']
             N = res['NH2']
-            M = pdfbridge.Position(0.5 * (HH21.x + HH22.x),
-                                   0.5 * (HH21.y + HH22.y),
-                                   0.5 * (HH21.z + HH22.z))
+            M = pdfbridge.Position(0.5 * (HH21.xyz.x + HH22.xyz.x),
+                                   0.5 * (HH21.xyz.y + HH22.xyz.y),
+                                   0.5 * (HH21.xyz.z + HH22.xyz.z))
             vNM = M - N.xyz
             vNM.norm()
             pos = N.xyz + length * vNM
@@ -533,6 +540,7 @@ class Modeling:
         
         answer = pdfbridge.AtomGroup()
         Cl = pdfbridge.Atom(symbol = 'Cl',
+                            name = 'Cl-',
                             position = pos)
         key = self.get_last_index(res)
         answer.set_atom('{}_Cl'.format(key+1), Cl)

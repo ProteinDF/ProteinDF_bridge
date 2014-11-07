@@ -260,7 +260,7 @@ class Position(object):
     # serialize
     # ------------------------------------------------------------------
     def __getstate__(self):
-        return self.get_dict_data()
+        return self.get_raw_data()
 
     def __setstate__(self, state):
         assert(isinstance(state, (set, list)))
