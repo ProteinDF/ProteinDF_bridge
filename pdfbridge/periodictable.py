@@ -58,11 +58,12 @@ class PeriodicTable(object):
 
     @staticmethod
     def get_symbol(atomic_number):
+        atomic_number = int(atomic_number)
         try:
             answer = PeriodicTable.__table[atomic_number]
             return answer
         except:
-            print("ERROR @PeriodicTable::get_symbol(): not found input:%s." % (atomicNumber))
+            print("ERROR @PeriodicTable::get_symbol(): not found input:%s." % (atomic_number))
             raise
 
 

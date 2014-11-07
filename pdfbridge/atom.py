@@ -71,6 +71,22 @@ class Atom(object):
             else:
                 raise InputError('atom.__init__', 'illegal the number of args')
 
+        if 'symbol' in kwargs:
+            self._atomic_number = pdfbridge.PeriodicTable.get_atomic_number(kwargs.get('symbol'))
+        if 'position' in kwargs:
+            self._xyz = kwargs.get('position')
+        if 'name' in kwargs:
+            self._name = kwargs.get('name')
+        if 'label' in kwargs:
+            self._label = kwargs.get('label')
+        if 'charge' in kwargs:
+            self._charge = kwargs.get('charge')
+        if 'path' in kwargs:
+            self._path = kwargs.get('path')
+        if 'parent' in kwargs:
+            self._parent = kwargs.get('parent')
+            assert(isinstance(self._parent, pdfbridge.AtomGroup))
+
     # move ---------------------------------------------------------------------
     def move_to(self, position):
         self.xyz.move_to(position)
@@ -98,6 +114,7 @@ class Atom(object):
         return self._atomic_number
 
     def _set_atomic_number(self, an):
+        an = int(an)
         self._atomic_number = an
         
     atomic_number = property(_get_atomic_number, _set_atomic_number)
