@@ -477,9 +477,9 @@ class AtomGroup(object):
         #self.update_path(self.get_path())
         #rhs.update_path(rhs.get_path())
 
-        for key, group in rhs._groups:
+        for key, group in rhs.groups():
             if (self.has_group(key) == True):
-                self._groups.__ixor__(group)
+                self._groups[key].__ixor__(group)
                 if ((self._groups[key].get_number_of_groups() == 0) and
                     (self._groups[key].get_number_of_atoms() == 0)):
                     self.erase_group(key)
