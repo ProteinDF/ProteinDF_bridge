@@ -37,6 +37,10 @@ def main():
     parser.add_argument('-o', '--output',
                         nargs='?',
                         help='PDB output file')
+    parser.add_argument('-a', '--amber',
+                        action="store_true",
+                        default = False,
+                        help='amber mod pdb format')
     parser.add_argument("-v", "--verbose",
                         action="store_true",
                         default = False)
@@ -45,6 +49,9 @@ def main():
     # setting
     mpac_file_path = args.FILE[0]
     output = args.output
+    pdb_mode = None
+    if args.amber:
+        pdb_mode = 'amber'
     verbose = args.verbose
 
     # reading
@@ -59,7 +66,7 @@ def main():
     #print(atom_group)
 
     # prepare BrPdb object
-    pdb_obj = pdfbridge.Pdb()
+    pdb_obj = pdfbridge.Pdb(mode = pdb_mode)
     pdb_obj.set_by_atomgroup(atom_group)
     
     # output PDB

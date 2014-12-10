@@ -42,6 +42,14 @@ def main():
     parser.add_argument('BRD_FILE',
                         nargs=1,
                         help='brd file')
+    parser.add_argument('-m', '--model',
+                        nargs=1,
+                        default=1,
+                        help='select model')
+    parser.add_argument('-l', '--alt_loc',
+                        nargs=1,
+                        default='A',
+                        help='select alc_loc')
     parser.add_argument('-d', '--debug',
                         action='store_true',
                         default=False)
@@ -53,6 +61,8 @@ def main():
     # setting
     pdb_file_path = args.PDB_FILE[0]
     output_path = args.BRD_FILE[0]
+    select_model = args.model[0]
+    select_altloc = args.alt_loc[0]
     debug = args.debug
     verbose = args.verbose
 
@@ -63,7 +73,8 @@ def main():
     pdb_obj.debug = debug
     pdb_obj.load(pdb_file_path)
     #print(pdb_obj)
-    atom_group = pdb_obj.get_atomgroup()
+    atom_group = pdb_obj.get_atomgroup(select_model = select_model,
+                                       select_altloc = select_altloc)
 
     # output DfData as MsgPack
     data = atom_group.get_raw_data()

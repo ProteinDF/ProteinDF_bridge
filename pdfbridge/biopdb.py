@@ -37,9 +37,10 @@ class Pdb(object):
 
         mode: None or amber
         """
-        nullHandler = pdfbridge.NullHandler()
         self._logger = logging.getLogger(__name__)
-        self._logger.addHandler(nullHandler)
+        #self._logger.addHandler(logging.NullHandler())
+        self._logger.addHandler(logging.StreamHandler())
+        self._logger.setLevel(logging.DEBUG)
 
         self._data = {}
         self._ssbonds = []
@@ -257,78 +258,85 @@ class Pdb(object):
                 self._data[model_serial].append(item)
                 continue
 
-    def get_atomgroup(self):
+    def get_atomgroup(self, select_model=None, select_altloc='A'):
         """
         return AtomGroup object
         """
         root = pdfbridge.AtomGroup()
 
         for model_serial, model_items in self._data.items():
-            model = pdfbridge.AtomGroup()
-            model_name = "model_%d" % (model_serial)
-            model.name = model_name
+            if ((select_model == None) or
+                (int(select_model) == int(model_serial))):
+            
+                model_name = "model_%d" % (model_serial)
+                model = pdfbridge.AtomGroup()
+                model.name = model_name
 
-            for index in range(len(model_items)):
-                item = model_items[index]
-                record_name = item['record_name']
-                serial = item['serial']
+                for index in range(len(model_items)):
+                    item = model_items[index]
+                    record_name = item['record_name']
+                    serial = item['serial']
+                
+                    if ((record_name == 'ATOM  ') or (record_name == 'HETATM')):
+                        name = item['name'].strip()
+                        alt_loc = item['alt_loc']
+                        res_name = item['res_name']
+                        chain_id = item['chain_id']
+                        res_seq = int(item['res_seq'])
+                        i_code = item['i_code']
+                        coord = item['coord']
+                        occupancy = item.get('occupancy', 1.0)
+                        temp_factor = item.get('temp_factor', 0.0)
+                        element = item.get('element', 'X')
+                        charge = item.get('charge', 0.0)
+                        if charge == '  ':
+                            charge = 0.0
 
-                if ((record_name == 'ATOM  ') or (record_name == 'HETATM')):
-                    name = item['name'].strip()
-                    alt_loc = item['alt_loc']
-                    res_name = item['res_name']
-                    chain_id = item['chain_id']
-                    res_seq = int(item['res_seq'])
-                    i_code = item['i_code']
-                    coord = item['coord']
-                    occupancy = item.get('occupancy', 1.0)
-                    temp_factor = item.get('temp_factor', 0.0)
-                    element = item.get('element', 'X')
-                    charge = item.get('charge', 0.0)
-                    if charge == '  ':
-                        charge = 0.0
+                        if (chain_id == " "):
+                            chain_id = "_"
 
-                    if (chain_id == " "):
-                        chain_id = "_"
+                        if (model.has_group(chain_id) == False):
+                            chain = pdfbridge.AtomGroup()
+                            chain.name = chain_id
+                            model.set_group(chain_id, chain)
 
-                    if (model.has_group(chain_id) == False):
-                        chain = pdfbridge.AtomGroup()
-                        chain.name = chain_id
-                        model.set_group(chain_id, chain)
+                        res_key = "%d" % (res_seq)
+                        if (model[chain_id].has_group(res_key) == False):
+                            residue = pdfbridge.AtomGroup()
+                            residue.name = res_name
+                            model[chain_id].set_group(res_key, residue)
 
-                    res_key = "%d" % (res_seq)
-                    if (model[chain_id].has_group(res_key) == False):
-                        residue = pdfbridge.AtomGroup()
-                        residue.name = res_name
-                        model[chain_id].set_group(res_key, residue)
-                        
-                    atom = pdfbridge.Atom()
-                    atom.symbol = element
-                    atom.xyz = pdfbridge.Position(coord)
-                    if alt_loc == ' ':
+                        # create atom object -------------------------------
+                        atom = pdfbridge.Atom()
+                        atom.symbol = element
+                        atom.xyz = pdfbridge.Position(coord)
                         atom.name = name
-                    else:
-                        atom.name = '{}.{}'.format(name, alt_loc)
-                    atom.charge = charge
-                    atom_key = "%d_%s" % (serial, name)
-                    self._logger.warning('found X, but charge: %s', str(charge))
-                    model[chain_id][res_key].set_atom(atom_key, atom)
+                        atom.charge = charge
+                        atom_key = "%d_%s" % (serial, name)
 
-            for ssbond in self._ssbonds:
-                chain_id1 = ssbond[0]['chain_id']
-                seq_num1 = ssbond[0]['seq_num']
-                chain_id2 = ssbond[1]['chain_id']
-                seq_num2 = ssbond[1]['seq_num']
+                        # set the atom object ------------------------------
+                        if ((alt_loc == ' ') or
+                            (alt_loc == select_altloc)):
+                            model[chain_id][res_key].set_atom(atom_key, atom)
+                        else:
+                            self._logger.debug('skip alt_loc=\"{alt_loc}\" atom: {atom_str}'.format(alt_loc=alt_loc,
+                                                                                                    atom_str=str(atom)))
 
-                path1 = '/{chain_id}/{res_key}/SG'.format(chain_id=chain_id1,
-                                                        res_key=seq_num1)
-                path2 = '/{chain_id}/{res_key}/SG'.format(chain_id=chain_id2,
-                                                        res_key=seq_num2)
-                SG1 = model[chain_id1][seq_num1]['SG']
-                SG2 = model[chain_id2][seq_num2]['SG']
-                model.add_bond(SG1, SG2, 1)
+                for ssbond in self._ssbonds:
+                    chain_id1 = ssbond[0]['chain_id']
+                    seq_num1 = ssbond[0]['seq_num']
+                    chain_id2 = ssbond[1]['chain_id']
+                    seq_num2 = ssbond[1]['seq_num']
+                    
+                    path1 = '/{chain_id}/{res_key}/SG'.format(chain_id=chain_id1,
+                                                              res_key=seq_num1)
+                    path2 = '/{chain_id}/{res_key}/SG'.format(chain_id=chain_id2,
+                                                              res_key=seq_num2)
+                    SG1 = model[chain_id1][seq_num1]['SG']
+                    SG2 = model[chain_id2][seq_num2]['SG']
+                    model.add_bond(SG1, SG2, 1)
 
-            root.set_group(model_name, model)
+                root.set_group(model_name, model)
 
         return root
 
@@ -360,8 +368,12 @@ class Pdb(object):
                     if res_seq_match_obj != None:
                         res_seq = int(res_seq_match_obj.group(1))
                     item["res_seq"] = res_seq
-                    item["res_name"] = residue.name
 
+                    # resname
+                    resname = self.__match_resname_table(residue.name)
+                    item["res_name"] = resname
+
+                    has_OXT = False
                     for key, atom in residue.atoms():
                         item["record_name"] = "ATOM  "
 
@@ -377,6 +389,8 @@ class Pdb(object):
 
                         # name
                         name = atom.name
+                        if name == 'OXT':
+                            has_OXT = True
                         if (len(name) != 4):
                             name = self.__match_name_table(atom.name,
                                                            atom.symbol)
@@ -386,6 +400,12 @@ class Pdb(object):
                         if set_b_factor == 'charge':
                             item['temp_factor'] = atom.charge
 
+                        self._data[model_serial].append(copy.copy(item))
+
+                    if has_OXT == True:
+                        item["record_name"] = "TER   "
+                        item["serial"] = serial
+                        serial += 1
                         self._data[model_serial].append(copy.copy(item))
 
                 # TER
@@ -432,6 +452,14 @@ class Pdb(object):
                     output += line
         return output
 
+    def __match_resname_table(self, resname):
+        s = resname.strip().lstrip()
+        if s == 'CL':
+            if self._mode == 'amber':
+                resname = 'Cl-'
+                
+        return resname
+        
     def __match_name_table(self, name, symbol):
         assert(isinstance(name, str) == True)
         assert(isinstance(symbol, str) == True)
