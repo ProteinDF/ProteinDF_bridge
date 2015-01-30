@@ -444,7 +444,7 @@ class Modeling:
 
         answer = pdfbridge.AtomGroup()
         Na = pdfbridge.Atom(symbol = 'Na',
-                            name = 'Na'
+                            name = 'Na',
                             position = pos)
         answer.set_atom('Na', Na)
         return answer
