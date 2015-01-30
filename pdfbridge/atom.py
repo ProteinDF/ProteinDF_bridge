@@ -203,7 +203,7 @@ class Atom(object):
             elif key == 'xyz':
                 self.xyz = pdfbridge.Position(value)
             else:
-                self._logger.warning("bridge::Atom > unknown key: {}".format(key))
+                self._logger.debug("bridge::Atom > unknown key: {}".format(key))
         return self
 
     def get_raw_data(self):
