@@ -47,7 +47,7 @@ class Atom(object):
         self._logger = logging.getLogger(__name__)
 
         self._atomic_number = pdfbridge.PeriodicTable.get_atomic_number(kwargs.get('symbol', 'X'))
-        self._xyz = kwargs.get('position', pdfbridge.Position())
+        self._xyz = pdfbridge.Position()
         self._name = kwargs.get('name', '')
         self._label = kwargs.get('label', '')
         self._charge = kwargs.get('charge', 0.0)
@@ -71,8 +71,8 @@ class Atom(object):
 
         if 'symbol' in kwargs:
             self._atomic_number = pdfbridge.PeriodicTable.get_atomic_number(kwargs.get('symbol'))
-        if 'position' in kwargs:
-            self._xyz = kwargs.get('position')
+        self._xyz = kwargs.get('position', self._xyz)
+        self._xyz = kwargs.get('xyz', self._xyz)
         if 'name' in kwargs:
             self._name = kwargs.get('name')
         if 'label' in kwargs:
@@ -106,7 +106,8 @@ class Atom(object):
         self._xyz = pdfbridge.Position(p)
 
     xyz = property(_get_xyz, _set_xyz)
-        
+    position = property(_get_xyz, _set_xyz)
+    
     # --------------------------------------------------------------------------
     def _get_atomic_number(self):
         return self._atomic_number
