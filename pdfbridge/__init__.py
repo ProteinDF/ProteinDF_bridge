@@ -39,6 +39,8 @@ from .select import Select, Select_Name, Select_Path, Select_PathRegex, Select_A
 from .biopdb import Pdb
 from .xyz import Xyz
 
+from .aminoacid import AminoAcid
+
 from .modeling import Modeling
 from .superposer import Superposer
 from .superposer_quaternion import Superposer_quaternion
