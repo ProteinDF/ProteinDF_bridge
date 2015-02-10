@@ -297,8 +297,10 @@ class AtomGroup(object):
         """
         answer = False
         name = pdfbridge.Utils.byte2str(name)
+        name = name.strip().lstrip()
         for k, atm in self.atoms():
-            if atm.name == name:
+            atm_name = atm.name.strip().lstrip()
+            if atm_name == name:
                 answer = True
                 break
         return answer
