@@ -38,16 +38,34 @@ class Pdb(object):
         mode: None or amber
         """
         self._logger = logging.getLogger(__name__)
-        #self._logger.addHandler(logging.NullHandler())
-        self._logger.addHandler(logging.StreamHandler())
-        self._logger.setLevel(logging.DEBUG)
+        self._logger.addHandler(logging.NullHandler())
+        self._logger.setLevel(logging.INFO)
 
         self._data = {}
         self._ssbonds = []
         if (file_path):
             self.load(file_path)
-        self._mode = mode
 
+        self._mode = mode
+        if isinstance(self._mode, str):
+            self._mode = self._mode.upper()
+
+        # modpdb table
+        self._modpdb_amber_atm_tbl = {
+            'NA': 'Na+ ',
+            'CL': 'Cl- '
+        }
+        self._modpdb_formal_atm_tbl = {
+            'NA': 'NA  ',
+            'CL': 'CL  '
+        }
+        self._modpdb_amber_res_tbl = {
+            'CL': 'Cl-'
+        }
+        self._modpdb_formal_res_tbl = {
+            'CL': 'CL '
+        }
+        
     def __get_debug(self):
         if not '_debug' in self.__dict__:
             self._debug = False
@@ -278,7 +296,7 @@ class Pdb(object):
                     serial = item['serial']
                 
                     if ((record_name == 'ATOM  ') or (record_name == 'HETATM')):
-                        name = item['name'].strip()
+                        name = item['name'].lstrip().strip()
                         alt_loc = item['alt_loc']
                         res_name = item['res_name']
                         chain_id = item['chain_id']
@@ -343,6 +361,8 @@ class Pdb(object):
     def set_by_atomgroup(self, atomgroup, set_b_factor=None):
         assert(isinstance(atomgroup, pdfbridge.AtomGroup))
 
+        atomgroup = self.get_modpdb_atomgroup(atomgroup)
+        
         re_model_serial = re.compile("^model_(\d+)")
         re_res_seq = re.compile("^(\d+)")
         re_atom_serial = re.compile("^(\d+)")
@@ -370,8 +390,7 @@ class Pdb(object):
                     item["res_seq"] = res_seq
 
                     # resname
-                    resname = self.__match_resname_table(residue.name)
-                    item["res_name"] = resname
+                    item["res_name"] = residue.name
 
                     has_OXT = False
                     for key, atom in residue.atoms():
@@ -389,11 +408,8 @@ class Pdb(object):
 
                         # name
                         name = atom.name
-                        if name == 'OXT':
+                        if name.strip().lstrip() == 'OXT':
                             has_OXT = True
-                        if (len(name) != 4):
-                            name = self.__match_name_table(atom.name,
-                                                           atom.symbol)
                         item["name"] = name
                         item["coord"] = [ atom.xyz.x, atom.xyz.y, atom.xyz.z ]
                                           
@@ -409,10 +425,11 @@ class Pdb(object):
                         self._data[model_serial].append(copy.copy(item))
 
                 # TER
-                item["record_name"] = "TER   "
-                item["serial"] = serial
-                serial += 1
-                self._data[model_serial].append(copy.copy(item))
+                if self._data[model_serial][-1]["record_name"] != "TER   ":
+                    item["record_name"] = "TER   "
+                    item["serial"] = serial
+                    serial += 1
+                    self._data[model_serial].append(copy.copy(item))
 
         self._sort_by_serial()
 
@@ -452,35 +469,64 @@ class Pdb(object):
                     output += line
         return output
 
-    def __match_resname_table(self, resname):
-        s = resname.strip().lstrip()
-        if s == 'CL':
-            if self._mode == 'amber':
-                resname = 'Cl-'
-                
-        return resname
+    def get_modpdb_atomgroup(self, ag_protein):
+        """
+        ag_protein タンパク質のAtomGroup object
+        """
+        assert(isinstance(ag_protein, pdfbridge.AtomGroup))
+        mode = self._mode
         
-    def __match_name_table(self, name, symbol):
-        assert(isinstance(name, str) == True)
-        assert(isinstance(symbol, str) == True)
-        capital_name = name.upper()
-        capital_symbol = symbol.upper()
-        if (capital_symbol == "NA"):
-            if self._mode == 'amber':
-                name = "Na+ "
-            else:
-                name = "NA  "
-        elif (capital_symbol == "CL"):
-            if self._mode == 'amber':
-                name = "Cl- "
-            else:
-                name = "CL  "
-        elif (capital_name[0] == capital_symbol[0]):
-            name = " %s" % (name)
-        name += " " * (4 - len(name))
-        return name
+        retval = pdfbridge.AtomGroup(ag_protein)
+        for model_key, model in retval.groups():
+            for chain_key, chain in model.groups():
+                for res_key, res in chain.groups():
+                    res = self._modpdb_res(res, mode)
+                    for atom_key, atom in res.atoms():
+                        atom = self._modpdb_atom(atom, mode)
+        return retval
+        
 
+    def _modpdb_atom(self, atom, mode=None):
+        new_name = atom.name
 
+        atomname = atom.name.strip().lstrip().upper()
+        symbol = atom.symbol
+        if mode == 'AMBER':
+            if atomname in self._modpdb_amber_atm_tbl:
+                new_name = self._modpdb_amber_atm_tbl[atomname]
+            elif ((len(new_name) < 4) and (atomname[0] == symbol[0])):
+                new_name = ' {}'.format(new_name)
+
+            # 原子名対策
+            new_name_lstrip = new_name.lstrip()
+            if len(new_name_lstrip) >= 2:
+                new_name_2 = new_name_lstrip[0:2]
+                if new_name_2.upper() == symbol.upper():
+                    new_name = " " * (len(new_name) - len(new_name_lstrip)) + symbol + new_name_lstrip[2:]
+        else:
+            if atomname in self._modpdb_formal_atm_tbl:
+                new_name = self._modpdb_formal_atm_tbl[atomname]
+            elif ((len(new_name) < 4) and (atomname[0] == symbol[0])):
+                new_name = ' {}'.format(new_name)
+
+        # 4文字に足りない分は末尾に空白を入れる
+        new_name += " " * (4 - len(new_name))
+
+        atom.name = new_name
+        return atom
+    
+    def _modpdb_res(self, res, mode=None):
+        resname = res.name.upper()
+        resname = resname.strip().lstrip()
+        if mode == 'AMBER':
+            if resname in self._modpdb_amber_res_tbl:
+                res.name = self._modpdb_amber_res_tbl[resname]
+        else:
+            if resname in self._modpdb_formal_res_tbl:
+                res.name = self._modpdb_formal_res_tbl[resname]
+        return res
+
+        
 def main():
     # initialize
 
