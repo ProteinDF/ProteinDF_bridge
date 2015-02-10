@@ -44,7 +44,8 @@ def main():
                         help='brd file')
     parser.add_argument('-m', '--model',
                         nargs=1,
-                        default=1,
+                        default=[1],
+                        type=int,
                         help='select model')
     parser.add_argument('-l', '--alt_loc',
                         nargs=1,
