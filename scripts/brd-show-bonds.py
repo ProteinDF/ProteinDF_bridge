@@ -30,56 +30,44 @@ import pdfbridge
 
 def main():
     # parse args
-    parser = argparse.ArgumentParser(description='transform bridge file to PDB file')
+    parser = argparse.ArgumentParser(description='show bonds')
     parser.add_argument('FILE',
                         nargs=1,
                         help='bridge file')
     parser.add_argument('-o', '--output',
                         nargs='?',
-                        help='PDB output file')
-    parser.add_argument('-a', '--amber',
-                        action="store_true",
-                        default = False,
-                        help='amber mod pdb format')
+                        help='output brd file')
     parser.add_argument("-v", "--verbose",
                         action="store_true",
                         default = False)
     args = parser.parse_args()
-        
+
     # setting
     mpac_file_path = args.FILE[0]
     output = args.output
-    pdb_mode = None
-    if args.amber:
-        pdb_mode = 'amber'
+    if output == '':
+        output = 'output.brd'
     verbose = args.verbose
 
     # reading
-    if (verbose == True):
+    if verbose:
         print("reading: %s\n" % (mpac_file_path))
     mpac_file = open(mpac_file_path, "rb")
-    mpac_data = msgpack.unpackb(mpac_file.read())
+    mpac_data =msgpack.unpackb(mpac_file.read())
     mpac_file.close()
-    
+        
     # prepare atomgroup
     atom_group = pdfbridge.AtomGroup(mpac_data)
     #print(atom_group)
 
-    # prepare BrPdb object
-    pdb_obj = pdfbridge.Pdb(mode = pdb_mode)
-    pdb_obj.set_by_atomgroup(atom_group)
+    bond_list = atom_group.get_bond_list()
     
-    # output PDB
-    if output:
-        fout = open(output, "w")
-        contents = str(pdb_obj)
-        fout.write(contents)
-        fout.close()
-    else:
-        print(pdb_obj)
+    # output
+    if (verbose == True):
+        print("writing: %s\n" % (output))
+    for bond in bond_list:
+        print(bond)
 
-    # end
 
 if __name__ == '__main__':
     main()
-

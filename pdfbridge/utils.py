@@ -38,6 +38,33 @@ class Utils(object):
         return l
 
     @classmethod
+    def add_spaces(cls, s, num_add):
+        """
+        行頭にnum_add分のスペースを追加する
+        """
+        spc = ' ' * num_add
+        return spc + spc.join(s.splitlines(True))
+
+    @classmethod
+    def num_spaces(cls, s):
+        """
+        行頭のスペース数を返す
+        """
+        return [len(line) - len(line.lstrip()) for line in s.splitlines()]
+
+    @classmethod
+    def del_spaces(cls, s, num_del):
+        """
+        """
+        if num_del < min(cls.num_spaces(s)):
+            raise ValueError, "removing more spaces than there are!"
+        return '\n'.join([ line[num_del:] for line in s.splitlines()])
+
+    @classmethod
+    def unindent_block(cls, s):
+        return cls.del_spaces(s, min(cls.num_spaces(s)))
+        
+    @classmethod
     def get_common_str(cls, str1, str2):
         """
         (先頭から)共通文字列を返す
@@ -56,6 +83,8 @@ class Utils(object):
             c2 = str2[i]
             if c1 == c2:
                 answer += c1
+            else:
+                break
         return answer
 
 

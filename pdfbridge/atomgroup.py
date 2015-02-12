@@ -56,9 +56,9 @@ class AtomGroup(object):
         self._atoms = OrderedDict()
         self._groups = OrderedDict()
         self._bonds = []
-        self._name = kwargs.get('name', '')
-        self._path = "/"
-        self._parent = kwargs.get('parent', None)
+        self._name = ''
+        self._path = '/'
+        self._parent = None
 
         # 'nice'を指定すると数字順にアクセスできる
         self._sort_atoms = None
@@ -83,6 +83,11 @@ class AtomGroup(object):
             else:
                 raise pdfbridge.InputError('atomgroup.__init__', 'illegal the number of args')
 
+        if 'name' in kwargs:
+            self._name = kwargs.get('name')
+        if 'parent' in kwargs:
+            self._parent = kwargs.get('parent')
+
     # --------------------------------------------------------------------------
     def get_number_of_groups(self):
         return len(self._groups)
@@ -105,6 +110,25 @@ class AtomGroup(object):
         self._parent = parent
 
     parent = property(_get_parent, _set_parent)
+
+    # family -------------------------------------------------------------------
+    def get_family(self, query_path):
+        if query_path == self.path:
+            return self
+        
+        common_path = pdfbridge.Utils.get_common_str(self.path, query_path)
+        if len(common_path) == 0:
+            return None
+            
+        if len(common_path) < len(self.path):
+            return self.parent.get_family(query_path)
+        else:
+            for key, grp in self.groups():
+                answer = grp.get_family(query_path)
+                if answer != None:
+                    return answer
+
+        return None
         
     # move ---------------------------------------------------------------------
     def shift_by(self, direction):
@@ -179,7 +203,7 @@ class AtomGroup(object):
         if '_groups' not in self.__dict__:
             self._groups = {}
         self._groups[key] = AtomGroup(value, parent = self)
-        
+        self._update_path()
 
     def has_groupkey(self, key):
         """
@@ -251,7 +275,9 @@ class AtomGroup(object):
         key = str(key)
         key = pdfbridge.Utils.byte2str(key)
         assert(isinstance(value, pdfbridge.Atom))
-        self._atoms[key] = pdfbridge.Atom(value, parent = self)
+        self._atoms[key] = pdfbridge.Atom(value,
+                                          parent=self,
+                                          path='{}{}'.format(self.path, key))
         
     def has_atomkey(self, key):
         """
@@ -271,8 +297,10 @@ class AtomGroup(object):
         """
         answer = False
         name = pdfbridge.Utils.byte2str(name)
+        name = name.strip().lstrip()
         for k, atm in self.atoms():
-            if atm.name == name:
+            atm_name = atm.name.strip().lstrip()
+            if atm_name == name:
                 answer = True
                 break
         return answer
@@ -345,7 +373,7 @@ class AtomGroup(object):
 
         answer = None
         if (selecter.is_match(self) == True):
-            answer = copy.deepcopy(self)
+            answer = AtomGroup(self)
         else:
             answer = AtomGroup()
             answer.name = self.name
@@ -365,6 +393,8 @@ class AtomGroup(object):
         """
         タプル('atom1のpath', 'atom2のpath', 結合次数)のリストを返す
         """
+        self._update_path()
+        
         if bond_list == None:
             bond_list = []
 
@@ -372,29 +402,95 @@ class AtomGroup(object):
             subgrp.get_bond_list(bond_list)
 
         for b in self._bonds:
+            #print("get_bond_list> ", self.path, b[0], b[1])
+            b[0] = '{}{}'.format(self.path, b[0])
+            b[1] = '{}{}'.format(self.path, b[1])
             bond_list.append(b)
 
         return bond_list
 
-    def add_bond(self, atom1, atom2, order):
+    def add_bond(self, atom1, atom2, order =1):
         """
-        結合情報を(単純に)追加する
+        結合情報を追加する
         order = 結合次数
         """
-        bond = (atom1.path, atom2.path, order)
-        self._bonds.append(bond)
+        bond_info = (atom1, atom2, order)
+        self._add_bond_normalize(bond_info)
 
-    def _add_bond_normalize(self, atom1, atom2, order):
+    def _add_bond_normalize(self, bond_info):
         """
         結合情報を(正規化しながら)追加する
-        order = 結合次数
-        TODO:
         """
-        common_path = pdfbridge.Utils.get_common_str(atom1.path, atom2.path)
-        selector = Select_Path(common_path)
-        parent = self.select(selector) # copy objectが返される
-        parent.add_bond(atom1, atom2, order)
+        assert(len(bond_info) == 3)
+        (atom1, atom2, order) = bond_info
+        assert(isinstance(atom1, pdfbridge.Atom))
+        assert(isinstance(atom2, pdfbridge.Atom))
+        assert(isinstance(order, int))
 
+        common_path = pdfbridge.Utils.get_common_str(atom1.path, atom2.path)
+        family = self.get_family(common_path)
+        #print("_add_bond_norm> ", self.path, common_path, atom1.path, atom2.path)
+        if family != None:
+            family._add_bond(bond_info)
+        else:
+            self._add_bond(bond_info)
+
+    def _add_bond(self, bond_info):
+        (atom1, atom2, order) = bond_info
+        atom1_path = atom1.path
+        atom2_path = atom2.path
+        common_path1 = pdfbridge.Utils.get_common_str(self.path, atom1_path)
+        common_path2 = pdfbridge.Utils.get_common_str(self.path, atom2_path)
+        if len(common_path1) > 0:
+            atom1_path = atom1_path[len(common_path1):]
+        if len(common_path2) > 0:
+            atom2_path = atom2_path[len(common_path2):]
+        #print("_add_bond> ", self.path, atom1_path, atom2_path)
+        self._bonds.append((atom1_path, atom2_path, order))
+
+    # --------------------------------------------------------------------------
+    def box(self):
+        """
+        """
+        box_min = box_max = self.center()
+        for grpkey, grp in self.groups():
+            (grpbox_min, grpbox_max) = grp.box()
+            box_min.x = min(box_min.x, grpbox_min.x)
+            box_min.y = min(box_min.y, grpbox_min.y)
+            box_min.z = min(box_min.z, grpbox_min.z)
+            box_max.x = max(box_max.x, grpbox_max.x)
+            box_max.y = max(box_max.y, grpbox_max.y)
+            box_max.z = max(box_max.z, grpbox_max.z)
+        for atmkey, atm in self.atoms():
+            box_min.x = min(box_min.x, atm.xyz.x)
+            box_min.y = min(box_min.y, atm.xyz.y)
+            box_min.z = min(box_min.z, atm.xyz.z)
+            box_max.x = max(box_max.x, atm.xyz.x)
+            box_max.y = max(box_max.y, atm.xyz.y)
+            box_max.z = max(box_max.z, atm.xyz.z)
+        
+        return (box_min, box_max)
+        
+
+    def center(self):
+        """
+        return Position value of the center
+        """
+        center = pdfbridge.Position(0.0, 0.0, 0.0)
+        for grpkey, grp in self.groups():
+            num_of_grp_atoms = grp.get_number_of_all_atoms()
+            if num_of_grp_atoms > 0:
+                center += grp.center() * float(num_of_grp_atoms)
+        for atmkey, atm in self.atoms():
+            center += atm.xyz
+
+        num_of_atoms = self.get_number_of_all_atoms()
+        if num_of_atoms > 0:
+            center *= (1.0 / num_of_atoms)
+        
+        return center
+        
+        
     # file format --------------------------------------------------------------
     def get_xyz(self):
         """
@@ -516,7 +612,7 @@ class AtomGroup(object):
             elif key == 'name':
                 self.name = value
             elif key == 'bonds':
-                self.bonds = value
+                self._bonds = value
             else:
                 print('unknown key: {}'.format(key))
 
@@ -555,18 +651,33 @@ class AtomGroup(object):
     def __str__(self):
         self._update_path()
 
-        answer = '<grp name={}'.format(self.name)
+        return self._get_str()
+
+    def _get_str(self, indent_level = 0):
+        indent = '  ' * indent_level
+
+        answer = '{indent}<grp name={name}'.format(indent=indent,
+                                                   name=self.name)
         if self.parent is not None:
-            answer += ' parent={}'.format(self.parent.name)
+            answer += '{indent} parent={parent}'.format(indent=indent,
+                                                        parent=self.parent.name)
         answer += '\n'
         for key, atomgroup in self.groups():
-            answer += str(atomgroup)
+            answer += atomgroup._get_str(indent_level +1)
         for key, atom in self.atoms():
-            answer += "%s%s>%s\n" % (self.path, key,
-                                     str(atom))
-        answer += '>\n'
-        return answer
+            answer += "{indent}{atom_path}:{atom}\n".format(indent=indent,
+                                                            atom_path=atom.path,
+                                                            atom=str(atom))
+        for bond in self._bonds:
+            answer += "{indent}bond {atom_path1} <-{order}-> {atom_path2}\n".format(indent=indent,
+                                                                                    atom_path1=bond[0],
+                                                                                    atom_path2=bond[1],
+                                                                                    order=bond[2])
+        answer += '{indent}>\n'.format(indent=indent)
 
+        return answer
+        
+        
     def __getitem__(self, key):
         """
         operator[] for getter

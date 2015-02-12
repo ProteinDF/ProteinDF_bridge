@@ -31,18 +31,41 @@ import pdfbridge
 class Pdb(object):
     """
     """
-    def __init__(self, file_path = None):
+    def __init__(self, file_path = None, mode = None):
         """
         create empty PDB object
+
+        mode: None or amber
         """
-        nullHandler = pdfbridge.NullHandler()
         self._logger = logging.getLogger(__name__)
-        self._logger.addHandler(nullHandler)
+        self._logger.addHandler(logging.NullHandler())
+        self._logger.setLevel(logging.INFO)
 
         self._data = {}
+        self._ssbonds = []
         if (file_path):
             self.load(file_path)
 
+        self._mode = mode
+        if isinstance(self._mode, str):
+            self._mode = self._mode.upper()
+
+        # modpdb table
+        self._modpdb_amber_atm_tbl = {
+            'NA': 'Na+ ',
+            'CL': 'Cl- '
+        }
+        self._modpdb_formal_atm_tbl = {
+            'NA': 'NA  ',
+            'CL': 'CL  '
+        }
+        self._modpdb_amber_res_tbl = {
+            'CL': 'Cl-'
+        }
+        self._modpdb_formal_res_tbl = {
+            'CL': 'CL '
+        }
+        
     def __get_debug(self):
         if not '_debug' in self.__dict__:
             self._debug = False
@@ -122,6 +145,7 @@ class Pdb(object):
             return
 
         model_serial = 1
+        chain_serial = 0
         self._data.setdefault(model_serial, [])
 
         fin = open(file_path, 'r')
@@ -137,7 +161,22 @@ class Pdb(object):
                 print(line)
 
             record_name = line[0:6]
-            if ((record_name == 'ATOM  ') or (record_name == 'HETATM')):
+            if record_name == 'SSBOND':
+                serNum = line[7:10]
+                chainID1 = str(line[15])
+                seqNum1 = int(line[17:21])
+                icode1 = str(line[21])
+                chainID2 = str(line[29])
+                seqNum2 = int(line[31:35])
+                icode2 = str(line[35])
+
+                ssbond = ({'chain_id': chainID1,
+                           'seq_num': seqNum1},
+                          {'chain_id': chainID2,
+                           'seq_num': seqNum2})
+                self._ssbonds.append(ssbond)
+                
+            elif ((record_name == 'ATOM  ') or (record_name == 'HETATM')):
 
                 if (len(line) < 80):
                     line = line + (' ' * (80 - len(line)))
@@ -147,6 +186,8 @@ class Pdb(object):
                 alt_loc = line[16]
                 res_name = line[17:20]
                 chain_id = line[21]
+                if (chain_id == ' ') and (res_name != 'WAT'):
+                    chain_id = chr(ord('A') + chain_serial)
                 res_seq = line[22:26]
                 i_code = line[26]
                 coord_x = line[30:38]
@@ -181,10 +222,18 @@ class Pdb(object):
                     item['element'] = element
                 else:
                     # TODO: テーブルを持って変換するように変更
-                    if (name == ' MG '):
+                    name2 = name.lstrip().upper()
+
+                    if name2[0:2] == 'CL':
+                        element = 'Cl'
+                    elif name2[0:2] == 'NA':
+                        element = 'Na'
+                    elif name2[0:2] == 'MG':
                         element = 'Mg'
-                    elif (name == 'FE  '):
+                    elif name2[0:2] == 'FE':
                         element = 'Fe'
+                    elif name2[0] == 'H':
+                        element = 'H'
                     else:
                         element = name[1]
                     item['element'] = element
@@ -203,6 +252,7 @@ class Pdb(object):
                 serial = int(line[10:14])
                 model_serial = serial
                 self._data.setdefault(model_serial, [])
+                chain_serial = 0
                 continue
             elif (record_name == 'TER   '):
                 if (len(line) < 27):
@@ -210,6 +260,9 @@ class Pdb(object):
                 serial = int(line[6:11]) if line[6:11].isdigit() else 0
                 resname = line[17:20]
                 chain_id = line[21]
+                if (chain_id == ' ') and (res_name != 'WAT'):
+                    chain_id = chr(ord('A') + chain_serial)
+                    chain_serial += 1
                 res_seq = line[22:26]
                 i_code = line[26]
                 item = {}
@@ -223,66 +276,93 @@ class Pdb(object):
                 self._data[model_serial].append(item)
                 continue
 
-    def get_atomgroup(self):
+    def get_atomgroup(self, select_model=None, select_altloc='A'):
         """
         return AtomGroup object
         """
         root = pdfbridge.AtomGroup()
 
         for model_serial, model_items in self._data.items():
-            model = pdfbridge.AtomGroup()
-            model_name = "model_%d" % (model_serial)
-            model.name = model_name
+            if ((select_model == None) or
+                (int(select_model) == int(model_serial))):
+            
+                model_name = "model_%d" % (model_serial)
+                model = pdfbridge.AtomGroup()
+                model.name = model_name
 
-            for index in range(len(model_items)):
-                item = model_items[index]
-                record_name = item['record_name']
-                serial = item['serial']
+                for index in range(len(model_items)):
+                    item = model_items[index]
+                    record_name = item['record_name']
+                    serial = item['serial']
+                
+                    if ((record_name == 'ATOM  ') or (record_name == 'HETATM')):
+                        name = item['name'].lstrip().strip()
+                        alt_loc = item['alt_loc']
+                        res_name = item['res_name']
+                        chain_id = item['chain_id']
+                        res_seq = int(item['res_seq'])
+                        i_code = item['i_code']
+                        coord = item['coord']
+                        occupancy = item.get('occupancy', 1.0)
+                        temp_factor = item.get('temp_factor', 0.0)
+                        element = item.get('element', 'X')
+                        charge = item.get('charge', 0.0)
+                        if charge == '  ':
+                            charge = 0.0
 
-                if ((record_name == 'ATOM  ') or (record_name == 'HETATM')):
-                    name = item['name'].strip()
-                    alt_loc = item['alt_loc']
-                    res_name = item['res_name']
-                    chain_id = item['chain_id']
-                    res_seq = int(item['res_seq'])
-                    i_code = item['i_code']
-                    coord = item['coord']
-                    occupancy = item.get('occupancy', 1.0)
-                    temp_factor = item.get('temp_factor', 0.0)
-                    element = item.get('element', 'X')
-                    charge = item.get('charge', 0.0)
-                    if charge == '  ':
-                        charge = 0.0
+                        if (chain_id == " "):
+                            chain_id = "_"
 
-                    if (chain_id == " "):
-                        chain_id = "_"
+                        if (model.has_group(chain_id) == False):
+                            chain = pdfbridge.AtomGroup()
+                            chain.name = chain_id
+                            model.set_group(chain_id, chain)
 
-                    if (model.has_group(chain_id) == False):
-                        chain = pdfbridge.AtomGroup()
-                        chain.name = chain_id
-                        model.set_group(chain_id, chain)
+                        res_key = "%d" % (res_seq)
+                        if (model[chain_id].has_group(res_key) == False):
+                            residue = pdfbridge.AtomGroup()
+                            residue.name = res_name
+                            model[chain_id].set_group(res_key, residue)
 
-                    res_key = "%d" % (res_seq)
-                    if (model[chain_id].has_group(res_key) == False):
-                        residue = pdfbridge.AtomGroup()
-                        residue.name = res_name
-                        model[chain_id].set_group(res_key, residue)
+                        # create atom object -------------------------------
+                        atom = pdfbridge.Atom()
+                        atom.symbol = element
+                        atom.xyz = pdfbridge.Position(coord)
+                        atom.name = name
+                        atom.charge = charge
+                        atom_key = "%d_%s" % (serial, name)
 
-                    atom = pdfbridge.Atom()
-                    atom.symbol = element
-                    atom.xyz = pdfbridge.Position(coord)
-                    atom.name = name
-                    atom.charge = charge
-                    atom_key = "%d_%s" % (serial, name)
-                    self._logger.warning('found X, but charge: %s', str(charge))
-                    model[chain_id][res_key].set_atom(atom_key, atom)
+                        # set the atom object ------------------------------
+                        if ((alt_loc == ' ') or
+                            (alt_loc == select_altloc)):
+                            model[chain_id][res_key].set_atom(atom_key, atom)
+                        else:
+                            self._logger.debug('skip alt_loc=\"{alt_loc}\" atom: {atom_str}'.format(alt_loc=alt_loc,
+                                                                                                    atom_str=str(atom)))
 
-            root.set_group(model_name, model)
+                for ssbond in self._ssbonds:
+                    chain_id1 = ssbond[0]['chain_id']
+                    seq_num1 = ssbond[0]['seq_num']
+                    chain_id2 = ssbond[1]['chain_id']
+                    seq_num2 = ssbond[1]['seq_num']
+                    
+                    path1 = '/{chain_id}/{res_key}/SG'.format(chain_id=chain_id1,
+                                                              res_key=seq_num1)
+                    path2 = '/{chain_id}/{res_key}/SG'.format(chain_id=chain_id2,
+                                                              res_key=seq_num2)
+                    SG1 = model[chain_id1][seq_num1]['SG']
+                    SG2 = model[chain_id2][seq_num2]['SG']
+                    model.add_bond(SG1, SG2, 1)
+
+                root.set_group(model_name, model)
+
         return root
 
     def set_by_atomgroup(self, atomgroup, set_b_factor=None):
         assert(isinstance(atomgroup, pdfbridge.AtomGroup))
 
+        atomgroup = self.get_modpdb_atomgroup(atomgroup)
+        
         re_model_serial = re.compile("^model_(\d+)")
         re_res_seq = re.compile("^(\d+)")
         re_atom_serial = re.compile("^(\d+)")
@@ -308,8 +388,11 @@ class Pdb(object):
                     if res_seq_match_obj != None:
                         res_seq = int(res_seq_match_obj.group(1))
                     item["res_seq"] = res_seq
+
+                    # resname
                     item["res_name"] = residue.name
 
+                    has_OXT = False
                     for key, atom in residue.atoms():
                         item["record_name"] = "ATOM  "
 
@@ -325,22 +408,33 @@ class Pdb(object):
 
                         # name
                         name = atom.name
-                        if (len(name) != 4):
-                            name = self.__match_name_table(atom.name,
-                                                           atom.symbol)
+                        if name.strip().lstrip() == 'OXT':
+                            has_OXT = True
                         item["name"] = name
-                        item["coord"] = atom.xyz
-
+                        item["coord"] = [ atom.xyz.x, atom.xyz.y, atom.xyz.z ]
+                                          
                         if set_b_factor == 'charge':
                             item['temp_factor'] = atom.charge
 
-                        self._data[model_serial].append(copy.deepcopy(item))
+                        self._data[model_serial].append(copy.copy(item))
+
+                    if has_OXT == True:
+                        item["record_name"] = "TER   "
+                        item["serial"] = serial
+                        serial += 1
+                        self._data[model_serial].append(copy.copy(item))
+
+                # TER
+                if self._data[model_serial][-1]["record_name"] != "TER   ":
+                    item["record_name"] = "TER   "
+                    item["serial"] = serial
+                    serial += 1
+                    self._data[model_serial].append(copy.copy(item))
+
         self._sort_by_serial()
 
     def _sort_by_serial(self):
         for model_serial, model in self._data.items():
-            #print(model_serial, model)
-            #model.sort(cmp = lambda x, y: cmp(int(x['serial']), int(y['serial'])))
             model.sort(key = lambda x: int(x['serial']))
 
     def __str__(self):
@@ -367,7 +461,7 @@ class Pdb(object):
                     line = "ATOM  %5d %4s%c%3s %c%4d%c   %8.3f%8.3f%8.3f%6.2f%6.2f          %2s%2s\n" % (
                         serial, name, alt_loc,
                         res_name, chain_id, res_seq, i_code,
-                        coord.x, coord.y, coord.z,
+                        coord[0], coord[1], coord[2],
                         occupancy, temp_factor, element.upper(), charge)
                     output += line
                 elif (record_name == 'TER   '):
@@ -375,21 +469,64 @@ class Pdb(object):
                     output += line
         return output
 
-    def __match_name_table(self, name, symbol):
-        assert(isinstance(name, str) == True)
-        assert(isinstance(symbol, str) == True)
-        capital_name = name.upper()
-        capital_symbol = symbol.upper()
-        if (capital_symbol == "NA"):
-            name = "NA  "
-        elif (capital_symbol == "CL"):
-            name = "CL  "
-        elif (capital_name[0] == capital_symbol[0]):
-            name = " %s" % (name)
-        name += " " * (4 - len(name))
-        return name
+    def get_modpdb_atomgroup(self, ag_protein):
+        """
+        ag_protein タンパク質のAtomGroup object
+        """
+        assert(isinstance(ag_protein, pdfbridge.AtomGroup))
+        mode = self._mode
+        
+        retval = pdfbridge.AtomGroup(ag_protein)
+        for model_key, model in retval.groups():
+            for chain_key, chain in model.groups():
+                for res_key, res in chain.groups():
+                    res = self._modpdb_res(res, mode)
+                    for atom_key, atom in res.atoms():
+                        atom = self._modpdb_atom(atom, mode)
+        return retval
+        
 
+    def _modpdb_atom(self, atom, mode=None):
+        new_name = atom.name
 
+        atomname = atom.name.strip().lstrip().upper()
+        symbol = atom.symbol
+        if mode == 'AMBER':
+            if atomname in self._modpdb_amber_atm_tbl:
+                new_name = self._modpdb_amber_atm_tbl[atomname]
+            elif ((len(new_name) < 4) and (atomname[0] == symbol[0])):
+                new_name = ' {}'.format(new_name)
+
+            # 原子名対策
+            new_name_lstrip = new_name.lstrip()
+            if len(new_name_lstrip) >= 2:
+                new_name_2 = new_name_lstrip[0:2]
+                if new_name_2.upper() == symbol.upper():
+                    new_name = " " * (len(new_name) - len(new_name_lstrip)) + symbol + new_name_lstrip[2:]
+        else:
+            if atomname in self._modpdb_formal_atm_tbl:
+                new_name = self._modpdb_formal_atm_tbl[atomname]
+            elif ((len(new_name) < 4) and (atomname[0] == symbol[0])):
+                new_name = ' {}'.format(new_name)
+
+        # 4文字に足りない分は末尾に空白を入れる
+        new_name += " " * (4 - len(new_name))
+
+        atom.name = new_name
+        return atom
+    
+    def _modpdb_res(self, res, mode=None):
+        resname = res.name.upper()
+        resname = resname.strip().lstrip()
+        if mode == 'AMBER':
+            if resname in self._modpdb_amber_res_tbl:
+                res.name = self._modpdb_amber_res_tbl[resname]
+        else:
+            if resname in self._modpdb_formal_res_tbl:
+                res.name = self._modpdb_formal_res_tbl[resname]
+        return res
+
+        
 def main():
     # initialize
 
