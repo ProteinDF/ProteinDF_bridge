@@ -61,9 +61,25 @@ class Modeling:
         隣のC-alphaの位置をメチル基にする。
         """
         answer = pdfbridge.AtomGroup()
-        answer.set_atom('CA', next_aa['CA'])
-        answer.set_atom('C',  next_aa['C'])
-        answer.set_atom('O',  next_aa['O'])
+
+        CAs = next_aa.pickup_atoms('CA')
+        if len(CAs) > 0:
+            answer.set_atom('CA', CAs[0])
+        else:
+            raise
+
+        Cs = next_aa.pickup_atoms('C')
+        if len(Cs) > 0:
+            answer.set_atom('C',  Cs[0])
+        else:
+            raise
+
+        Os = next_aa.pickup_atoms('O')
+        if len(Os) > 0:
+            answer.set_atom('O',  Os[0])
+        else:
+            raise
+
         answer |= self.add_methyl(answer['CA'], answer['C'])
         answer.path = '/ACE'
         return answer
@@ -73,17 +89,33 @@ class Modeling:
         隣のC-alphaの位置をメチル基にする。
         """
         answer = pdfbridge.AtomGroup()
-        answer.set_atom('CA', next_aa['CA'])
-        answer.set_atom('N',  next_aa['N'])
-        if next_aa.has_atom('H'):
-            answer.set_atom('H',  next_aa['H'])
-        elif next_aa.has_atom('CD'):
-            # for proline
-            dummy_H = pdfbridge.Atom(next_aa['CD'])
-            dummy_H.symbol = 'H'
-            answer.set_atom('H', dummy_H)
+
+        CAs = next_aa.pickup_atoms('CA')
+        if len(CAs) > 0:
+            answer.set_atom('CA', CAs[0])
         else:
-            self._logger.error('"H" atom not found.')
+            raise
+
+        Ns = next_aa.pickup_atoms('N')
+        if len(Ns) > 0:
+            answer.set_atom('N',  Ns[0])
+        else:
+            raise
+
+        Hs = next_aa.pickup_atoms('H')
+        if len(Hs) > 0:
+            answer.set_atom('H',  Hs[0])
+        else:
+            # for proline
+            CDs = next_aa.pickup_atoms('CD')
+            if len(CDs) > 0:
+                dummy_H = pdfbridge.Atom(CDs[0])
+                dummy_H.symbol = 'H'
+                answer.set_atom('H', dummy_H)
+            else:
+                self._logger.error('"H" atom not found.')
+                raise
+            
         answer |= self.add_methyl(answer['CA'], answer['N'])
         answer.path = '/NME'
         return answer

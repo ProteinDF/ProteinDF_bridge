@@ -319,6 +319,20 @@ class AtomGroup(object):
     #def get_atom_list(self):
     #    return self.data['atoms'].keys()
 
+    def pickup_atoms(self, key_or_name):
+        '''
+        key または nameが一致した原子の配列を返す
+        '''
+        answer = []
+        for subgrp_key, subgrp in self.groups():
+            atomlist = subgrp.pickup_atoms(key_or_name)
+            if len(atomlist) > 0:
+                answer.extend(atomlist)
+        for atm_key, atm in self.atoms():
+            if (atm_key == key_or_name) or (atm.name == key_or_name):
+                answer.append(atm)
+        return answer
+    
     # name ---------------------------------------------------------------------
     def _get_name(self):
         return self._name
