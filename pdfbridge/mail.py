@@ -34,12 +34,13 @@ except ImportError:
 class Mail(object):
     def __init__(self):
         self.smtp_server = "localhost"
-        self.smtp_port = 25
+        self.smtp_port = None
+        self.use_SSL = False
         self.smtp_account = ""
         self.smtp_password = ""
-        self.use_gmail = False
         self.from_address = ""
         self.to_address = ""
+        self.charset = "ISO-2022-JP"
         self.subject = ""
         self.text = ""
 
@@ -52,9 +53,9 @@ class Mail(object):
 
         self.smtp_server = ini.get('mail', 'smtp_server')
         self.smtp_port = ini.get('mail', 'smtp_port')
+        self.use_SSL = ini.get('mail', 'use_SSL')
         self.smtp_account = ini.get('mail', 'smtp_account')
         self.smtp_password = ini.get('mail', 'smtp_password')
-        self.use_gmail = ini.get('mail', 'use_gmail')
         self.from_address = ini.get('mail', 'from_address')
         
     def save_config(self, path):
@@ -62,9 +63,9 @@ class Mail(object):
         ini.add_section('mail')
         ini.set('mail', 'smtp_server', self.smtp_server)
         ini.set('mail', 'smtp_port', str(self.smtp_port))
+        ini.set('mail', 'use_SSL', str(self.use_SSL))
         ini.set('mail', 'smtp_account', self.smtp_account)
         ini.set('mail', 'smtp_password', self.smtp_password)
-        ini.set('mail', 'use_gmail', str(self.use_gmail))
         ini.set('mail', 'from_address', self.from_address)
         
         f = open(path, 'w')
@@ -72,37 +73,39 @@ class Mail(object):
         f.close()
         
     def send(self):
-        charset = "ISO-2022-JP"
-        msg = MIMEText(self.text.encode(charset),
+        msg = MIMEText(self.text.encode(self.charset),
                        "plain",
-                       charset)
-        msg["Subject"] = Header(self.subject, charset)
+                       self.charset)
+        msg["Subject"] = Header(self.subject, self.charset)
         msg["From"]    = self.from_address
         msg["To"]      = self.to_address
         msg["Date"]    = formatdate(localtime=True)
 
-        smtp = smtplib.SMTP(self.smtp_server,
-                            self.smtp_port)
-        if self.use_gmail:
-            smtp.ehlo()
+        smtp = None
+        if self.use_SSL:
+            if self.smtp_port:
+                smtp = smtplib.SMTP_SSL(self.smtp_server,
+                                        self.smtp_port)
+            else:
+                smtp = smtplib.SMTP_SSL(self.smtp_server)
+        else:
+            if self.smtp_port:
+                smtp = smtplib.SMTP(self.smtp_server,
+                                    self.smtp_port)
+            else:
+                smtp = smtplib.SMTP(self.smtp_server)
+            smtp.ehlo() # ehlo_or_helo_if_needed()
             smtp.starttls()
-            smtp.ehlo()
-            smtp.login(self.smtp_account,
-                       self.smtp_password)
+
+        smtp.ehlo()
+        smtp.login(self.smtp_account,
+                   self.smtp_password)
+
         smtp.sendmail(self.from_address,
                       self.to_address,
                       msg.as_string())
         smtp.close()
 
-    # use_gmail ================================================================
-    def _get_use_gmail(self):
-        return self._use_gmail
-
-    def _set_use_gmail(self, value):
-        self._use_gmail = bool(value)
-
-    use_gmail = property(_get_use_gmail, _set_use_gmail)
-        
     # smtp_server ==============================================================
     def _get_smtp_server(self):
         return self._smtp_server
@@ -117,10 +120,19 @@ class Mail(object):
         return self._smtp_port
 
     def _set_smtp_port(self, value):
-        self._smtp_port = int(value)
+        self._smtp_port = value
         
     smtp_port = property(_get_smtp_port, _set_smtp_port)
 
+    # use_SSL ==================================================================
+    def _get_use_SSL(self):
+        return self._use_SSL
+
+    def _set_use_SSL(self, value):
+        self._use_SSL = bool(value)
+
+    use_SSL = property(_get_use_SSL, _set_use_SSL)
+        
     # smtp_account =============================================================
     def _get_smtp_account(self):
         return self._smtp_account
@@ -156,8 +168,17 @@ class Mail(object):
         self._to_address = str(value)
 
     to_address = property(_get_to_address, _set_to_address)
-        
-    # subject ==================================================================
+
+    # charset ==========================================================
+    def _get_charset(self):
+        return self._charset
+
+    def _set_charset(self, value):
+        self._charset = str(value)
+
+    charset = property(_get_charset, _set_charset)
+    
+    # subject ==========================================================
     def _get_subject(self):
         return self._subject
 
@@ -166,7 +187,7 @@ class Mail(object):
 
     subject = property(_get_subject, _set_subject)
         
-    # text ===================================================================
+    # text =============================================================
     def _get_text(self):
         return self._text
     
