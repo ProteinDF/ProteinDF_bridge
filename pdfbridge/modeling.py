@@ -66,19 +66,22 @@ class Modeling:
         if len(CAs) > 0:
             answer.set_atom('CA', CAs[0])
         else:
-            raise
+            raise pdfbridge.InputError(next_aa,
+                                       'cannot found "CA" atom on building ACE.')
 
         Cs = next_aa.pickup_atoms('C')
         if len(Cs) > 0:
             answer.set_atom('C',  Cs[0])
         else:
-            raise
-
+            raise pdfbridge.InputError(next_aa,
+                                       'cannot found "C" atom on building ACE.')
+            
         Os = next_aa.pickup_atoms('O')
         if len(Os) > 0:
             answer.set_atom('O',  Os[0])
         else:
-            raise
+            raise pdfbridge.InputError(next_aa,
+                                       'cannot found "O" atom on building ACE.')
 
         answer |= self.add_methyl(answer['CA'], answer['C'])
         answer.path = '/ACE'
@@ -94,13 +97,15 @@ class Modeling:
         if len(CAs) > 0:
             answer.set_atom('CA', CAs[0])
         else:
-            raise
+            raise pdfbridge.InputError(next_aa,
+                                       'cannot found "CA" atom on building NME.')
 
         Ns = next_aa.pickup_atoms('N')
         if len(Ns) > 0:
             answer.set_atom('N',  Ns[0])
         else:
-            raise
+            raise pdfbridge.InputError(next_aa,
+                                       'cannot found "N" atom on building NME.')
 
         Hs = next_aa.pickup_atoms('H')
         if len(Hs) > 0:
@@ -113,8 +118,8 @@ class Modeling:
                 dummy_H.symbol = 'H'
                 answer.set_atom('H', dummy_H)
             else:
-                self._logger.error('"H" atom not found.')
-                raise
+                raise pdfbridge.InputError(next_aa,
+                                           'cannot found "H" or "CD" atom(for proline) on building NME.')
             
         answer |= self.add_methyl(answer['CA'], answer['N'])
         answer.path = '/NME'

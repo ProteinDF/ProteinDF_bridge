@@ -40,10 +40,7 @@ class InputError(BrError):
     """
     def __init__(self, expr, msg):
         super(InputError, self).__init__()
-        self.expr = expr
-        self.msg = msg
-
-        self.errmsg = "expr={}: {}".format(self.expr, msg)
+        self.errmsg = "Input Error: {} ({})".format(msg, str(expr))
 
 
         

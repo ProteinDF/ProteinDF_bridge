@@ -24,6 +24,7 @@ from __future__ import absolute_import
 
 from .common import NullHandler
 from .utils import Utils
+from .error import BrError, InputError
 
 from .vector import Vector
 from .matrix import Matrix, SymmetricMatrix
@@ -53,6 +54,7 @@ from .mail import Mail
 __all__ = [
     'NullHandler',
     'Utils',
+    'BrError', 'InputError',
     'Vector',
     'Matrix', 'SymmetricMatrix',
     'Position',
