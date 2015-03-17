@@ -42,6 +42,8 @@ from .xyz import Xyz
 from .aminoacid import AminoAcid
 
 from .modeling import Modeling
+from .ionpair import IonPair
+
 from .superposer import Superposer
 from .superposer_quaternion import Superposer_quaternion
 
@@ -61,6 +63,7 @@ __all__ = [
     'Pdb',
     'Xyz',
     'Modeling',
+    'Ionpair',
     'Superposer',
     'Superposer_quaternion',
     'DbManager',
