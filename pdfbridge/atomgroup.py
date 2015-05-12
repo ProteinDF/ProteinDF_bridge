@@ -333,6 +333,23 @@ class AtomGroup(object):
                 answer.append(atm)
         return answer
     
+    def get_atomlist(self):
+        '''
+        サブグループ内の原子を一階層の原子団に変換する
+        '''
+        i = 0
+        atmgrp = AtomGroup()
+        for subgrp_key, subgrp in self.groups():
+            subgrp_list = subgrp.get_atomlist()
+            for atom_key, atom in subgrp_list.atoms():
+                atmgrp.set_atom(i, atom)
+                i += 1
+        for atom_key, atom in self.atoms():
+            atmgrp.set_atom(i, atom)
+            i += 1
+
+        return atmgrp
+        
     # name ---------------------------------------------------------------------
     def _get_name(self):
         return self._name

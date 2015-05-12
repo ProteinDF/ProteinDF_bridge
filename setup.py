@@ -46,6 +46,8 @@ setup(name='ProteinDF_bridge',
           'scripts/mpac2yml.py',
           'scripts/yml2mpac.py',
 
+          'scripts/brd-select.py',
+          
           'scripts/brd2txt.py',
 
           'scripts/pdb2brd.py',
