@@ -57,7 +57,7 @@ class Utils(object):
         """
         """
         if num_del < min(cls.num_spaces(s)):
-            raise ValueError, "removing more spaces than there are!"
+            raise ValueError("removing more spaces than there are!")
         return '\n'.join([ line[num_del:] for line in s.splitlines()])
 
     @classmethod

@@ -26,7 +26,10 @@ import logging
 try:
     import msgpack
 except:
-    import msgpack_pure as msgpack
+    try:
+        import umsgpack as msgpack
+    except:
+        import msgpack_pure as msgpack
 
 import pdfbridge
     
