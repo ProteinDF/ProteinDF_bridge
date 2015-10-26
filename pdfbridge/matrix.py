@@ -157,6 +157,13 @@ class Matrix(object):
     def type(self):
         return self._type
 
+    @property
+    def data(self):
+        '''
+        return numpy array
+        '''
+        return self._data
+        
     # --------------------------------------------------------------------------
     def get(self, row, col):
         assert((0 <= row) and (row < self.rows))
@@ -511,16 +518,16 @@ class SymmetricMatrix(Matrix):
         return A * B
 
     def __eq__(self, other):
-        assert(isinstance(other, Matrix))
         answer = False
-        if ((self.rows == other.rows) and
-            (self.cols == other.cols)):
-            answer = True
-            for r in range(self.rows):
-                for c in range(r +1):
-                    if math.fabs(self.get(r, c) - other.get(r, c)) > 1.0E-5:
-                        answer = False
-                        break
+        if isinstance(other, SymmetricMatrix):
+            if ((self.rows == other.rows) and
+                (self.cols == other.cols)):
+                answer = True
+                for r in range(self.rows):
+                    for c in range(r +1):
+                        if math.fabs(self.get(r, c) - other.get(r, c)) > 1.0E-5:
+                            answer = False
+                            break
         return answer
 
 

@@ -231,10 +231,10 @@ class Atom(object):
     # serialize
     # ------------------------------------------------------------------
     def __getstate__(self):
-        return self.get_dict_data()
+        return self.get_raw_data()
 
     def __setstate__(self, state):
-        self.set_by_dict_data(state)
+        self.set_by_raw_data(state)
         
         
 if __name__ == "__main__":
