@@ -42,7 +42,7 @@ def main():
     f = open(file_path, "rb")
     contents = f.read()
     data = msgpack.unpackb(contents)
-    data = pdfbridge.Utils.byte2str(data)
+    # data = pdfbridge.Utils.byte2str(data)
     f.close()
 
     #for k, v in data.items():
