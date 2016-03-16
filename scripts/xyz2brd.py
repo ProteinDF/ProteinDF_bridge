@@ -55,7 +55,7 @@ def main():
     atomgroup = xyz.get_atom_group()
     
     brd_file = open(brd_file_path, "wb");
-    mpac = msgpack.packb(atomgroup.get_dict_data())
+    mpac = msgpack.packb(atomgroup.get_raw_data())
     brd_file.write(mpac)
     brd_file.close()
     
