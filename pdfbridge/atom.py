@@ -48,6 +48,7 @@ class Atom(object):
 
         self._atomic_number = pdfbridge.PeriodicTable.get_atomic_number('X')
         self._xyz = pdfbridge.Position()
+        self._force = pdfbridge.Position()
         self._name = ''
         self._label = ''
         self._charge = 0.0
@@ -60,6 +61,7 @@ class Atom(object):
                 if (isinstance(rhs, Atom) == True):
                     self._atomic_number = rhs._atomic_number
                     self._xyz = pdfbridge.Position(rhs._xyz)
+                    self._force = pdfbridge.Position(rhs._force)
                     self._name = pdfbridge.Utils.byte2str(rhs._name)
                     self._label = pdfbridge.Utils.byte2str(rhs.label)
                     self._charge = float(rhs._charge)
@@ -72,7 +74,8 @@ class Atom(object):
         if 'symbol' in kwargs:
             self._atomic_number = pdfbridge.PeriodicTable.get_atomic_number(kwargs.get('symbol'))
         self._xyz = kwargs.get('position', self._xyz)
-        self._xyz = kwargs.get('xyz', self._xyz)
+        self._xyz = kwargs.get('xyz', self._xyz) # alias
+        self._force = kwargs.get('force', self._force)
         if 'name' in kwargs:
             self._name = kwargs.get('name')
         if 'label' in kwargs:
@@ -107,6 +110,15 @@ class Atom(object):
 
     xyz = property(_get_xyz, _set_xyz)
     position = property(_get_xyz, _set_xyz)
+
+    # --------------------------------------------------------------------------
+    def _get_force(self):
+        return self._force
+
+    def _set_force(self, f):
+        self._force = pdfbridge.Position(f)
+
+    force = property(_get_force, _set_force)
     
     # --------------------------------------------------------------------------
     def _get_atomic_number(self):
@@ -201,6 +213,8 @@ class Atom(object):
                 self.charge = value
             elif key == 'xyz':
                 self.xyz = pdfbridge.Position(value)
+            elif key == 'force':
+                self.force = pdfbridge.Position(value)
             else:
                 self._logger.debug("bridge::Atom > unknown key: {}".format(key))
         return self
@@ -211,20 +225,24 @@ class Atom(object):
         data['name'] = self._name
         data['Q'] = self._charge
         data['xyz'] = self._xyz.get_raw_data()
-
+        data['force'] = self._force.get_raw_data()
+        
         return data
 
     # ==================================================================
     # debug
     # ==================================================================
     def __str__(self):
-        answer = "%2s(name=\"%s\")(% 8.3f, % 8.3f, % 8.3f) Z=% .2f" % (
+        answer = "%2s(name=\"%s\")(% 8.3f, % 8.3f, % 8.3f) Z=% .2f <(% 8.3f, % 8.3f, % 8.3f)>" % (
             self.symbol,
             self.name,
             self.xyz.x,
             self.xyz.y,
             self.xyz.z,
-            self.charge)
+            self.charge,
+            self.force.x,
+            self.force.y,
+            self.force.z)
         return answer
     
     # ------------------------------------------------------------------

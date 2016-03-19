@@ -92,8 +92,6 @@ class Position(object):
     True
 
     """
-    _position = [0.0, 0.0, 0.0]
-
     def __init__(self, *args, **kwds):
         self._logger = logging.getLogger(__name__)
 
@@ -231,7 +229,7 @@ class Position(object):
         return self.__add__(-rhs)
 
     def __mul__(self, rhs2):
-        rhs1 = copy.deepcopy(self)
+        rhs1 = Position(self)
         if (isinstance(rhs2, Position) == True):
             return sum([x * y for x, y in zip(rhs1._position, rhs2._position)])
         elif (isinstance(rhs2, float) == True):
@@ -268,7 +266,7 @@ class Position(object):
         self._position[0] = float(state[0])
         self._position[1] = float(state[1])
         self._position[2] = float(state[2])
-        
+
         
 if __name__ == "__main__":
     import doctest
