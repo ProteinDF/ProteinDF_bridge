@@ -254,6 +254,16 @@ class Position(object):
     def __idiv__(self, rhs):
         return self.__imul__(1.0 / float(rhs))
 
+    def __getitem__(self, i):
+        i = int(i)
+        assert(0 <= i and i < 3)
+        return self._position[i]
+
+    def __setitem__(self, i, v):
+        i = int(i)
+        assert(0 <= i and i < 3)
+        self._position[i] = v
+    
     # ------------------------------------------------------------------
     # serialize
     # ------------------------------------------------------------------
