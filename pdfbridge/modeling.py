@@ -588,6 +588,32 @@ class Modeling:
         answer.set_atom('{}_Cl'.format(key+1), Cl)
         return answer
 
+    # ------------------------------------------------------------------
+    def neutralize_FAD(self, ag):
+        answer = pdfbridge.AtomGroup()
+
+        POO1 = pdfbridge.AtomGroup()
+        POO1.set_atom('P', ag['P'])
+        POO1.set_atom('O1', ag['O1P'])
+        POO1.set_atom('O2', ag['O2P'])
+        Na1 = pdfbridge.Atom(symbol = 'Na',
+                             name = 'Na',
+                             position = self._get_neutralize_pos_POO_type(POO1))
+
+        POO2 = pdfbridge.AtomGroup()
+        POO2.set_atom('P', ag['PA'])
+        POO2.set_atom('O1', ag['O1A'])
+        POO2.set_atom('O2', ag['O2A'])
+        Na2 = pdfbridge.Atom(symbol = 'Na',
+                             name = 'Na',
+                             position = self._get_neutralize_pos_POO_type(POO2))
+
+        key = self.get_last_index(ag)
+        answer.set_atom('{}_Na1'.format(key+1), Na1)
+        answer.set_atom('{}_Na2'.format(key+1), Na2)
+        return answer
+        
+    # ------------------------------------------------------------------
     def _get_neutralize_pos_NH3_type(self, ag):
         length = 3.187
         H1 = ag['H1']
@@ -620,7 +646,22 @@ class Modeling:
         return C.xyz + length * vCM
         
     # -----------------------------------------------------------------
+    def _get_neutralize_pos_POO_type(self, ag):
+        length = 2.748
+        O1 = ag['O1']
+        O2 = ag['O2']
+        P  = ag['P']
+        
+        M = pdfbridge.Position(0.5 * (O1.xyz.x + O2.xyz.x),
+                               0.5 * (O1.xyz.y + O2.xyz.y),
+                               0.5 * (O1.xyz.z + O2.xyz.z))
 
+        vPM = M - P.xyz
+        vPM.norm()
+
+        return P.xyz + length * vPM
+        
+    
 if __name__ == "__main__":
     import doctest
     doctest.testmod()

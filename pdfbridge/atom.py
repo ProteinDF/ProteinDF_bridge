@@ -62,10 +62,10 @@ class Atom(object):
                     self._atomic_number = rhs._atomic_number
                     self._xyz = pdfbridge.Position(rhs._xyz)
                     self._force = pdfbridge.Position(rhs._force)
-                    self._name = pdfbridge.Utils.byte2str(rhs._name)
-                    self._label = pdfbridge.Utils.byte2str(rhs.label)
+                    self._name = pdfbridge.Utils.to_unicode(rhs._name)
+                    self._label = pdfbridge.Utils.to_unicode(rhs.label)
                     self._charge = float(rhs._charge)
-                    self._path = pdfbridge.Utils.byte2str(rhs._path)
+                    self._path = pdfbridge.Utils.to_unicode(rhs._path)
                 elif (isinstance(rhs, dict) == True):
                     self.set_by_raw_data(rhs)
             else:
@@ -145,7 +145,7 @@ class Atom(object):
         return self._name
 
     def _set_name(self, name):
-        self._name = pdfbridge.Utils.byte2str(name)
+        self._name = pdfbridge.Utils.to_unicode(name)
 
     name = property(_get_name, _set_name)
 
@@ -154,7 +154,7 @@ class Atom(object):
         return self._label
 
     def _set_label(self, label):
-        self._label = pdfbridge.Utils.byte2str(label)
+        self._label = pdfbridge.Utils.to_unicode(label)
 
     label = property(_get_label, _set_label)
     
@@ -178,7 +178,7 @@ class Atom(object):
         return self._path
 
     def _set_path(self, path):
-        self._path = pdfbridge.Utils.byte2str(path)
+        self._path = pdfbridge.Utils.to_unicode(path)
 
     path = property(_get_path, _set_path)
 

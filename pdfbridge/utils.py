@@ -20,6 +20,7 @@
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import sys
 import re
 import copy
 import pickle
@@ -87,50 +88,55 @@ class Utils(object):
                 break
         return answer
 
-
-    #@classmethod
-    #def byte2str(cls, s):
-    #    """
-    #    byteをstr(utf-8)に変換する
-    #    """
-    #    answer = str(s)
-    #    if isinstance(s, bytes):
-    #        answer = str(s.decode('utf-8'))
-    #    return answer
-
     @classmethod
-    def byte2str_dict_keys(cls, d):
+    def to_unicode_dict(cls, d):
         """
         byteをキーとして保存してある辞書に対して、
         str(utf-8)をキーとする辞書に変換する。
         """
+        assert isinstance(d, dict)
         answer = {}
         if isinstance(d, dict):
             for k, v in d.items():
-                if isinstance(k, bytes):
-                    old_key = bytes(k)
-                    new_key = Utils.byte2str(k)
-                    answer[new_key] = v
+                new_key = cls.to_unicode(k)
+                answer[new_key] = v
         return answer
 
     @classmethod
-    def byte2str(cls, obj):
+    def to_unicode(cls, unicode_or_str):
         """
         byteをstr(utf-8)に変換する
         """
-        if isinstance(obj, bytes):
-            obj = str(obj.decode('utf-8'))
-        elif isinstance(obj, list):
-            for i, item in enumerate(obj):
-                obj[i] = cls.byte2str(item)
-        elif isinstance(obj, dict):
-            for k, v in obj.items():
-                new_key = cls.byte2str(k)
-                new_val = cls.byte2str(v)
-                del obj[k]
-                obj[new_key] = new_val
-        return obj
+        assert isinstance(unicode_or_str, (str, bytes))
 
+        value = unicode_or_str
+        if sys.version_info[0] >= 3:
+            # Python3
+            if isinstance(unicode_or_str, bytes):
+                value = unicode_or_str.decode('utf-8')
+        else:
+            # Python2
+            if isinstance(unicode_or_str, str):
+                value = unicode_or_str.decode('utf-8')
+
+        return value
+
+    @classmethod
+    def to_bytes(cls, unicode_or_str):
+        assert isinstance(unicode_or_str, (str, bytes))
+
+        value = unicode_or_str
+        if sys.version_info[0] >= 3:
+            # Python3
+            if isinstance(unicode_or_str, str):
+                value = unicode_or_str.encode('utf-8')
+        else:
+            # Python2
+            if isinstance(unicode_or_str, unicode):
+                value = unicode_or_str.encode('utf-8')
+
+        return value
+        
     @classmethod
     def check_pickled(cls, data, level=0):
         if isinstance(data, dict):

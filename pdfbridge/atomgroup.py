@@ -73,8 +73,8 @@ class AtomGroup(object):
                     for k, v in rhs.groups():
                         self.set_group(k, v)
                     self._bonds = copy.copy(rhs._bonds)
-                    self._name = pdfbridge.Utils.byte2str(rhs._name)
-                    self._path = pdfbridge.Utils.byte2str(rhs._path)
+                    self._name = pdfbridge.Utils.to_unicode(rhs._name)
+                    self._path = pdfbridge.Utils.to_unicode(rhs._path)
                     self.parent = rhs._parent
                     self._sort_atoms = rhs._sort_atoms
                     self._sort_groups = rhs._sort_groups
@@ -187,7 +187,7 @@ class AtomGroup(object):
         入力されたkeyもしくは名前の原子団が含まれている場合、その原子を返す。
         無い場合はNoneを返す。
         """
-        key_or_name = pdfbridge.Utils.byte2str(key_or_name)
+        key_or_name = pdfbridge.Utils.to_unicode(key_or_name)
         if key_or_name in self._groups:
             return self._groups.get(key_or_name, None)
         else:
@@ -198,7 +198,7 @@ class AtomGroup(object):
 
     def set_group(self, key, value):
         key = str(key)
-        key = pdfbridge.Utils.byte2str(key)
+        key = pdfbridge.Utils.to_unicode(key)
         assert(isinstance(value, AtomGroup))
         if '_groups' not in self.__dict__:
             self._groups = {}
@@ -211,7 +211,7 @@ class AtomGroup(object):
         無い場合はFalseを返す。
         """
         answer = False
-        key = pdfbridge.Utils.byte2str(key)
+        key = pdfbridge.Utils.to_unicode(key)
         if key in self._groups:
             answer = True
         return answer
@@ -222,7 +222,7 @@ class AtomGroup(object):
         無い場合はFalseを返す。
         """
         answer = False
-        name = pdfbridge.Utils.byte2str(name)
+        name = pdfbridge.Utils.to_unicode(name)
         for k, grp in self.groups():
             if grp.name == name:
                 answer = True
@@ -237,7 +237,7 @@ class AtomGroup(object):
         return (self.has_groupkey(key_or_name)) or (self.has_groupname(key_or_name))
 
     def erase_group(self, key):
-        key = pdfbridge.Utils.byte2str(key)
+        key = pdfbridge.Utils.to_unicode(key)
         self._groups.pop(key, None)
 
     #def get_group_list(self):
@@ -262,7 +262,7 @@ class AtomGroup(object):
         入力されたkeyもしくは名前の原子が含まれている場合、その原子を返す。
         無い場合はNoneを返す。
         """
-        key_or_name = pdfbridge.Utils.byte2str(key_or_name)
+        key_or_name = pdfbridge.Utils.to_unicode(key_or_name)
         if key_or_name in self._atoms:
             return self._atoms.get(key_or_name, None)
         else:
@@ -273,7 +273,7 @@ class AtomGroup(object):
 
     def set_atom(self, key, value):
         key = str(key)
-        key = pdfbridge.Utils.byte2str(key)
+        key = pdfbridge.Utils.to_unicode(key)
         assert(isinstance(value, pdfbridge.Atom))
         self._atoms[key] = pdfbridge.Atom(value,
                                           parent=self,
@@ -285,7 +285,7 @@ class AtomGroup(object):
         無い場合はFalseを返す。
         """
         answer = False
-        key = pdfbridge.Utils.byte2str(key)
+        key = pdfbridge.Utils.to_unicode(key)
         if key in self._atoms:
             answer = True
         return answer
@@ -296,7 +296,7 @@ class AtomGroup(object):
         無い場合はFalseを返す。
         """
         answer = False
-        name = pdfbridge.Utils.byte2str(name)
+        name = pdfbridge.Utils.to_unicode(name)
         name = name.strip().lstrip()
         for k, atm in self.atoms():
             atm_name = atm.name.strip().lstrip()
@@ -313,7 +313,7 @@ class AtomGroup(object):
         return (self.has_atomkey(key_or_name)) or (self.has_atomname(key_or_name))
 
     def erase_atom(self, key):
-        key = pdfbridge.Utils.byte2str(key)
+        key = pdfbridge.Utils.to_unicode(key)
         self._atoms.pop(key, None)
 
     #def get_atom_list(self):
@@ -356,7 +356,7 @@ class AtomGroup(object):
 
     def _set_name(self, name):
         name = str(name)
-        self._name = pdfbridge.Utils.byte2str(name)
+        self._name = pdfbridge.Utils.to_unicode(name)
 
     name = property(_get_name, _set_name)
     # --------------------------------------------------------------------------
@@ -548,7 +548,7 @@ class AtomGroup(object):
 
     # private method -----------------------------------------------------------
     def _merge_group(self, key, group):
-        key = pdfbridge.Utils.byte2str(key)
+        key = pdfbridge.Utils.to_unicode(key)
         assert(isinstance(group, AtomGroup) == True)
         if (self.has_group(key) == True):
             self._groups[key].merge(group)
@@ -624,7 +624,7 @@ class AtomGroup(object):
     # --------------------------------------------------------------------------
     def set_by_dict_data(self, data):
         assert(isinstance(data, dict) == True)
-        data = pdfbridge.Utils.byte2str(data)
+        data = pdfbridge.Utils.to_unicode_dict(data)
 
         tmp_groups = {}
         tmp_atoms = {}
@@ -716,7 +716,7 @@ class AtomGroup(object):
         keyが一致した原子団、原子を返す。
         もしkeyが一致しなければ、名前から検索する。
         """
-        key = pdfbridge.Utils.byte2str(str(key))
+        key = pdfbridge.Utils.to_unicode(str(key))
         if (self.has_group(key) == True):
             return self._groups[key]
         elif key in self._atoms:
@@ -732,7 +732,7 @@ class AtomGroup(object):
 
     def __setitem__(self, key, value):
         """operator[] for setter"""
-        key = pdfbridge.Utils.byte2str(key)
+        key = pdfbridge.Utils.to_unicode(key)
         if (isinstance(value, AtomGroup) == True):
             self.set_group(key, value)
         elif (isinstance(value, pdfbridge.Atom) == True):
