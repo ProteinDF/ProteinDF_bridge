@@ -60,9 +60,11 @@ class Pdb(object):
             'CL': 'CL  '
         }
         self._modpdb_amber_res_tbl = {
+            'NA': 'Na+',
             'CL': 'Cl-'
         }
         self._modpdb_formal_res_tbl = {
+            'NA': 'NA ',
             'CL': 'CL '
         }
         
@@ -187,7 +189,7 @@ class Pdb(object):
                 res_name = line[17:20]
                 chain_id = line[21]
                 if (chain_id == ' ') and (res_name != 'WAT'):
-                    chain_id = chr(ord('A') + chain_serial)
+                    chain_id = chr(ord('A') + (chain_serial % 26))
                 res_seq = line[22:26]
                 i_code = line[26]
                 coord_x = line[30:38]
@@ -261,7 +263,7 @@ class Pdb(object):
                 resname = line[17:20]
                 chain_id = line[21]
                 if (chain_id == ' ') and (res_name != 'WAT'):
-                    chain_id = chr(ord('A') + chain_serial)
+                    chain_id = chr(ord('A') + (chain_serial % 26))
                     chain_serial += 1
                 res_seq = line[22:26]
                 i_code = line[26]

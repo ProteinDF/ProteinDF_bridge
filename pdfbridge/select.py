@@ -38,8 +38,7 @@ class Select(object):
 
 class Select_Name(Select):
     def __init__(self, query):
-        assert(isinstance(query, str) == True)
-        self.query = query
+        self.query = pdfbridge.Utils.to_unicode(query)
 
     def is_match(self, obj):
         answer = False
@@ -52,29 +51,39 @@ class Select_Path(Select):
     """
     """
     def __init__(self, query):
-        assert(isinstance(query, str))
-        self._query = query
+        self._query = pdfbridge.Utils.to_unicode(query)
+
+        self._regex_selecter = self._prepare(query)
+                
+    def _prepare(self, query):
+        query = re.sub("(?<!\\\)\*", '.*', query)
+        query = re.sub("(?<!\\\)\?", '?', query)
+        query = '^' + query + '$'
+        
+        return Select_PathRegex(query)
+
+    #def is_match(self, obj):
+    #    answer = False
+    #    path = obj.path
+    #    if (self._query == path):
+    #        answer = True
+    #    return answer
 
     def is_match(self, obj):
-        answer = False
-        path = obj.path
-        if (self._query == path):
-            answer = True
-        return answer
-
-
+        return self._regex_selecter.is_match(obj)
+    
+    
 class Select_PathRegex(Select):
     """
     pathに対する正規表現で選択する
     """
     def __init__(self, query):
-        assert(isinstance(query, str))
-        self._query = query
+        self._query = pdfbridge.Utils.to_unicode(query)
         self._regex = re.compile(query)
 
     def is_match(self, obj):
         answer = False
-        path = obj.get_path()
+        path = obj.path
         if (self._regex.search(path) != None):
             #print("path=[%s] regex=[%s]" % (path, self._query))
             answer = True
@@ -86,7 +95,6 @@ class Select_Atom(Select):
     原子記号で選択する
     """
     def __init__(self, atom_symbol):
-        assert(isinstance(atom_symbol, str) == True)
         self._atom_symbol = atom_symbol.upper()
 
     def is_match(self, obj):

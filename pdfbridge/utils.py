@@ -107,7 +107,12 @@ class Utils(object):
         """
         byteをstr(utf-8)に変換する
         """
-        assert isinstance(unicode_or_str, (str, bytes))
+        try:
+            assert isinstance(unicode_or_str, (unicode, str, bytes))
+        except:
+            print(type(unicode_or_str))
+            print(unicode_or_str)
+            raise
 
         value = unicode_or_str
         if sys.version_info[0] >= 3:
@@ -117,7 +122,12 @@ class Utils(object):
         else:
             # Python2
             if isinstance(unicode_or_str, str):
-                value = unicode_or_str.decode('utf-8')
+                try:
+                    value = unicode_or_str.decode('utf-8')
+                except:
+                    print(type(unicode_or_str))
+                    print(unicode_or_str)
+                    raise
 
         return value
 

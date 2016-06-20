@@ -49,7 +49,7 @@ class Atom(object):
         self._atomic_number = pdfbridge.PeriodicTable.get_atomic_number('X')
         self._xyz = pdfbridge.Position()
         self._force = pdfbridge.Position()
-        self._name = ''
+        self.name = ''
         self._label = ''
         self._charge = 0.0
         self._path = ''
@@ -62,7 +62,7 @@ class Atom(object):
                     self._atomic_number = rhs._atomic_number
                     self._xyz = pdfbridge.Position(rhs._xyz)
                     self._force = pdfbridge.Position(rhs._force)
-                    self._name = pdfbridge.Utils.to_unicode(rhs._name)
+                    self.name = rhs._name
                     self._label = pdfbridge.Utils.to_unicode(rhs.label)
                     self._charge = float(rhs._charge)
                     self._path = pdfbridge.Utils.to_unicode(rhs._path)
@@ -77,7 +77,7 @@ class Atom(object):
         self._xyz = kwargs.get('xyz', self._xyz) # alias
         self._force = kwargs.get('force', self._force)
         if 'name' in kwargs:
-            self._name = kwargs.get('name')
+            self.name = kwargs.get('name')
         if 'label' in kwargs:
             self._label = kwargs.get('label')
         if 'charge' in kwargs:
@@ -145,6 +145,7 @@ class Atom(object):
         return self._name
 
     def _set_name(self, name):
+        name = str(name)
         self._name = pdfbridge.Utils.to_unicode(name)
 
     name = property(_get_name, _set_name)
@@ -222,7 +223,7 @@ class Atom(object):
     def get_raw_data(self):
         data = {}
         data['Z'] = self._atomic_number
-        data['name'] = self._name
+        data['name'] = self.name
         data['Q'] = self._charge
         data['xyz'] = self._xyz.get_raw_data()
         data['force'] = self._force.get_raw_data()

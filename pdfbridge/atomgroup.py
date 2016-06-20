@@ -56,7 +56,7 @@ class AtomGroup(object):
         self._atoms = OrderedDict()
         self._groups = OrderedDict()
         self._bonds = []
-        self._name = ''
+        self.name = ''
         self._path = '/'
         self._parent = None
 
@@ -73,7 +73,7 @@ class AtomGroup(object):
                     for k, v in rhs.groups():
                         self.set_group(k, v)
                     self._bonds = copy.copy(rhs._bonds)
-                    self._name = pdfbridge.Utils.to_unicode(rhs._name)
+                    self.name = rhs.name
                     self._path = pdfbridge.Utils.to_unicode(rhs._path)
                     self.parent = rhs._parent
                     self._sort_atoms = rhs._sort_atoms
@@ -84,7 +84,7 @@ class AtomGroup(object):
                 raise pdfbridge.InputError('atomgroup.__init__', 'illegal the number of args')
 
         if 'name' in kwargs:
-            self._name = kwargs.get('name')
+            self.name = kwargs.get('name')
         if 'parent' in kwargs:
             self._parent = kwargs.get('parent')
 
@@ -355,7 +355,6 @@ class AtomGroup(object):
         return self._name
 
     def _set_name(self, name):
-        name = str(name)
         self._name = pdfbridge.Utils.to_unicode(name)
 
     name = property(_get_name, _set_name)
@@ -374,7 +373,7 @@ class AtomGroup(object):
         return self._path
 
     def _set_path(self, value):
-        value = str(value)
+        value = pdfbridge.Utils.to_unicode(value)
         if (self._path != value):
             self._path = value
             if (self._path[-1] != '/'):

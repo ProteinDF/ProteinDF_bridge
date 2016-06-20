@@ -590,20 +590,22 @@ class Modeling:
 
     # ------------------------------------------------------------------
     def neutralize_FAD(self, ag):
+        print("neutralize_FAD")
+        print(ag)
         answer = pdfbridge.AtomGroup()
 
         POO1 = pdfbridge.AtomGroup()
         POO1.set_atom('P', ag['P'])
-        POO1.set_atom('O1', ag['O1P'])
-        POO1.set_atom('O2', ag['O2P'])
+        POO1.set_atom('O1', ag['OP1']) # amber format: OP1, pdb: O1P
+        POO1.set_atom('O2', ag['OP2']) # amber format: OP2, pdb: O2P
         Na1 = pdfbridge.Atom(symbol = 'Na',
                              name = 'Na',
                              position = self._get_neutralize_pos_POO_type(POO1))
 
         POO2 = pdfbridge.AtomGroup()
         POO2.set_atom('P', ag['PA'])
-        POO2.set_atom('O1', ag['O1A'])
-        POO2.set_atom('O2', ag['O2A'])
+        POO2.set_atom('O1', ag['O1A']) # amber format: OA1, pdb: O1A
+        POO2.set_atom('O2', ag['O2A']) # amber format: OA2, pdb: O2A
         Na2 = pdfbridge.Atom(symbol = 'Na',
                              name = 'Na',
                              position = self._get_neutralize_pos_POO_type(POO2))
