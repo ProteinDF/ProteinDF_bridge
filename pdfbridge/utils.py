@@ -146,7 +146,25 @@ class Utils(object):
                 value = unicode_or_str.encode('utf-8')
 
         return value
-        
+
+    @classmethod
+    def str_to_bool(cls, input_str):
+        if isinstance(input_str, bool):
+            return input_str
+
+        answer = False
+        try:
+            tmp = int(input_str)
+            if tmp != 0:
+                answer = True
+        except:
+            if len(input_str) > 0:
+                tmp = input_str.upper()
+                if (tmp[0] == 'Y' or
+                    tmp[0] == 'T'):
+                    answer = True
+        return answer
+    
     @classmethod
     def check_pickled(cls, data, level=0):
         if isinstance(data, dict):
