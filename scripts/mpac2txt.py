@@ -21,7 +21,7 @@
 
 import sys
 import argparse
-import yaml
+import pprint
 try:
     import msgpack
 except:
@@ -44,14 +44,8 @@ def main():
     data = msgpack.unpackb(contents)
     data = pdfbridge.Utils.to_unicode_dict(data)
     f.close()
-
-    yaml_str = yaml.dump(data,
-                         encoding='utf8',
-                         allow_unicode=True,
-                         default_flow_style=False,
-                         line_break='\n')
-    yaml_str = pdfbridge.Utils.to_unicode(yaml_str)
-    print(yaml_str)
+    
+    pprint.pprint(data)
 
 if __name__ == '__main__':
     main()

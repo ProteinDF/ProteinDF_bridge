@@ -91,17 +91,42 @@ class Utils(object):
     @classmethod
     def to_unicode_dict(cls, d):
         """
-        byteをキーとして保存してある辞書に対して、
+        byteを保存してある辞書に対して、
         str(utf-8)をキーとする辞書に変換する。
         """
         assert isinstance(d, dict)
         answer = {}
-        if isinstance(d, dict):
-            for k, v in d.items():
-                new_key = cls.to_unicode(k)
-                answer[new_key] = v
+        for k, v in d.items():
+            new_key = cls.to_unicode(k)
+            if isinstance(v, list):
+                v = cls.to_unicode_list(v)
+            elif isinstance(v, dict):
+                v = cls.to_unicode_dict(v)
+            elif isinstance(v, (str, bytes)):
+                v = cls.to_unicode(v)
+            else:
+                pass # do nothing
+            answer[new_key] = v
         return answer
 
+    @classmethod
+    def to_unicode_list(cls, l):
+        """
+        """
+        assert isinstance(l, list)
+        answer = []
+        for v in l:
+            if isinstance(v, list):
+                v = cls.to_unicode_list(v)
+            elif isinstance(v, dict):
+                v = cls.to_unicode_dict(v)
+            elif isinstance(v, (str, bytes)):
+                v = cls.to_unicode(v)
+            else:
+                pass # do nothing
+            answer.append(v)
+        return answer
+        
     @classmethod
     def to_unicode(cls, unicode_or_str):
         """

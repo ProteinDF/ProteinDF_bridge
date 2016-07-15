@@ -44,6 +44,7 @@ setup(name='ProteinDF_bridge',
           'scripts/doctest_runner.py',
 
           'scripts/mpac2yml.py',
+          'scripts/mpac2txt.py',
           'scripts/yml2mpac.py',
 
           'scripts/brd-select.py',
