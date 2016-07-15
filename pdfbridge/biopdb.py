@@ -221,6 +221,10 @@ class Pdb(object):
                     item['temp_factor'] = 0.0
 
                 if (len(element) != 0):
+                    # TODO: 原子変換テーブル作成
+                    element = element.strip()
+                    if element == 'D':
+                        element = 'H'
                     item['element'] = element
                 else:
                     # TODO: テーブルを持って変換するように変更

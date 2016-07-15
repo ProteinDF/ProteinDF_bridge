@@ -596,8 +596,8 @@ class Modeling:
 
         POO1 = pdfbridge.AtomGroup()
         POO1.set_atom('P', ag['P'])
-        POO1.set_atom('O1', ag['OP1']) # amber format: OP1, pdb: O1P
-        POO1.set_atom('O2', ag['OP2']) # amber format: OP2, pdb: O2P
+        POO1.set_atom('O1', ag['O1P']) # amber format: OP1, pdb: O1P
+        POO1.set_atom('O2', ag['O2P']) # amber format: OP2, pdb: O2P
         Na1 = pdfbridge.Atom(symbol = 'Na',
                              name = 'Na',
                              position = self._get_neutralize_pos_POO_type(POO1))
