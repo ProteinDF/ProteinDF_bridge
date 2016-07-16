@@ -25,6 +25,23 @@ import re
 import copy
 import pickle
 
+import types
+try:
+    unicode = unicode
+except NameError:
+    # 'unicode' is undefined, must be Python 3
+    str = str
+    unicode = str
+    bytes = bytes
+    basestring = (str,bytes)
+else:
+    # 'unicode' exists, must be Python 2
+    str = str
+    unicode = unicode
+    bytes = str
+    basestring = basestring
+
+
 class Utils(object):
     @classmethod
     def sort_nicely(cls, l):
@@ -132,17 +149,17 @@ class Utils(object):
         """
         byteをstr(utf-8)に変換する
         """
-        try:
-            if sys.version_info[0] >= 3:
-                # Python3
-                assert isinstance(unicode_or_str, (str, bytes))
-            else:
-                # Python2
-                assert isinstance(unicode_or_str, (unicode, str, bytes))
-        except:
-            print(type(unicode_or_str))
-            print(unicode_or_str)
-            raise
+        #try:
+        #    if sys.version_info[0] >= 3:
+        #        # Python3
+        #        assert isinstance(unicode_or_str, (str, bytes))
+        #    else:
+        #        # Python2
+        #        assert isinstance(unicode_or_str, (unicode, str, bytes))
+        #except:
+        #    print(type(unicode_or_str))
+        #    print(unicode_or_str)
+        #    raise
 
         value = unicode_or_str
         if sys.version_info[0] >= 3:
@@ -194,7 +211,7 @@ class Utils(object):
                     tmp[0] == 'T'):
                     answer = True
         return answer
-    
+
     @classmethod
     def check_pickled(cls, data, level=0):
         if isinstance(data, dict):

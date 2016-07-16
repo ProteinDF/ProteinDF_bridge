@@ -23,7 +23,7 @@ from __future__ import absolute_import
 
 
 from .common import NullHandler
-from .utils import Utils
+from .utils import Utils, str, bytes, basestring, unicode
 from .error import BrError, InputError
 
 from .vector import Vector
