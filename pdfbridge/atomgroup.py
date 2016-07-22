@@ -621,6 +621,18 @@ class AtomGroup(object):
         return self
 
     # --------------------------------------------------------------------------
+    def __imul__(self, rhs):
+        """
+        implement of '*=' operator
+        """
+        for k, subgrp in self.groups():
+            subgrp *= rhs
+        for k, atom in self.atoms():
+            atom *= rhs
+        
+        return self
+    
+    # --------------------------------------------------------------------------
     def set_by_dict_data(self, data):
         assert(isinstance(data, dict) == True)
         data = pdfbridge.Utils.to_unicode_dict(data)

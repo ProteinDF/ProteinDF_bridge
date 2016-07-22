@@ -100,6 +100,13 @@ class Atom(object):
 
     def rotate(self, rotmat):
         self.xyz.rotate(rotmat)
+
+    def __imul__(self, rhs):
+        """
+        implementation of '*=' operator
+        """
+        self.xyz *= rhs
+        return self
         
     # --------------------------------------------------------------------------
     def _get_xyz(self):
