@@ -253,6 +253,10 @@ class Matrix(object):
         #return buffer(self._data.tostring())
         return self._data.tostring()
 
+    def set_buffer(self, b):
+        self._data = numpy.fromstring(b, dtype=numpy.float)
+        self._data.shape = (self.rows, self.cols)
+    
     def __add__(self, other):
         assert isinstance(other, Matrix)
         assert (self.rows == other.rows)
