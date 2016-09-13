@@ -64,6 +64,9 @@ setup(name='ProteinDF_bridge',
           'scripts/brd-show-bonds.py',
           'scripts/superposer.py',
 
+          'scripts/neutralize.py',
+          'scripts/reorder.py'
+          
           #'scripts/remove_wat.py',
           #'scripts/relax_protein.py',
           #'scripts/relax_protein.sh'

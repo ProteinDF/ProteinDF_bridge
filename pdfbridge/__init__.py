@@ -44,6 +44,7 @@ from .aminoacid import AminoAcid
 
 from .modeling import Modeling
 from .ionpair import IonPair
+from .neutralize import Neutralize
 
 from .superposer import Superposer
 from .superposer_quaternion import Superposer_quaternion

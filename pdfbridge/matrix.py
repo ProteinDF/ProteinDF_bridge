@@ -266,6 +266,10 @@ class Matrix(object):
         #return buffer(self._data.tostring())
         return self._data.tostring()
 
+    def set_buffer(self, b):
+        self._data = numpy.fromstring(b, dtype=numpy.float)
+        self._data.shape = (self.rows, self.cols)
+    
     def get_ndarray(self):
         """
         return numpy.ndarray object
@@ -275,7 +279,7 @@ class Matrix(object):
     def inverse(self):
         tmp_data = numpy.linalg.inv(self._data)
         return Matrix(tmp_data)
-        
+
     def __add__(self, other):
         assert isinstance(other, Matrix)
         assert (self.rows == other.rows)
