@@ -27,7 +27,7 @@ from .utils import Utils, str, bytes, basestring, unicode
 from .error import BrError, InputError
 
 from .vector import Vector
-from .matrix import Matrix, SymmetricMatrix
+from .matrix import Matrix, SymmetricMatrix, identity_matrix
 from .position import Position
 
 from .periodictable import PeriodicTable

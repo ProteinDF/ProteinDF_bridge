@@ -100,6 +100,17 @@ class Vector(object):
     def set_buffer(self, buf):
         self._data = numpy.fromstring(buf)
 
+    def get_ndarray(self):
+        return copy.deepcopy(self._data)
+        
+    @property
+    def max(self):
+        return self._data.max()
+
+    @property
+    def min(self):
+        return self._data.min()
+        
     def __get_header_struct(self, is_little_endian):
         if is_little_endian:
             return self.__header_struct_little_endian

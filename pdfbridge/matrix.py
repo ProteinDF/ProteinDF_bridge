@@ -70,11 +70,14 @@ class Matrix(object):
                 self._cols = args[0]._cols
                 self._type = args[0]._type
                 self._data = copy.copy(args[0]._data)
+            elif isinstance(args[0], numpy.ndarray):
+                self._data = copy.deepcopy(args[0])
+                assert(self._data.ndim == 2)
+                self._rows, self._cols = self._data.shape
             elif isinstance(args[0], list):
                 self._data = numpy.array(args[0], numpy.float)
                 assert(self._data.ndim == 2)
                 self._rows, self._cols = self._data.shape
-                return
             else:
                 raise
         elif size_of_args == 2:
@@ -212,6 +215,16 @@ class Matrix(object):
             v[i] = self.get(row, i)
         return v
 
+    def get_col_vector(self, col):
+        assert(0 <= col)
+        assert(col < self.cols)
+
+        rows = self.rows
+        v = pdfbridge.Vector(rows)
+        for i in range(rows):
+            v[i] = self.get(i, col)
+        return v
+    
     def __str__(self):
         answer = ''
         for order in range(0, self.cols, 10):
@@ -253,6 +266,16 @@ class Matrix(object):
         #return buffer(self._data.tostring())
         return self._data.tostring()
 
+    def get_ndarray(self):
+        """
+        return numpy.ndarray object
+        """
+        return copy.deepcopy(self._data)
+    
+    def inverse(self):
+        tmp_data = numpy.linalg.inv(self._data)
+        return Matrix(tmp_data)
+        
     def __add__(self, other):
         assert isinstance(other, Matrix)
         assert (self.rows == other.rows)
@@ -531,6 +554,13 @@ class SymmetricMatrix(Matrix):
         return answer
 
 
+def identity_matrix(dim):
+    I = SymmetricMatrix(dim)
+    for i in range(dim):
+        I.set(i, i, 1.0)
+
+    return I
+    
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
