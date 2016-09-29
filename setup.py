@@ -65,7 +65,9 @@ setup(name='ProteinDF_bridge',
           'scripts/superposer.py',
 
           'scripts/neutralize.py',
-          'scripts/reorder.py'
+          'scripts/reorder.py',
+
+          'scripts/read_amber_prmtop.py'
           
           #'scripts/remove_wat.py',
           #'scripts/relax_protein.py',

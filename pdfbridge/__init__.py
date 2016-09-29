@@ -42,6 +42,8 @@ from .xyz import Xyz
 
 from .aminoacid import AminoAcid
 
+from .amber_prmtop import AmberPrmtop
+
 from .modeling import Modeling
 from .ionpair import IonPair
 from .neutralize import Neutralize
