@@ -619,27 +619,28 @@ class AtomGroup(object):
         """
         implement of '^=' operator
         """
-        assert(isinstance(rhs, AtomGroup) == True)
-        #self.update_path(self.get_path())
-        #rhs.update_path(rhs.get_path())
-
-        for key, group in rhs.groups():
-            if (self.has_group(key) == True):
-                self._groups[key].__ixor__(group)
-                if ((self._groups[key].get_number_of_groups() == 0) and
-                    (self._groups[key].get_number_of_atoms() == 0)):
-                    self.erase_group(key)
-            else:
-                self.set_group(key, group)
-
-        for key, atom in rhs.atoms():
-            if key in self._atoms:
-                self.erase_atom(key)
-            else:
-                self.set_atom(key, atom)
-
+        self = self ^ rhs
+        
         return self
 
+    def __xor__(self, rhs):
+        ''' operator ^
+        '''
+        assert(isinstance(rhs, AtomGroup))
+
+        answer = AtomGroup()
+        for key, subgrp in self.groups():
+            if rhs.has_group(key):
+                subgrp = subgrp ^ rhs.get_group(key)
+            if subgrp.get_number_of_all_atoms() > 0:
+                answer.set_group(key, subgrp)
+        for key, atom in self.atoms():
+            if not rhs.has_atom(key):
+                answer.set_atom(key, atom)
+        return answer
+
+        
+    
     # --------------------------------------------------------------------------
     def __imul__(self, rhs):
         """
