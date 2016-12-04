@@ -237,11 +237,21 @@ class AtomGroup(object):
         return (self.has_groupkey(key_or_name)) or (self.has_groupname(key_or_name))
 
     def erase_group(self, key):
+        """remove group
+        
+        absolete function.
+        """
+        logger.info("absolete function: erase_group")
+        self.remove_group(key)
+        
+    def remove_group(self, key):
+        """remove group
+        """
         key = pdfbridge.Utils.to_unicode(key)
         self._groups.pop(key, None)
 
-    #def get_group_list(self):
-    #    return self.data['groups'].keys()
+    def get_group_list(self):
+        return [ k for k, v in self.groups() ]
 
     # --------------------------------------------------------------------------
     def atoms(self):
@@ -313,6 +323,16 @@ class AtomGroup(object):
         return (self.has_atomkey(key_or_name)) or (self.has_atomname(key_or_name))
 
     def erase_atom(self, key):
+        """remove atom
+        
+        absolete function.
+        """
+        logger.info("absolete function: erase_atom()")
+        self.remove_atom(key)
+        
+    def remove_atom(self, key):
+        """remove atom
+        """
         key = pdfbridge.Utils.to_unicode(key)
         self._atoms.pop(key, None)
 
