@@ -716,17 +716,18 @@ class AtomGroup(object):
 
         return self._get_str()
 
-    def _get_str(self, indent_level = 0):
+    def _get_str(self, key='', indent_level=0):
         indent = '  ' * indent_level
 
-        answer = '{indent}<grp name={name}'.format(indent=indent,
-                                                   name=self.name)
+        answer = '{indent}<grp key={key} name={name}'.format(indent=indent,
+                                                             key=key,
+                                                             name=self.name)
         if self.parent is not None:
             answer += '{indent} parent={parent}'.format(indent=indent,
                                                         parent=self.parent.name)
         answer += '\n'
         for key, atomgroup in self.groups():
-            answer += atomgroup._get_str(indent_level +1)
+            answer += atomgroup._get_str(key, indent_level +1)
         for key, atom in self.atoms():
             answer += "{indent}{atom_path}:{atom}\n".format(indent=indent,
                                                             atom_path=atom.path,
