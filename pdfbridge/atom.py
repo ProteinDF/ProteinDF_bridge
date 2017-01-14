@@ -73,8 +73,8 @@ class Atom(object):
 
         if 'symbol' in kwargs:
             self._atomic_number = pdfbridge.PeriodicTable.get_atomic_number(kwargs.get('symbol'))
-        self._xyz = kwargs.get('position', self._xyz)
-        self._xyz = kwargs.get('xyz', self._xyz) # alias
+        self._xyz = pdfbridge.Position(kwargs.get('position', self._xyz))
+        self._xyz = pdfbridge.Position(kwargs.get('xyz', self._xyz)) # alias
         self._force = kwargs.get('force', self._force)
         if 'name' in kwargs:
             self.name = kwargs.get('name')

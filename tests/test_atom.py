@@ -21,33 +21,44 @@
 
 import unittest
 import pickle
-import bridge
+
+from pdfbridge.atom import Atom
 
 class AtomTests(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+        
     def test_init(self):
-        atom = bridge.Atom()
+        atom = Atom()
         atom.symbol = 'Fe'
         self.assertEqual(atom.atomic_number, 26)
 
+    def test_init2(self):
+        atom = Atom(symbol='Ni', position=[0.0, 1.0, 2.0])
+        self.assertEqual(atom.atomic_number, 28)
+        self.assertAlmostEqual(atom.xyz[0], 0.0)
+        self.assertAlmostEqual(atom.xyz[1], 1.0)
+        self.assertAlmostEqual(atom.xyz[2], 2.0)
+        
+    def test_init3(self):
+        atom = Atom(symbol='C', xyz="0.0 1.0 2.0")
+        self.assertEqual(atom.atomic_number, 6)
+        self.assertAlmostEqual(atom.xyz[0], 0.0)
+        self.assertAlmostEqual(atom.xyz[1], 1.0)
+        self.assertAlmostEqual(atom.xyz[2], 2.0)
+        
     def test_pickle(self):
-        atom1 = bridge.Atom()
+        atom1 = Atom()
         atom1.symbol = 'Na'
         b = pickle.dumps(atom1)
         atom2 = pickle.loads(b)
 
-        self.assertIsInstance(atom2, bridge.Atom)
+        self.assertIsInstance(atom2, Atom)
         self.assertEqual(atom2.symbol, 'Na')
 
-def test_suite():
-    """
-    builds the test suite.
-    """
-    def _suite(test_class):
-        return unittest.makeSuite(test_class)
-
-    suite = unittest.TestSuite()
-    suite.addTests(_suite(AtomTests))
-    return suite
 
 if __name__ == '__main__':
-    unittest.main(defaultTest = 'test_suite')
+    unittest.main()

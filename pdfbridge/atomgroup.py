@@ -21,6 +21,9 @@
 
 import re
 import copy
+import logging
+logger = logging.getLogger(__name__)
+
 try:
     from collections import OrderedDict
 except ImportError:
@@ -53,17 +56,8 @@ class AtomGroup(object):
     """
 
     def __init__(self, *args, **kwargs):
-        self._atoms = OrderedDict()
-        self._groups = OrderedDict()
-        self._bonds = []
-        self.name = ''
-        self._path = '/'
-        self._parent = None
-
-        # 'nice'を指定すると数字順にアクセスできる
-        self._sort_atoms = None
-        self._sort_groups = None
-
+        self._initialize()
+        
         if len(args) > 0:
             if len(args) == 1:
                 rhs = args[0]
@@ -88,6 +82,20 @@ class AtomGroup(object):
         if 'parent' in kwargs:
             self._parent = kwargs.get('parent')
 
+            
+    def _initialize(self):
+        self._atoms = OrderedDict()
+        self._groups = OrderedDict()
+        self._bonds = []
+        self.name = ''
+        self._path = '/'
+        self._parent = None
+
+        # 'nice'を指定すると数字順にアクセスできる
+        self._sort_atoms = None
+        self._sort_groups = None
+
+            
     # --------------------------------------------------------------------------
     def get_number_of_groups(self):
         return len(self._groups)
@@ -288,7 +296,7 @@ class AtomGroup(object):
         self._atoms[key] = pdfbridge.Atom(value,
                                           parent=self,
                                           path='{}{}'.format(self.path, key))
-        
+
     def has_atomkey(self, key):
         """
         入力されたkeyの原子が含まれている場合、Trueを返す。
@@ -336,9 +344,6 @@ class AtomGroup(object):
         key = pdfbridge.Utils.to_unicode(key)
         self._atoms.pop(key, None)
 
-    #def get_atom_list(self):
-    #    return self.data['atoms'].keys()
-
     def pickup_atoms(self, key_or_name):
         '''
         key または nameが一致した原子の配列を返す
@@ -369,7 +374,18 @@ class AtomGroup(object):
             i += 1
 
         return atmgrp
-        
+
+    def get_path_list(self):
+        '''
+        グループ内の原子のパスのリストを返す
+        '''
+        answer = []
+        for subgrp_key, subgrp in self.groups():
+            answer.extend(subgrp.get_path_list())
+        for atom_key, atom in self.atoms():
+            answer.append(atom.path)
+        return answer
+    
     # name ---------------------------------------------------------------------
     def _get_name(self):
         return self._name
@@ -778,15 +794,10 @@ class AtomGroup(object):
     # serialize
     # ------------------------------------------------------------------
     def __getstate__(self):
-        return self.get_dict_data()
+        return self.get_raw_data()
 
     def __setstate__(self, state):
-        self._atoms = {}
-        self._groups = {}
-        self._bonds = []
-        self._name = ''
-        self._path = '/'
-        self._parent = None
+        self._initialize()
         self.set_by_dict_data(state)
 
 

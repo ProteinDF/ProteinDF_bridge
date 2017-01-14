@@ -24,7 +24,9 @@ import optparse
 import math
 import copy
 import numpy
+
 import logging
+logger = logging.getLogger(__name__)
 
 import pdfbridge
 
@@ -93,10 +95,7 @@ class Position(object):
 
     """
     def __init__(self, *args, **kwds):
-        self._logger = logging.getLogger(__name__)
-
-        self.epsilon = 1.0E-5
-        self._position = [0.0, 0.0, 0.0]
+        self._initialize()
 
         len_args = len(args)
         if len_args > 0:
@@ -113,9 +112,20 @@ class Position(object):
                     self._position[0] = float(args[0][0])
                     self._position[1] = float(args[0][1])
                     self._position[2] = float(args[0][2])
+                elif isinstance(args[0], str):
+                    line = args[0]
+                    line = line.replace(",", " ")
+                    inputs = line.split()
+                    self._position[0] = float(inputs.pop(0).rstrip(",")) if (len(inputs) > 0) else 0.0
+                    self._position[1] = float(inputs.pop(0).rstrip(",")) if (len(inputs) > 0) else 0.0
+                    self._position[2] = float(inputs.pop(0).rstrip(",")) if (len(inputs) > 0) else 0.0
             else:
                 raise pdfbridge.InputError("position::__init__", "illegal input")
 
+    def _initialize(self):
+        self.epsilon = 1.0E-5
+        self._position = [0.0, 0.0, 0.0]
+            
     # --------------------------------------------------------------------------
     @property
     def xyz(self):
@@ -273,6 +283,8 @@ class Position(object):
     def __setstate__(self, state):
         assert(isinstance(state, (set, list)))
         assert(len(state) == 3)
+        self._initialize()
+        
         self._position[0] = float(state[0])
         self._position[1] = float(state[1])
         self._position[2] = float(state[2])
