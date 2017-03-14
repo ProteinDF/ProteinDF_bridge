@@ -32,6 +32,7 @@ except ImportError:
 
 import pdfbridge
 
+
 class AtomGroup(object):
     """
     >>> group1 = AtomGroup()
@@ -69,6 +70,7 @@ class AtomGroup(object):
                     self._bonds = copy.copy(rhs._bonds)
                     self.name = rhs.name
                     self._path = pdfbridge.Utils.to_unicode(rhs._path)
+                    self._update_path()
                     self.parent = rhs._parent
                     self._sort_atoms = rhs._sort_atoms
                     self._sort_groups = rhs._sort_groups
@@ -289,13 +291,30 @@ class AtomGroup(object):
                     return atm
         return None
 
-    def set_atom(self, key, value):
+    def _set_atom(self, key, value):
         key = str(key)
         key = pdfbridge.Utils.to_unicode(key)
         assert(isinstance(value, pdfbridge.Atom))
         self._atoms[key] = pdfbridge.Atom(value,
                                           parent=self,
                                           path='{}{}'.format(self.path, key))
+
+    def set_atom(self, key, value):
+        assert(isinstance(value, pdfbridge.Atom))
+        key = str(key)
+        keys = key.split('/', 1)
+        while (len(keys) > 0) and (len(keys[0]) == 0):
+            key = keys[1]
+            keys = key.split('/', 1)
+
+        if len(keys) == 1:
+            self._set_atom(keys[0], value)
+        else:
+            grp_key = keys[0]
+            rest = keys[1]
+            if self.has_groupkey(grp_key) == False:
+                self.set_group(grp_key, AtomGroup())
+            self._groups[grp_key].set_atom(rest, value)
 
     def has_atomkey(self, key):
         """
@@ -410,10 +429,11 @@ class AtomGroup(object):
 
     def _set_path(self, value):
         value = pdfbridge.Utils.to_unicode(value)
+        if (len(value) == 0) or (value[-1] != '/'):
+            value += '/'
+
         if (self._path != value):
             self._path = value
-            if (self._path[-1] != '/'):
-                self._path += '/'
             self._update_path()
 
     path = property(_get_path, _set_path)
@@ -452,6 +472,7 @@ class AtomGroup(object):
                 if (selecter.is_match(atom) == True):
                     answer.set_atom(key, atom)
             answer.path = self.path
+            #print("path:{} ::{}".format(self.path, str(answer)))
         return answer
 
     # --------------------------------------------------------------------------
@@ -590,9 +611,11 @@ class AtomGroup(object):
         else:
             self.set_group(key, group)
 
-    def _update_path(self):
+    def _update_path(self, force=False):
         for key, group in self.groups():
             group.path = "%s%s/" % (self._path, key)
+            if force == True:
+                group._update_path(force)
         for key, atom in self.atoms():
             atom.path = "%s%s" % (self._path, key)
 
@@ -800,7 +823,21 @@ class AtomGroup(object):
         self._initialize()
         self.set_by_dict_data(state)
 
+    # ------------------------------------------------------------------
+    # utilities
+    # ------------------------------------------------------------------
+    @staticmethod
+    def divide_path(path):
+        path = str(path)
+        parts = path.split("/")
 
+        while '' in parts:
+            parts.remove('')
+
+        # num_of_parts = len(parts)
+        return parts
+
+        
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
