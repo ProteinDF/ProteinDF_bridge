@@ -71,6 +71,10 @@ class PeriodicTable(object):
         ]
 
     @staticmethod
+    def get_num_of_atoms():
+        return len(PeriodicTable.__table)
+    
+    @staticmethod
     def get_symbol(atomic_number):
         atomic_number = int(atomic_number)
         try:

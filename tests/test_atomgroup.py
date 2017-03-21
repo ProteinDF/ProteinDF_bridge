@@ -198,6 +198,19 @@ class AtomGroupTests(unittest.TestCase):
         self.assertEqual(parts[0], "res1")
         self.assertEqual(parts[1], "atom2")
         
+    def test_get_formula(self):
+        group1 = AtomGroup()
+        atom1 = Atom(symbol='C')
+        atom2 = Atom(symbol='H')
+        atom3 = Atom(symbol='H')
+        subgrp = AtomGroup()
+        subgrp.set_atom('C1', atom1)
+        subgrp.set_atom('H1', atom2)
+        subgrp.set_atom('H2', atom3)
+        group1.set_group('grp', subgrp)
+
+        formula = group1.get_formula()
+        self.assertEqual(formula, "H2C1")
         
 if __name__ == '__main__':
     unittest.main()

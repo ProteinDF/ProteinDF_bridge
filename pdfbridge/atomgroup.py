@@ -31,6 +31,7 @@ except ImportError:
     from ordereddict import OrderedDict
 
 import pdfbridge
+from .periodictable import PeriodicTable
 
 
 class AtomGroup(object):
@@ -178,6 +179,27 @@ class AtomGroup(object):
             answer.add(atom.symbol)
         return answer
 
+    
+    def get_atom_kinds_count(self):
+        """
+        原子種(シンボル)とその数を格納した辞書を返す
+        """
+        kinds = {}
+
+        for k, subgrp in self.groups():
+            subgrp_kinds = subgrp.get_atom_kinds_count()
+            for symbol, count in subgrp_kinds.items():
+                kinds.setdefault(symbol, 0)
+                kinds[symbol] += count
+
+        for k, atom in self.atoms():
+            symbol = atom.symbol
+            kinds.setdefault(symbol, 0)
+            kinds[symbol] += 1
+            
+        return kinds
+
+    
     # --------------------------------------------------------------------------
     def groups(self):
         """
@@ -404,6 +426,24 @@ class AtomGroup(object):
         for atom_key, atom in self.atoms():
             answer.append(atom.path)
         return answer
+
+    
+    def get_formula(self):
+        """分子式(組成式; composition formula)を返す
+        """
+        kinds = self.get_atom_kinds_count()
+        
+        formula = ""
+        max_atom_id = PeriodicTable.get_num_of_atoms()
+        for atom_id in range(1, max_atom_id):
+            symbol = PeriodicTable.get_symbol(atom_id)
+            if symbol in kinds:
+                formula += "{}{}".format(symbol, kinds[symbol])
+        if "X" in kinds:
+            formula += "X{}".format(kinds["X"])
+                
+        return formula
+
     
     # name ---------------------------------------------------------------------
     def _get_name(self):
