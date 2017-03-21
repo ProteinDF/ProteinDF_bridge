@@ -75,6 +75,21 @@ class AtomGroupTests(unittest.TestCase):
         self.assertAlmostEqual(group2.sum_of_atomic_number(), 14.0)
 
         
+    def test_atom_list(self):
+        group1 = AtomGroup()
+        atom1 = Atom(symbol='C')
+        atom2 = Atom(symbol='H')
+        atom3 = Atom(symbol='N')
+        subgrp = AtomGroup()
+        subgrp.set_atom('C1', atom1)
+        subgrp.set_atom('H1', atom2)
+        subgrp.set_atom('N1', atom3)
+        group1.set_group('grp', subgrp)
+
+        atom_list = group1.get_atom_list()
+        self.assertEqual(len(atom_list), 3)
+
+        
     def test_set_atom_by_path(self):
         atom1 = Atom(symbol='C', xyz="1.1 2.1 3.1")
         atom2 = Atom(symbol='C', xyz="1.2 2.2 3.2")

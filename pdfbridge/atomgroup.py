@@ -398,23 +398,21 @@ class AtomGroup(object):
             if (atm_key == key_or_name) or (atm.name == key_or_name):
                 answer.append(atm)
         return answer
-    
-    def get_atomlist(self):
-        '''
-        サブグループ内の原子を一階層の原子団に変換する
-        '''
-        i = 0
-        atmgrp = AtomGroup()
-        for subgrp_key, subgrp in self.groups():
-            subgrp_list = subgrp.get_atomlist()
-            for atom_key, atom in subgrp_list.atoms():
-                atmgrp.set_atom(i, atom)
-                i += 1
-        for atom_key, atom in self.atoms():
-            atmgrp.set_atom(i, atom)
-            i += 1
 
-        return atmgrp
+    
+    def get_atom_list(self):
+        '''
+        サブグループ内の原子をリスト型に格納して返す
+        '''
+        atom_list = []
+        for subgrp_key, subgrp in self.groups():
+            subgrp_list = subgrp.get_atom_list()
+            atom_list.extend(subgrp_list)
+        for atom_key, atom in self.atoms():
+            atom_list.append(atom)
+
+        return atom_list
+    
 
     def get_path_list(self):
         '''
