@@ -20,6 +20,8 @@
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
 import pdfbridge
+import logging
+logger = logging.getLogger(__name__)
 
 class IonPair(object):
     def __init__(self, model):
@@ -36,8 +38,8 @@ class IonPair(object):
 
                         d = anion_pos.distance_from(cation_pos)
                         if d < 4.0:
-                            print("found ion pair: {}".format(anion_path))
-                            print("              : {}".format(cation_path))
+                            logger.info("found ion pair: {}".format(anion_path))
+                            logger.info("              : {}".format(cation_path))
                             ion_pairs.append((anion_path, cation_path, anion_type, cation_type))
 
         return ion_pairs
@@ -76,8 +78,6 @@ class IonPair(object):
         """
         N末端のイオン対判定用座標を返す
         """
-        print("_get_center_Nterm()")
-        print(res)
         return res['N'].xyz
 
         
@@ -141,7 +141,7 @@ class IonPair(object):
         elif case == 2:
             answer = res['NH2'].xyz
         else:
-            print("unknown mode={}".format(mode))
+            logger.warning("unknown mode={}".format(mode))
             
         return answer
 
