@@ -98,7 +98,20 @@ class AtomGroup(object):
         self._sort_atoms = None
         self._sort_groups = None
 
-            
+    # property -----------------------------------------------------------------
+    def _get_sort_atoms(self):
+        return self._sort_atoms
+    def _set_sort_atoms(self, v):
+        self._sort_atoms = v
+    sort_atoms = property(_get_sort_atoms, _set_sort_atoms)
+
+    
+    def _get_sort_groups(self):
+        return self._sort_groups
+    def _set_sort_groups(self, v):
+        self._sort_groups = v
+    sort_groups = property(_get_sort_groups, _set_sort_groups)
+    
     # --------------------------------------------------------------------------
     def get_number_of_groups(self):
         return len(self._groups)
@@ -205,7 +218,7 @@ class AtomGroup(object):
         """
         原子団のリストを返す
         """
-        if self._sort_atoms == 'nice':
+        if self._sort_groups == 'nice':
             keys = list(self._groups.keys())
             keys = pdfbridge.Utils.sort_nicely(keys)
             for k in keys:
@@ -765,7 +778,12 @@ class AtomGroup(object):
         atom_keys = pdfbridge.Utils.sort_nicely(atom_keys)
         for atom_key in atom_keys:
             self.set_atom(atom_key, tmp_atoms[atom_key])
-                
+
+        if "sort_atoms" in data:
+            self.sort_atoms = data["sort_atoms"]
+        if "sort_groups" in data:
+            self.sort_groups = data["sort_groups"]
+            
         self._update_path()
         return self
 
@@ -786,6 +804,12 @@ class AtomGroup(object):
         data['name'] = self._name
         if len(self._bonds) > 0:
             data['bonds'] = self._bonds
+
+        if self.sort_atoms != None:
+            data['sort_atoms'] = self.sort_atoms
+        if self.sort_groups != None:
+            data['sort_groups'] = self.sort_groups
+
         return data
 
     def __str__(self):
