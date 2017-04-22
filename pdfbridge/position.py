@@ -24,7 +24,9 @@ import optparse
 import math
 import copy
 import numpy
+
 import logging
+logger = logging.getLogger(__name__)
 
 import pdfbridge
 
@@ -92,15 +94,8 @@ class Position(object):
     True
 
     """
-    _position = [0.0, 0.0, 0.0]
-
     def __init__(self, *args, **kwds):
-        nullHandler = pdfbridge.NullHandler()
-        self._logger = logging.getLogger(__name__)
-        self._logger.addHandler(nullHandler)
-
-        self.epsilon = 1.0E-5
-        self._position = [0.0, 0.0, 0.0]
+        self._initialize()
 
         len_args = len(args)
         if len_args > 0:
@@ -117,9 +112,20 @@ class Position(object):
                     self._position[0] = float(args[0][0])
                     self._position[1] = float(args[0][1])
                     self._position[2] = float(args[0][2])
+                elif isinstance(args[0], str):
+                    line = args[0]
+                    line = line.replace(",", " ")
+                    inputs = line.split()
+                    self._position[0] = float(inputs.pop(0).rstrip(",")) if (len(inputs) > 0) else 0.0
+                    self._position[1] = float(inputs.pop(0).rstrip(",")) if (len(inputs) > 0) else 0.0
+                    self._position[2] = float(inputs.pop(0).rstrip(",")) if (len(inputs) > 0) else 0.0
             else:
                 raise pdfbridge.InputError("position::__init__", "illegal input")
 
+    def _initialize(self):
+        self.epsilon = 1.0E-5
+        self._position = [0.0, 0.0, 0.0]
+            
     # --------------------------------------------------------------------------
     @property
     def xyz(self):
@@ -233,7 +239,7 @@ class Position(object):
         return self.__add__(-rhs)
 
     def __mul__(self, rhs2):
-        rhs1 = copy.deepcopy(self)
+        rhs1 = Position(self)
         if (isinstance(rhs2, Position) == True):
             return sum([x * y for x, y in zip(rhs1._position, rhs2._position)])
         elif (isinstance(rhs2, float) == True):
@@ -258,6 +264,16 @@ class Position(object):
     def __idiv__(self, rhs):
         return self.__imul__(1.0 / float(rhs))
 
+    def __getitem__(self, i):
+        i = int(i)
+        assert(0 <= i and i < 3)
+        return self._position[i]
+
+    def __setitem__(self, i, v):
+        i = int(i)
+        assert(0 <= i and i < 3)
+        self._position[i] = v
+    
     # ------------------------------------------------------------------
     # serialize
     # ------------------------------------------------------------------
@@ -267,10 +283,12 @@ class Position(object):
     def __setstate__(self, state):
         assert(isinstance(state, (set, list)))
         assert(len(state) == 3)
+        self._initialize()
+        
         self._position[0] = float(state[0])
         self._position[1] = float(state[1])
         self._position[2] = float(state[2])
-        
+
         
 if __name__ == "__main__":
     import doctest

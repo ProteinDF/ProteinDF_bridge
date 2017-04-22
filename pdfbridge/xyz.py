@@ -59,9 +59,9 @@ class Xyz(object):
             line = fin.readline()
             words = line.split()
             symbol = words[0]
-            position = bridge.Position([float(words[1]),
-                                        float(words[2]),
-                                        float(words[3])])
+            position = pdfbridge.Position([float(words[1]),
+                                           float(words[2]),
+                                           float(words[3])])
             atom_data = {'symbol': symbol,
                          'position': position}
             self._atoms.append(atom_data)
@@ -78,8 +78,8 @@ class Xyz(object):
         root = pdfbridge.AtomGroup()
         root.name = self._comment
         for i in range(len(self._atoms)):
-            atom = bridge.Atom(symbol = self._atoms[i]['symbol'],
-                               position = self._atoms[i]['position'])
+            atom = pdfbridge.Atom(symbol = self._atoms[i]['symbol'],
+                                  position = self._atoms[i]['position'])
             root.set_atom(str(i), atom)
         return root
 

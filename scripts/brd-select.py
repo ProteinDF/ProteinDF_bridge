@@ -30,56 +30,58 @@ import pdfbridge
 
 def main():
     # parse args
-    parser = argparse.ArgumentParser(description='transform bridge file to PDB file')
+    parser = argparse.ArgumentParser(description='bridge file selecter')
     parser.add_argument('FILE',
                         nargs=1,
                         help='bridge file')
     parser.add_argument('-o', '--output',
-                        nargs='?',
-                        help='PDB output file')
-    parser.add_argument('-a', '--amber',
-                        action="store_true",
-                        default = False,
-                        help='amber mod pdb format')
+                        nargs=1,
+                        type=str,
+                        default=['output.brd'],
+                        help='output brd file')
     parser.add_argument("-v", "--verbose",
                         action="store_true",
                         default = False)
+    parser.add_argument('-p', '--path_query',
+                        nargs=1,
+                        type=str,
+                        help='select by using path string')
     args = parser.parse_args()
-        
+
     # setting
     mpac_file_path = args.FILE[0]
-    output = args.output
-    pdb_mode = None
-    if args.amber:
-        pdb_mode = 'amber'
+    output_path = args.output[0]
     verbose = args.verbose
 
-    # reading
-    if (verbose == True):
-        print("reading: %s\n" % (mpac_file_path))
-    mpac_file = open(mpac_file_path, "rb")
-    mpac_data = msgpack.unpackb(mpac_file.read())
-    mpac_file.close()
+    path_query = args.path_query[0]
     
+    # reading
+    if verbose:
+        print("reading: {}".format(mpac_file_path))
+    mpac_file = open(mpac_file_path, "rb")
+    mpac_data =msgpack.unpackb(mpac_file.read())
+    mpac_file.close()
+        
     # prepare atomgroup
-    atom_group = pdfbridge.AtomGroup(mpac_data)
+    atomgroup = pdfbridge.AtomGroup(mpac_data)
+
     #print(atom_group)
 
-    # prepare BrPdb object
-    pdb_obj = pdfbridge.Pdb(mode = pdb_mode)
-    pdb_obj.set_by_atomgroup(atom_group)
+    # selecter
+    if verbose:
+        print('path_query=\"{}\"'.format(path_query))
+    path_selecter = pdfbridge.Select_Path(path_query)
+    selected = atomgroup.select(path_selecter)
     
-    # output PDB
-    if output:
-        fout = open(output, "w")
-        contents = str(pdb_obj)
-        fout.write(contents)
-        fout.close()
-    else:
-        print(pdb_obj)
-
-    # end
+    # output
+    if (verbose == True):
+        print("writing: %s\n" % (output_path))
+    output_file = open(output_path, "wb")
+    output_data = selected.get_raw_data()
+    output_mpac = msgpack.packb(output_data)
+    output_file.write(output_mpac)
+    output_file.close()
+        
 
 if __name__ == '__main__':
     main()
-

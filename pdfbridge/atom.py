@@ -44,17 +44,16 @@ class Atom(object):
     'Na'
     """
     def __init__(self, *args, **kwargs):
-        nullHandler = pdfbridge.NullHandler()
         self._logger = logging.getLogger(__name__)
-        self._logger.addHandler(nullHandler)
 
-        self._atomic_number = pdfbridge.PeriodicTable.get_atomic_number(kwargs.get('symbol', 'X'))
-        self._xyz = kwargs.get('position', pdfbridge.Position())
-        self._name = kwargs.get('name', '')
-        self._label = kwargs.get('label', '')
-        self._charge = kwargs.get('charge', 0.0)
-        self._path = kwargs.get('path', '')
-        self._parent = kwargs.get('parent', None)  # expected AtomGroup object
+        self._atomic_number = pdfbridge.PeriodicTable.get_atomic_number('X')
+        self._xyz = pdfbridge.Position()
+        self._force = pdfbridge.Position()
+        self.name = ''
+        self._label = ''
+        self._charge = 0.0
+        self._path = ''
+        self._parent = None
 
         if len(args) > 0:
             if len(args) == 1:
@@ -62,10 +61,11 @@ class Atom(object):
                 if (isinstance(rhs, Atom) == True):
                     self._atomic_number = rhs._atomic_number
                     self._xyz = pdfbridge.Position(rhs._xyz)
-                    self._name = pdfbridge.Utils.byte2str(rhs._name)
-                    self._label = pdfbridge.Utils.byte2str(rhs.label)
+                    self._force = pdfbridge.Position(rhs._force)
+                    self.name = rhs._name
+                    self._label = pdfbridge.Utils.to_unicode(rhs.label)
                     self._charge = float(rhs._charge)
-                    self._path = pdfbridge.Utils.byte2str(rhs._path)
+                    self._path = pdfbridge.Utils.to_unicode(rhs._path)
                 elif (isinstance(rhs, dict) == True):
                     self.set_by_raw_data(rhs)
             else:
@@ -73,10 +73,11 @@ class Atom(object):
 
         if 'symbol' in kwargs:
             self._atomic_number = pdfbridge.PeriodicTable.get_atomic_number(kwargs.get('symbol'))
-        if 'position' in kwargs:
-            self._xyz = kwargs.get('position')
+        self._xyz = pdfbridge.Position(kwargs.get('position', self._xyz))
+        self._xyz = pdfbridge.Position(kwargs.get('xyz', self._xyz)) # alias
+        self._force = kwargs.get('force', self._force)
         if 'name' in kwargs:
-            self._name = kwargs.get('name')
+            self.name = kwargs.get('name')
         if 'label' in kwargs:
             self._label = kwargs.get('label')
         if 'charge' in kwargs:
@@ -99,6 +100,13 @@ class Atom(object):
 
     def rotate(self, rotmat):
         self.xyz.rotate(rotmat)
+
+    def __imul__(self, rhs):
+        """
+        implementation of '*=' operator
+        """
+        self.xyz *= rhs
+        return self
         
     # --------------------------------------------------------------------------
     def _get_xyz(self):
@@ -108,7 +116,17 @@ class Atom(object):
         self._xyz = pdfbridge.Position(p)
 
     xyz = property(_get_xyz, _set_xyz)
-        
+    position = property(_get_xyz, _set_xyz)
+
+    # --------------------------------------------------------------------------
+    def _get_force(self):
+        return self._force
+
+    def _set_force(self, f):
+        self._force = pdfbridge.Position(f)
+
+    force = property(_get_force, _set_force)
+    
     # --------------------------------------------------------------------------
     def _get_atomic_number(self):
         return self._atomic_number
@@ -134,7 +152,8 @@ class Atom(object):
         return self._name
 
     def _set_name(self, name):
-        self._name = pdfbridge.Utils.byte2str(name)
+        name = str(name)
+        self._name = pdfbridge.Utils.to_unicode(name)
 
     name = property(_get_name, _set_name)
 
@@ -143,7 +162,7 @@ class Atom(object):
         return self._label
 
     def _set_label(self, label):
-        self._label = pdfbridge.Utils.byte2str(label)
+        self._label = pdfbridge.Utils.to_unicode(label)
 
     label = property(_get_label, _set_label)
     
@@ -167,7 +186,7 @@ class Atom(object):
         return self._path
 
     def _set_path(self, path):
-        self._path = pdfbridge.Utils.byte2str(path)
+        self._path = pdfbridge.Utils.to_unicode(path)
 
     path = property(_get_path, _set_path)
 
@@ -202,6 +221,8 @@ class Atom(object):
                 self.charge = value
             elif key == 'xyz':
                 self.xyz = pdfbridge.Position(value)
+            elif key == 'force':
+                self.force = pdfbridge.Position(value)
             else:
                 self._logger.debug("bridge::Atom > unknown key: {}".format(key))
         return self
@@ -209,33 +230,37 @@ class Atom(object):
     def get_raw_data(self):
         data = {}
         data['Z'] = self._atomic_number
-        data['name'] = self._name
+        data['name'] = self.name
         data['Q'] = self._charge
         data['xyz'] = self._xyz.get_raw_data()
-
+        data['force'] = self._force.get_raw_data()
+        
         return data
 
     # ==================================================================
     # debug
     # ==================================================================
     def __str__(self):
-        answer = "%2s(name=\"%s\")(% 8.3f, % 8.3f, % 8.3f) Z=% .2f" % (
+        answer = "%2s(name=\"%s\")(% 8.3f, % 8.3f, % 8.3f) Z=% .2f <(% 8.3f, % 8.3f, % 8.3f)>" % (
             self.symbol,
             self.name,
             self.xyz.x,
             self.xyz.y,
             self.xyz.z,
-            self.charge)
+            self.charge,
+            self.force.x,
+            self.force.y,
+            self.force.z)
         return answer
     
     # ------------------------------------------------------------------
     # serialize
     # ------------------------------------------------------------------
     def __getstate__(self):
-        return self.get_dict_data()
+        return self.get_raw_data()
 
     def __setstate__(self, state):
-        self.set_by_dict_data(state)
+        self.set_by_raw_data(state)
         
         
 if __name__ == "__main__":

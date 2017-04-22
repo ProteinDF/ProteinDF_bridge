@@ -30,34 +30,44 @@ import pdfbridge
 
 def main():
     # parse args
-    parser = argparse.ArgumentParser(description='transform XYZ file to bridge file')
-    parser.add_argument('XYZ_PATH',
+    parser = argparse.ArgumentParser(description='show bonds')
+    parser.add_argument('FILE',
                         nargs=1,
-                        help='xyz file path')
-    parser.add_argument('BRD_PATH',
-                        nargs=1,
-                        help='bridge file path')
+                        help='bridge file')
+    parser.add_argument('-o', '--output',
+                        nargs='?',
+                        help='output brd file')
     parser.add_argument("-v", "--verbose",
                         action="store_true",
                         default = False)
     args = parser.parse_args()
-        
+
     # setting
-    xyz_file_path = args.XYZ_PATH[0]
-    brd_file_path = args.BRD_PATH[0]
+    mpac_file_path = args.FILE[0]
+    output = args.output
+    if output == '':
+        output = 'output.brd'
     verbose = args.verbose
 
     # reading
+    if verbose:
+        print("reading: %s\n" % (mpac_file_path))
+    mpac_file = open(mpac_file_path, "rb")
+    mpac_data =msgpack.unpackb(mpac_file.read())
+    mpac_file.close()
+        
+    # prepare atomgroup
+    atom_group = pdfbridge.AtomGroup(mpac_data)
+    #print(atom_group)
+
+    bond_list = atom_group.get_bond_list()
+    
+    # output
     if (verbose == True):
-        print("reading: %s\n" % (xyz_file_path))
-    xyz = pdfbridge.Xyz()
-    xyz.load(xyz_file_path)
-    atomgroup = xyz.get_atom_group()
-    
-    brd_file = open(brd_file_path, "wb");
-    mpac = msgpack.packb(atomgroup.get_raw_data())
-    brd_file.write(mpac)
-    brd_file.close()
-    
+        print("writing: %s\n" % (output))
+    for bond in bond_list:
+        print(bond)
+
+
 if __name__ == '__main__':
     main()

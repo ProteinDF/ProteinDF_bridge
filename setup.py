@@ -44,8 +44,11 @@ setup(name='ProteinDF_bridge',
           'scripts/doctest_runner.py',
 
           'scripts/mpac2yml.py',
+          'scripts/mpac2txt.py',
           'scripts/yml2mpac.py',
 
+          'scripts/brd-select.py',
+          
           'scripts/brd2txt.py',
 
           'scripts/pdb2brd.py',
@@ -58,7 +61,17 @@ setup(name='ProteinDF_bridge',
           'scripts/db2txt.py',
 
           'scripts/brd-setup-bond.py',
-          'scripts/superposer.py'
+          'scripts/brd-show-bonds.py',
+          'scripts/superposer.py',
+
+          'scripts/neutralize.py',
+          'scripts/reorder.py',
+
+          'scripts/read_amber_prmtop.py'
+          
+          #'scripts/remove_wat.py',
+          #'scripts/relax_protein.py',
+          #'scripts/relax_protein.sh'
       ],
       data_files=[('data', ['data/ACE_ALA_NME.brd'])],
       #test_suite='tests'

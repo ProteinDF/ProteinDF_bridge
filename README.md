@@ -10,7 +10,7 @@ What you need to use ProteinDF_bridge
   * numpy
   * argparse
   * PyYaml
-  * msgpack-python or msgpack-pure
+  * msgpack-python, u-msgpack-python or msgpack-pure
   * configparser
   * ordereddict (for Python 2.6)
 

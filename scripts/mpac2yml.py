@@ -42,20 +42,15 @@ def main():
     f = open(file_path, "rb")
     contents = f.read()
     data = msgpack.unpackb(contents)
-    data = pdfbridge.Utils.byte2str(data)
+    data = pdfbridge.Utils.to_unicode_dict(data)
     f.close()
 
-    #for k, v in data.items():
-    #    k = pdfbridge.Utils.byte2str(k)
-    #    print(k, v)
-    
-    #yaml_str = yaml.dump(data,
-    #                     encoding='utf8',
-    #                     allow_unicode=True,
-    #                     default_flow_style=False)
     yaml_str = yaml.dump(data,
+                         encoding='utf8',
                          allow_unicode=True,
-                         default_flow_style=False)
+                         default_flow_style=False,
+                         line_break='\n')
+    yaml_str = pdfbridge.Utils.to_unicode(yaml_str)
     print(yaml_str)
 
 if __name__ == '__main__':

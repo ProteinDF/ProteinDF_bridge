@@ -59,6 +59,8 @@ class DbManager(object):
     """
     def __init__(self, db=':memory:', sql_debugout=False):
         self._logger = logging.getLogger(__name__)
+        self._logger.addHandler(logging.NullHandler())
+        
         self._connection = sqlite3.connect(db)
         self._cursor = self._connection.cursor()
         self._sql_debugout = sql_debugout
@@ -291,7 +293,7 @@ class DbManager(object):
         """
         SQLを実行する
         """
-        self._logger.debug("sql> {0}\n".format(sql))
+        self._logger.debug("sql> {0}".format(sql))
         if (parameters != None):
             return self._cursor.execute(sql, parameters)
         else:

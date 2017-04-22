@@ -70,7 +70,7 @@ class Vector(object):
             if (buf != None):
                 self._data = numpy.array([0.0 for x in range(size)])
         elif isinstance(obj, Vector):
-            self._data = obj._data
+            self._data = copy.copy(obj._data)
         else:
             print(type(obj))
             raise TypeError
@@ -100,6 +100,17 @@ class Vector(object):
     def set_buffer(self, buf):
         self._data = numpy.fromstring(buf)
 
+    def get_ndarray(self):
+        return copy.deepcopy(self._data)
+        
+    @property
+    def max(self):
+        return self._data.max()
+
+    @property
+    def min(self):
+        return self._data.min()
+        
     def __get_header_struct(self, is_little_endian):
         if is_little_endian:
             return self.__header_struct_little_endian
@@ -131,7 +142,7 @@ class Vector(object):
         assert isinstance(other, Vector)
         assert (len(self) == len(other))
 
-        answer = self.copy()
+        answer = Vector(self)
         answer += other
         return answer
 
@@ -145,7 +156,7 @@ class Vector(object):
     def __sub__(self, other):
         assert isinstance(other, Vector)
 
-        answer = self.copy()
+        answer = Vector(self)
         answer -= other
         return answer
 
@@ -156,18 +167,37 @@ class Vector(object):
         return self
 
     def __mul__(self, other):
-        answer = copy.deepcopy(self)
-        answer *= other
+        answer = None
+        if isinstance(other, float):
+            answer = Vector(self)
+            answer *= other
+        elif isinstance(other, Vector):
+            answer = float(self._data.dot(other._data))
+        else:
+            raise
         return answer
-
+    
+    def __rmul__(self, other):
+        answer = None
+        if isinstance(other, float):
+            answer = Vector(self)
+            answer *= other
+        else:
+            raise
+        return answer
+    
     def __imul__(self, other):
-        if type(other) is FloatType:
-            for i in range(len(self)):
-                self[i] *= other
+        if isinstance(other, float):
+            self._data *= other
         else:
             raise
         return self
 
+    def __neg__(self):
+        answer = Vector(self)
+        answer *= -1.0
+        return answer
+    
     def __len__(self):
         return len(self._data)
 

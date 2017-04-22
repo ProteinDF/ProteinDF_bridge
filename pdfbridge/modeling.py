@@ -26,7 +26,10 @@ import logging
 try:
     import msgpack
 except:
-    import msgpack_pure as msgpack
+    try:
+        import umsgpack as msgpack
+    except:
+        import msgpack_pure as msgpack
 
 import pdfbridge
     
@@ -61,9 +64,28 @@ class Modeling:
         隣のC-alphaの位置をメチル基にする。
         """
         answer = pdfbridge.AtomGroup()
-        answer.set_atom('CA', next_aa['CA'])
-        answer.set_atom('C',  next_aa['C'])
-        answer.set_atom('O',  next_aa['O'])
+
+        CAs = next_aa.pickup_atoms('CA')
+        if len(CAs) > 0:
+            answer.set_atom('CA', CAs[0])
+        else:
+            raise pdfbridge.InputError(next_aa,
+                                       'cannot found "CA" atom on building ACE.')
+
+        Cs = next_aa.pickup_atoms('C')
+        if len(Cs) > 0:
+            answer.set_atom('C',  Cs[0])
+        else:
+            raise pdfbridge.InputError(next_aa,
+                                       'cannot found "C" atom on building ACE.')
+            
+        Os = next_aa.pickup_atoms('O')
+        if len(Os) > 0:
+            answer.set_atom('O',  Os[0])
+        else:
+            raise pdfbridge.InputError(next_aa,
+                                       'cannot found "O" atom on building ACE.')
+
         answer |= self.add_methyl(answer['CA'], answer['C'])
         answer.path = '/ACE'
         return answer
@@ -73,17 +95,35 @@ class Modeling:
         隣のC-alphaの位置をメチル基にする。
         """
         answer = pdfbridge.AtomGroup()
-        answer.set_atom('CA', next_aa['CA'])
-        answer.set_atom('N',  next_aa['N'])
-        if next_aa.has_atom('H'):
-            answer.set_atom('H',  next_aa['H'])
-        elif next_aa.has_atom('CD'):
-            # for proline
-            dummy_H = pdfbridge.Atom(next_aa['CD'])
-            dummy_H.symbol = 'H'
-            answer.set_atom('H', dummy_H)
+
+        CAs = next_aa.pickup_atoms('CA')
+        if len(CAs) > 0:
+            answer.set_atom('CA', CAs[0])
         else:
-            self._logger.error('"H" atom not found.')
+            raise pdfbridge.InputError(next_aa,
+                                       'cannot found "CA" atom on building NME.')
+
+        Ns = next_aa.pickup_atoms('N')
+        if len(Ns) > 0:
+            answer.set_atom('N',  Ns[0])
+        else:
+            raise pdfbridge.InputError(next_aa,
+                                       'cannot found "N" atom on building NME.')
+
+        Hs = next_aa.pickup_atoms('H')
+        if len(Hs) > 0:
+            answer.set_atom('H',  Hs[0])
+        else:
+            # for proline
+            CDs = next_aa.pickup_atoms('CD')
+            if len(CDs) > 0:
+                dummy_H = pdfbridge.Atom(CDs[0])
+                dummy_H.symbol = 'H'
+                answer.set_atom('H', dummy_H)
+            else:
+                raise pdfbridge.InputError(next_aa,
+                                           'cannot found "H" or "CD" atom(for proline) on building NME.')
+            
         answer |= self.add_methyl(answer['CA'], answer['N'])
         answer.path = '/NME'
         return answer
@@ -548,6 +588,34 @@ class Modeling:
         answer.set_atom('{}_Cl'.format(key+1), Cl)
         return answer
 
+    # ------------------------------------------------------------------
+    def neutralize_FAD(self, ag):
+        print("neutralize_FAD")
+        print(ag)
+        answer = pdfbridge.AtomGroup()
+
+        POO1 = pdfbridge.AtomGroup()
+        POO1.set_atom('P', ag['P'])
+        POO1.set_atom('O1', ag['O1P']) # amber format: OP1, pdb: O1P
+        POO1.set_atom('O2', ag['O2P']) # amber format: OP2, pdb: O2P
+        Na1 = pdfbridge.Atom(symbol = 'Na',
+                             name = 'Na',
+                             position = self._get_neutralize_pos_POO_type(POO1))
+
+        POO2 = pdfbridge.AtomGroup()
+        POO2.set_atom('P', ag['PA'])
+        POO2.set_atom('O1', ag['O1A']) # amber format: OA1, pdb: O1A
+        POO2.set_atom('O2', ag['O2A']) # amber format: OA2, pdb: O2A
+        Na2 = pdfbridge.Atom(symbol = 'Na',
+                             name = 'Na',
+                             position = self._get_neutralize_pos_POO_type(POO2))
+
+        key = self.get_last_index(ag)
+        answer.set_atom('{}_Na1'.format(key+1), Na1)
+        answer.set_atom('{}_Na2'.format(key+1), Na2)
+        return answer
+        
+    # ------------------------------------------------------------------
     def _get_neutralize_pos_NH3_type(self, ag):
         length = 3.187
         H1 = ag['H1']
@@ -580,7 +648,22 @@ class Modeling:
         return C.xyz + length * vCM
         
     # -----------------------------------------------------------------
+    def _get_neutralize_pos_POO_type(self, ag):
+        length = 2.748
+        O1 = ag['O1']
+        O2 = ag['O2']
+        P  = ag['P']
+        
+        M = pdfbridge.Position(0.5 * (O1.xyz.x + O2.xyz.x),
+                               0.5 * (O1.xyz.y + O2.xyz.y),
+                               0.5 * (O1.xyz.z + O2.xyz.z))
 
+        vPM = M - P.xyz
+        vPM.norm()
+
+        return P.xyz + length * vPM
+        
+    
 if __name__ == "__main__":
     import doctest
     doctest.testmod()

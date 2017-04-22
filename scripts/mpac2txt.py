@@ -21,43 +21,31 @@
 
 import sys
 import argparse
+import pprint
 try:
     import msgpack
 except:
     import msgpack_pure as msgpack
 
 import pdfbridge
-
+    
 def main():
-    # parse args
-    parser = argparse.ArgumentParser(description='transform XYZ file to bridge file')
-    parser.add_argument('XYZ_PATH',
+    # initialize
+    parser = argparse.ArgumentParser(description='display file formatted by MsgPack using YAML.')
+    parser.add_argument('FILE',
                         nargs=1,
-                        help='xyz file path')
-    parser.add_argument('BRD_PATH',
-                        nargs=1,
-                        help='bridge file path')
-    parser.add_argument("-v", "--verbose",
-                        action="store_true",
-                        default = False)
+                        help='Amber PDB file')
     args = parser.parse_args()
-        
-    # setting
-    xyz_file_path = args.XYZ_PATH[0]
-    brd_file_path = args.BRD_PATH[0]
-    verbose = args.verbose
 
-    # reading
-    if (verbose == True):
-        print("reading: %s\n" % (xyz_file_path))
-    xyz = pdfbridge.Xyz()
-    xyz.load(xyz_file_path)
-    atomgroup = xyz.get_atom_group()
+    file_path = args.FILE[0]
+
+    f = open(file_path, "rb")
+    contents = f.read()
+    data = msgpack.unpackb(contents)
+    data = pdfbridge.Utils.to_unicode_dict(data)
+    f.close()
     
-    brd_file = open(brd_file_path, "wb");
-    mpac = msgpack.packb(atomgroup.get_raw_data())
-    brd_file.write(mpac)
-    brd_file.close()
-    
+    pprint.pprint(data)
+
 if __name__ == '__main__':
     main()

@@ -19,29 +19,47 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
-class BrError(Exception):
-    """
-    Base class for this Bridge module
-    """
-    def __init__(self, errmsg =""):
-        self.errmsg = errmsg
+import pdfbridge 
+
+class AminoAcid(object):
+    _AA_list = [
+        'ALA',
+        'ASX', # ASP or ASN
+        'ASN',
+        'ASP',
+        'CYS',
+        'CYX',
+        'GLU',
+        'PHE',
+        'GLY',
+        'HIS',
+        'HIE',
+        'HIP',
+        'ILE',
+        'LYS',
+        'LEU',
+        'MET',
+        'PRO',
+        'GLN',
+        'ARG',
+        'SER',
+        'THR',
+        'SEC',
+        'VAL',
+        'TRP',
+        'XAA', # unspecified amino acid
+        'TYR',
+        'GLX'  #GLN, GLU or GLA, GLP
+    ]
     
-    def __str__(self):
-        return "Bridge module error: {}".format(self.errmsg)
+    def __init__(self, *args, **kwargs):
+        self._logger = logging.getLogger(__name__)
 
+    @classmethod
+    def is_aminoacid(self, atomgroup):
+        name = atomgroup.name
+        answer = False
+        if name in self._AA_list:
+            answer = True
 
-class InputError(BrError):
-    """
-    Exception raised for errors in the input.
-
-    Attributes:
-        expr -- input expression in which the error occurred
-        msg  -- explanation of the error
-    """
-    def __init__(self, expr, msg):
-        super(InputError, self).__init__()
-        self.errmsg = "Input Error: {} ({})".format(msg, str(expr))
-
-
-        
-    
+        return answer
