@@ -111,12 +111,15 @@ class Select_Range(Select):
     '''
     def __init__(self, pos, d):
         self._pos = pdfbridge.Position(pos)
-        self._d = float(d)
+        d = float(d)
+        self._d = d
+        self._d2 = d * d
 
     def is_match(self, obj):
         answer = False
         if isinstance(obj, pdfbridge.Atom):
-            d = self._pos.distance_from(obj.xyz)
-            if d < self._d:
+            # d = self._pos.distance_from(obj.xyz)
+            d2 = self._pos.square_distance_from(obj.xyz)
+            if d2 < self._d2:
                 answer = True
         return answer
