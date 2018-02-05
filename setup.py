@@ -1,45 +1,39 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 # Copyright (C) 2014 The ProteinDF development team.
 # see also AUTHORS and README if provided.
-# 
+#
 # This file is a part of the ProteinDF software package.
-# 
+#
 # The ProteinDF is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # The ProteinDF is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys, os
-#from setuptools import setup, find_packages
-from distutils.core import setup
+from setuptools import setup
 from imp import reload
 
-sys.path.append('./pdfbridge')
-sys.path.append('./pdftests')
+#sys.path.append('./pdfbridge')
+#sys.path.append('./pdftests')
 
-setup(name='ProteinDF_bridge',
-      version='2014.0a',
+setup(name='proteindf_bridge',
+      version='2018.2',
       description='bridge scripts the ProteinDF package and other data/package',
       author='Toshiyuki HIRANO',
       author_email='hiracchi@gmail.com',
       url='http://proteindf.github.io/',
-
-      #install_requires = [
-      #    'configparser',
-      #    'msgpack-python',
-      #    'pyyaml',
-      #],
-      
-      packages=['pdfbridge'],
+      license='GPLv3',
+      packages=['proteindf_bridge'],
       scripts=[
           'scripts/doctest_runner.py',
 
@@ -48,7 +42,7 @@ setup(name='ProteinDF_bridge',
           'scripts/yml2mpac.py',
 
           'scripts/brd-select.py',
-          
+
           'scripts/brd2txt.py',
 
           'scripts/pdb2brd.py',
@@ -68,11 +62,19 @@ setup(name='ProteinDF_bridge',
           'scripts/reorder.py',
 
           'scripts/read_amber_prmtop.py'
-          
+
           #'scripts/remove_wat.py',
           #'scripts/relax_protein.py',
           #'scripts/relax_protein.sh'
       ],
+
+      install_requires = [
+          'configparser',
+          'msgpack-python',
+          'pyyaml',
+          'numpy'
+      ],
+
       data_files=[('data', ['data/ACE_ALA_NME.brd'])],
       #test_suite='tests'
 )

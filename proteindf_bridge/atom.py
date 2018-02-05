@@ -3,19 +3,19 @@
 
 # Copyright (C) 2014 The ProteinDF development team.
 # see also AUTHORS and README if provided.
-# 
+#
 # This file is a part of the ProteinDF software package.
-# 
+#
 # The ProteinDF is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # The ProteinDF is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -23,7 +23,9 @@ import copy
 import math
 import logging
 
-import pdfbridge 
+from .utils import Utils
+from .periodictable import PeriodicTable
+from .position import Position
 
 class Atom(object):
     """
@@ -46,9 +48,9 @@ class Atom(object):
     def __init__(self, *args, **kwargs):
         self._logger = logging.getLogger(__name__)
 
-        self._atomic_number = pdfbridge.PeriodicTable.get_atomic_number('X')
-        self._xyz = pdfbridge.Position()
-        self._force = pdfbridge.Position()
+        self._atomic_number = PeriodicTable.get_atomic_number('X')
+        self._xyz = Position()
+        self._force = Position()
         self.name = ''
         self._label = ''
         self._charge = 0.0
@@ -60,21 +62,21 @@ class Atom(object):
                 rhs = args[0]
                 if (isinstance(rhs, Atom) == True):
                     self._atomic_number = rhs._atomic_number
-                    self._xyz = pdfbridge.Position(rhs._xyz)
-                    self._force = pdfbridge.Position(rhs._force)
+                    self._xyz = Position(rhs._xyz)
+                    self._force = Position(rhs._force)
                     self.name = rhs._name
-                    self._label = pdfbridge.Utils.to_unicode(rhs.label)
+                    self._label = Utils.to_unicode(rhs.label)
                     self._charge = float(rhs._charge)
-                    self._path = pdfbridge.Utils.to_unicode(rhs._path)
+                    self._path = Utils.to_unicode(rhs._path)
                 elif (isinstance(rhs, dict) == True):
                     self.set_by_raw_data(rhs)
             else:
                 raise InputError('atom.__init__', 'illegal the number of args')
 
         if 'symbol' in kwargs:
-            self._atomic_number = pdfbridge.PeriodicTable.get_atomic_number(kwargs.get('symbol'))
-        self._xyz = pdfbridge.Position(kwargs.get('position', self._xyz))
-        self._xyz = pdfbridge.Position(kwargs.get('xyz', self._xyz)) # alias
+            self._atomic_number = PeriodicTable.get_atomic_number(kwargs.get('symbol'))
+        self._xyz = Position(kwargs.get('position', self._xyz))
+        self._xyz = Position(kwargs.get('xyz', self._xyz)) # alias
         self._force = kwargs.get('force', self._force)
         if 'name' in kwargs:
             self.name = kwargs.get('name')
@@ -86,7 +88,8 @@ class Atom(object):
             self._path = kwargs.get('path')
         if 'parent' in kwargs:
             self._parent = kwargs.get('parent')
-            assert(isinstance(self._parent, pdfbridge.AtomGroup))
+            #from .atomgroup import AtomGroup
+            #assert(isinstance(self._parent, AtomGroup))
 
     # move ---------------------------------------------------------------------
     def move_to(self, position):
@@ -94,7 +97,7 @@ class Atom(object):
         return self
 
     def shift_by(self, direction):
-        direction = pdfbridge.Position(direction)
+        direction = Position(direction)
         self.xyz += direction
         return self
 
@@ -107,13 +110,13 @@ class Atom(object):
         """
         self.xyz *= rhs
         return self
-        
+
     # --------------------------------------------------------------------------
     def _get_xyz(self):
         return self._xyz
 
     def _set_xyz(self, p):
-        self._xyz = pdfbridge.Position(p)
+        self._xyz = Position(p)
 
     xyz = property(_get_xyz, _set_xyz)
     position = property(_get_xyz, _set_xyz)
@@ -123,10 +126,10 @@ class Atom(object):
         return self._force
 
     def _set_force(self, f):
-        self._force = pdfbridge.Position(f)
+        self._force = Position(f)
 
     force = property(_get_force, _set_force)
-    
+
     # --------------------------------------------------------------------------
     def _get_atomic_number(self):
         return self._atomic_number
@@ -134,16 +137,16 @@ class Atom(object):
     def _set_atomic_number(self, an):
         an = int(an)
         self._atomic_number = an
-        
+
     atomic_number = property(_get_atomic_number, _set_atomic_number)
-        
+
     # --------------------------------------------------------------------------
     def __get_symbol(self):
-        answer = pdfbridge.PeriodicTable.get_symbol(self.atomic_number)
+        answer = PeriodicTable.get_symbol(self.atomic_number)
         return answer
 
     def __set_symbol(self, symbol):
-        self._atomic_number = pdfbridge.PeriodicTable.get_atomic_number(symbol)
+        self._atomic_number = PeriodicTable.get_atomic_number(symbol)
 
     symbol = property(__get_symbol, __set_symbol)
 
@@ -153,7 +156,7 @@ class Atom(object):
 
     def _set_name(self, name):
         name = str(name)
-        self._name = pdfbridge.Utils.to_unicode(name)
+        self._name = Utils.to_unicode(name)
 
     name = property(_get_name, _set_name)
 
@@ -162,10 +165,10 @@ class Atom(object):
         return self._label
 
     def _set_label(self, label):
-        self._label = pdfbridge.Utils.to_unicode(label)
+        self._label = Utils.to_unicode(label)
 
     label = property(_get_label, _set_label)
-    
+
     # --------------------------------------------------------------------------
     def _get_charge(self):
         return self._charge
@@ -177,7 +180,7 @@ class Atom(object):
 
     # --------------------------------------------------------------------------
     def __get_vdw(self):
-        return pdfbridge.PeriodicTable.vdw(self._atomic_number)
+        return PeriodicTable.vdw(self._atomic_number)
 
     vdw = property(__get_vdw)
 
@@ -186,7 +189,7 @@ class Atom(object):
         return self._path
 
     def _set_path(self, path):
-        self._path = pdfbridge.Utils.to_unicode(path)
+        self._path = Utils.to_unicode(path)
 
     path = property(_get_path, _set_path)
 
@@ -220,9 +223,9 @@ class Atom(object):
             elif key == 'Q':
                 self.charge = value
             elif key == 'xyz':
-                self.xyz = pdfbridge.Position(value)
+                self.xyz = Position(value)
             elif key == 'force':
-                self.force = pdfbridge.Position(value)
+                self.force = Position(value)
             else:
                 self._logger.debug("bridge::Atom > unknown key: {}".format(key))
         return self
@@ -234,7 +237,7 @@ class Atom(object):
         data['Q'] = self._charge
         data['xyz'] = self._xyz.get_raw_data()
         data['force'] = self._force.get_raw_data()
-        
+
         return data
 
     # ==================================================================
@@ -252,7 +255,7 @@ class Atom(object):
             self.force.y,
             self.force.z)
         return answer
-    
+
     # ------------------------------------------------------------------
     # serialize
     # ------------------------------------------------------------------
@@ -261,8 +264,8 @@ class Atom(object):
 
     def __setstate__(self, state):
         self.set_by_raw_data(state)
-        
-        
+
+
 if __name__ == "__main__":
     import doctest
     doctest.testmod()

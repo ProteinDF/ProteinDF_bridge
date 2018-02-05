@@ -3,19 +3,19 @@
 
 # Copyright (C) 2014 The ProteinDF development team.
 # see also AUTHORS and README if provided.
-# 
+#
 # This file is a part of the ProteinDF software package.
-# 
+#
 # The ProteinDF is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # The ProteinDF is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -27,8 +27,8 @@ try:
     import msgpack
 except:
     import msgpack_pure as msgpack
-    
-import pdfbridge
+
+import proteindf_bridge as bridge
 
 
 def main():
@@ -58,7 +58,7 @@ def main():
                         action="store_true",
                         default=False)
     args = parser.parse_args()
-        
+
     # setting
     pdb_file_path = args.PDB_FILE[0]
     output_path = args.BRD_FILE[0]
@@ -70,7 +70,7 @@ def main():
     # load PDB file
     if (verbose == True):
         print("reading: %s\n" % (pdb_file_path))
-    pdb_obj = pdfbridge.Pdb()
+    pdb_obj = bridge.Pdb()
     pdb_obj.debug = debug
     pdb_obj.load(pdb_file_path)
     #print(pdb_obj)
@@ -93,4 +93,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

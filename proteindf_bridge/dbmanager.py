@@ -3,24 +3,25 @@
 
 # Copyright (C) 2014 The ProteinDF development team.
 # see also AUTHORS and README if provided.
-# 
+#
 # This file is a part of the ProteinDF software package.
-# 
+#
 # The ProteinDF is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # The ProteinDF is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
 import logging
+logger = logging.getLogger(__name__)
 import sqlite3
 
 class DbManager(object):
@@ -58,9 +59,6 @@ class DbManager(object):
  {'coulumn1': u'Tokyo', 'coulumn2': u'Shinjuku', 'id': 3}]
     """
     def __init__(self, db=':memory:', sql_debugout=False):
-        self._logger = logging.getLogger(__name__)
-        self._logger.addHandler(logging.NullHandler())
-        
         self._connection = sqlite3.connect(db)
         self._cursor = self._connection.cursor()
         self._sql_debugout = sql_debugout
@@ -170,9 +168,9 @@ class DbManager(object):
             for info in fld_info:
                 if info.get('pk') != 0:
                     answer.append(info.get('name'))
-                    
+
         return answer
-        
+
     def insert(self, table, contents):
         """
         データレコードを追加
@@ -293,7 +291,7 @@ class DbManager(object):
         """
         SQLを実行する
         """
-        self._logger.debug("sql> {0}".format(sql))
+        logger.debug("sql> {0}".format(sql))
         if (parameters != None):
             return self._cursor.execute(sql, parameters)
         else:
@@ -334,10 +332,10 @@ class DbManager(object):
         """
         answer = 0
         results = self.get_results('PRAGMA user_version;')
-        if results != None: 
+        if results != None:
             answer = int(results[0].get('user_version', 0))
         return answer
-        
+
     # output =================================================================
     def __str__(self):
         answer = ''

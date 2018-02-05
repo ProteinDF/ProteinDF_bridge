@@ -3,19 +3,19 @@
 
 # Copyright (C) 2014 The ProteinDF development team.
 # see also AUTHORS and README if provided.
-# 
+#
 # This file is a part of the ProteinDF software package.
-# 
+#
 # The ProteinDF is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # The ProteinDF is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -81,7 +81,7 @@ class Utils(object):
     @classmethod
     def unindent_block(cls, s):
         return cls.del_spaces(s, min(cls.num_spaces(s)))
-        
+
     @classmethod
     def get_common_str(cls, str1, str2):
         """
@@ -89,7 +89,7 @@ class Utils(object):
 
         >>> a = 'abcdef'
         >>> b = 'abcdefg'
-        >>> get_common_str(a, b)
+        >>> Utils.get_common_str(a, b)
         'abcdef'
         """
         answer = ""
@@ -143,7 +143,7 @@ class Utils(object):
                 pass # do nothing
             answer.append(v)
         return answer
-        
+
     @classmethod
     def to_unicode(cls, unicode_or_str):
         """

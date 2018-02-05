@@ -32,7 +32,7 @@ class IonPair(object):
         (anion_list, cation_list) = self._get_ion_list()
         for anion_path, anion_pos_array in anion_list.items():
             for (anion_pos, anion_type) in anion_pos_array:
-                
+
                 for cation_path, cation_pos_array in cation_list.items():
                     for (cation_pos,cation_type) in cation_pos_array:
 
@@ -43,7 +43,7 @@ class IonPair(object):
                             ion_pairs.append((anion_path, cation_path, anion_type, cation_type))
 
         return ion_pairs
-                    
+
     def _get_ion_list(self):
         anion_list = {}
         cation_list = {}
@@ -72,15 +72,15 @@ class IonPair(object):
                         anion_list[res.path].append((self._get_center_Cterm(res), 'CTM'))
 
         return (anion_list, cation_list)
-                        
-        
+
+
     def _get_center_Nterm(self, res):
         """
         N末端のイオン対判定用座標を返す
         """
         return res['N'].xyz
 
-        
+
     def _get_center_Cterm(self, res):
         """
         C末端のイオン対判定用座標を返す
@@ -90,7 +90,7 @@ class IonPair(object):
         ag.set_atom('O1', res['O'])
         ag.set_atom('O2', res['OXT'])
         return ag.center()
-        
+
 
     def _get_center_GLU(self, res):
         """
@@ -102,7 +102,7 @@ class IonPair(object):
         ag.set_atom('O2', res['OE2'])
         return ag.center()
 
-        
+
     def _get_center_ASP(self, res):
         """
         ASPのイオン対判定用座標を返す
@@ -112,7 +112,7 @@ class IonPair(object):
         ag.set_atom('O1', res['OD1'])
         ag.set_atom('O2', res['OD2'])
         return ag.center()
-        
+
 
     def _get_center_LYS(self, res):
         """
@@ -142,11 +142,9 @@ class IonPair(object):
             answer = res['NH2'].xyz
         else:
             logger.warning("unknown mode={}".format(mode))
-            
+
         return answer
 
 
-if __name__ == "__main__":
-    main()
-
-
+#if __name__ == "__main__":
+#    main()

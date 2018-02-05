@@ -3,19 +3,19 @@
 
 # Copyright (C) 2014 The ProteinDF development team.
 # see also AUTHORS and README if provided.
-# 
+#
 # This file is a part of the ProteinDF software package.
-# 
+#
 # The ProteinDF is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # The ProteinDF is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -25,8 +25,11 @@ import optparse
 import re
 import copy
 import logging
+logger = logging.getLogger(__name__)
 
-import pdfbridge
+from .position import Position
+from .atom import Atom
+from .atomgroup import AtomGroup
 
 class Pdb(object):
     """
@@ -37,10 +40,6 @@ class Pdb(object):
 
         mode: None or amber
         """
-        self._logger = logging.getLogger(__name__)
-        self._logger.addHandler(logging.NullHandler())
-        self._logger.setLevel(logging.INFO)
-
         self._data = {}
         self._ssbonds = []
         if (file_path):
@@ -67,7 +66,7 @@ class Pdb(object):
             'NA': 'NA ',
             'CL': 'CL '
         }
-        
+
     def __get_debug(self):
         if not '_debug' in self.__dict__:
             self._debug = False
@@ -177,7 +176,7 @@ class Pdb(object):
                               {'chain_id': chainID2,
                                'seq_num': seqNum2})
                     self._ssbonds.append(ssbond)
-                
+
                 elif ((record_name == 'ATOM  ') or (record_name == 'HETATM')):
 
                     if (len(line) < 80):
@@ -210,7 +209,7 @@ class Pdb(object):
                     item['res_seq'] = int(res_seq)
                     item['i_code'] = i_code
                     item['coord'] = [float(coord_x), float(coord_y), float(coord_z)]
-                
+
                     if (len(occupancy) != 0):
                         item['occupancy'] = float(occupancy)
                     else:
@@ -286,21 +285,21 @@ class Pdb(object):
         """
         return AtomGroup object
         """
-        root = pdfbridge.AtomGroup()
+        root = AtomGroup()
 
         for model_serial, model_items in self._data.items():
             if ((select_model == None) or
                 (int(select_model) == int(model_serial))):
-            
+
                 model_name = "model_%d" % (model_serial)
-                model = pdfbridge.AtomGroup()
+                model = AtomGroup()
                 model.name = model_name
 
                 for index in range(len(model_items)):
                     item = model_items[index]
                     record_name = item['record_name']
                     serial = item['serial']
-                
+
                     if ((record_name == 'ATOM  ') or (record_name == 'HETATM')):
                         name = item['name'].lstrip().strip()
                         alt_loc = item['alt_loc']
@@ -320,20 +319,20 @@ class Pdb(object):
                             chain_id = "_"
 
                         if (model.has_group(chain_id) == False):
-                            chain = pdfbridge.AtomGroup()
+                            chain = AtomGroup()
                             chain.name = chain_id
                             model.set_group(chain_id, chain)
 
                         res_key = "%d" % (res_seq)
                         if (model[chain_id].has_group(res_key) == False):
-                            residue = pdfbridge.AtomGroup()
+                            residue = AtomGroup()
                             residue.name = res_name
                             model[chain_id].set_group(res_key, residue)
 
                         # create atom object -------------------------------
-                        atom = pdfbridge.Atom()
+                        atom = Atom()
                         atom.symbol = element
-                        atom.xyz = pdfbridge.Position(coord)
+                        atom.xyz = Position(coord)
                         atom.name = name
                         atom.charge = charge
                         atom_key = "%d_%s" % (serial, name)
@@ -343,15 +342,15 @@ class Pdb(object):
                             (alt_loc == select_altloc)):
                             model[chain_id][res_key].set_atom(atom_key, atom)
                         else:
-                            self._logger.debug('skip alt_loc=\"{alt_loc}\" atom: {atom_str}'.format(alt_loc=alt_loc,
-                                                                                                    atom_str=str(atom)))
+                            logger.debug('skip alt_loc=\"{alt_loc}\" atom: {atom_str}'.format(alt_loc=alt_loc,
+                                                                                              atom_str=str(atom)))
 
                 for ssbond in self._ssbonds:
                     chain_id1 = ssbond[0]['chain_id']
                     seq_num1 = ssbond[0]['seq_num']
                     chain_id2 = ssbond[1]['chain_id']
                     seq_num2 = ssbond[1]['seq_num']
-                    
+
                     path1 = '/{chain_id}/{res_key}/SG'.format(chain_id=chain_id1,
                                                               res_key=seq_num1)
                     path2 = '/{chain_id}/{res_key}/SG'.format(chain_id=chain_id2,
@@ -365,10 +364,10 @@ class Pdb(object):
         return root
 
     def set_by_atomgroup(self, atomgroup, set_b_factor=None):
-        assert(isinstance(atomgroup, pdfbridge.AtomGroup))
+        assert(isinstance(atomgroup, AtomGroup))
 
         atomgroup = self.get_modpdb_atomgroup(atomgroup)
-        
+
         re_model_serial = re.compile("^model_(\d+)")
         re_res_seq = re.compile("^(\d+)")
         re_atom_serial = re.compile("^(\d+)")
@@ -418,7 +417,7 @@ class Pdb(object):
                             has_OXT = True
                         item["name"] = name
                         item["coord"] = [ atom.xyz.x, atom.xyz.y, atom.xyz.z ]
-                                          
+
                         if set_b_factor == 'charge':
                             item['temp_factor'] = atom.charge
 
@@ -479,10 +478,10 @@ class Pdb(object):
         """
         ag_protein タンパク質のAtomGroup object
         """
-        assert(isinstance(ag_protein, pdfbridge.AtomGroup))
+        assert(isinstance(ag_protein, AtomGroup))
         mode = self._mode
-        
-        retval = pdfbridge.AtomGroup(ag_protein)
+
+        retval = AtomGroup(ag_protein)
         for model_key, model in retval.groups():
             for chain_key, chain in model.groups():
                 for res_key, res in chain.groups():
@@ -490,7 +489,7 @@ class Pdb(object):
                     for atom_key, atom in res.atoms():
                         atom = self._modpdb_atom(atom, mode)
         return retval
-        
+
 
     def _modpdb_atom(self, atom, mode=None):
         new_name = atom.name
@@ -520,7 +519,7 @@ class Pdb(object):
 
         atom.name = new_name
         return atom
-    
+
     def _modpdb_res(self, res, mode=None):
         resname = res.name.upper()
         resname = resname.strip().lstrip()
@@ -532,7 +531,7 @@ class Pdb(object):
                 res.name = self._modpdb_formal_res_tbl[resname]
         return res
 
-        
+
 def main():
     # initialize
 

@@ -3,19 +3,19 @@
 
 # Copyright (C) 2014 The ProteinDF development team.
 # see also AUTHORS and README if provided.
-# 
+#
 # This file is a part of the ProteinDF software package.
-# 
+#
 # The ProteinDF is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # The ProteinDF is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -28,7 +28,7 @@ import numpy
 import logging
 logger = logging.getLogger(__name__)
 
-import pdfbridge
+from .vector import Vector
 
 class Position(object):
     """
@@ -120,12 +120,12 @@ class Position(object):
                     self._position[1] = float(inputs.pop(0).rstrip(",")) if (len(inputs) > 0) else 0.0
                     self._position[2] = float(inputs.pop(0).rstrip(",")) if (len(inputs) > 0) else 0.0
             else:
-                raise pdfbridge.InputError("position::__init__", "illegal input")
+                raise InputError("position::__init__", "illegal input")
 
     def _initialize(self):
         self.epsilon = 1.0E-5
         self._position = [0.0, 0.0, 0.0]
-            
+
     # --------------------------------------------------------------------------
     @property
     def xyz(self):
@@ -185,7 +185,7 @@ class Position(object):
     def rotate(self, mat):
         assert(mat.rows == 3)
         assert(mat.cols == 3)
-        v1 = pdfbridge.Vector(self._position)
+        v1 = Vector(self._position)
         v2 = mat * v1
         self._position = v2.to_list()
         return self
@@ -230,7 +230,7 @@ class Position(object):
         if (isinstance(rhs, Position) == True):
             return Position([ x + y for x, y in zip(self._position, rhs._position)])
         else:
-            raise pdfbridge.InputError("position.__add__", "illegal input: Position is required.")
+            raise InputError("position.__add__", "illegal input: Position is required.")
 
     def __sub__(self, rhs):
         return self.__add__(-rhs)
@@ -246,7 +246,7 @@ class Position(object):
             rhs1._position = [x * rhs2 for x in rhs1._position]
             return rhs1
         else:
-            raise pdfbridge.InputError("position.__add__", "illegal input: Position is required.")
+            raise InputError("position.__add__", "illegal input: Position is required.")
 
     __rmul__ = __mul__
 
@@ -273,7 +273,7 @@ class Position(object):
         i = int(i)
         assert(0 <= i and i < 3)
         self._position[i] = v
-    
+
     # ------------------------------------------------------------------
     # serialize
     # ------------------------------------------------------------------
@@ -284,12 +284,12 @@ class Position(object):
         assert(isinstance(state, (set, list)))
         assert(len(state) == 3)
         self._initialize()
-        
+
         self._position[0] = float(state[0])
         self._position[1] = float(state[1])
         self._position[2] = float(state[2])
 
-        
+
 if __name__ == "__main__":
     import doctest
     doctest.testmod()

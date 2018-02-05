@@ -3,19 +3,19 @@
 
 # Copyright (C) 2014 The ProteinDF development team.
 # see also AUTHORS and README if provided.
-# 
+#
 # This file is a part of the ProteinDF software package.
-# 
+#
 # The ProteinDF is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # The ProteinDF is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -25,7 +25,7 @@ import copy
 import math
 import numpy
 
-import pdfbridge
+from .vector import Vector
 
 """
 Matrix (for general matrix) and SymmetricMatrix (for symmetric matrix) class
@@ -166,7 +166,7 @@ class Matrix(object):
         return numpy array
         '''
         return self._data
-        
+
     # --------------------------------------------------------------------------
     def get(self, row, col):
         assert((0 <= row) and (row < self.rows))
@@ -210,7 +210,7 @@ class Matrix(object):
         assert(row < self.rows)
 
         cols = self.cols
-        v = pdfbridge.Vector(cols)
+        v = Vector(cols)
         for i in range(cols):
             v[i] = self.get(row, i)
         return v
@@ -220,11 +220,11 @@ class Matrix(object):
         assert(col < self.cols)
 
         rows = self.rows
-        v = pdfbridge.Vector(rows)
+        v = Vector(rows)
         for i in range(rows):
             v[i] = self.get(i, col)
         return v
-    
+
     def __str__(self):
         answer = ''
         for order in range(0, self.cols, 10):
@@ -269,13 +269,13 @@ class Matrix(object):
     def set_buffer(self, b):
         self._data = numpy.fromstring(b, dtype=numpy.float)
         self._data.shape = (self.rows, self.cols)
-    
+
     def get_ndarray(self):
         """
         return numpy.ndarray object
         """
         return copy.deepcopy(self._data)
-    
+
     def inverse(self):
         tmp_data = numpy.linalg.inv(self._data)
         return Matrix(tmp_data)
@@ -330,7 +330,7 @@ class Matrix(object):
             answer = Matrix(self.rows, other.cols)
             answer._data = C.getA()
             return answer
-        elif isinstance(other, pdfbridge.Vector):
+        elif isinstance(other, Vector):
             # matrix * (coulmn)vector
             assert(self.cols == other.size())
 
@@ -342,7 +342,7 @@ class Matrix(object):
             # TODO: to be simply!
             C = C.getT()
             a = C.tolist()
-            answer = pdfbridge.Vector(a[0])
+            answer = Vector(a[0])
             return answer
 
     def __eq__(self, other):
@@ -482,7 +482,7 @@ class SymmetricMatrix(Matrix):
         """
         return the eigenvalues and eigenvectors.
         """
-        w = pdfbridge.Vector(self.dim)
+        w = Vector(self.dim)
         v = Matrix(self.dim, self.dim)
         if (self.dim > 1):
             w._data, v._data = numpy.linalg.eigh(self._data, 'L')
@@ -564,7 +564,7 @@ def identity_matrix(dim):
         I.set(i, i, 1.0)
 
     return I
-    
+
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
