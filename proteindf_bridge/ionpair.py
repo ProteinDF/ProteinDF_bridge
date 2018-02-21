@@ -19,13 +19,16 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
-import pdfbridge
 import logging
 logger = logging.getLogger(__name__)
 
+from .position import Position
+from .atomgroup import AtomGroup
+from .aminoacid import AminoAcid
+
 class IonPair(object):
     def __init__(self, model):
-        self._model = pdfbridge.AtomGroup(model)
+        self._model = AtomGroup(model)
 
     def get_ion_pairs(self):
         ion_pairs = []
@@ -63,7 +66,7 @@ class IonPair(object):
                                              (self._get_center_ARG(res, 1), 'ARG1'),
                                              (self._get_center_ARG(res, 2), 'ARG2')]
 
-                if pdfbridge.AminoAcid.is_aminoacid(res):
+                if AminoAcid.is_aminoacid(res):
                     if res.has_atom('H3'):
                         cation_list.setdefault(res.path, [])
                         cation_list[res.path].append((self._get_center_Nterm(res), 'NTM'))
@@ -85,7 +88,7 @@ class IonPair(object):
         """
         C末端のイオン対判定用座標を返す
         """
-        ag = pdfbridge.AtomGroup()
+        ag = AtomGroup()
         ag.set_atom('C', res['C'])
         ag.set_atom('O1', res['O'])
         ag.set_atom('O2', res['OXT'])
@@ -96,7 +99,7 @@ class IonPair(object):
         """
         GLUのイオン対判定用座標を返す
         """
-        ag = pdfbridge.AtomGroup()
+        ag = AtomGroup()
         ag.set_atom('C', res['CD'])
         ag.set_atom('O1', res['OE1'])
         ag.set_atom('O2', res['OE2'])
@@ -107,7 +110,7 @@ class IonPair(object):
         """
         ASPのイオン対判定用座標を返す
         """
-        ag = pdfbridge.AtomGroup()
+        ag = AtomGroup()
         ag.set_atom('C', res['CG'])
         ag.set_atom('O1', res['OD1'])
         ag.set_atom('O2', res['OD2'])
@@ -129,8 +132,8 @@ class IonPair(object):
         """
         case = int(case)
 
-        answer = pdfbridge.Position()
-        ag = pdfbridge.AtomGroup()
+        answer = Position()
+        ag = AtomGroup()
         if case == 0:
             ag.set_atom('NH1', res['NH1'])
             ag.set_atom('NH2', res['NH2'])

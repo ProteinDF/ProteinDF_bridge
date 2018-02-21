@@ -4,7 +4,7 @@
 import unittest
 import pickle
 
-from pdfbridge.biopdb import Pdb
+from proteindf_bridge.biopdb import Pdb
 
 class PdbTests(unittest.TestCase):
     def setUp(self):
@@ -12,7 +12,7 @@ class PdbTests(unittest.TestCase):
 
     def tearDown(self):
         pass
-        
+
     def test_init(self):
         pdb = Pdb("./data/2MGO.pdb")
 
@@ -45,9 +45,9 @@ class PdbTests(unittest.TestCase):
         self.assertEqual(ag["model_1"]["A"][8].name, "LEU")
         self.assertEqual(ag["model_1"]["A"][9].get_number_of_atoms(),  8) # GLY9
         self.assertEqual(ag["model_1"]["A"][9].name, "GLY")
-        
+
     def test_set_by_atomgroup(self):
         pass
-        
+
 if __name__ == '__main__':
     unittest.main()

@@ -3,29 +3,29 @@
 
 # Copyright (C) 2002-2014 The ProteinDF project
 # see also AUTHORS and README.
-# 
+#
 # This file is part of ProteinDF.
-# 
+#
 # ProteinDF is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # ProteinDF is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
 import pickle
 
-from pdfbridge.position import Position
-from pdfbridge.atom import Atom
-from pdfbridge.atomgroup import AtomGroup
-from pdfbridge.select import Select_Range
+from proteindf_bridge.position import Position
+from proteindf_bridge.atom import Atom
+from proteindf_bridge.atomgroup import AtomGroup
+from proteindf_bridge.select import Select_Range
 
 class AtomGroupTests(unittest.TestCase):
     def setUp(self):
@@ -33,7 +33,7 @@ class AtomGroupTests(unittest.TestCase):
 
     def tearDown(self):
         pass
-        
+
     def test_init(self):
         group1 = AtomGroup()
         atom1 = Atom(symbol='C')
@@ -53,7 +53,7 @@ class AtomGroupTests(unittest.TestCase):
         self.assertEqual(group1.get_number_of_groups(), 1)
         self.assertEqual(group1.get_number_of_all_atoms(), 3)
         self.assertAlmostEqual(group1.sum_of_atomic_number(), 14.0)
-        
+
     def test_pickle(self):
         group1 = AtomGroup()
         atom1 = Atom(symbol='C')
@@ -74,7 +74,7 @@ class AtomGroupTests(unittest.TestCase):
         self.assertEqual(group2.get_number_of_all_atoms(), 3)
         self.assertAlmostEqual(group2.sum_of_atomic_number(), 14.0)
 
-        
+
     def test_atom_list(self):
         group1 = AtomGroup()
         atom1 = Atom(symbol='C')
@@ -89,7 +89,7 @@ class AtomGroupTests(unittest.TestCase):
         atom_list = group1.get_atom_list()
         self.assertEqual(len(atom_list), 3)
 
-        
+
     def test_set_atom_by_path(self):
         atom1 = Atom(symbol='C', xyz="1.1 2.1 3.1")
         atom2 = Atom(symbol='C', xyz="1.2 2.2 3.2")
@@ -108,7 +108,7 @@ class AtomGroupTests(unittest.TestCase):
         self.assertEqual(atomgroup['group_A'].has_groupkey('group_B'), True)
         self.assertEqual(atomgroup['group_A']['group_B'].get_number_of_atoms(), 1)
 
-        
+
     def test_path(self):
         atom10 = Atom(symbol="C")
         atom11 = Atom(symbol="H")
@@ -153,7 +153,7 @@ class AtomGroupTests(unittest.TestCase):
         self.assertEqual(grp_cp2.path, "/")
         self.assertEqual(grp_cp2["Me"]["C"].path, "/Me/C")
 
-        
+
     def test_select_range(self):
         atom10 = Atom(symbol='H', xyz="1.0 0.0 0.0")
         atom11 = Atom(symbol='H', xyz="1.1 0.0 0.0")
@@ -184,7 +184,7 @@ class AtomGroupTests(unittest.TestCase):
         self.assertEqual(part2["g10"]["g1"]["H1"].path, "/g10/g1/H1")
         self.assertEqual(part2["g10"]["g1"]["H2"].path, "/g10/g1/H2")
         self.assertEqual(part2["g10"]["g1"]["H3"].path, "/g10/g1/H3")
-        
+
     def test_get_path_list(self):
         group1 = AtomGroup()
         atom1 = Atom(symbol='C')
@@ -212,7 +212,7 @@ class AtomGroupTests(unittest.TestCase):
         parts = AtomGroup.divide_path("/res1/atom2")
         self.assertEqual(parts[0], "res1")
         self.assertEqual(parts[1], "atom2")
-        
+
     def test_get_formula(self):
         group1 = AtomGroup()
         atom1 = Atom(symbol='C')
@@ -226,6 +226,6 @@ class AtomGroupTests(unittest.TestCase):
 
         formula = group1.get_formula()
         self.assertEqual(formula, "H2C1")
-        
+
 if __name__ == '__main__':
     unittest.main()
