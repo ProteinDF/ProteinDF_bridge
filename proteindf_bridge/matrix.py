@@ -174,6 +174,8 @@ class Matrix(object):
         return self._data[row, col]
 
     def set(self, row, col, value):
+        row = int(row)
+        col = int(col)
         assert((0 <= row) and (row < self.rows))
         assert((0 <= col) and (col < self.cols))
         self._data[row, col] = value
@@ -474,6 +476,8 @@ class SymmetricMatrix(Matrix):
 
 
     def set(self, row, col, value):
+        row = int(row)
+        col = int(col)
         if (row < col):
             row, col = col, row
         Matrix.set(self, row, col, value)
