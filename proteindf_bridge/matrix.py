@@ -315,9 +315,9 @@ class Matrix(object):
         return self
 
     def __mul__(self, other):
-        if isinstance(other, float):
+        if isinstance(other, (int, float)):
             answer = Matrix(self)
-            answer._data *= other
+            answer._data *= float(other)
             return answer
         elif isinstance(other, Matrix):
             # matrix * matrix
@@ -344,6 +344,12 @@ class Matrix(object):
             a = C.tolist()
             answer = Vector(a[0])
             return answer
+
+    def __rmul__(self, other):
+        assert(isinstance(other, (int, float)))
+        answer = Matrix(self)
+        answer._data *= float(other)
+        return answer
 
     def __eq__(self, other):
         answer = False
