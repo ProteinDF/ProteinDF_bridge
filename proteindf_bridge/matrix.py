@@ -187,6 +187,7 @@ class Matrix(object):
 
     def transpose(self):
         self._data = numpy.transpose(self._data)
+        self._rows, self._cols = self._cols, self._rows
         return self
 
     def select(self, start_row, start_col, end_row, end_col):
