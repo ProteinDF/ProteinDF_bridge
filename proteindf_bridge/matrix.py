@@ -36,9 +36,9 @@ class Matrix(object):
     """
     >>> a = Matrix()
     >>> a.rows
-    0
+    1
     >>> a.cols
-    0
+    1
     >>> B = Matrix(3, 5)
     >>> B.rows
     3
@@ -56,54 +56,48 @@ class Matrix(object):
     True
     """
     def __init__(self, *args, **kwargs):
-        self._rows = 0
-        self._cols = 0
         self._type = 'GE'
-        self._data = None
+        self._data = numpy.array([[0.0]], numpy.float)
 
         size_of_args = len(args)
         if size_of_args == 1:
             if args[0] is None:
                 return
             elif isinstance(args[0], Matrix):
-                self._rows = args[0]._rows
-                self._cols = args[0]._cols
                 self._type = args[0]._type
                 self._data = copy.copy(args[0]._data)
             elif isinstance(args[0], numpy.ndarray):
                 self._data = copy.deepcopy(args[0])
                 assert(self._data.ndim == 2)
-                self._rows, self._cols = self._data.shape
             elif isinstance(args[0], list):
                 self._data = numpy.array(args[0], numpy.float)
                 assert(self._data.ndim == 2)
-                self._rows, self._cols = self._data.shape
             else:
                 raise
         elif size_of_args == 2:
             if isinstance(args[0], int) and isinstance(args[1], int):
-                self._rows = args[0]
-                self._cols = args[1]
+                rows = args[0]
+                cols = args[1]
                 self._data = numpy.array(
-                    [[0.0 for c in range(self.cols)] for r in range(self.rows)],
+                    [[0.0 for c in range(cols)] for r in range(rows)],
                     numpy.float)
                 return
             else:
                 raise
 
         if kwargs:
-            self._rows = kwargs.get('row', 0)
-            self._cols = kwargs.get('col', 0)
+            rows = kwargs.get('row', 0)
+            cols = kwargs.get('col', 0)
             matrix_type = kwargs.get('type', None)
             if (matrix_type == 'GE'):
                 data = kwargs.get('data', None)
                 if data:
                     self._data = numpy.array(
-                        [ [0.0 for c in range(self.cols)] for r in range(self.rows)],
+                        [ [0.0 for c in range(cols)] for r in range(rows)],
                         numpy.float)
                     index = 0
-                    for r in range(self.rows):
-                        for c in range(self.cols):
+                    for r in range(rows):
+                        for c in range(cols):
                             self.set(r , c, buf[index])
                             index += 1
                     return
@@ -143,18 +137,18 @@ class Matrix(object):
         for r in range(min(self.rows, new_rows)):
             for c in range(min(self.cols, new_cols)):
                 new_data[r, c] = self._data[r, c]
-        self._rows = new_rows
-        self._cols = new_cols
         self._data = new_data
 
     # --------------------------------------------------------------------------
     @property
     def rows(self):
-        return self._rows
+        (rows, cols) = self._data.shape
+        return rows
 
     @property
     def cols(self):
-        return self._cols
+        (rows, cols) = self._data.shape
+        return cols
 
     @property
     def type(self):
@@ -187,7 +181,6 @@ class Matrix(object):
 
     def transpose(self):
         self._data = numpy.transpose(self._data)
-        self._rows, self._cols = self._cols, self._rows
         return self
 
     def select(self, start_row, start_col, end_row, end_col):
@@ -283,6 +276,10 @@ class Matrix(object):
         tmp_data = numpy.linalg.inv(self._data)
         return Matrix(tmp_data)
 
+    def pseudo_inverse(self):
+        tmp_data = numpy.linalg.pinv(self._data)
+        return Matrix(tmp_data)
+
     def __add__(self, other):
         assert isinstance(other, Matrix)
         assert (self.rows == other.rows)
@@ -371,9 +368,9 @@ class SymmetricMatrix(Matrix):
     """
     >>> A = SymmetricMatrix()
     >>> A.rows
-    0
+    1
     >>> A.cols
-    0
+    1
     >>> B = SymmetricMatrix(5)
     >>> B.rows
     5
@@ -394,8 +391,6 @@ class SymmetricMatrix(Matrix):
         if size_of_args == 1:
             if isinstance(args[0], int):
                 dim = args[0]
-                self._rows = dim
-                self._cols = dim
                 self._data = numpy.array(
                     [[0.0 for c in range(dim)] for r in range(dim)],
                     numpy.float)
@@ -403,15 +398,15 @@ class SymmetricMatrix(Matrix):
             elif isinstance(args[0], list):
                 self._data = numpy.array(args[0], numpy.float)
                 assert(self._data.ndim == 2)
-                self._rows, self._cols = self._data.shape
-                assert(self.rows == self.cols)
+                rows, cols = self._data.shape
+                assert(rows == cols)
                 return
             else:
                 raise
 
         if kwargs:
-            self._rows = kwargs.get('row', 0)
-            self._cols = kwargs.get('col', 0)
+            rows = kwargs.get('row', 0)
+            cols = kwargs.get('col', 0)
             assert(self.rows == self.cols)
             matrix_type = kwargs.get('type', None)
             if matrix_type == 'SP':
@@ -465,9 +460,7 @@ class SymmetricMatrix(Matrix):
         new_data = numpy.array([ [0.0 for c in range(new_dim)] for r in range(new_dim) ])
         for r in range(min(self.rows, new_dim)):
             for c in range(r +1):
-                new_matrix[r, c] = self._matrix[r, c]
-        self._rows = new_dim
-        self._cols = new_dim
+                new_data[r, c] = self.get(r, c)
         self._data = new_data
 
     def get(self, row, col):

@@ -10,6 +10,7 @@ DOCTESTS=" \
   common \
   ionpair \
   mail \
+  matrix \
   modeling \
   neutralize \
   periodictable \
