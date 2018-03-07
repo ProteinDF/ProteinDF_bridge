@@ -466,7 +466,7 @@ class AtomGroup(object):
         self._name = Utils.to_unicode(name)
 
     name = property(_get_name, _set_name)
-    # --------------------------------------------------------------------------
+    # charge -------------------------------------------------------------------
     def _get_charge(self):
         charge = 0.0
         for key, ag in self.groups():
@@ -476,6 +476,30 @@ class AtomGroup(object):
         return charge
 
     charge = property(_get_charge)
+    # nuclei charge ------------------------------------------------------------
+    def _get_real_nuclei_charge(self):
+        charge = 0.0
+        for key, ag in self.groups():
+            charge += ag.real_nuclei_charge
+        for key, atom in self.atoms():
+            if atom.is_real:
+                charge += atom.atomic_number
+        return charge
+
+    real_nuclei_charge = property(_get_real_nuclei_charge) # nuclei charge without dummy atoms
+    # nuclei charge ------------------------------------------------------------
+    def _get_nuclei_charge(self):
+        charge = 0.0
+        for key, ag in self.groups():
+            charge += ag.nuclei_charge
+        for key, atom in self.atoms():
+            if atom.is_real:
+                charge += atom.atomic_number
+            else:
+                charge += atom.charge
+        return charge
+
+    nuclei_charge = property(_get_nuclei_charge) # nuclei charge including dummy atoms
     # --------------------------------------------------------------------------
     def _get_path(self):
         return self._path

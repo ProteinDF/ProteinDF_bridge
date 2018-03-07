@@ -151,6 +151,12 @@ class Atom(object):
     symbol = property(__get_symbol, __set_symbol)
 
     # --------------------------------------------------------------------------
+    def __is_real(self):
+        atomnum = self.atomic_number
+        return atomnum > 0
+
+    is_real = property(__is_real)
+    # --------------------------------------------------------------------------
     def _get_name(self):
         return self._name
 
