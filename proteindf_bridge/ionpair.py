@@ -19,20 +19,23 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
-import pdfbridge
 import logging
 logger = logging.getLogger(__name__)
 
+from .position import Position
+from .atomgroup import AtomGroup
+from .aminoacid import AminoAcid
+
 class IonPair(object):
     def __init__(self, model):
-        self._model = pdfbridge.AtomGroup(model)
+        self._model = AtomGroup(model)
 
     def get_ion_pairs(self):
         ion_pairs = []
         (anion_list, cation_list) = self._get_ion_list()
         for anion_path, anion_pos_array in anion_list.items():
             for (anion_pos, anion_type) in anion_pos_array:
-                
+
                 for cation_path, cation_pos_array in cation_list.items():
                     for (cation_pos,cation_type) in cation_pos_array:
 
@@ -43,7 +46,7 @@ class IonPair(object):
                             ion_pairs.append((anion_path, cation_path, anion_type, cation_type))
 
         return ion_pairs
-                    
+
     def _get_ion_list(self):
         anion_list = {}
         cation_list = {}
@@ -63,7 +66,7 @@ class IonPair(object):
                                              (self._get_center_ARG(res, 1), 'ARG1'),
                                              (self._get_center_ARG(res, 2), 'ARG2')]
 
-                if pdfbridge.AminoAcid.is_aminoacid(res):
+                if AminoAcid.is_aminoacid(res):
                     if res.has_atom('H3'):
                         cation_list.setdefault(res.path, [])
                         cation_list[res.path].append((self._get_center_Nterm(res), 'NTM'))
@@ -72,47 +75,47 @@ class IonPair(object):
                         anion_list[res.path].append((self._get_center_Cterm(res), 'CTM'))
 
         return (anion_list, cation_list)
-                        
-        
+
+
     def _get_center_Nterm(self, res):
         """
         N末端のイオン対判定用座標を返す
         """
         return res['N'].xyz
 
-        
+
     def _get_center_Cterm(self, res):
         """
         C末端のイオン対判定用座標を返す
         """
-        ag = pdfbridge.AtomGroup()
+        ag = AtomGroup()
         ag.set_atom('C', res['C'])
         ag.set_atom('O1', res['O'])
         ag.set_atom('O2', res['OXT'])
         return ag.center()
-        
+
 
     def _get_center_GLU(self, res):
         """
         GLUのイオン対判定用座標を返す
         """
-        ag = pdfbridge.AtomGroup()
+        ag = AtomGroup()
         ag.set_atom('C', res['CD'])
         ag.set_atom('O1', res['OE1'])
         ag.set_atom('O2', res['OE2'])
         return ag.center()
 
-        
+
     def _get_center_ASP(self, res):
         """
         ASPのイオン対判定用座標を返す
         """
-        ag = pdfbridge.AtomGroup()
+        ag = AtomGroup()
         ag.set_atom('C', res['CG'])
         ag.set_atom('O1', res['OD1'])
         ag.set_atom('O2', res['OD2'])
         return ag.center()
-        
+
 
     def _get_center_LYS(self, res):
         """
@@ -129,8 +132,8 @@ class IonPair(object):
         """
         case = int(case)
 
-        answer = pdfbridge.Position()
-        ag = pdfbridge.AtomGroup()
+        answer = Position()
+        ag = AtomGroup()
         if case == 0:
             ag.set_atom('NH1', res['NH1'])
             ag.set_atom('NH2', res['NH2'])
@@ -142,11 +145,9 @@ class IonPair(object):
             answer = res['NH2'].xyz
         else:
             logger.warning("unknown mode={}".format(mode))
-            
+
         return answer
 
 
-if __name__ == "__main__":
-    main()
-
-
+#if __name__ == "__main__":
+#    main()

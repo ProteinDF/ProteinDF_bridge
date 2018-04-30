@@ -3,19 +3,19 @@
 
 # Copyright (C) 2014 The ProteinDF development team.
 # see also AUTHORS and README if provided.
-# 
+#
 # This file is a part of the ProteinDF software package.
-# 
+#
 # The ProteinDF is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # The ProteinDF is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -25,7 +25,7 @@ import copy
 import math
 import numpy
 
-import pdfbridge
+from .vector import Vector
 
 """
 Matrix (for general matrix) and SymmetricMatrix (for symmetric matrix) class
@@ -36,9 +36,9 @@ class Matrix(object):
     """
     >>> a = Matrix()
     >>> a.rows
-    0
+    1
     >>> a.cols
-    0
+    1
     >>> B = Matrix(3, 5)
     >>> B.rows
     3
@@ -56,54 +56,48 @@ class Matrix(object):
     True
     """
     def __init__(self, *args, **kwargs):
-        self._rows = 0
-        self._cols = 0
         self._type = 'GE'
-        self._data = None
+        self._data = numpy.array([[0.0]], numpy.float)
 
         size_of_args = len(args)
         if size_of_args == 1:
             if args[0] is None:
                 return
             elif isinstance(args[0], Matrix):
-                self._rows = args[0]._rows
-                self._cols = args[0]._cols
                 self._type = args[0]._type
                 self._data = copy.copy(args[0]._data)
             elif isinstance(args[0], numpy.ndarray):
                 self._data = copy.deepcopy(args[0])
                 assert(self._data.ndim == 2)
-                self._rows, self._cols = self._data.shape
             elif isinstance(args[0], list):
                 self._data = numpy.array(args[0], numpy.float)
                 assert(self._data.ndim == 2)
-                self._rows, self._cols = self._data.shape
             else:
                 raise
         elif size_of_args == 2:
             if isinstance(args[0], int) and isinstance(args[1], int):
-                self._rows = args[0]
-                self._cols = args[1]
+                rows = args[0]
+                cols = args[1]
                 self._data = numpy.array(
-                    [[0.0 for c in range(self.cols)] for r in range(self.rows)],
+                    [[0.0 for c in range(cols)] for r in range(rows)],
                     numpy.float)
                 return
             else:
                 raise
 
         if kwargs:
-            self._rows = kwargs.get('row', 0)
-            self._cols = kwargs.get('col', 0)
+            rows = kwargs.get('row', 0)
+            cols = kwargs.get('col', 0)
             matrix_type = kwargs.get('type', None)
             if (matrix_type == 'GE'):
                 data = kwargs.get('data', None)
                 if data:
                     self._data = numpy.array(
-                        [ [0.0 for c in range(self.cols)] for r in range(self.rows)],
+                        [ [0.0 for c in range(cols)] for r in range(rows)],
                         numpy.float)
                     index = 0
-                    for r in range(self.rows):
-                        for c in range(self.cols):
+                    for r in range(rows):
+                        for c in range(cols):
                             self.set(r , c, buf[index])
                             index += 1
                     return
@@ -143,18 +137,18 @@ class Matrix(object):
         for r in range(min(self.rows, new_rows)):
             for c in range(min(self.cols, new_cols)):
                 new_data[r, c] = self._data[r, c]
-        self._rows = new_rows
-        self._cols = new_cols
         self._data = new_data
 
     # --------------------------------------------------------------------------
     @property
     def rows(self):
-        return self._rows
+        (rows, cols) = self._data.shape
+        return rows
 
     @property
     def cols(self):
-        return self._cols
+        (rows, cols) = self._data.shape
+        return cols
 
     @property
     def type(self):
@@ -166,7 +160,7 @@ class Matrix(object):
         return numpy array
         '''
         return self._data
-        
+
     # --------------------------------------------------------------------------
     def get(self, row, col):
         assert((0 <= row) and (row < self.rows))
@@ -174,6 +168,8 @@ class Matrix(object):
         return self._data[row, col]
 
     def set(self, row, col, value):
+        row = int(row)
+        col = int(col)
         assert((0 <= row) and (row < self.rows))
         assert((0 <= col) and (col < self.cols))
         self._data[row, col] = value
@@ -210,7 +206,7 @@ class Matrix(object):
         assert(row < self.rows)
 
         cols = self.cols
-        v = pdfbridge.Vector(cols)
+        v = Vector(cols)
         for i in range(cols):
             v[i] = self.get(row, i)
         return v
@@ -220,11 +216,11 @@ class Matrix(object):
         assert(col < self.cols)
 
         rows = self.rows
-        v = pdfbridge.Vector(rows)
+        v = Vector(rows)
         for i in range(rows):
             v[i] = self.get(i, col)
         return v
-    
+
     def __str__(self):
         answer = ''
         for order in range(0, self.cols, 10):
@@ -269,15 +265,19 @@ class Matrix(object):
     def set_buffer(self, b):
         self._data = numpy.fromstring(b, dtype=numpy.float)
         self._data.shape = (self.rows, self.cols)
-    
+
     def get_ndarray(self):
         """
         return numpy.ndarray object
         """
         return copy.deepcopy(self._data)
-    
+
     def inverse(self):
         tmp_data = numpy.linalg.inv(self._data)
+        return Matrix(tmp_data)
+
+    def pseudo_inverse(self):
+        tmp_data = numpy.linalg.pinv(self._data)
         return Matrix(tmp_data)
 
     def __add__(self, other):
@@ -315,9 +315,9 @@ class Matrix(object):
         return self
 
     def __mul__(self, other):
-        if isinstance(other, float):
+        if isinstance(other, (int, float)):
             answer = Matrix(self)
-            answer._data *= other
+            answer._data *= float(other)
             return answer
         elif isinstance(other, Matrix):
             # matrix * matrix
@@ -330,7 +330,7 @@ class Matrix(object):
             answer = Matrix(self.rows, other.cols)
             answer._data = C.getA()
             return answer
-        elif isinstance(other, pdfbridge.Vector):
+        elif isinstance(other, Vector):
             # matrix * (coulmn)vector
             assert(self.cols == other.size())
 
@@ -342,8 +342,14 @@ class Matrix(object):
             # TODO: to be simply!
             C = C.getT()
             a = C.tolist()
-            answer = pdfbridge.Vector(a[0])
+            answer = Vector(a[0])
             return answer
+
+    def __rmul__(self, other):
+        assert(isinstance(other, (int, float)))
+        answer = Matrix(self)
+        answer._data *= float(other)
+        return answer
 
     def __eq__(self, other):
         answer = False
@@ -368,9 +374,9 @@ class SymmetricMatrix(Matrix):
     """
     >>> A = SymmetricMatrix()
     >>> A.rows
-    0
+    1
     >>> A.cols
-    0
+    1
     >>> B = SymmetricMatrix(5)
     >>> B.rows
     5
@@ -391,8 +397,6 @@ class SymmetricMatrix(Matrix):
         if size_of_args == 1:
             if isinstance(args[0], int):
                 dim = args[0]
-                self._rows = dim
-                self._cols = dim
                 self._data = numpy.array(
                     [[0.0 for c in range(dim)] for r in range(dim)],
                     numpy.float)
@@ -400,15 +404,15 @@ class SymmetricMatrix(Matrix):
             elif isinstance(args[0], list):
                 self._data = numpy.array(args[0], numpy.float)
                 assert(self._data.ndim == 2)
-                self._rows, self._cols = self._data.shape
-                assert(self.rows == self.cols)
+                rows, cols = self._data.shape
+                assert(rows == cols)
                 return
             else:
                 raise
 
         if kwargs:
-            self._rows = kwargs.get('row', 0)
-            self._cols = kwargs.get('col', 0)
+            rows = kwargs.get('row', 0)
+            cols = kwargs.get('col', 0)
             assert(self.rows == self.cols)
             matrix_type = kwargs.get('type', None)
             if matrix_type == 'SP':
@@ -462,9 +466,7 @@ class SymmetricMatrix(Matrix):
         new_data = numpy.array([ [0.0 for c in range(new_dim)] for r in range(new_dim) ])
         for r in range(min(self.rows, new_dim)):
             for c in range(r +1):
-                new_matrix[r, c] = self._matrix[r, c]
-        self._rows = new_dim
-        self._cols = new_dim
+                new_data[r, c] = self.get(r, c)
         self._data = new_data
 
     def get(self, row, col):
@@ -474,6 +476,8 @@ class SymmetricMatrix(Matrix):
 
 
     def set(self, row, col, value):
+        row = int(row)
+        col = int(col)
         if (row < col):
             row, col = col, row
         Matrix.set(self, row, col, value)
@@ -482,7 +486,7 @@ class SymmetricMatrix(Matrix):
         """
         return the eigenvalues and eigenvectors.
         """
-        w = pdfbridge.Vector(self.dim)
+        w = Vector(self.dim)
         v = Matrix(self.dim, self.dim)
         if (self.dim > 1):
             w._data, v._data = numpy.linalg.eigh(self._data, 'L')
@@ -564,7 +568,7 @@ def identity_matrix(dim):
         I.set(i, i, 1.0)
 
     return I
-    
+
 if __name__ == '__main__':
     import doctest
     doctest.testmod()

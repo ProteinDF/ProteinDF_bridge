@@ -3,26 +3,30 @@
 
 # Copyright (C) 2014 The ProteinDF development team.
 # see also AUTHORS and README if provided.
-# 
+#
 # This file is a part of the ProteinDF software package.
-# 
+#
 # The ProteinDF is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # The ProteinDF is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
 import math
 import copy
 
-import pdfbridge
+from .position import Position
+from .atomgroup import AtomGroup
+from .vector import Vector
+from .matrix import Matrix
+
 
 class Superposer(object):
     """
@@ -33,8 +37,8 @@ class Superposer(object):
         @param atom_group1[in] RMSD・回転行列を求めたい分子団
         @param atom_group2[in] 基準となる分子団
         """
-        self._atomgroup1 = pdfbridge.AtomGroup(atom_group1)
-        self._atomgroup2 = pdfbridge.AtomGroup(atom_group2)
+        self._atomgroup1 = AtomGroup(atom_group1)
+        self._atomgroup2 = AtomGroup(atom_group2)
         (positions1, positions2) = self._match_positions(atom_group1, atom_group2)
         self._num_of_positions = len(positions1)
         assert(self._num_of_positions == len(positions2))
@@ -138,16 +142,16 @@ class Superposer(object):
     # -----------------------------------------------------------------
     def superimpose(self, atomgroup):
         # positions1 を移動
-        answer = pdfbridge.AtomGroup(atomgroup)
+        answer = AtomGroup(atomgroup)
         answer.shift_by(- self.center1)
 
         answer.rotate(self.rotation_mat)
 
         # positions2 のcenterに移動
         answer.shift_by(self.center2)
-        
+
         return answer
-        
+
     # -----------------------------------------------------------------
     def _calc(self, atom_group1, atom_group2):
         (positions1, positions2) = self._match_positions(atom_group1, atom_group2)
@@ -207,7 +211,7 @@ class Superposer(object):
         """
         return the center position of input positions
         """
-        c = pdfbridge.Position()
+        c = Position()
 
         num_of_positions = len(positions)
         for i in range(num_of_positions):
@@ -220,7 +224,7 @@ class Superposer(object):
         answer = [ p - center for p in positions ]
 
         # check
-        sum_of_positions = pdfbridge.Position()
+        sum_of_positions = Position()
         for p in answer:
             sum_of_positions += p
         assert(sum_of_positions.distance_from() < 1.0E-5)
@@ -229,7 +233,7 @@ class Superposer(object):
 
     def _get_rotation_matrix(self, num_of_points,
                              positions1, positions2):
-        r = pdfbridge.Matrix(3, 3)
+        r = Matrix(3, 3)
 
         # r_ij = Sum_over_k{p2(k, i) * p1(k, j)}
         for k in range(num_of_points):
@@ -271,7 +275,7 @@ class Superposer(object):
         #print('a')
         #print(a)
 
-        b = pdfbridge.Matrix(3, 3)
+        b = Matrix(3, 3)
         for i in range(3):
             for j in range(3):
                 for k in range(3):
@@ -304,15 +308,15 @@ class Superposer(object):
         assert(mat.rows == 3)
         assert(mat.cols == 3)
 
-        v1 = pdfbridge.Vector(3)
-        v2 = pdfbridge.Vector(3)
+        v1 = Vector(3)
+        v2 = Vector(3)
         for i in range(3):
             v1[i] = mat.get(0, i)
             v2[i] = mat.get(1, i)
 
         v3 = self._calc_vector_product(v1, v2)
 
-        answer = pdfbridge.Matrix(3, 3)
+        answer = Matrix(3, 3)
         for i in range(3):
             answer.set(0, i, v1[i])
             answer.set(1, i, v2[i])
@@ -324,7 +328,7 @@ class Superposer(object):
         assert(len(v1) == 3)
         assert(len(v2) == 3)
 
-        v3 = pdfbridge.Vector(3)
+        v3 = Vector(3)
         v3[0] = v1[1] * v2[2] - v1[2] * v2[1]
         v3[1] = v1[2] * v2[0] - v1[0] * v2[2]
         v3[2] = v1[0] * v2[1] - v1[1] * v2[0]
@@ -337,7 +341,7 @@ class Superposer(object):
         assert(b.rows == 3)
         assert(b.cols == 3)
 
-        r = pdfbridge.Matrix(3, 3)
+        r = Matrix(3, 3)
         for i in range(3):
             for j in range(3):
                 for k in range(3):

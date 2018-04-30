@@ -3,19 +3,19 @@
 
 # Copyright (C) 2014 The ProteinDF development team.
 # see also AUTHORS and README if provided.
-# 
+#
 # This file is a part of the ProteinDF software package.
-# 
+#
 # The ProteinDF is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # The ProteinDF is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -26,7 +26,7 @@ try:
 except:
     import msgpack_pure as msgpack
 
-import pdfbridge
+import proteindf_bridge as bridge
 
 def main():
     # parse args
@@ -54,25 +54,25 @@ def main():
     verbose = args.verbose
 
     path_query = args.path_query[0]
-    
+
     # reading
     if verbose:
         print("reading: {}".format(mpac_file_path))
     mpac_file = open(mpac_file_path, "rb")
     mpac_data =msgpack.unpackb(mpac_file.read())
     mpac_file.close()
-        
+
     # prepare atomgroup
-    atomgroup = pdfbridge.AtomGroup(mpac_data)
+    atomgroup = bridge.AtomGroup(mpac_data)
 
     #print(atom_group)
 
     # selecter
     if verbose:
         print('path_query=\"{}\"'.format(path_query))
-    path_selecter = pdfbridge.Select_Path(path_query)
+    path_selecter = bridge.Select_Path(path_query)
     selected = atomgroup.select(path_selecter)
-    
+
     # output
     if (verbose == True):
         print("writing: %s\n" % (output_path))
@@ -81,7 +81,7 @@ def main():
     output_mpac = msgpack.packb(output_data)
     output_file.write(output_mpac)
     output_file.close()
-        
+
 
 if __name__ == '__main__':
     main()

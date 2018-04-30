@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import pdfbridge
+import proteindf_bridge as bridge
 
 def main():
     # initialize
@@ -14,13 +14,11 @@ def main():
 
     path = args.FILE[0]
 
-    ap = pdfbridge.AmberPrmtop(path)
+    ap = bridge.AmberPrmtop(path)
     charges = ap.charges
     for c in charges:
         print(c)
-    
+
 
 if __name__ == '__main__':
     main()
-    
-

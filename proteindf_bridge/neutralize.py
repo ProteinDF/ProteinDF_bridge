@@ -2,20 +2,22 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import pdfbridge 
+from .atomgroup import AtomGroup
+from .modeling import Modeling
+from .ionpair import IonPair
+
+logger = logging.getLogger(__name__)
 
 class Neutralize(object):
-    def __init__(self, protein, logging_level = logging.INFO):
-        self._logger = logging.getLogger(__name__)
-        self._logger.setLevel(logging_level)
+    def __init__(self, protein):
         self._neutral_obj = self._neutralize(protein)
 
     @property
     def neutralized(self):
         return self._neutral_obj
-        
+
     def _exempt_list(self):
-        ip = pdfbridge.IonPair(self._model)
+        ip = IonPair(self._model)
         ionpairs = ip.get_ion_pairs()
 
         # 処理しやすいように並べ替え
@@ -27,12 +29,12 @@ class Neutralize(object):
             exempt_list.append((cation_chain_name, cation_res_name, cation_type))
 
         return exempt_list
-            
+
     def _neutralize(self, protein):
-        assert(isinstance(protein, pdfbridge.AtomGroup))
+        assert(isinstance(protein, AtomGroup))
         exempt_list = [] # self._exempt_list()
-        
-        modeling = pdfbridge.Modeling()
+
+        modeling = Modeling()
         for model_name, model in protein.groups():
             self._logger.info("model: {}".format(model_name))
             for chain_name, chain in model.groups():
@@ -62,7 +64,7 @@ class Neutralize(object):
                         if (chain_name, resid, 'GLU') not in exempt_list:
                             ag = modeling.neutralize_GLU(res)
                             self._logger.info("add ion for GLU({}): {}".format(resid, ag))
-                            self._add_ions(res, ag)                        
+                            self._add_ions(res, ag)
                         else:
                             self._logger.info('exempt adding ion: {}/{} GLU'.format(chain_name, resname))
                     elif resname == 'ASP':
@@ -95,10 +97,10 @@ class Neutralize(object):
                         self._add_ions(res, ag)
 
         return protein
-    
+
     def _add_ions(self, atomgroup, ions):
-        assert isinstance(atomgroup, pdfbridge.AtomGroup)
-        assert isinstance(ions, pdfbridge.AtomGroup)
+        assert isinstance(atomgroup, AtomGroup)
+        assert isinstance(ions, AtomGroup)
 
         count = 0
         for atom_name, atom in ions.atoms():

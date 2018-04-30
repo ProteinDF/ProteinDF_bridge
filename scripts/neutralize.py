@@ -9,7 +9,7 @@ try:
 except:
     import msgpack_pure as msgpack
 
-import pdfbridge
+import proteindf_bridge as bridge
 
 def main():
     # parse args
@@ -27,7 +27,7 @@ def main():
                         action="store_true",
                         default = False)
     args = parser.parse_args()
-        
+
 
     # setting
     input_path = args.INPUT_FILE[0]
@@ -43,21 +43,21 @@ def main():
     else:
         logger.setLevel(logging.INFO)
     logger.addHandler(handler)
-        
+
     # reading
     protein = None
     with open(input_path, "rb") as mpac_file:
         mpac_data = msgpack.unpackb(mpac_file.read())
-        protein = pdfbridge.AtomGroup(mpac_data)
+        protein = bridge.AtomGroup(mpac_data)
 
     # neutralize
-    neutralizer = pdfbridge.Neutralize(protein)
+    neutralizer = bridge.Neutralize(protein)
     mod_protein = neutralizer.neutralized
 
     # output
     with open(output_path, "wb") as mpac_file:
         raw_data = mod_protein.get_raw_data()
         mpac_file.write(msgpack.packb(raw_data))
-    
+
 if __name__ == '__main__':
     main()

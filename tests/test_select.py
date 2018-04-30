@@ -4,9 +4,9 @@
 import unittest
 import pickle
 
-from pdfbridge.atom import Atom
-from pdfbridge.atomgroup import AtomGroup
-from pdfbridge.select import *
+from proteindf_bridge.atom import Atom
+from proteindf_bridge.atomgroup import AtomGroup
+from proteindf_bridge.select import *
 
 class Select_Tests(unittest.TestCase):
     def setUp(self):
@@ -27,7 +27,7 @@ class Select_Tests(unittest.TestCase):
         subgrp2.set_atom('C1', atom21)
         subgrp2.set_atom('H1', atom22)
         subgrp2.set_atom('N1', atom23)
-        
+
         self.group1.set_group('sub2', subgrp2)
 
     def tearDown(self):
@@ -50,6 +50,6 @@ class Select_Tests(unittest.TestCase):
         self.assertEqual(sel['sub1']['C1'].path, '/sub1/C1')
         self.assertEqual(sel['sub1']['H1'].path, '/sub1/H1')
         self.assertEqual(sel['sub2']['C1'].path, '/sub2/C1')
-        
+
 if __name__ == '__main__':
     unittest.main()
