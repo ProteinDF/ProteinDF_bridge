@@ -32,6 +32,7 @@ except ImportError:
 
 from .utils import Utils
 from .periodictable import PeriodicTable
+from .position import Position
 from .atom import Atom
 from .select import Select
 
