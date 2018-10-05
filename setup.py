@@ -27,7 +27,7 @@ from imp import reload
 #sys.path.append('./pdftests')
 
 setup(name='proteindf_bridge',
-      version='2018.2',
+      version='2018.10.rc0',
       description='bridge scripts the ProteinDF package and other data/package',
       author='Toshiyuki HIRANO',
       author_email='hiracchi@gmail.com',
