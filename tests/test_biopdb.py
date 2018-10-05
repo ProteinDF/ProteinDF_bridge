@@ -3,6 +3,7 @@
 
 import unittest
 import pickle
+import doctest
 
 from proteindf_bridge.biopdb import Pdb
 
@@ -48,6 +49,13 @@ class PdbTests(unittest.TestCase):
 
     def test_set_by_atomgroup(self):
         pass
+
+
+def load_tests(loader, tests, ignore):
+    from proteindf_bridge import biopdb
+    tests.addTests(doctest.DocTestSuite(biopdb))
+    return tests
+
 
 if __name__ == '__main__':
     unittest.main()

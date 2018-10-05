@@ -21,6 +21,7 @@
 
 import unittest
 import pickle
+import doctest
 
 from proteindf_bridge.atom import Atom
 
@@ -58,6 +59,12 @@ class AtomTests(unittest.TestCase):
 
         self.assertIsInstance(atom2, Atom)
         self.assertEqual(atom2.symbol, 'Na')
+
+
+def load_tests(loader, tests, ignore):
+    from proteindf_bridge import atom
+    tests.addTests(doctest.DocTestSuite(atom))
+    return tests
 
 
 if __name__ == '__main__':
