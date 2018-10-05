@@ -36,7 +36,6 @@ from .position import Position
 from .atom import Atom
 from .select import Select
 
-
 class AtomGroup(object):
     """
     >>> group1 = AtomGroup()
@@ -533,7 +532,7 @@ class AtomGroup(object):
         対応する原子団を返します
         """
         assert(isinstance(selecter, Select) == True)
-        self._update_path()
+        #self._update_path()
 
         answer = None
         if (selecter.is_match(self) == True):
@@ -558,7 +557,7 @@ class AtomGroup(object):
         """
         タプル('atom1のpath', 'atom2のpath', 結合次数)のリストを返す
         """
-        self._update_path()
+        #self._update_path()
 
         if bond_list == None:
             bond_list = []
@@ -811,11 +810,11 @@ class AtomGroup(object):
         if "sort_groups" in data:
             self.sort_groups = data["sort_groups"]
 
-        self._update_path()
+        #self._update_path()
         return self
 
     def get_raw_data(self):
-        self._update_path()
+        #self._update_path()
         data = {}
         if (len(self._groups) > 0):
             groups = {}
@@ -840,8 +839,7 @@ class AtomGroup(object):
         return data
 
     def __str__(self):
-        self._update_path()
-
+        #self._update_path()
         return self._get_str()
 
     def _get_str(self, key='', indent_level=0):
