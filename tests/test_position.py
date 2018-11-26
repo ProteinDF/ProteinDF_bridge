@@ -21,6 +21,7 @@
 
 import unittest
 import pickle
+import doctest
 
 from proteindf_bridge.position import Position
 
@@ -63,6 +64,12 @@ class PositionTests(unittest.TestCase):
         self.assertAlmostEqual(pos2.x, 1.0)
         self.assertAlmostEqual(pos2.y, 2.0)
         self.assertAlmostEqual(pos2.z, 3.0)
+
+
+def load_tests(loader, tests, ignore):
+    from proteindf_bridge import position
+    tests.addTests(doctest.DocTestSuite(position))
+    return tests
 
 
 if __name__ == '__main__':
