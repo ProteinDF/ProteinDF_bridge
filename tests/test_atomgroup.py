@@ -21,6 +21,7 @@
 
 import unittest
 import pickle
+import doctest
 
 from proteindf_bridge.position import Position
 from proteindf_bridge.atom import Atom
@@ -226,6 +227,13 @@ class AtomGroupTests(unittest.TestCase):
 
         formula = group1.get_formula()
         self.assertEqual(formula, "H2C1")
+
+
+def load_tests(loader, tests, ignore):
+    from proteindf_bridge import atomgroup
+    tests.addTests(doctest.DocTestSuite(atomgroup))
+    return tests
+
 
 if __name__ == '__main__':
     unittest.main()

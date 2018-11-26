@@ -3,6 +3,7 @@
 
 import unittest
 import pickle
+import doctest
 
 from proteindf_bridge.atom import Atom
 from proteindf_bridge.atomgroup import AtomGroup
@@ -50,6 +51,13 @@ class Select_Tests(unittest.TestCase):
         self.assertEqual(sel['sub1']['C1'].path, '/sub1/C1')
         self.assertEqual(sel['sub1']['H1'].path, '/sub1/H1')
         self.assertEqual(sel['sub2']['C1'].path, '/sub2/C1')
+
+
+def load_tests(loader, tests, ignore):
+    from proteindf_bridge import select
+    tests.addTests(doctest.DocTestSuite(select))
+    return tests
+
 
 if __name__ == '__main__':
     unittest.main()
