@@ -710,13 +710,13 @@ class AtomGroup(object):
                 self._groups[key] &= rhs._groups[key]
                 if ((self._groups[key].get_number_of_groups() == 0) and
                     (self._groups[key].get_number_of_atoms() == 0)):
-                    self.erase_group(key)
+                    self.remove_group(key)
             else:
-                self.erase_group(key)
+                self.remove_group(key)
 
         for key, atom in self.atoms():
             if rhs.has_atom(key) != True:
-                self.erase_atom(key)
+                self.remove_atom(key)
 
         return self
 
