@@ -38,6 +38,7 @@ from .atomgroup import AtomGroup
 from .select import Select, Select_Name, Select_Path, Select_PathRegex, Select_Atom, Select_Range
 
 from .biopdb import Pdb
+from .mmcif import SimpleMmcif
 from .xyz import Xyz
 
 from .aminoacid import AminoAcid

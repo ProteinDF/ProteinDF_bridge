@@ -47,6 +47,7 @@ def main():
     elif isinstance(data, dict):
         data = bridge.Utils.to_unicode_dict(data)
     f.close()
+    # print(data)
 
     yaml_str = yaml.dump(data,
                          encoding='utf8',

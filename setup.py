@@ -48,6 +48,8 @@ setup(name='proteindf_bridge',
           'scripts/pdb2brd.py',
           'scripts/brd2pdb.py',
 
+          'scripts/mmcif2txt.py',
+
           'scripts/brd2xyz.py',
           'scripts/xyz2brd.py',
 
