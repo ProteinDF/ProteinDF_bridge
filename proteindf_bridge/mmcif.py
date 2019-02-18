@@ -48,7 +48,7 @@ class SimpleMmcif(object):
                 match_obj = self._re_data_block.match(line)
                 if match_obj:
                     name = match_obj.group(1)
-                    #print(name)
+                    # print("data: {}".format(name))
                     self._data[name] = self._load_data_block(file_obj)
 
 
@@ -89,7 +89,7 @@ class SimpleMmcif(object):
                 file_obj.seek(failback_pos)
                 break
 
-        #print("getline: [{}]".format(line))
+        # print("getline: [{}]".format(line))
         return line
 
 
@@ -103,11 +103,16 @@ class SimpleMmcif(object):
         kv = {}
         tables = []
         while True:
+            failback_pos = file_obj.tell()
             line = self._get_line(file_obj)
-            #print(line)
+            if len(line) == 0:
+                # print("break data block: {}".format(line))
+                break
+            # print("check 109: {}".format(line))
 
             kv_match_obj = self._re_keyvalue.match(line)
             if kv_match_obj:
+                # read key-value component
                 key = kv_match_obj.group(1)
                 value = kv_match_obj.group(2)
                 kv[key] = self._get_value(value)
@@ -115,12 +120,23 @@ class SimpleMmcif(object):
             else:
                 loop_block_match_obj = self._re_loop_block.match(line)
                 if loop_block_match_obj:
+                    # read "_loop" component
                     tables.append(self._load_loop_block(file_obj))
                 else:
-                    #logger.debug("end of data: {}".format(line))
-                    continue
-                break
+                    # print("no match loop block: {}".format(line))
+                    #logger.debug("no match loop block: {}".format(line))
 
+                    # check end of "_data"
+                    match_obj = self._re_data_block.match(line)
+                    if match_obj:
+                        logger.debug("end of data: {}".format(line))
+                        # print("end of data: {}".format(line))
+                        file_obj.seek(failback_pos)
+                        break
+                    else:
+                        logger.warning("illegal end of data: {}".format(line))
+                    continue
+                # break
 
         return (kv, tables)
 
@@ -132,6 +148,7 @@ class SimpleMmcif(object):
         is_reading_loop_header = True
         last_contents_filepointer = None
         header = []
+        # print(">>>> begin loop!")
         while True:
             line = self._get_line(file_obj)
 
@@ -150,6 +167,14 @@ class SimpleMmcif(object):
                     re_str = "^" + "\s*(\S+|\".*\")" * num_of_columns + "\s*$"
                     re_contents = re.compile(re_str)
 
+            data_match_obj = self._re_data_block.match(line)
+            if data_match_obj:
+                #logger.debug("end of loop by data_: {}".format(line))
+                # print("<<<< end of loop by data_: {}".format(line))
+                file_obj.seek(last_contents_filepointer)
+                last_contents_filepointer = None
+                break
+
             contents_match_obj = re_contents.match(line)
             if contents_match_obj:
                 row = {}
@@ -161,6 +186,7 @@ class SimpleMmcif(object):
                 last_contents_filepointer = file_obj.tell()
             else:
                 #logger.debug("end of loop: {}".format(line))
+                # print("<<<< end of loop: {}".format(line))
                 file_obj.seek(last_contents_filepointer)
                 last_contents_filepointer = None
                 break
