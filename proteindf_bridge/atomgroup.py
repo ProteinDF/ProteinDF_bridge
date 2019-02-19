@@ -567,9 +567,11 @@ class AtomGroup(object):
 
         for b in self._bonds:
             #print("get_bond_list> ", self.path, b[0], b[1])
-            b[0] = '{}{}'.format(self.path, b[0])
-            b[1] = '{}{}'.format(self.path, b[1])
-            bond_list.append(b)
+            bond_info = [None] * 3
+            bond_info[0] = '{}{}'.format(self.path, b[0])
+            bond_info[1] = '{}{}'.format(self.path, b[1])
+            bond_info[2] = b[2]
+            bond_list.append(bond_info)
 
         return bond_list
 
@@ -578,6 +580,9 @@ class AtomGroup(object):
         結合情報を追加する
         order = 結合次数
         """
+        assert(isinstance(atom1, Atom))
+        assert(isinstance(atom2, Atom))
+        assert(isinstance(order, int))
         bond_info = (atom1, atom2, order)
         self._add_bond_normalize(bond_info)
 

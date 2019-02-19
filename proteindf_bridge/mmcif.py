@@ -19,9 +19,15 @@
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
 import re
+import pprint
 import msgpack
+
 import logging
 logger = logging.getLogger(__name__)
+
+from .position import Position
+from .atom import Atom
+from .atomgroup import AtomGroup
 
 class SimpleMmcif(object):
     """
@@ -123,9 +129,6 @@ class SimpleMmcif(object):
                     # read "_loop" component
                     tables.append(self._load_loop_block(file_obj))
                 else:
-                    # print("no match loop block: {}".format(line))
-                    #logger.debug("no match loop block: {}".format(line))
-
                     # check end of "_data"
                     match_obj = self._re_data_block.match(line)
                     if match_obj:
@@ -205,6 +208,71 @@ class SimpleMmcif(object):
         packed = msgpack.packb(self._data)
         with open(file_path, "wb") as file_obj:
             file_obj.write(packed)
+
+
+    def get_molecule_names(self):
+        return list(self._data.keys())
+
+
+    def get_atomgroup(self, name):
+        ag = AtomGroup()
+
+        mol_data = self._data[name]
+        self._get_atomgroup_list(mol_data, ag)
+
+        return ag
+
+
+    def _get_atomgroup_list(self, list_item, ag):
+        assert(isinstance(ag, AtomGroup))
+        for item in list_item:
+            if isinstance(item, list):
+                self._get_atomgroup_list(item, ag)
+            elif isinstance(item, dict):
+                self._get_atomgroup_dict(item, ag)
+
+
+    def _get_atomgroup_dict(self, dict_item, ag):
+        assert(isinstance(ag, AtomGroup))
+        assert(isinstance(dict_item, dict))
+
+        # output key-value
+        #print(">" * 10)
+        #for key, value in dict_item.items():
+        #    print("{}> {}".format(key, value))
+        #print("<" * 10)
+
+        if "_chem_comp.id" in dict_item:
+            ag.name = dict_item["_chem_comp.id"]
+
+        if "_chem_comp_atom.atom_id" in dict_item:
+            atom = Atom()
+            id = dict_item["_chem_comp_atom.atom_id"]
+            atom.name = id
+            atom.symbol = dict_item["_chem_comp_atom.type_symbol"]
+            atom.position.x = dict_item["_chem_comp_atom.model_Cartn_x"]
+            atom.position.y = dict_item["_chem_comp_atom.model_Cartn_y"]
+            atom.position.z = dict_item["_chem_comp_atom.model_Cartn_z"]
+            atom.charge = dict_item["_chem_comp_atom.charge"]
+            ag.set_atom(id, atom)
+
+        if "_chem_comp_bond.comp_id" in dict_item:
+            atom1_name = dict_item["_chem_comp_bond.atom_id_1"]
+            atom2_name = dict_item["_chem_comp_bond.atom_id_2"]
+            bond_order_str = dict_item["_chem_comp_bond.value_order"]
+            bond_order = 0
+            if bond_order_str == "SING":
+                bond_order = 1
+            elif bond_order_str == "DOUB":
+                bond_order = 2
+            elif bond_order_str == "TRIP":
+                bond_order = 3
+            else:
+                print("illegal input: {}".format(bond_order_str))
+            atom1 = ag.get_atom(atom1_name)
+            atom2 = ag.get_atom(atom2_name)
+            ag.add_bond(atom1, atom2, bond_order)
+
 
     def __str__(self):
         answer = ""

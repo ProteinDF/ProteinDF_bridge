@@ -39,6 +39,7 @@ from .select import Select, Select_Name, Select_Path, Select_PathRegex, Select_A
 
 from .biopdb import Pdb
 from .mmcif import SimpleMmcif
+from .mol2 import SimpleMol2
 from .xyz import Xyz
 
 from .aminoacid import AminoAcid
