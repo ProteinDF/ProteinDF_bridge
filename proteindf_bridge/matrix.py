@@ -98,7 +98,7 @@ class Matrix(object):
                     index = 0
                     for r in range(rows):
                         for c in range(cols):
-                            self.set(r , c, buf[index])
+                            self.set(r , c, data[index])
                             index += 1
                     return
                 else:
@@ -407,6 +407,9 @@ class SymmetricMatrix(Matrix):
                 rows, cols = self._data.shape
                 assert(rows == cols)
                 return
+            elif isinstance(args[0], numpy.ndarray):
+                self._data = copy.deepcopy(args[0])
+                assert(self._data.ndim == 2)
             else:
                 raise
 

@@ -24,7 +24,7 @@ from __future__ import absolute_import
 
 #from .common import NullHandler
 from .utils import Utils, str, bytes, basestring, unicode
-from .error import BrError, InputError
+from .error import BrError, BrInputError, BrValueError
 
 from .vector import Vector
 from .matrix import Matrix, SymmetricMatrix, identity_matrix
@@ -35,7 +35,7 @@ from .atom import Atom
 from .atomgroup import AtomGroup
 #from bond import Bond
 
-from .select import Select, Select_Name, Select_Path, Select_PathRegex, Select_Atom, Select_Range
+from .select import Select, Select_Name, Select_Path, Select_Path_simple, Select_Path_wildcard, Select_PathRegex, Select_Atom, Select_Range
 
 from .biopdb import Pdb
 from .mmcif import SimpleMmcif
@@ -56,22 +56,22 @@ from .superposer_quaternion import Superposer_quaternion
 from .dbmanager import DbManager
 from .mail import Mail
 
-__all__ = [
-    'Utils',
-    'BrError', 'InputError',
-    'Vector',
-    'Matrix', 'SymmetricMatrix',
-    'Position',
-    'PeriodicTable',
-    'Atom',
-    'AtomGroup',
-    'Select_Name', 'Select_Path', 'Select_PathRegex', 'Select_Atom', 'Select_Range',
-    'Pdb',
-    'Xyz',
-    'Modeling',
-    'Ionpair',
-    'Superposer',
-    'Superposer_quaternion',
-    'DbManager',
-    'Mail'
-]
+# __all__ = [
+#     'Utils',
+#     'BrError', 'BrInputError', 'BrValueError',
+#     'Vector',
+#     'Matrix', 'SymmetricMatrix',
+#     'Position',
+#     'PeriodicTable',
+#     'Atom',
+#     'AtomGroup',
+#     'Select_Name', 'Select_Path', 'Select_PathRegex', 'Select_Atom', 'Select_Range',
+#     'Pdb',
+#     'Xyz',
+#     'Modeling',
+#     'Ionpair',
+#     'Superposer',
+#     'Superposer_quaternion',
+#     'DbManager',
+#     'Mail'
+# ]

@@ -22,7 +22,9 @@
 import copy
 import math
 import logging
+logger = logging.getLogger(__name__)
 
+from .error import BrInputError
 from .utils import Utils
 from .periodictable import PeriodicTable
 from .position import Position
@@ -46,8 +48,6 @@ class Atom(object):
     'Na'
     """
     def __init__(self, *args, **kwargs):
-        self._logger = logging.getLogger(__name__)
-
         self._atomic_number = PeriodicTable.get_atomic_number('X')
         self._xyz = Position()
         self._force = Position()
@@ -71,7 +71,7 @@ class Atom(object):
                 elif (isinstance(rhs, dict) == True):
                     self.set_by_raw_data(rhs)
             else:
-                raise InputError('atom.__init__', 'illegal the number of args')
+                raise BrInputError('atom.__init__', 'illegal the number of args')
 
         if 'symbol' in kwargs:
             self._atomic_number = PeriodicTable.get_atomic_number(kwargs.get('symbol'))
@@ -233,7 +233,7 @@ class Atom(object):
             elif key == 'force':
                 self.force = Position(value)
             else:
-                self._logger.debug("bridge::Atom > unknown key: {}".format(key))
+                logger.debug("bridge::Atom > unknown key: {}".format(key))
         return self
 
     def get_raw_data(self):

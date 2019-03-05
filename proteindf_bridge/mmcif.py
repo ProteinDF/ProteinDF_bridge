@@ -25,6 +25,8 @@ import msgpack
 import logging
 logger = logging.getLogger(__name__)
 
+from .error import BrInputError, BrValueError
+from .utils import Utils
 from .position import Position
 from .atom import Atom
 from .atomgroup import AtomGroup
@@ -64,7 +66,8 @@ class SimpleMmcif(object):
         while True:
             failback_pos = file_obj.tell()
             current_line = file_obj.readline()
-            if len(current_line) == 0:
+            #print("{}> '{}'".format(str(start_semicolon)[0], current_line))
+            if (len(current_line) == 0) and (start_semicolon == False):
                 break
 
             if current_line[0] == "#":
@@ -79,23 +82,32 @@ class SimpleMmcif(object):
             if len(current_line) == 0:
                 continue
 
+            #print("{}>> '{}'".format(str(start_semicolon)[0], current_line))
             if current_line[0] == ";":
                 if start_semicolon == False:
                     line += ' "'
-                    start_clause = True
-                line += current_line[1:]
-                continue
+                    start_semicolon = True
+                    line += current_line[1:]
+                    continue
+                else:
+                    line += '"'
+                    start_semicolon = False
+                    break
             elif current_line[0] == '"':
                 line += " " + current_line
                 continue
             else:
-                if start_semicolon:
-                    line += '"'
-                    start_semicolon = False
+                #if start_semicolon:
+                #    line += '"'
+                #    start_semicolon = False
+                if start_semicolon == True:
+                    line += current_line
+                    continue
+                #print("getline cont.: [{}]".format(current_line))
                 file_obj.seek(failback_pos)
                 break
 
-        # print("getline: [{}]".format(line))
+        #print("getline: [{}]".format(line))
         return line
 
 
@@ -114,7 +126,7 @@ class SimpleMmcif(object):
             if len(line) == 0:
                 # print("break data block: {}".format(line))
                 break
-            # print("check 109: {}".format(line))
+            #print("check 109: {}".format(line))
 
             kv_match_obj = self._re_keyvalue.match(line)
             if kv_match_obj:
@@ -154,6 +166,7 @@ class SimpleMmcif(object):
         # print(">>>> begin loop!")
         while True:
             line = self._get_line(file_obj)
+            # print(line)
 
             if is_reading_loop_header:
                 loop_header_match_obj = self._re_loop_header.match(line)
@@ -167,12 +180,15 @@ class SimpleMmcif(object):
                     # make contents re_contents
                     num_of_columns = len(header)
 
-                    re_str = "^" + "\s*(\S+|\".*\")" * num_of_columns + "\s*$"
+                    re_str = "^\s*" + "(\S+|\".*\")\s+" * num_of_columns
+                    re_str = re_str[:-1]
+                    re_str += "*$"
+                    # print("re_str:> ", re_str)
                     re_contents = re.compile(re_str)
 
             data_match_obj = self._re_data_block.match(line)
             if data_match_obj:
-                #logger.debug("end of loop by data_: {}".format(line))
+                # logger.debug("end of loop by data_: {}".format(line))
                 # print("<<<< end of loop by data_: {}".format(line))
                 file_obj.seek(last_contents_filepointer)
                 last_contents_filepointer = None
@@ -188,7 +204,7 @@ class SimpleMmcif(object):
                 data.append(row)
                 last_contents_filepointer = file_obj.tell()
             else:
-                #logger.debug("end of loop: {}".format(line))
+                # logger.debug("end of loop: {}".format(line))
                 # print("<<<< end of loop: {}".format(line))
                 file_obj.seek(last_contents_filepointer)
                 last_contents_filepointer = None
@@ -202,6 +218,10 @@ class SimpleMmcif(object):
         with open(file_path, "rb") as file_obj:
             packed = file_obj.read()
         self._data = msgpack.unpackb(packed)
+        if isinstance(self._data, list):
+            self._data = Utils.to_unicode_list(self._data)
+        elif isinstance(self._data, dict):
+            self._data = Utils.to_unicode_dict(self._data)
 
 
     def save_msgpack(self, file_path):
@@ -218,23 +238,53 @@ class SimpleMmcif(object):
         ag = AtomGroup()
 
         mol_data = self._data[name]
-        self._get_atomgroup_list(mol_data, ag)
+        try:
+            self._get_atomgroup_list(mol_data, ag)
+            self._get_atomgroup_bond_list(mol_data, ag)
+        except BrInputError as e:
+            raise BrInputError(name, "Invalid mmcif data: name={}".format(name))
 
         return ag
 
 
     def _get_atomgroup_list(self, list_item, ag):
         assert(isinstance(ag, AtomGroup))
-        for item in list_item:
-            if isinstance(item, list):
-                self._get_atomgroup_list(item, ag)
-            elif isinstance(item, dict):
-                self._get_atomgroup_dict(item, ag)
+        try:
+            for item in list_item:
+                if isinstance(item, list):
+                    self._get_atomgroup_list(item, ag)
+                elif isinstance(item, dict):
+                    self._get_atomgroup_dict(item, ag)
+        except BrInputError as e:
+            raise e
 
 
-    def _get_atomgroup_dict(self, dict_item, ag):
-        assert(isinstance(ag, AtomGroup))
+    def _get_atomgroup_dict(self, dict_item, output_atomgroup):
+        """output_atomgroupに出力する
+        """
+        assert(isinstance(output_atomgroup, AtomGroup))
         assert(isinstance(dict_item, dict))
+
+        re_numbers = re.compile("^[\+\-]?\d*(\.\d+)?$")
+        # check input coordinates(x, y, z)
+        def get_coordinates(xyz, dict_item):
+            assert((xyz == "x") or (xyz == "y") or (xyz == "z"))
+            answer = None
+
+            ideal_key = "_chem_comp_atom.pdbx_model_Cartn_{}_ideal".format(xyz)
+            model_key = "_chem_comp_atom.model_Cartn_{}".format(xyz)
+            xyz_ideal = dict_item.get(ideal_key, "N/A")
+            xyz_model = dict_item.get(model_key, "N/A")
+
+            if re_numbers.match(xyz_ideal):
+                answer = float(xyz_ideal)
+            elif re_numbers.match(xyz_model):
+                answer = float(xyz_model)
+            else:
+                logger.warning("Invalid coordinate({}) [{}, {}]".format(xyz, xyz_ideal, xyz_model))
+                # raise BrValueError([xyz_ideal, xyz_model], "Invalid coordinate({})".format(xyz))
+
+            return answer
 
         # output key-value
         #print(">" * 10)
@@ -243,18 +293,69 @@ class SimpleMmcif(object):
         #print("<" * 10)
 
         if "_chem_comp.id" in dict_item:
-            ag.name = dict_item["_chem_comp.id"]
+            output_atomgroup.name = dict_item["_chem_comp.id"]
 
         if "_chem_comp_atom.atom_id" in dict_item:
             atom = Atom()
             id = dict_item["_chem_comp_atom.atom_id"]
             atom.name = id
-            atom.symbol = dict_item["_chem_comp_atom.type_symbol"]
-            atom.position.x = dict_item["_chem_comp_atom.model_Cartn_x"]
-            atom.position.y = dict_item["_chem_comp_atom.model_Cartn_y"]
-            atom.position.z = dict_item["_chem_comp_atom.model_Cartn_z"]
-            atom.charge = dict_item["_chem_comp_atom.charge"]
-            ag.set_atom(id, atom)
+
+            symbol = dict_item["_chem_comp_atom.type_symbol"]
+            if symbol == "D":
+                symbol = "H"
+            atom.symbol = symbol
+
+            x = get_coordinates("x", dict_item)
+            y = get_coordinates("y", dict_item)
+            z = get_coordinates("z", dict_item)
+            if (x != None) and (y != None) and (z != None):
+                atom.position = (x, y, z)
+            else:
+                update = False
+
+            charge = dict_item["_chem_comp_atom.charge"]
+            if charge != "?":
+                atom.charge = charge
+            output_atomgroup.set_atom(id, atom)
+
+
+        # if "_chem_comp_bond.comp_id" in dict_item:
+        #     atom1_name = dict_item["_chem_comp_bond.atom_id_1"]
+        #     atom2_name = dict_item["_chem_comp_bond.atom_id_2"]
+        #     bond_order_str = dict_item["_chem_comp_bond.value_order"]
+        #     bond_order = 0
+        #     if bond_order_str == "SING":
+        #         bond_order = 1
+        #     elif bond_order_str == "DOUB":
+        #         bond_order = 2
+        #     elif bond_order_str == "TRIP":
+        #         bond_order = 3
+        #     else:
+        #         print("illegal input: {}".format(bond_order_str))
+        #     atom1 = output_atomgroup.get_atom(atom1_name)
+        #     atom2 = output_atomgroup.get_atom(atom2_name)
+        #     output_atomgroup.add_bond(atom1, atom2, bond_order)
+
+
+    def _get_atomgroup_bond_list(self, list_item, ag):
+        """ bond 専用
+        """
+        assert(isinstance(ag, AtomGroup))
+        try:
+            for item in list_item:
+                if isinstance(item, list):
+                    self._get_atomgroup_bond_list(item, ag)
+                elif isinstance(item, dict):
+                    self._get_atomgroup_bond_dict(item, ag)
+        except BrInputError as e:
+            raise e
+
+
+    def _get_atomgroup_bond_dict(self, dict_item, output_atomgroup):
+        """ bond 専用
+        """
+        assert(isinstance(output_atomgroup, AtomGroup))
+        assert(isinstance(dict_item, dict))
 
         if "_chem_comp_bond.comp_id" in dict_item:
             atom1_name = dict_item["_chem_comp_bond.atom_id_1"]
@@ -268,10 +369,10 @@ class SimpleMmcif(object):
             elif bond_order_str == "TRIP":
                 bond_order = 3
             else:
-                print("illegal input: {}".format(bond_order_str))
-            atom1 = ag.get_atom(atom1_name)
-            atom2 = ag.get_atom(atom2_name)
-            ag.add_bond(atom1, atom2, bond_order)
+                logger.warning("illegal input: {}".format(bond_order_str))
+            atom1 = output_atomgroup.get_atom(atom1_name)
+            atom2 = output_atomgroup.get_atom(atom2_name)
+            output_atomgroup.add_bond(atom1, atom2, bond_order)
 
 
     def __str__(self):

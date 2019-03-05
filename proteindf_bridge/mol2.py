@@ -40,9 +40,9 @@ class SimpleMol2(object):
 
         mol_name
         num_atoms [num_bonds [num_subst [num_feat [num_sets]]]]
-        mol_type 
+        mol_type
         charge_type
-        [status_bits 
+        [status_bits
         [mol_comment]]
 
         mol_type (string) = the molecule type: SMALL, BIOPOLYMER, PROTEIN, NUCLEIC_ACID, SACCHARIDE
@@ -66,7 +66,7 @@ class SimpleMol2(object):
 
     def _get_contents_atom(self):
         """
-        format: 
+        format:
         atom_id atom_name x y z atom_type [subst_id [subst_name [charge [status_bit]]]]
         """
 
@@ -91,20 +91,23 @@ class SimpleMol2(object):
 
     def _get_contents_bond(self):
         """
-        format: 
+        format:
         bond_id origin_atom_id target_atom_id bond_type [status_bits]
         """
+        #print(self._atomgroup)
         answer = ""
         answer += "@<TRIPOS>BOND\n"
 
         bond_id = 1
         for bond_info in self._atomgroup.get_bond_list():
             (atom_path1, atom_path2, bond_order) = bond_info
-            
-            selector_atom1 = Select_Path(atom_path1)
-            selector_atom2 = Select_Path(atom_path2)
+            #print(atom_path1, atom_path2)
+
+            selector_atom1 = Select_Path(atom_path1, use_wildcard = False)
+            selector_atom2 = Select_Path(atom_path2, use_wildcard = False)
             ag1 = self._atomgroup.select(selector_atom1)
             ag2 = self._atomgroup.select(selector_atom2)
+            #print(ag1, ag2)
             atom1 = ag1.get_atom_list()[0]
             atom2 = ag2.get_atom_list()[0]
             #print(atom1.name, atom2.name)
@@ -120,7 +123,7 @@ class SimpleMol2(object):
         answer += "\n"
 
         return answer
-    
+
     def __str__(self):
         answer = ""
         answer += self._get_contents_molecule()

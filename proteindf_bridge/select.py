@@ -20,6 +20,10 @@
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
 import re
+
+import logging
+logger = logging.getLogger(__name__)
+
 from .utils import Utils
 from .position import Position
 from .atom import Atom
@@ -52,10 +56,13 @@ class Select_Name(Select):
 class Select_Path(Select):
     """
     """
-    def __init__(self, query):
+    def __init__(self, query, use_wildcard = True):
         self._query = Utils.to_unicode(query)
+        self._is_used_wildcard = use_wildcard
 
-        self._regex_selecter = self._prepare(query)
+        if use_wildcard:
+            logger.warning("Select_Path() is obsolete. please use Select_Path_wildcard().")
+            self._regex_selecter = self._prepare(query)
 
     def _prepare(self, query):
         query = re.sub("(?<!\\\)\*", '.*', query)
@@ -64,12 +71,47 @@ class Select_Path(Select):
 
         return Select_PathRegex(query)
 
-    #def is_match(self, obj):
-    #    answer = False
-    #    path = obj.path
-    #    if (self._query == path):
-    #        answer = True
-    #    return answer
+    def is_match(self, obj):
+        if self._is_used_wildcard:
+            return self._regex_selecter.is_match(obj)
+        else:
+            return self._is_match_nowildcard(obj)
+
+    def _is_match_nowildcard(self, obj):
+        answer = False
+        path = obj.path
+        if (self._query == path):
+            answer = True
+        return answer
+
+
+class Select_Path_simple(Select):
+    """
+    """
+    def __init__(self, query):
+        self._query = Utils.to_unicode(query)
+
+    def is_match(self, obj):
+        answer = False
+        path = obj.path
+        if (self._query == path):
+            answer = True
+        return answer
+
+
+class Select_Path_wildcard(Select):
+    """selector using path with wildcard
+    """
+    def __init__(self, query):
+        self._query = Utils.to_unicode(query)
+        self._regex_selecter = self._prepare(query)
+
+    def _prepare(self, query):
+        query = re.sub("(?<!\\\)\*", '.*', query)
+        query = re.sub("(?<!\\\)\?", '?', query)
+        query = '^' + query + '$'
+
+        return Select_PathRegex(query)
 
     def is_match(self, obj):
         return self._regex_selecter.is_match(obj)
