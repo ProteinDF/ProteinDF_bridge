@@ -553,6 +553,9 @@ class AtomGroup(object):
         return answer
 
     # --------------------------------------------------------------------------
+    def get_number_of_bonds(self):
+        return len(self._bonds)
+
     def get_bond_list(self, bond_list = None):
         """
         タプル('atom1のpath', 'atom2のpath', 結合次数)のリストを返す

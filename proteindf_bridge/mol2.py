@@ -51,13 +51,14 @@ class SimpleMol2(object):
         """
         molecular_name = self._atomgroup.name
         num_atoms = self._atomgroup.get_number_of_all_atoms()
+        num_bonds = self._atomgroup.get_number_of_bonds()
         mol_type = "SMALL"
         charge_type = "USER_CHARGES"
 
         answer = ""
         answer += "@<TRIPOS>MOLECULE\n"
         answer += "{}\n".format(molecular_name)
-        answer += "{num_atoms}\n".format(num_atoms=num_atoms)
+        answer += "{num_atoms} {num_bonds}\n".format(num_atoms=num_atoms, num_bonds=num_bonds)
         answer += "{mol_type}\n".format(mol_type=mol_type)
         answer += "{charge_type}\n".format(charge_type=charge_type)
         answer += "\n"
@@ -68,6 +69,8 @@ class SimpleMol2(object):
         """
         format:
         atom_id atom_name x y z atom_type [subst_id [subst_name [charge [status_bit]]]]
+
+        TODO: specify "atom type"
         """
 
         answer = ""
@@ -85,7 +88,6 @@ class SimpleMol2(object):
                 x=x, y=y, z=z, atom_type=atom_type
                 )
             atom_id += 1
-        answer += "\n"
 
         return answer
 
@@ -116,7 +118,7 @@ class SimpleMol2(object):
             atom_id2 = self._atom_index_table.index(atom2.name)
             bond_type = bond_order
             answer += "{bond_id:<5} {atom_id1:<5} {atom_id2:<5} {bond_type}\n".format(
-                bond_id=bond_id, atom_id1=atom_id1, atom_id2=atom_id2,
+                bond_id=bond_id, atom_id1=atom_id1 +1, atom_id2=atom_id2 +1,
                 bond_type=bond_type
                 )
             bond_id += 1
