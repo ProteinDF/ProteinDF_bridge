@@ -62,6 +62,7 @@ setup(name='proteindf_bridge',
           'scripts/brd-setup-bond.py',
           'scripts/brd-show-bonds.py',
           'scripts/superposer.py',
+          'scripts/crystallize.py',
 
           'scripts/neutralize.py',
           'scripts/reorder.py',

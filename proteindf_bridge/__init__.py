@@ -42,6 +42,7 @@ from .select import *
 from .biopdb import Pdb
 from .mmcif import SimpleMmcif
 from .mol2 import SimpleMol2
+from .gro import SimpleGro
 from .xyz import Xyz
 
 from .aminoacid import AminoAcid
