@@ -616,7 +616,8 @@ class AtomGroup(object):
     def box(self):
         """
         """
-        box_min = box_max = self.center()
+        box_min = self.center()
+        box_max = copy.deepcopy(box_min)
         for grpkey, grp in self.groups():
             (grpbox_min, grpbox_max) = grp.box()
             box_min.x = min(box_min.x, grpbox_min.x)
@@ -632,7 +633,6 @@ class AtomGroup(object):
             box_max.x = max(box_max.x, atm.xyz.x)
             box_max.y = max(box_max.y, atm.xyz.y)
             box_max.z = max(box_max.z, atm.xyz.z)
-
         return (box_min, box_max)
 
 
