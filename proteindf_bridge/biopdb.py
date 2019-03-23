@@ -372,7 +372,6 @@ class Pdb(object):
 
     def set_by_atomgroup(self, atomgroup, set_b_factor=None):
         assert(isinstance(atomgroup, AtomGroup))
-
         atomgroup = self.get_modpdb_atomgroup(atomgroup)
 
         re_model_serial = re.compile("^model_(\d+)")

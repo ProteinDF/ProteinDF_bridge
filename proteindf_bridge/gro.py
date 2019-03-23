@@ -41,7 +41,6 @@ class SimpleGro(object):
             self._num_of_atoms = int(line)
 
             # atom lines
-            print("\n")
             for i in range(self._num_of_atoms):
                 line = f.readline()
                 line = line.rstrip()
@@ -51,13 +50,13 @@ class SimpleGro(object):
                 atom_name = line[10:15].strip()
                 atom_number = int(line[15:20])
                 # position (in nm, x y z in 3 columns, each 8 positions with 3 decimal places)
-                position_x = float(line[20:28]) 
-                position_y = float(line[28:36]) 
-                position_z = float(line[36:44]) 
+                position_x = float(self._str2float(line[20:28]))
+                position_y = float(self._str2float(line[28:36]))
+                position_z = float(self._str2float(line[36:44]))
                 # velocity (in nm/ps (or km/s), x y z in 3 columns, each 8 positions with 4 decimal places)
-                velocity_x = float(line[44:52])
-                velocity_y = float(line[52:60])
-                velocity_z = float(line[60:68])
+                velocity_x = float(self._str2float(line[44:52]))
+                velocity_y = float(self._str2float(line[52:60]))
+                velocity_z = float(self._str2float(line[60:68]))
 
                 atom_data = (residue_number, residue_name, atom_name, atom_number,
                              position_x, position_y, position_z,
@@ -75,10 +74,17 @@ class SimpleGro(object):
             self._box_vectors = box_vectors
 
 
-    def get_atomgroup(self):
-        ag = AtomGroup()
+    def _str2float(self, str):
+        if len(str) == 0:
+            return 0.0
+        else:
+            return float(str)
 
+
+    def get_atomgroup(self):
         pt = PeriodicTable()
+        ag = AtomGroup()
+        ag.name = self._title
 
         current_res_id = -1
         current_ag = None
@@ -113,6 +119,18 @@ class SimpleGro(object):
 
         return ag
 
+    def set_by_atomgroup(self, atomgroup):
+        assert(isinstance(atomgroup, AtomGroup))
+
+        self._title = atomgroup.name
+        self._num_of_atoms = atomgroup.get_number_of_atoms()
+
+        self._atoms  = [] * self._num_of_atoms
+        for subgrp_key, subgrp in atomgroup.atoms():
+            print(subgrp_key, subgrp)
+        #for key, atom in atomgroup.atoms():
+        #   pass
+
 
     def __str__(self):
         answer = ""
@@ -122,7 +140,7 @@ class SimpleGro(object):
             answer += "{:>5}{:<5}{:>5}{:>5}{:8.3f}{:8.3f}{:8.3f}{:8.4f}{:8.4f}{:8.4f}\n".format(
                 self._atoms[i][0], self._atoms[i][1], self._atoms[i][2], self._atoms[i][3],
                 self._atoms[i][4], self._atoms[i][5], self._atoms[i][6],
-                self._atoms[i][4], self._atoms[i][5], self._atoms[i][6])
+                self._atoms[i][7], self._atoms[i][8], self._atoms[i][9])
         answer += " ".join(map(str, self._box_vectors))
 
         return answer

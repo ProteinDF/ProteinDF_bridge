@@ -44,6 +44,7 @@ setup(name='proteindf_bridge',
           'scripts/brd-restructure.py',
           'scripts/brd-select.py',
           'scripts/brd-divide.py',
+          'scripts/brd-select-path.py',
 
           'scripts/brd2txt.py',
 
@@ -53,8 +54,10 @@ setup(name='proteindf_bridge',
           'scripts/mmcif2txt.py',
           'scripts/mmcif2mol2.py',
 
-          'scripts/brd2xyz.py',
+          'scripts/gro2brd.py',
+
           'scripts/xyz2brd.py',
+          'scripts/brd2xyz.py',
 
           'scripts/module_inspect.py',
           'scripts/db2txt.py',
@@ -62,10 +65,10 @@ setup(name='proteindf_bridge',
           'scripts/brd-setup-bond.py',
           'scripts/brd-show-bonds.py',
           'scripts/superposer.py',
-          'scripts/crystallize.py',
 
           'scripts/neutralize.py',
           'scripts/reorder.py',
+          'scripts/crystallize.py',
 
           'scripts/read_amber_prmtop.py'
 
