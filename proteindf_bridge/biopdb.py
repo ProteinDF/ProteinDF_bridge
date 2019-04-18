@@ -205,7 +205,13 @@ class Pdb(object):
                     item['record_name'] = record_name
                     item['name'] = name
                     item['alt_loc'] = alt_loc
+
+                    # res_name
+                    if res_name in ["HID", "HIE", "HIP"]:
+                        # rename AMBER residue name dialect
+                        res_name = "HIS"
                     item['res_name'] = res_name
+
                     item['chain_id'] = chain_id
                     item['res_seq'] = int(res_seq)
                     item['i_code'] = i_code
@@ -522,6 +528,11 @@ class Pdb(object):
         return atom
 
     def _modpdb_res(self, res, mode=None):
+        # rename HIS name in the AMBER mode
+        if mode == "AMBER":
+            res = self._rename_to_amber_dialect(res)
+
+        # rename res.name by using residue name table
         resname = res.name.upper()
         resname = resname.strip().lstrip()
         if mode == 'AMBER':
@@ -531,6 +542,30 @@ class Pdb(object):
             if resname in self._modpdb_formal_res_tbl:
                 res.name = self._modpdb_formal_res_tbl[resname]
         return res
+
+    def _rename_to_amber_dialect(self, res):
+        """translate HIS to HID, HIE or HIP
+        """
+        assert(isinstance(res, AtomGroup))
+        if res.name == "HIS":
+            # check kinds of "HIS"
+            has_delta_H = False
+            has_epsilon_H = False
+            if res.has_atomname("HD1") and res.has_atomname("HD2"):
+                has_delta_H = True
+            if res.has_atomname("HE1") and res.has_atomname("HE2"):
+                has_epsilon_H = True
+
+            if has_delta_H and has_epsilon_H:
+                res.name = "HIP"
+            elif has_delta_H:
+                res.name = "HID"
+            elif has_epsilon_H:
+                res.name = "HIE"
+            logger.debug("found HIS: rename HIS to {}".format(res.name))
+
+        return res
+
 
 
 def main():
