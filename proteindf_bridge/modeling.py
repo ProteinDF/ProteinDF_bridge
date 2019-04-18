@@ -453,6 +453,15 @@ class Modeling:
 
     # -----------------------------------------------------------------
     def neutralize_Nterm(self, res):
+        answer = None
+        if res.name == "PRO":
+            answer = self._neutralize_Nterm_PRO(res)
+        else:
+            answer = self._neutralize_Nterm(res)
+
+        return answer
+
+    def _neutralize_Nterm(self, res):
         """
         N末端側を中性化するためにCl-(AtomGroup)を返す
 
@@ -474,6 +483,26 @@ class Modeling:
                             position = pos)
         answer.set_atom('Cl', Cl)
         return answer
+
+    def _neutralize_Nterm_PRO(self, res):
+        """in case of 'PRO', neutralize N-term
+        """
+        ag = AtomGroup()
+        ag.set_atom('N', res['N'])
+        ag.set_atom('H2', res['H2'])
+        if res.has_atom('HXT'):
+            ag.set_atom('H1', res['HXT'])
+        elif res.has_atom('H3'):
+            ag.set_atom('H1', res['H3'])
+        pos = self._get_neutralize_pos_NH2_type(ag)
+
+        answer = AtomGroup()
+        Cl = Atom(symbol = 'Cl',
+                            name = 'Cl',
+                            position = pos)
+        answer.set_atom('Cl', Cl)
+        return answer
+
 
     def neutralize_Cterm(self, res):
         """
@@ -628,12 +657,29 @@ class Modeling:
 
         # 重心を計算
         M = Position((H1.xyz.x + H2.xyz.x + H3.xyz.x) / 3.0,
-                               (H1.xyz.y + H2.xyz.y + H3.xyz.y) / 3.0,
-                               (H1.xyz.z + H2.xyz.z + H3.xyz.z) / 3.0)
+                     (H1.xyz.y + H2.xyz.y + H3.xyz.y) / 3.0,
+                     (H1.xyz.z + H2.xyz.z + H3.xyz.z) / 3.0)
         vNM = M - N.xyz
         vNM.norm()
 
         return N.xyz + length * vNM
+
+
+    def _get_neutralize_pos_NH2_type(self, ag):
+        length = 3.187
+        H1 = ag['H1']
+        H2 = ag['H2']
+        N  = ag['N']
+
+        vNH1 = H1.xyz - N.xyz
+        vNH2 = H2.xyz - N.xyz
+        vM = 0.5 * (vNH1 + vNH2)
+
+        vM.norm()
+
+        answer = N.xyz + length * vM
+        return answer
+
 
     def _get_neutralize_pos_COO_type(self, ag):
         length = 2.521
