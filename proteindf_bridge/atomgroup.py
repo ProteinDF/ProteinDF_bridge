@@ -314,6 +314,9 @@ class AtomGroup(object):
             for k, v in self._atoms.items():
                 yield(k, v)
 
+    def get_atom_keys(self):
+        return [ k for k, v in self.atoms() ]
+
     def get_atom(self, key_or_name):
         """
         入力されたkeyもしくは名前の原子が含まれている場合、その原子を返す。
@@ -705,6 +708,22 @@ class AtomGroup(object):
             atom.path = "%s%s" % (self._path, key)
 
     # --------------------------------------------------------------------------
+    def __and__(self, other):
+        assert(isinstance(other, AtomGroup))
+        answer = AtomGroup()
+        for key, group in self.groups():
+            if other.has_group(key):
+                answer.set_group(key, self.get_group(key) & other.get_group(key))
+                if (answer.get_group(key).get_number_of_all_atoms() == 0):
+                    answer.remove_group(key)
+
+        for key, atom in self.atoms():
+            if other.has_atom(key):
+                answer.set_atom(key, atom)
+
+        return answer
+
+
     def __iand__(self, rhs):
         """
         implement of '&=' operator
@@ -728,6 +747,12 @@ class AtomGroup(object):
 
         return self
 
+    def __or__(self, other):
+        answer = AtomGroup(self)
+        answer.merge(other)
+
+        return answer
+
     def __ior__(self, rhs):
         """
         implement of '|=' operator
@@ -747,23 +772,43 @@ class AtomGroup(object):
 
         return self
 
-    def __xor__(self, rhs):
-        ''' operator ^
-        '''
-        assert(isinstance(rhs, AtomGroup))
+    def __xor__(self, other):
+        assert(isinstance(other, AtomGroup))
 
         answer = AtomGroup()
-        for key, subgrp in self.groups():
-            if rhs.has_group(key):
-                subgrp = subgrp ^ rhs.get_group(key)
+        subgrp_list = self.get_group_list()
+        subgrp_list.extend(other.get_group_list())
+        subgrp_list = set(subgrp_list)
+        for key in subgrp_list:
+            subgrp = AtomGroup()
+            if self.has_group(key):
+                if other.has_group(key):
+                    subgrp = self.get_group(key) ^ other.get_group(key)
+                else:
+                    subgrp = self.get_group(key)
+            else:
+                subgrp = other.get_group(key)
+
             if subgrp.get_number_of_all_atoms() > 0:
                 answer.set_group(key, subgrp)
-        for key, atom in self.atoms():
-            if not rhs.has_atom(key):
+
+        atom_keys = self.get_atom_keys()
+        atom_keys.extend(other.get_atom_keys())
+        atom_keys = set(atom_keys)
+        for key in atom_keys:
+            atom = None
+            if self.has_atom(key):
+                if other.has_atom(key):
+                    pass
+                else:
+                    atom = self.get_atom(key)
+            else:
+                atom = other.get_atom(key)
+            
+            if atom != None:
                 answer.set_atom(key, atom)
+
         return answer
-
-
 
     # --------------------------------------------------------------------------
     def __imul__(self, rhs):
