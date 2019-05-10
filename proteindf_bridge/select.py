@@ -167,3 +167,21 @@ class Select_Range(Select):
             if d2 < self._d2:
                 answer = True
         return answer
+
+class Select_AtomGroup(Select):
+    """reference atomgroupと同じ原子が存在しているものを返す
+    """
+    def __init__(self, ref_atomgroup):
+        from .atomgroup import AtomGroup
+        assert(isinstance(ref_atomgroup, AtomGroup))
+        self._ref_atoms = ref_atomgroup.get_atom_list()
+
+    def is_match(self, obj):
+        answer = False
+        if isinstance(obj, Atom):
+            for ref_atom in self._ref_atoms:
+                if ref_atom == obj:
+                    answer = True
+                    break
+                
+        return answer

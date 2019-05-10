@@ -35,7 +35,8 @@ from .atom import Atom
 from .atomgroup import AtomGroup
 #from bond import Bond
 
-from .select import Select, Select_Name, Select_Path, Select_Path_simple, Select_Path_wildcard, Select_PathRegex, Select_Atom, Select_Range
+# from .select import Select, Select_Name, Select_Path, Select_Path_simple, Select_Path_wildcard, Select_PathRegex, Select_Atom, Select_Range
+from .select import *
 
 from .biopdb import Pdb
 from .mmcif import SimpleMmcif
