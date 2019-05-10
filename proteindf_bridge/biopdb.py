@@ -437,7 +437,7 @@ class Pdb(object):
                         self._data[model_serial].append(copy.copy(item))
 
                 # TER
-                if self._data[model_serial][-1]["record_name"] != "TER   ":
+                if len(self._data[model_serial]) > 0 and (self._data[model_serial][-1]["record_name"] != "TER   "):
                     item["record_name"] = "TER   "
                     item["serial"] = serial
                     serial += 1
