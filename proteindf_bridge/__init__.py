@@ -21,6 +21,7 @@
 
 from __future__ import absolute_import
 
+from .functions import load_atomgroup, save_atomgroup
 
 #from .common import NullHandler
 from .utils import Utils, str, bytes, basestring, unicode
