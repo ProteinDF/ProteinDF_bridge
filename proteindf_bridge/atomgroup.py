@@ -35,6 +35,7 @@ from .periodictable import PeriodicTable
 from .position import Position
 from .atom import Atom
 from .select import Select
+from .vector import Vector
 
 class AtomGroup(object):
     """
@@ -528,6 +529,25 @@ class AtomGroup(object):
         for key, atom in rhs.atoms():
             self.set_atom(key, Atom(atom))
 
+
+    # --------------------------------------------------------------------------
+    def assign_charges(self, charges):
+        assert(isinstance(charges, Vector))
+        index = AtomGroup._assign_charges(self, charges, 0)
+        print(index, len(charges))
+        assert(index == len(charges))
+
+
+    @staticmethod
+    def _assign_charges(atomgroup, charges, charge_index):
+        for key, subgrp in atomgroup.groups():
+            charge_index = AtomGroup._assign_charges(subgrp, charges, charge_index)
+        for key, atom in atomgroup.atoms():
+            atom.charge = charges.get(charge_index)
+            charge_index += 1
+
+        return charge_index
+
     # --------------------------------------------------------------------------
     def select(self, selecter):
         """
@@ -804,7 +824,7 @@ class AtomGroup(object):
                     atom = self.get_atom(key)
             else:
                 atom = other.get_atom(key)
-            
+
             if atom != None:
                 answer.set_atom(key, atom)
 
