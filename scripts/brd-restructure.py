@@ -35,7 +35,7 @@ def assign_rest_molecule(rest_molecule, output_atom_group,
         res.set_atom(atom_id, atom)
         atom_id += 1
     chain.set_group(1, res)
-    
+
     output_atom_group[model_id].set_group(chain_id, chain)
 
 def main():
@@ -69,12 +69,14 @@ def main():
     ref_ag = bridge.load_atomgroup(ref_brd_path)
 
     # matching
-    target_selector = bridge.Select_AtomGroup(target_ag)
-    restructured = ref_ag.select(target_selector)
+    #target_selector = bridge.Select_AtomGroup(target_ag)
+    #restructured = ref_ag.select(target_selector)
 
     # calc the rest
-    rest_of_target = get_rest_of_frame_molecule(target_ag, restructured)
-    assign_rest_molecule(rest_of_target, restructured)
+    #rest_of_target = get_rest_of_frame_molecule(target_ag, restructured)
+    #assign_rest_molecule(rest_of_target, restructured)
+
+    restructured = target_ag.restructure(ref_ag)
 
     if output_path:
         if verbose:

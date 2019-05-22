@@ -35,6 +35,7 @@ from .periodictable import PeriodicTable
 from .position import Position
 from .atom import Atom
 from .select import Select
+from .select import Select_Atom, Select_AtomGroup
 from .vector import Vector
 
 class AtomGroup(object):
@@ -549,31 +550,88 @@ class AtomGroup(object):
         return charge_index
 
     # --------------------------------------------------------------------------
-    def select(self, selecter):
+    def select(self, selector):
         """
-        selecterにSelecterオブジェクトを渡すことで
+        selectorにSelectorオブジェクトを渡すことで
         対応する原子団を返します
         """
-        assert(isinstance(selecter, Select) == True)
+        assert(isinstance(selector, Select) == True)
         #self._update_path()
 
         answer = None
-        if (selecter.is_match(self) == True):
+        if (selector.is_match(self) == True):
             answer = AtomGroup(self)
         else:
             answer = AtomGroup()
             answer.name = self.name
             for key, group in self.groups():
-                tmp = group.select(selecter)
+                tmp = group.select(selector)
                 if ((tmp.get_number_of_groups() != 0) or
                     (tmp.get_number_of_atoms() != 0)):
                     answer.set_group(key, tmp)
             for key, atom in self.atoms():
-                if (selecter.is_match(atom) == True):
+                if (selector.is_match(atom) == True):
                     answer.set_atom(key, atom)
             answer.path = self.path
             #print("path:{} ::{}".format(self.path, str(answer)))
         return answer
+
+    # --------------------------------------------------------------------------
+    def restructure(self, reference):
+        """referenceの構造を参照して、データ構造を再構築する。
+
+        フラットな原子リストをPDBデータ構造にビルドアップするときに便利。
+        """
+        assert(isinstance(reference, AtomGroup))
+
+        # matching
+        target_selector = Select_AtomGroup(self)
+        restructured = reference.select(target_selector)
+
+        # copy attributes: charges
+        AtomGroup._copy_attributes(restructured, self)
+
+        # calc the rest
+        rest_of_target = AtomGroup._get_rest_of_frame_molecule(self, restructured)
+        AtomGroup._assign_rest_molecule(rest_of_target, restructured)
+
+        return restructured
+
+    @staticmethod
+    def _get_rest_of_frame_molecule(frame_molecule, selected_molecule):
+        # calc the rest
+        selector = Select_AtomGroup(selected_molecule)
+        selected = frame_molecule.select(selector)
+        rest_molecule = frame_molecule ^ selected
+
+        return rest_molecule
+
+    @staticmethod
+    def _copy_attributes(target, reference):
+        for key, subgrp in target.groups():
+            AtomGroup._copy_attributes(subgrp, reference)
+        for key, atom in target.atoms():
+            atom_selector = Select_Atom(atom)
+            ref_atoms = reference.select(atom_selector)
+            if ref_atoms.get_number_of_all_atoms() > 0:
+                ref_atoms = ref_atoms.get_atom_list()
+                ref_atom = ref_atoms[0]
+                atom.charge = ref_atom.charge
+
+    @staticmethod
+    def _assign_rest_molecule(rest_molecule, output_atom_group,
+                              model_id = "model_1", chain_id = "Z", res_name = "UNK"):
+        chain = AtomGroup()
+        res = AtomGroup()
+        res.name = res_name
+        atom_id = 1
+        for atom in rest_molecule.get_atom_list():
+            res.set_atom(atom_id, atom)
+            atom_id += 1
+        chain.set_group(1, res)
+
+        output_atom_group[model_id].set_group(chain_id, chain)
+
 
     # --------------------------------------------------------------------------
     def get_number_of_bonds(self):

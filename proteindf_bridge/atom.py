@@ -206,7 +206,7 @@ class Atom(object):
         answer = False
         if ((isinstance(rhs, Atom) == True) and
             (self.atomic_number == rhs.atomic_number) and
-            (math.fabs(self.charge - rhs.charge) < 1.0E-10) and
+            # (math.fabs(self.charge - rhs.charge) < 1.0E-10) and
             (self.xyz == rhs.xyz)):
             answer = True
         return answer

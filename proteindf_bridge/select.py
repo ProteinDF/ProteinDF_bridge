@@ -42,6 +42,21 @@ class Select(object):
         return False
 
 
+class Select_Symbol(Select):
+    """
+    原子記号で選択する
+    """
+    def __init__(self, atom_symbol):
+        self._atom_symbol = atom_symbol.upper()
+
+    def is_match(self, obj):
+        answer = False
+        if isinstance(obj, Atom):
+            symbol = obj.symbol.upper()
+            if symbol == self._atom_symbol:
+                answer = True
+        return answer
+
 class Select_Name(Select):
     def __init__(self, query):
         self.query = Utils.to_unicode(query)
@@ -133,22 +148,6 @@ class Select_PathRegex(Select):
             answer = True
         return answer
 
-
-class Select_Atom(Select):
-    """
-    原子記号で選択する
-    """
-    def __init__(self, atom_symbol):
-        self._atom_symbol = atom_symbol.upper()
-
-    def is_match(self, obj):
-        answer = False
-        if isinstance(obj, Atom):
-            symbol = obj.symbol.upper()
-            if symbol == self._atom_symbol:
-                answer = True
-        return answer
-
 class Select_Range(Select):
     '''
     半径で選択する
@@ -168,6 +167,23 @@ class Select_Range(Select):
                 answer = True
         return answer
 
+class Select_Atom(Select):
+    """
+    """
+    def __init__(self, atom):
+        from .atom import Atom
+        assert(isinstance(atom, Atom))
+        self._atom = Atom(atom)
+
+    def is_match(self, obj):
+        answer = False
+        if ((isinstance(obj, Atom)) and
+            (self._atom.atomic_number == obj.atomic_number) and
+            (self._atom.xyz == obj.xyz)):
+                answer = True
+        return answer
+
+
 class Select_AtomGroup(Select):
     """reference atomgroupと同じ原子が存在しているものを返す
     """
@@ -183,5 +199,5 @@ class Select_AtomGroup(Select):
                 if ref_atom == obj:
                     answer = True
                     break
-                
+
         return answer
