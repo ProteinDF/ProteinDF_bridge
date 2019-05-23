@@ -976,9 +976,9 @@ class AtomGroup(object):
     def _get_str(self, key='', indent_level=0):
         indent = '  ' * indent_level
 
-        answer = '{indent}<grp key={key} name={name}'.format(indent=indent,
-                                                             key=key,
-                                                             name=self.name)
+        answer = '{indent}# group key={key} name={name}'.format(indent=indent,
+                                                                key=key,
+                                                                name=self.name)
         if self.parent is not None:
             answer += '{indent} parent={parent}'.format(indent=indent,
                                                         parent=self.parent.name)
@@ -986,7 +986,7 @@ class AtomGroup(object):
         for key, atomgroup in self.groups():
             answer += atomgroup._get_str(key, indent_level +1)
         for key, atom in self.atoms():
-            answer += "{indent}{atom_path}:{atom}\n".format(indent=indent,
+            answer += "{indent}{atom} {atom_path}\n".format(indent=indent,
                                                             atom_path=atom.path,
                                                             atom=str(atom))
         for bond in self._bonds:
@@ -994,7 +994,7 @@ class AtomGroup(object):
                                                                                     atom_path1=bond[0],
                                                                                     atom_path2=bond[1],
                                                                                     order=bond[2])
-        answer += '{indent}>\n'.format(indent=indent)
+        # answer += '{indent}>\n'.format(indent=indent)
 
         return answer
 

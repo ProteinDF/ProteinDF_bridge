@@ -250,16 +250,16 @@ class Atom(object):
     # debug
     # ==================================================================
     def __str__(self):
-        answer = "%2s(name=\"%s\")(% 8.3f, % 8.3f, % 8.3f) Z=% .2f <(% 8.3f, % 8.3f, % 8.3f)>" % (
-            self.symbol,
-            self.name,
-            self.xyz.x,
-            self.xyz.y,
-            self.xyz.z,
-            self.charge,
-            self.force.x,
-            self.force.y,
-            self.force.z)
+        symbol_name = "{symbol:<2}({name:<4})".format(symbol=self.symbol,
+                                                      name=self.name)
+        xyz = "{: 8.3f} {: 8.3f} {: 8.3f}".format(self.xyz.x, self.xyz.y, self.xyz.z)
+        charge = "{: 5.2f}".format(self.charge)
+        force = "{: 8.3f} {: 8.3f} {: 8.3f}".format(self.force.x, self.force.y, self.force.z)
+
+        answer = "{symbol_name} {xyz}, {charge}, {force}".format(symbol_name=symbol_name,
+                                                                 xyz=xyz,
+                                                                 charge=charge,
+                                                                 force=force)
         return answer
 
     # ------------------------------------------------------------------
