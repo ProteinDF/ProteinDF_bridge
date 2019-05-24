@@ -21,7 +21,7 @@ def load_msgpack(mpac_path):
 
     return mpac_data
 
-def save_msgpack(mpac_path, data):
+def save_msgpack(data, mpac_path):
     mpac_data = msgpack.packb(data)
     with open(mpac_path, "wb") as f:
         f.write(mpac_data)
