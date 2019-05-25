@@ -15,6 +15,8 @@ from .atomgroup import AtomGroup
 def load_msgpack(mpac_path):
     """load message pack file
     """
+    assert(isinstance(mpac_path, str))
+
     mpac_data = None
     with open(mpac_path, "rb") as f:
         mpac_data = msgpack.unpackb(f.read())
@@ -22,6 +24,8 @@ def load_msgpack(mpac_path):
     return mpac_data
 
 def save_msgpack(data, mpac_path):
+    assert(isinstance(mpac_path, str))
+
     mpac_data = msgpack.packb(data)
     with open(mpac_path, "wb") as f:
         f.write(mpac_data)
@@ -40,4 +44,4 @@ def save_atomgroup(atomgroup, file_path):
     """save bridge file (msgpack format)
     """
     data = atomgroup.get_raw_data()
-    save_msgpack(file_path, data)
+    save_msgpack(data, file_path)
