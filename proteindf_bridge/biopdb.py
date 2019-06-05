@@ -514,13 +514,15 @@ class Pdb(object):
                 new_name_2 = new_name_lstrip[0:2]
                 if new_name_2.upper() == symbol.upper():
                     new_name = " " * (len(new_name) - len(new_name_lstrip)) + symbol + new_name_lstrip[2:]
-        else:
+        elif mode == 'FORMAL':
             if atomname in self._modpdb_formal_atm_tbl:
                 new_name = self._modpdb_formal_atm_tbl[atomname]
             elif (0 < len(new_name)) and (len(new_name) < 4) and (atomname[0] == symbol[0]):
                 new_name = ' {}'.format(new_name)
             else:
                 new_name = symbol
+        else:
+            pass
 
         # 4文字に足りない分は末尾に空白を入れる
         new_name += " " * (4 - len(new_name))
