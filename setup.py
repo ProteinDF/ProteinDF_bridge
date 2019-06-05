@@ -45,6 +45,7 @@ setup(name='proteindf_bridge',
           'scripts/brd-select.py',
           'scripts/brd-divide.py',
           'scripts/brd-select-path.py',
+          'scripts/brd-renumber-resid.py',
 
           'scripts/brd2txt.py',
 
