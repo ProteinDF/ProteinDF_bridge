@@ -49,6 +49,9 @@ def main():
     parser.add_argument('-o', '--output_path',
                         nargs=1,
                         default=["output.brd"])
+    parser.add_argument('-r', '--range',
+                        nargs=1,
+                        default=[1.0E-5])
     parser.add_argument('-v', '--verbose',
                         action='store_true',
                         default=False)
@@ -58,6 +61,7 @@ def main():
     target_brd_path = args.target_brd_path[0]
     ref_brd_path = args.ref_brd_path[0]
     output_path = args.output_path[0]
+    range = float(args.range[0])
     verbose = args.verbose
 
     if verbose:
@@ -76,7 +80,7 @@ def main():
     #rest_of_target = get_rest_of_frame_molecule(target_ag, restructured)
     #assign_rest_molecule(rest_of_target, restructured)
 
-    restructured = target_ag.restructure(ref_ag)
+    restructured = target_ag.restructure(ref_ag, range)
 
     if output_path:
         if verbose:

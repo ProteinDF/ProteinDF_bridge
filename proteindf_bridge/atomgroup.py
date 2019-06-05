@@ -577,7 +577,7 @@ class AtomGroup(object):
         return answer
 
     # --------------------------------------------------------------------------
-    def restructure(self, reference):
+    def restructure(self, reference, range=1.0E-5):
         """referenceの構造を参照して、データ構造を再構築する。
 
         フラットな原子リストをPDBデータ構造にビルドアップするときに便利。
@@ -585,7 +585,7 @@ class AtomGroup(object):
         assert(isinstance(reference, AtomGroup))
 
         # matching
-        target_selector = Select_AtomGroup(self)
+        target_selector = Select_AtomGroup(self, range)
         restructured = reference.select(target_selector)
 
         # copy attributes: charges

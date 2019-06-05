@@ -187,16 +187,19 @@ class Select_Atom(Select):
 class Select_AtomGroup(Select):
     """reference atomgroupと同じ原子が存在しているものを返す
     """
-    def __init__(self, ref_atomgroup):
+    def __init__(self, ref_atomgroup, range=1.0E-5):
         from .atomgroup import AtomGroup
         assert(isinstance(ref_atomgroup, AtomGroup))
         self._ref_atoms = ref_atomgroup.get_atom_list()
+        self._range = range
 
     def is_match(self, obj):
         answer = False
         if isinstance(obj, Atom):
             for ref_atom in self._ref_atoms:
-                if ref_atom == obj:
+                #if ref_atom == obj:
+                if ((ref_atom.atomic_number == obj.atomic_number) and
+                    (ref_atom.xyz.distance_from(obj.xyz) < self._range)):
                     answer = True
                     break
 
