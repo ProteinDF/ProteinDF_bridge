@@ -70,6 +70,12 @@ class Atom(object):
                     self._path = Utils.to_unicode(rhs._path)
                 elif (isinstance(rhs, dict) == True):
                     self.set_by_raw_data(rhs)
+                elif isinstance(rhs, str):
+                    self.symbol = rhs
+                elif isinstance(rhs, int):
+                    self._atomic_number = rhs
+                else:
+                    raise BrInputError('atom.__init__', 'illegal type')
             else:
                 raise BrInputError('atom.__init__', 'illegal the number of args')
 

@@ -172,7 +172,6 @@ class Select_Atom(Select):
     """
     def __init__(self, atom):
         from .atom import Atom
-        assert(isinstance(atom, Atom))
         self._atom = Atom(atom)
 
     def is_match(self, obj):
