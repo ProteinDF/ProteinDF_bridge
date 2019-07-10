@@ -163,8 +163,12 @@ class Matrix(object):
 
     # --------------------------------------------------------------------------
     def get(self, row, col):
-        assert((0 <= row) and (row < self.rows))
-        assert((0 <= col) and (col < self.cols))
+        if not ((0 <= row) and (row < self.rows)):
+            print("out of range in row: 0 <= {} < {}".format(row, self.rows))
+            raise
+        if not ((0 <= col) and (col < self.cols)):
+            print("out of range in col: 0 <= {} < {}".format(col, self.cols))
+            raise
         return self._data[row, col]
 
     def set(self, row, col, value):
