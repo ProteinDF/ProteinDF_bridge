@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (C) 2014 The ProteinDF development team.
+# Copyright (C) 2019 The ProteinDF development team.
 # see also AUTHORS and README if provided.
 #
 # This file is a part of the ProteinDF software package.
@@ -25,9 +25,10 @@ from imp import reload
 
 #sys.path.append('./pdfbridge')
 #sys.path.append('./pdftests')
+exec(open("proteindf_bridge/_version.py").read())
 
 setup(name='proteindf_bridge',
-      version='2019.2.0',
+      version=__version__,
       description='bridge scripts the ProteinDF package and other data/package',
       author='Toshiyuki HIRANO',
       author_email='hiracchi@gmail.com',
