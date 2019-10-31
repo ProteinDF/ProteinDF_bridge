@@ -28,6 +28,7 @@ UNITTESTS=" \
   atomgroup \
   select \
   biopdb \
+  gro \
   "
 
 rm -rf test_*

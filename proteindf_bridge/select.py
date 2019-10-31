@@ -20,6 +20,10 @@
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
 import re
+
+import logging
+logger = logging.getLogger(__name__)
+
 from .utils import Utils
 from .position import Position
 from .atom import Atom
@@ -38,6 +42,21 @@ class Select(object):
         return False
 
 
+class Select_Symbol(Select):
+    """
+    原子記号で選択する
+    """
+    def __init__(self, atom_symbol):
+        self._atom_symbol = atom_symbol.upper()
+
+    def is_match(self, obj):
+        answer = False
+        if isinstance(obj, Atom):
+            symbol = obj.symbol.upper()
+            if symbol == self._atom_symbol:
+                answer = True
+        return answer
+
 class Select_Name(Select):
     def __init__(self, query):
         self.query = Utils.to_unicode(query)
@@ -52,10 +71,13 @@ class Select_Name(Select):
 class Select_Path(Select):
     """
     """
-    def __init__(self, query):
+    def __init__(self, query, use_wildcard = True):
         self._query = Utils.to_unicode(query)
+        self._is_used_wildcard = use_wildcard
 
-        self._regex_selecter = self._prepare(query)
+        if use_wildcard:
+            logger.warning("Select_Path() is obsolete. please use Select_Path_wildcard().")
+            self._regex_selecter = self._prepare(query)
 
     def _prepare(self, query):
         query = re.sub("(?<!\\\)\*", '.*', query)
@@ -64,12 +86,47 @@ class Select_Path(Select):
 
         return Select_PathRegex(query)
 
-    #def is_match(self, obj):
-    #    answer = False
-    #    path = obj.path
-    #    if (self._query == path):
-    #        answer = True
-    #    return answer
+    def is_match(self, obj):
+        if self._is_used_wildcard:
+            return self._regex_selecter.is_match(obj)
+        else:
+            return self._is_match_nowildcard(obj)
+
+    def _is_match_nowildcard(self, obj):
+        answer = False
+        path = obj.path
+        if (self._query == path):
+            answer = True
+        return answer
+
+
+class Select_Path_simple(Select):
+    """
+    """
+    def __init__(self, query):
+        self._query = Utils.to_unicode(query)
+
+    def is_match(self, obj):
+        answer = False
+        path = obj.path
+        if (self._query == path):
+            answer = True
+        return answer
+
+
+class Select_Path_wildcard(Select):
+    """selector using path with wildcard
+    """
+    def __init__(self, query):
+        self._query = Utils.to_unicode(query)
+        self._regex_selecter = self._prepare(query)
+
+    def _prepare(self, query):
+        query = re.sub("(?<!\\\)\*", '.*', query)
+        query = re.sub("(?<!\\\)\?", '?', query)
+        query = '^' + query + '$'
+
+        return Select_PathRegex(query)
 
     def is_match(self, obj):
         return self._regex_selecter.is_match(obj)
@@ -91,22 +148,6 @@ class Select_PathRegex(Select):
             answer = True
         return answer
 
-
-class Select_Atom(Select):
-    """
-    原子記号で選択する
-    """
-    def __init__(self, atom_symbol):
-        self._atom_symbol = atom_symbol.upper()
-
-    def is_match(self, obj):
-        answer = False
-        if isinstance(obj, Atom):
-            symbol = obj.symbol.upper()
-            if symbol == self._atom_symbol:
-                answer = True
-        return answer
-
 class Select_Range(Select):
     '''
     半径で選択する
@@ -124,4 +165,41 @@ class Select_Range(Select):
             d2 = self._pos.square_distance_from(obj.xyz)
             if d2 < self._d2:
                 answer = True
+        return answer
+
+class Select_Atom(Select):
+    """
+    """
+    def __init__(self, atom):
+        from .atom import Atom
+        self._atom = Atom(atom)
+
+    def is_match(self, obj):
+        answer = False
+        if ((isinstance(obj, Atom)) and
+            (self._atom.atomic_number == obj.atomic_number) and
+            (self._atom.xyz == obj.xyz)):
+                answer = True
+        return answer
+
+
+class Select_AtomGroup(Select):
+    """reference atomgroupと同じ原子が存在しているものを返す
+    """
+    def __init__(self, ref_atomgroup, range=1.0E-5):
+        from .atomgroup import AtomGroup
+        assert(isinstance(ref_atomgroup, AtomGroup))
+        self._ref_atoms = ref_atomgroup.get_atom_list()
+        self._range = range
+
+    def is_match(self, obj):
+        answer = False
+        if isinstance(obj, Atom):
+            for ref_atom in self._ref_atoms:
+                #if ref_atom == obj:
+                if ((ref_atom.atomic_number == obj.atomic_number) and
+                    (ref_atom.xyz.distance_from(obj.xyz) < self._range)):
+                    answer = True
+                    break
+
         return answer

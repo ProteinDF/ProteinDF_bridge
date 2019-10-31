@@ -42,7 +42,11 @@ def main():
     f = open(file_path, "rb")
     contents = f.read()
     data = msgpack.unpackb(contents)
-    data = bridge.Utils.to_unicode_dict(data)
+
+    if isinstance(data, list):
+        data = bridge.Utils.to_unicode_list(data)
+    elif isinstance(data, dict):
+        data = bridge.Utils.to_unicode_dict(data)
     f.close()
 
     pprint.pprint(data)

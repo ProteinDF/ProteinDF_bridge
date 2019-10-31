@@ -3,19 +3,19 @@
 
 # Copyright (C) 2014 The ProteinDF development team.
 # see also AUTHORS and README if provided.
-# 
+#
 # This file is a part of the ProteinDF software package.
-# 
+#
 # The ProteinDF is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # The ProteinDF is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -75,6 +75,23 @@ class Vector(object):
             print(type(obj))
             raise TypeError
 
+    # --------------------------------------------------------------------------
+    @property
+    def max(self):
+        return self._data.max()
+
+    @property
+    def min(self):
+        return self._data.min()
+
+    @property
+    def data(self):
+        '''
+        return numpy array
+        '''
+        return self._data
+
+    # --------------------------------------------------------------------------
     def size(self):
         return self.__len__()
 
@@ -102,15 +119,8 @@ class Vector(object):
 
     def get_ndarray(self):
         return copy.deepcopy(self._data)
-        
-    @property
-    def max(self):
-        return self._data.max()
 
-    @property
-    def min(self):
-        return self._data.min()
-        
+    # --------------------------------------------------------------------------
     def __get_header_struct(self, is_little_endian):
         if is_little_endian:
             return self.__header_struct_little_endian
@@ -176,7 +186,7 @@ class Vector(object):
         else:
             raise
         return answer
-    
+
     def __rmul__(self, other):
         answer = None
         if isinstance(other, float):
@@ -185,7 +195,7 @@ class Vector(object):
         else:
             raise
         return answer
-    
+
     def __imul__(self, other):
         if isinstance(other, float):
             self._data *= other
@@ -197,7 +207,7 @@ class Vector(object):
         answer = Vector(self)
         answer *= -1.0
         return answer
-    
+
     def __len__(self):
         return len(self._data)
 

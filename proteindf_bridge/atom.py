@@ -22,7 +22,9 @@
 import copy
 import math
 import logging
+logger = logging.getLogger(__name__)
 
+from .error import BrInputError
 from .utils import Utils
 from .periodictable import PeriodicTable
 from .position import Position
@@ -46,8 +48,6 @@ class Atom(object):
     'Na'
     """
     def __init__(self, *args, **kwargs):
-        self._logger = logging.getLogger(__name__)
-
         self._atomic_number = PeriodicTable.get_atomic_number('X')
         self._xyz = Position()
         self._force = Position()
@@ -70,8 +70,14 @@ class Atom(object):
                     self._path = Utils.to_unicode(rhs._path)
                 elif (isinstance(rhs, dict) == True):
                     self.set_by_raw_data(rhs)
+                elif isinstance(rhs, str):
+                    self.symbol = rhs
+                elif isinstance(rhs, int):
+                    self._atomic_number = rhs
+                else:
+                    raise BrInputError('atom.__init__', 'illegal type')
             else:
-                raise InputError('atom.__init__', 'illegal the number of args')
+                raise BrInputError('atom.__init__', 'illegal the number of args')
 
         if 'symbol' in kwargs:
             self._atomic_number = PeriodicTable.get_atomic_number(kwargs.get('symbol'))
@@ -206,7 +212,7 @@ class Atom(object):
         answer = False
         if ((isinstance(rhs, Atom) == True) and
             (self.atomic_number == rhs.atomic_number) and
-            (math.fabs(self.charge - rhs.charge) < 1.0E-10) and
+            # (math.fabs(self.charge - rhs.charge) < 1.0E-10) and
             (self.xyz == rhs.xyz)):
             answer = True
         return answer
@@ -233,7 +239,7 @@ class Atom(object):
             elif key == 'force':
                 self.force = Position(value)
             else:
-                self._logger.debug("bridge::Atom > unknown key: {}".format(key))
+                logger.debug("bridge::Atom > unknown key: {}".format(key))
         return self
 
     def get_raw_data(self):
@@ -250,16 +256,16 @@ class Atom(object):
     # debug
     # ==================================================================
     def __str__(self):
-        answer = "%2s(name=\"%s\")(% 8.3f, % 8.3f, % 8.3f) Z=% .2f <(% 8.3f, % 8.3f, % 8.3f)>" % (
-            self.symbol,
-            self.name,
-            self.xyz.x,
-            self.xyz.y,
-            self.xyz.z,
-            self.charge,
-            self.force.x,
-            self.force.y,
-            self.force.z)
+        symbol_name = "{symbol:<2}({name:<4})".format(symbol=self.symbol,
+                                                      name=self.name)
+        xyz = "{: 8.3f} {: 8.3f} {: 8.3f}".format(self.xyz.x, self.xyz.y, self.xyz.z)
+        charge = "{: 5.2f}".format(self.charge)
+        force = "{: 8.3f} {: 8.3f} {: 8.3f}".format(self.force.x, self.force.y, self.force.z)
+
+        answer = "{symbol_name} {xyz}, {charge}, {force}".format(symbol_name=symbol_name,
+                                                                 xyz=xyz,
+                                                                 charge=charge,
+                                                                 force=force)
         return answer
 
     # ------------------------------------------------------------------

@@ -28,6 +28,7 @@ import numpy
 import logging
 logger = logging.getLogger(__name__)
 
+from .error import BrInputError
 from .vector import Vector
 
 class Position(object):
@@ -120,7 +121,7 @@ class Position(object):
                     self._position[1] = float(inputs.pop(0).rstrip(",")) if (len(inputs) > 0) else 0.0
                     self._position[2] = float(inputs.pop(0).rstrip(",")) if (len(inputs) > 0) else 0.0
             else:
-                raise InputError("position::__init__", "illegal input")
+                raise BrInputError("position::__init__", "illegal input")
 
     def _initialize(self):
         self.epsilon = 1.0E-5
@@ -230,7 +231,7 @@ class Position(object):
         if (isinstance(rhs, Position) == True):
             return Position([ x + y for x, y in zip(self._position, rhs._position)])
         else:
-            raise InputError("position.__add__", "illegal input: Position is required.")
+            raise BrInputError("position.__add__", "illegal input: Position is required.")
 
     def __sub__(self, rhs):
         return self.__add__(-rhs)
@@ -246,7 +247,7 @@ class Position(object):
             rhs1._position = [x * rhs2 for x in rhs1._position]
             return rhs1
         else:
-            raise InputError("position.__add__", "illegal input: Position is required.")
+            raise BrInputError("position.__add__", "illegal input: Position is required.")
 
     __rmul__ = __mul__
 

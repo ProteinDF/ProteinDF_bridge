@@ -104,6 +104,18 @@ class PeriodicTable(object):
         except:
             raise
 
+    def __contains__(self, symbol):
+        symbol = str(symbol)
+        symbol = symbol.lower()
+        symbol = symbol.capitalize()
+
+        answer = False
+        for i in PeriodicTable.__table:
+            if symbol == i:
+                answer = True
+                break
+        return answer
+
     @staticmethod
     def vdw(atom):
         if isinstance(atom, str):

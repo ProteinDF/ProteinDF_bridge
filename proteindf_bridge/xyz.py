@@ -24,6 +24,7 @@ import os
 import argparse
 import re
 
+from .error import BrInputError
 from .position import Position
 from .atom import Atom
 from .atomgroup import AtomGroup
@@ -46,9 +47,9 @@ class Xyz(object):
                 elif isinstance(rhs, AtomGroup):
                     self.set_by_atomgroup(rhs)
                 else:
-                    raise InputError('Xyz.__init__', 'illegal object type')
+                    raise BrInputError('Xyz.__init__', 'illegal object type')
             else:
-                raise InputError('Xyz.__init__', 'illegal the number of args')
+                raise BrInputError('Xyz.__init__', 'illegal the number of args')
 
     def load(self, file_path):
         if (os.path.isfile(file_path) != True):

@@ -30,32 +30,61 @@ import proteindf_bridge as bridge
 
 def main():
     # parse args
-    parser = argparse.ArgumentParser(description='print molecular bridge file')
+    parser = argparse.ArgumentParser(description='bridge file selecter')
     parser.add_argument('FILE',
                         nargs=1,
                         help='bridge file')
+    parser.add_argument('-o', '--output',
+                        nargs=1,
+                        type=str,
+                        default=[''],
+                        help='output brd file')
     parser.add_argument("-v", "--verbose",
                         action="store_true",
                         default = False)
+    parser.add_argument('-q', '--query',
+                        nargs=1,
+                        type=str,
+                        default=["*"],
+                        help='select by using path string')
     args = parser.parse_args()
 
     # setting
     mpac_file_path = args.FILE[0]
+    output_path = args.output[0]
     verbose = args.verbose
 
+    query = args.query[0]
+
     # reading
-    if (verbose == True):
-        print("reading: %s\n" % (mpac_file_path))
+    if verbose:
+        print("reading: {}".format(mpac_file_path))
     mpac_file = open(mpac_file_path, "rb")
-    mpac_data = msgpack.unpackb(mpac_file.read())
+    mpac_data =msgpack.unpackb(mpac_file.read())
     mpac_file.close()
 
     # prepare atomgroup
-    atom_group = bridge.AtomGroup(mpac_data)
+    atomgroup = bridge.AtomGroup(mpac_data)
+    #print(atom_group)
+
+    # selecter
+    if verbose:
+        print('query=\"{}\"'.format(query))
+    # path_selecter = bridge.Select_Path_wildcard(query)
+    path_selecter = bridge.Select_Path_simple(query)
+    selected = atomgroup.select(path_selecter)
 
     # output
-    print(atom_group)
-
+    if len(output_path) > 0:
+        if (verbose == True):
+            print("writing: %s\n" % (output_path))
+        with open(output_path, "wb") as output_file:
+            output_data = selected.get_raw_data()
+            output_mpac = msgpack.packb(output_data)
+            output_file.write(output_mpac)
+    else:
+        print(selected)
+    
 
 if __name__ == '__main__':
     main()

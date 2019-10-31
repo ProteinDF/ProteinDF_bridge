@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (C) 2014 The ProteinDF development team.
+# Copyright (C) 2019 The ProteinDF development team.
 # see also AUTHORS and README if provided.
 #
 # This file is a part of the ProteinDF software package.
@@ -25,9 +25,10 @@ from imp import reload
 
 #sys.path.append('./pdfbridge')
 #sys.path.append('./pdftests')
+exec(open("proteindf_bridge/_version.py").read())
 
 setup(name='proteindf_bridge',
-      version='2018.10.1',
+      version=__version__,
       description='bridge scripts the ProteinDF package and other data/package',
       author='Toshiyuki HIRANO',
       author_email='hiracchi@gmail.com',
@@ -41,15 +42,25 @@ setup(name='proteindf_bridge',
           'scripts/mpac2txt.py',
           'scripts/yml2mpac.py',
 
+          'scripts/brd-restructure.py',
           'scripts/brd-select.py',
+          'scripts/brd-divide.py',
+          'scripts/brd-divide-mainchain.py',
+          'scripts/brd-select-path.py',
+          'scripts/brd-renumber-resid.py',
 
           'scripts/brd2txt.py',
 
           'scripts/pdb2brd.py',
           'scripts/brd2pdb.py',
 
-          'scripts/brd2xyz.py',
+          'scripts/mmcif2txt.py',
+          'scripts/mmcif2mol2.py',
+
+          'scripts/gro2brd.py',
+
           'scripts/xyz2brd.py',
+          'scripts/brd2xyz.py',
 
           'scripts/module_inspect.py',
           'scripts/db2txt.py',
@@ -60,6 +71,7 @@ setup(name='proteindf_bridge',
 
           'scripts/neutralize.py',
           'scripts/reorder.py',
+          'scripts/crystallize.py',
 
           'scripts/read_amber_prmtop.py'
 

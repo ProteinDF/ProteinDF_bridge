@@ -75,6 +75,216 @@ class AtomGroupTests(unittest.TestCase):
         self.assertEqual(group2.get_number_of_all_atoms(), 3)
         self.assertAlmostEqual(group2.sum_of_atomic_number(), 14.0)
 
+    def test_op_and(self):
+        C1 = Atom(symbol='C')
+        H1 = Atom(symbol='H')
+        N1 = Atom(symbol='N')
+
+        # group1
+        group1 = AtomGroup()
+        subgrp1 = AtomGroup()
+        subgrp1.set_atom('C1', C1)
+        subgrp1.set_atom('H1', H1)
+        subgrp1.set_atom('N1', N1)
+        group1.set_group('grp', subgrp1)
+
+        # group2
+        group2 = AtomGroup()
+        subgrp2 = AtomGroup()
+        subgrp2.set_atom('C1', C1)
+        subgrp2.set_atom('H1', H1)
+        group2.set_group('grp', subgrp2)
+
+        # run
+        group3 = group1 & group2
+        # print(group3)
+
+        # check
+        self.assertIsInstance(group3, AtomGroup)
+        self.assertEqual(group3.get_number_of_all_atoms(), 2)
+        self.assertEqual(group3.get_number_of_atoms(), 0)
+        self.assertEqual(group3.has_groupkey('grp'), True)
+        self.assertEqual(group3['grp'].get_number_of_all_atoms(), 2)
+        self.assertEqual(group3['grp'].get_number_of_atoms(), 2)
+        self.assertEqual(group3['grp'].has_atom('C1'), True)
+        self.assertEqual(group3['grp'].has_atom('H1'), True)
+
+    def test_op_iand(self):
+        C1 = Atom(symbol='C')
+        H1 = Atom(symbol='H')
+        N1 = Atom(symbol='N')
+
+        # group1
+        group1 = AtomGroup()
+        subgrp1 = AtomGroup()
+        subgrp1.set_atom('C1', C1)
+        subgrp1.set_atom('H1', H1)
+        subgrp1.set_atom('N1', N1)
+        group1.set_group('grp', subgrp1)
+
+        # group2
+        group2 = AtomGroup()
+        subgrp2 = AtomGroup()
+        subgrp2.set_atom('C1', C1)
+        subgrp2.set_atom('H1', H1)
+        group2.set_group('grp', subgrp2)
+
+        # run
+        group1 &= group2
+        # print(group1)
+
+        # check
+        self.assertIsInstance(group1, AtomGroup)
+        self.assertEqual(group1.get_number_of_all_atoms(), 2)
+        self.assertEqual(group1.get_number_of_atoms(), 0)
+        self.assertEqual(group1.has_groupkey('grp'), True)
+        self.assertEqual(group1['grp'].get_number_of_all_atoms(), 2)
+        self.assertEqual(group1['grp'].get_number_of_atoms(), 2)
+        self.assertEqual(group1['grp'].has_atom('C1'), True)
+        self.assertEqual(group1['grp'].has_atom('H1'), True)
+
+    def test_op_or(self):
+        C1 = Atom(symbol='C')
+        H1 = Atom(symbol='H')
+        N1 = Atom(symbol='N')
+
+        # group1
+        group1 = AtomGroup()
+        subgrp1 = AtomGroup()
+        subgrp1.set_atom('C1', C1)
+        subgrp1.set_atom('H1', H1)
+        subgrp1.set_atom('N1', N1)
+        group1.set_group('grp', subgrp1)
+
+        # group2
+        group2 = AtomGroup()
+        subgrp2 = AtomGroup()
+        subgrp2.set_atom('C1', C1)
+        subgrp2.set_atom('H1', H1)
+        group2.set_group('grp', subgrp2)
+
+        # run
+        group3 = group1 | group2
+        # print(group3)
+
+        # check
+        self.assertIsInstance(group3, AtomGroup)
+        self.assertEqual(group3.get_number_of_all_atoms(), 3)
+        self.assertEqual(group3.get_number_of_atoms(), 0)
+        self.assertEqual(group3.has_groupkey('grp'), True)
+        self.assertEqual(group3['grp'].get_number_of_all_atoms(), 3)
+        self.assertEqual(group3['grp'].get_number_of_atoms(), 3)
+        self.assertEqual(group3['grp'].has_atom('C1'), True)
+        self.assertEqual(group3['grp'].has_atom('H1'), True)
+        self.assertEqual(group3['grp'].has_atom('N1'), True)
+
+    def test_op_ior(self):
+        C1 = Atom(symbol='C')
+        H1 = Atom(symbol='H')
+        N1 = Atom(symbol='N')
+
+        # group1
+        group1 = AtomGroup()
+        subgrp1 = AtomGroup()
+        subgrp1.set_atom('C1', C1)
+        subgrp1.set_atom('H1', H1)
+        subgrp1.set_atom('N1', N1)
+        group1.set_group('grp', subgrp1)
+
+        # group2
+        group2 = AtomGroup()
+        subgrp2 = AtomGroup()
+        subgrp2.set_atom('C1', C1)
+        subgrp2.set_atom('H1', H1)
+        group2.set_group('grp', subgrp2)
+
+        # run
+        group1 |= group2
+        # print(group1)
+
+        # check
+        self.assertIsInstance(group1, AtomGroup)
+        self.assertEqual(group1.get_number_of_all_atoms(), 3)
+        self.assertEqual(group1.get_number_of_atoms(), 0)
+        self.assertEqual(group1.has_groupkey('grp'), True)
+        self.assertEqual(group1['grp'].get_number_of_all_atoms(), 3)
+        self.assertEqual(group1['grp'].get_number_of_atoms(), 3)
+        self.assertEqual(group1['grp'].has_atom('C1'), True)
+        self.assertEqual(group1['grp'].has_atom('H1'), True)
+        self.assertEqual(group1['grp'].has_atom('N1'), True)
+
+    def test_op_xor(self):
+        C1 = Atom(symbol='C')
+        H1 = Atom(symbol='H')
+        N1 = Atom(symbol='N')
+        O1 = Atom(symbol='O')
+
+        # group1
+        group1 = AtomGroup()
+        subgrp1 = AtomGroup()
+        subgrp1.set_atom('C1', C1)
+        subgrp1.set_atom('H1', H1)
+        subgrp1.set_atom('N1', N1)
+        group1.set_group('grp', subgrp1)
+
+        # group2
+        group2 = AtomGroup()
+        subgrp2 = AtomGroup()
+        subgrp2.set_atom('C1', C1)
+        subgrp2.set_atom('H1', H1)
+        subgrp2.set_atom('O1', O1)
+        group2.set_group('grp', subgrp2)
+
+        # run
+        group3 = group1 ^ group2
+        # print(group3)
+
+        # check
+        self.assertIsInstance(group3, AtomGroup)
+        self.assertEqual(group3.get_number_of_all_atoms(), 2)
+        self.assertEqual(group3.get_number_of_atoms(), 0)
+        self.assertEqual(group3.has_groupkey('grp'), True)
+        self.assertEqual(group3['grp'].get_number_of_all_atoms(), 2)
+        self.assertEqual(group3['grp'].get_number_of_atoms(), 2)
+        self.assertEqual(group3['grp'].has_atom('N1'), True)
+        self.assertEqual(group3['grp'].has_atom('O1'), True)
+
+    def test_op_ixor(self):
+        C1 = Atom(symbol='C')
+        H1 = Atom(symbol='H')
+        N1 = Atom(symbol='N')
+        O1 = Atom(symbol='O')
+
+        # group1
+        group1 = AtomGroup()
+        subgrp1 = AtomGroup()
+        subgrp1.set_atom('C1', C1)
+        subgrp1.set_atom('H1', H1)
+        subgrp1.set_atom('N1', N1)
+        group1.set_group('grp', subgrp1)
+
+        # group2
+        group2 = AtomGroup()
+        subgrp2 = AtomGroup()
+        subgrp2.set_atom('C1', C1)
+        subgrp2.set_atom('H1', H1)
+        subgrp2.set_atom('O1', O1)
+        group2.set_group('grp', subgrp2)
+
+        # run
+        group1 ^= group2
+        # print(group1)
+
+        # check
+        self.assertIsInstance(group1, AtomGroup)
+        self.assertEqual(group1.get_number_of_all_atoms(), 2)
+        self.assertEqual(group1.get_number_of_atoms(), 0)
+        self.assertEqual(group1.has_groupkey('grp'), True)
+        self.assertEqual(group1['grp'].get_number_of_all_atoms(), 2)
+        self.assertEqual(group1['grp'].get_number_of_atoms(), 2)
+        self.assertEqual(group1['grp'].has_atom('N1'), True)
+        self.assertEqual(group1['grp'].has_atom('O1'), True)
+
 
     def test_atom_list(self):
         group1 = AtomGroup()

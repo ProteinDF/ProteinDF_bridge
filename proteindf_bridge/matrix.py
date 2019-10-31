@@ -98,7 +98,7 @@ class Matrix(object):
                     index = 0
                     for r in range(rows):
                         for c in range(cols):
-                            self.set(r , c, buf[index])
+                            self.set(r , c, data[index])
                             index += 1
                     return
                 else:
@@ -163,8 +163,12 @@ class Matrix(object):
 
     # --------------------------------------------------------------------------
     def get(self, row, col):
-        assert((0 <= row) and (row < self.rows))
-        assert((0 <= col) and (col < self.cols))
+        if not ((0 <= row) and (row < self.rows)):
+            print("out of range in row: 0 <= {} < {}".format(row, self.rows))
+            raise
+        if not ((0 <= col) and (col < self.cols)):
+            print("out of range in col: 0 <= {} < {}".format(col, self.cols))
+            raise
         return self._data[row, col]
 
     def set(self, row, col, value):
@@ -407,6 +411,9 @@ class SymmetricMatrix(Matrix):
                 rows, cols = self._data.shape
                 assert(rows == cols)
                 return
+            elif isinstance(args[0], numpy.ndarray):
+                self._data = copy.deepcopy(args[0])
+                assert(self._data.ndim == 2)
             else:
                 raise
 

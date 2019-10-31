@@ -37,14 +37,15 @@ def main():
     parser.add_argument('-o', '--output',
                         nargs=1,
                         type=str,
-                        default=['output.brd'],
+                        default=[''],
                         help='output brd file')
     parser.add_argument("-v", "--verbose",
                         action="store_true",
                         default = False)
-    parser.add_argument('-p', '--path_query',
+    parser.add_argument('-q', '--query',
                         nargs=1,
                         type=str,
+                        default=["*"],
                         help='select by using path string')
     args = parser.parse_args()
 
@@ -53,7 +54,7 @@ def main():
     output_path = args.output[0]
     verbose = args.verbose
 
-    path_query = args.path_query[0]
+    query = args.query[0]
 
     # reading
     if verbose:
@@ -64,24 +65,25 @@ def main():
 
     # prepare atomgroup
     atomgroup = bridge.AtomGroup(mpac_data)
-
     #print(atom_group)
 
     # selecter
     if verbose:
-        print('path_query=\"{}\"'.format(path_query))
-    path_selecter = bridge.Select_Path(path_query)
+        print('query=\"{}\"'.format(query))
+    path_selecter = bridge.Select_Path_wildcard(query)
     selected = atomgroup.select(path_selecter)
 
     # output
-    if (verbose == True):
-        print("writing: %s\n" % (output_path))
-    output_file = open(output_path, "wb")
-    output_data = selected.get_raw_data()
-    output_mpac = msgpack.packb(output_data)
-    output_file.write(output_mpac)
-    output_file.close()
-
+    if len(output_path) > 0:
+        if (verbose == True):
+            print("writing: %s\n" % (output_path))
+        with open(output_path, "wb") as output_file:
+            output_data = selected.get_raw_data()
+            output_mpac = msgpack.packb(output_data)
+            output_file.write(output_mpac)
+    else:
+        print(selected)
+    
 
 if __name__ == '__main__':
     main()

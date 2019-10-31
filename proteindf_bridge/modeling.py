@@ -32,6 +32,7 @@ except:
     except:
         import msgpack_pure as msgpack
 
+from .error import BrInputError
 from .position import Position
 from .atom import Atom
 from .atomgroup import AtomGroup
@@ -71,22 +72,22 @@ class Modeling:
         if len(CAs) > 0:
             answer.set_atom('CA', CAs[0])
         else:
-            raise InputError(next_aa,
-                             'cannot found "CA" atom on building ACE.')
+            raise BrInputError(next_aa,
+                               'cannot found "CA" atom on building ACE.')
 
         Cs = next_aa.pickup_atoms('C')
         if len(Cs) > 0:
             answer.set_atom('C',  Cs[0])
         else:
-            raise InputError(next_aa,
-                             'cannot found "C" atom on building ACE.')
+            raise BrInputError(next_aa,
+                               'cannot found "C" atom on building ACE.')
 
         Os = next_aa.pickup_atoms('O')
         if len(Os) > 0:
             answer.set_atom('O',  Os[0])
         else:
-            raise InputError(next_aa,
-                             'cannot found "O" atom on building ACE.')
+            raise BrInputError(next_aa,
+                               'cannot found "O" atom on building ACE.')
 
         answer |= self.add_methyl(answer['CA'], answer['C'])
         answer.path = '/ACE'
@@ -102,15 +103,15 @@ class Modeling:
         if len(CAs) > 0:
             answer.set_atom('CA', CAs[0])
         else:
-            raise InputError(next_aa,
-                             'cannot found "CA" atom on building NME.')
+            raise BrInputError(next_aa,
+                               'cannot found "CA" atom on building NME.')
 
         Ns = next_aa.pickup_atoms('N')
         if len(Ns) > 0:
             answer.set_atom('N',  Ns[0])
         else:
-            raise InputError(next_aa,
-                             'cannot found "N" atom on building NME.')
+            raise BrInputError(next_aa,
+                               'cannot found "N" atom on building NME.')
 
         Hs = next_aa.pickup_atoms('H')
         if len(Hs) > 0:
@@ -123,8 +124,8 @@ class Modeling:
                 dummy_H.symbol = 'H'
                 answer.set_atom('H', dummy_H)
             else:
-                raise InputError(next_aa,
-                                 'cannot found "H" or "CD" atom(for proline) on building NME.')
+                raise BrInputError(next_aa,
+                                   'cannot found "H" or "CD" atom(for proline) on building NME.')
 
         answer |= self.add_methyl(answer['CA'], answer['N'])
         answer.path = '/NME'
@@ -452,6 +453,15 @@ class Modeling:
 
     # -----------------------------------------------------------------
     def neutralize_Nterm(self, res):
+        answer = None
+        if res.name == "PRO":
+            answer = self._neutralize_Nterm_PRO(res)
+        else:
+            answer = self._neutralize_Nterm(res)
+
+        return answer
+
+    def _neutralize_Nterm(self, res):
         """
         N末端側を中性化するためにCl-(AtomGroup)を返す
 
@@ -473,6 +483,26 @@ class Modeling:
                             position = pos)
         answer.set_atom('Cl', Cl)
         return answer
+
+    def _neutralize_Nterm_PRO(self, res):
+        """in case of 'PRO', neutralize N-term
+        """
+        ag = AtomGroup()
+        ag.set_atom('N', res['N'])
+        ag.set_atom('H2', res['H2'])
+        if res.has_atom('HXT'):
+            ag.set_atom('H1', res['HXT'])
+        elif res.has_atom('H3'):
+            ag.set_atom('H1', res['H3'])
+        pos = self._get_neutralize_pos_NH2_type(ag)
+
+        answer = AtomGroup()
+        Cl = Atom(symbol = 'Cl',
+                            name = 'Cl',
+                            position = pos)
+        answer.set_atom('Cl', Cl)
+        return answer
+
 
     def neutralize_Cterm(self, res):
         """
@@ -598,8 +628,23 @@ class Modeling:
 
         POO1 = AtomGroup()
         POO1.set_atom('P', ag['P'])
-        POO1.set_atom('O1', ag['O1P']) # amber format: OP1, pdb: O1P
-        POO1.set_atom('O2', ag['O2P']) # amber format: OP2, pdb: O2P
+
+        # amber format: OP1, pdb: O1P
+        if ag.has_atom('O1P'):
+            POO1.set_atom('O1', ag['O1P'])
+        elif ag.has_atom('OP1'):
+            POO1.set_atom('O1', ag['OP1'])
+        else:
+            raise
+
+        # amber format: OP2, pdb: O2P
+        if ag.has_atom('O2P'):
+            POO1.set_atom('O2', ag['O2P'])
+        elif ag.has_atom('OP2'):
+            POO1.set_atom('O2', ag['OP2'])
+        else:
+            raise
+
         Na1 = Atom(symbol = 'Na',
                              name = 'Na',
                              position = self._get_neutralize_pos_POO_type(POO1))
@@ -627,12 +672,29 @@ class Modeling:
 
         # 重心を計算
         M = Position((H1.xyz.x + H2.xyz.x + H3.xyz.x) / 3.0,
-                               (H1.xyz.y + H2.xyz.y + H3.xyz.y) / 3.0,
-                               (H1.xyz.z + H2.xyz.z + H3.xyz.z) / 3.0)
+                     (H1.xyz.y + H2.xyz.y + H3.xyz.y) / 3.0,
+                     (H1.xyz.z + H2.xyz.z + H3.xyz.z) / 3.0)
         vNM = M - N.xyz
         vNM.norm()
 
         return N.xyz + length * vNM
+
+
+    def _get_neutralize_pos_NH2_type(self, ag):
+        length = 3.187
+        H1 = ag['H1']
+        H2 = ag['H2']
+        N  = ag['N']
+
+        vNH1 = H1.xyz - N.xyz
+        vNH2 = H2.xyz - N.xyz
+        vM = 0.5 * (vNH1 + vNH2)
+
+        vM.norm()
+
+        answer = N.xyz + length * vM
+        return answer
+
 
     def _get_neutralize_pos_COO_type(self, ag):
         length = 2.521
