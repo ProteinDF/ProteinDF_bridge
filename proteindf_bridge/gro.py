@@ -83,8 +83,11 @@ class SimpleGro(object):
 
     def get_atomgroup(self):
         pt = PeriodicTable()
-        ag = AtomGroup()
-        ag.name = self._title
+        output = AtomGroup()
+        output.name = self._title
+
+        model = AtomGroup()
+        chain = AtomGroup()
 
         current_res_id = -1
         current_ag = None
@@ -115,33 +118,68 @@ class SimpleGro(object):
             current_ag.set_atom(id, atom)
 
         if current_ag != None:
-            ag.set_group(current_res_id, current_ag)
+            chain.set_group(current_res_id, current_ag)
+            model.set_group("_", chain)
+            output.set_group(1, model)
 
-        return ag
+        return output
 
     def set_by_atomgroup(self, atomgroup):
         assert(isinstance(atomgroup, AtomGroup))
 
         self._title = atomgroup.name
         self._num_of_atoms = atomgroup.get_number_of_atoms()
+        self._atoms  = []
 
-        self._atoms  = [] * self._num_of_atoms
-        for subgrp_key, subgrp in atomgroup.atoms():
-            print(subgrp_key, subgrp)
-        #for key, atom in atomgroup.atoms():
-        #   pass
+        #count = 0
+        serial = 1
+        residue_index = 1
+        for model_key, model in atomgroup.groups():
+            for chain_id, chain in model.groups():
+                for res_key, residue in chain.groups():
+                    residue_number = residue_index
+                    residue_index += 1
+                    residue_name = residue.name
+                    for key, atom in residue.atoms():
+                        atom_name = atom.name
+                        atom_number = serial
+                        serial += 1
+                        position_x = atom.xyz.x * 0.1 # angstrom -> nm
+                        position_y = atom.xyz.y * 0.1
+                        position_z = atom.xyz.z * 0.1
+                        velocity_x = 0.0
+                        velocity_y = 0.0
+                        velocity_z = 0.0
+                        self._atoms.append((residue_number, residue_name, atom_name, atom_number,
+                                            position_x, position_y, position_z,
+                                            velocity_x, velocity_y, velocity_z))
+                        #count += 1
+
+        (pos1, pos2) = atomgroup.box()
+        # the vdw radii of "C" = 1.96
+        self._box_vectors = (abs(pos2.x - pos1.x), abs(pos2.y - pos1.y), abs(pos2.z - pos1.z))
 
 
     def __str__(self):
         answer = ""
         answer += "{}\n".format(self._title)
-        answer += "{}\n".format(self._num_of_atoms)
-        for i in range(self._num_of_atoms):
+        answer += "{}\n".format(len(self._atoms))
+        for i in range(len(self._atoms)):
+            residue_number = int(self._atoms[i][0] % 10000)
+            residue_name = self._atoms[i][1][0:5]
+            atom_name = self._atoms[i][2][0:5]
+            atom_number = int(self._atoms[i][3] % 10000)
+            position_x = self._atoms[i][4]
+            position_y = self._atoms[i][5]
+            position_z = self._atoms[i][6]
+            velocity_x = self._atoms[i][7]
+            velocity_y = self._atoms[i][8]
+            velocity_z = self._atoms[i][9]
+
             answer += "{:>5}{:<5}{:>5}{:>5}{:8.3f}{:8.3f}{:8.3f}{:8.4f}{:8.4f}{:8.4f}\n".format(
-                self._atoms[i][0], self._atoms[i][1], self._atoms[i][2], self._atoms[i][3],
-                self._atoms[i][4], self._atoms[i][5], self._atoms[i][6],
-                self._atoms[i][7], self._atoms[i][8], self._atoms[i][9])
+                residue_number, residue_name, atom_name, atom_number,
+                position_x, position_y, position_z,
+                velocity_x, velocity_y, velocity_z)
         answer += " ".join(map(str, self._box_vectors))
 
         return answer
-
