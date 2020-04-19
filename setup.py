@@ -19,12 +19,13 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys, os
+import sys
+import os
 from setuptools import setup
 from imp import reload
 
-#sys.path.append('./pdfbridge')
-#sys.path.append('./pdftests')
+# sys.path.append('./pdfbridge')
+# sys.path.append('./pdftests')
 exec(open("proteindf_bridge/_version.py").read())
 
 setup(name='proteindf_bridge',
@@ -58,6 +59,7 @@ setup(name='proteindf_bridge',
           'scripts/mmcif2mol2.py',
 
           'scripts/gro2brd.py',
+          'scripts/brd2gro.py',
 
           'scripts/xyz2brd.py',
           'scripts/brd2xyz.py',
@@ -75,12 +77,12 @@ setup(name='proteindf_bridge',
 
           'scripts/read_amber_prmtop.py'
 
-          #'scripts/remove_wat.py',
-          #'scripts/relax_protein.py',
-          #'scripts/relax_protein.sh'
+          # 'scripts/remove_wat.py',
+          # 'scripts/relax_protein.py',
+          # 'scripts/relax_protein.sh'
       ],
 
-      install_requires = [
+      install_requires=[
           'configparser',
           'msgpack-python',
           'pyyaml',
@@ -88,5 +90,5 @@ setup(name='proteindf_bridge',
       ],
 
       data_files=[('data', ['data/ACE_ALA_NME.brd'])],
-      #test_suite='tests'
-)
+      # test_suite='tests'
+      )
