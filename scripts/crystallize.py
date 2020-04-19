@@ -59,9 +59,11 @@ def main():
         mpac_data = msgpack.unpackb(f.read())
         ag = bridge.AtomGroup(mpac_data)
     # print(ag)
+    num_of_res = ag.get_number_of_groups()
     (pos_min, pos_max) = ag.box()
     cell_size = pos_max - pos_min
     if verbose:
+        print("residues: {}".format(num_of_res))
         print("min: {}".format(pos_min))
         print("max: {}".format(pos_max))
         print("cell size: {}".format(cell_size))
@@ -79,8 +81,10 @@ def main():
 
                 new_ag = bridge.AtomGroup(ag)
                 new_ag.shift_by(shift)
-                cell.set_group(count, new_ag)
-                count += 1
+
+                for resid, res in new_ag.groups():
+                    cell.set_group(count, res)
+                    count += 1
     # print(cell)
 
     # output
