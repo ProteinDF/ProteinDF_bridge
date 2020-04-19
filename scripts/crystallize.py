@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import sys
 import argparse
 try:
@@ -6,6 +9,7 @@ except:
     import msgpack_pure as msgpack
 
 import proteindf_bridge as bridge
+
 
 def main():
     # parse args
@@ -35,7 +39,7 @@ def main():
 
     parser.add_argument("-v", "--verbose",
                         action="store_true",
-                        default = False)
+                        default=False)
     args = parser.parse_args()
 
     print(args)
