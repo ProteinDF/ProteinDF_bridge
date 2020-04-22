@@ -43,6 +43,7 @@ setup(name='proteindf_bridge',
           'scripts/mpac2txt.py',
           'scripts/yml2mpac.py',
 
+          'scripts/brd-formula.py',
           'scripts/brd-restructure.py',
           'scripts/brd-select.py',
           'scripts/brd-divide.py',

@@ -19,6 +19,13 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
+from .vector import Vector
+from .select import Select_Atom, Select_AtomGroup
+from .select import Select
+from .atom import Atom
+from .position import Position
+from .periodictable import PeriodicTable
+from .utils import Utils
 import re
 import copy
 import logging
@@ -30,13 +37,6 @@ except ImportError:
     # python 2.6 or earlier, use backport
     from ordereddict import OrderedDict
 
-from .utils import Utils
-from .periodictable import PeriodicTable
-from .position import Position
-from .atom import Atom
-from .select import Select
-from .select import Select_Atom, Select_AtomGroup
-from .vector import Vector
 
 class AtomGroup(object):
     """
@@ -82,13 +82,13 @@ class AtomGroup(object):
                 elif (isinstance(rhs, dict) == True):
                     self.set_by_dict_data(rhs)
             else:
-                raise InputError('atomgroup.__init__', 'illegal the number of args')
+                raise InputError('atomgroup.__init__',
+                                 'illegal the number of args')
 
         if 'name' in kwargs:
             self.name = kwargs.get('name')
         if 'parent' in kwargs:
             self._parent = kwargs.get('parent')
-
 
     def _initialize(self):
         self._atoms = OrderedDict()
@@ -105,13 +105,14 @@ class AtomGroup(object):
     # property -----------------------------------------------------------------
     def _get_sort_atoms(self):
         return self._sort_atoms
+
     def _set_sort_atoms(self, v):
         self._sort_atoms = v
     sort_atoms = property(_get_sort_atoms, _set_sort_atoms)
 
-
     def _get_sort_groups(self):
         return self._sort_groups
+
     def _set_sort_groups(self, v):
         self._sort_groups = v
     sort_groups = property(_get_sort_groups, _set_sort_groups)
@@ -196,7 +197,6 @@ class AtomGroup(object):
             answer.add(atom.symbol)
         return answer
 
-
     def get_atom_kinds_count(self):
         """
         原子種(シンボル)とその数を格納した辞書を返す
@@ -215,9 +215,8 @@ class AtomGroup(object):
             kinds[symbol] += 1
 
         return kinds
-
-
     # --------------------------------------------------------------------------
+
     def groups(self):
         """
         原子団のリストを返す
@@ -251,7 +250,7 @@ class AtomGroup(object):
         assert(isinstance(value, AtomGroup))
         if '_groups' not in self.__dict__:
             self._groups = {}
-        self._groups[key] = AtomGroup(value, parent = self)
+        self._groups[key] = AtomGroup(value, parent=self)
         self._update_path()
 
     def has_groupkey(self, key):
@@ -300,7 +299,7 @@ class AtomGroup(object):
         self._groups.pop(key, None)
 
     def get_group_list(self):
-        return [ k for k, v in self.groups() ]
+        return [k for k, v in self.groups()]
 
     # --------------------------------------------------------------------------
     def atoms(self):
@@ -317,7 +316,7 @@ class AtomGroup(object):
                 yield(k, v)
 
     def get_atom_keys(self):
-        return [ k for k, v in self.atoms() ]
+        return [k for k, v in self.atoms()]
 
     def get_atom(self, key_or_name):
         """
@@ -419,7 +418,6 @@ class AtomGroup(object):
                 answer.append(atm)
         return answer
 
-
     def get_atom_list(self):
         '''
         サブグループ内の原子をリスト型に格納して返す
@@ -433,7 +431,6 @@ class AtomGroup(object):
 
         return atom_list
 
-
     def get_path_list(self):
         '''
         グループ内の原子のパスのリストを返す
@@ -444,7 +441,6 @@ class AtomGroup(object):
         for atom_key, atom in self.atoms():
             answer.append(atom.path)
         return answer
-
 
     def get_formula(self):
         """分子式(組成式; composition formula)を返す
@@ -462,8 +458,8 @@ class AtomGroup(object):
 
         return formula
 
-
     # name ---------------------------------------------------------------------
+
     def _get_name(self):
         return self._name
 
@@ -472,6 +468,7 @@ class AtomGroup(object):
 
     name = property(_get_name, _set_name)
     # charge -------------------------------------------------------------------
+
     def _get_charge(self):
         charge = 0.0
         for key, ag in self.groups():
@@ -482,6 +479,7 @@ class AtomGroup(object):
 
     charge = property(_get_charge)
     # nuclei charge ------------------------------------------------------------
+
     def _get_real_nuclei_charge(self):
         charge = 0.0
         for key, ag in self.groups():
@@ -491,8 +489,10 @@ class AtomGroup(object):
                 charge += atom.atomic_number
         return charge
 
-    real_nuclei_charge = property(_get_real_nuclei_charge) # nuclei charge without dummy atoms
+    # nuclei charge without dummy atoms
+    real_nuclei_charge = property(_get_real_nuclei_charge)
     # nuclei charge ------------------------------------------------------------
+
     def _get_nuclei_charge(self):
         charge = 0.0
         for key, ag in self.groups():
@@ -504,8 +504,10 @@ class AtomGroup(object):
                 charge += atom.charge
         return charge
 
-    nuclei_charge = property(_get_nuclei_charge) # nuclei charge including dummy atoms
+    # nuclei charge including dummy atoms
+    nuclei_charge = property(_get_nuclei_charge)
     # --------------------------------------------------------------------------
+
     def _get_path(self):
         return self._path
 
@@ -520,6 +522,7 @@ class AtomGroup(object):
 
     path = property(_get_path, _set_path)
     # --------------------------------------------------------------------------
+
     def merge(self, rhs):
         """
         原子団を結合する
@@ -529,34 +532,59 @@ class AtomGroup(object):
             self._merge_group(key, group)
         for key, atom in rhs.atoms():
             self.set_atom(key, Atom(atom))
-
-
     # --------------------------------------------------------------------------
+
     def assign_charges(self, charges):
         assert(isinstance(charges, Vector))
         index = AtomGroup._assign_charges(self, charges, 0)
         print(index, len(charges))
         assert(index == len(charges))
 
-
     @staticmethod
     def _assign_charges(atomgroup, charges, charge_index):
         for key, subgrp in atomgroup.groups():
-            charge_index = AtomGroup._assign_charges(subgrp, charges, charge_index)
+            charge_index = AtomGroup._assign_charges(
+                subgrp, charges, charge_index)
         for key, atom in atomgroup.atoms():
             atom.charge = charges.get(charge_index)
             charge_index += 1
 
         return charge_index
 
+    # formula ------------------------------------------------------------------
+    def formula(self):
+        atom_list = self.get_atom_list()
+        atom_counts = {}
+        for atom in atom_list:
+            atom_counts.setdefault(atom.symbol, 0)
+            atom_counts[atom.symbol] += 1
+
+        answer = ""
+        for symbol, counts in atom_counts.items():
+            answer += "{}{}".format(symbol, counts)
+
+        return answer
+
+    # weight -------------------------------------------------------------------
+    def _get_weight(self):
+        atom_list = self.get_atom_list()
+        weight = 0.0
+        for atom in atom_list:
+            weight += atom.weight()
+
+        return weight
+
+    weight = property(_get_weight)
+
     # --------------------------------------------------------------------------
+
     def select(self, selector):
         """
         selectorにSelectorオブジェクトを渡すことで
         対応する原子団を返します
         """
         assert(isinstance(selector, Select) == True)
-        #self._update_path()
+        # self._update_path()
 
         answer = None
         if (selector.is_match(self) == True):
@@ -567,7 +595,7 @@ class AtomGroup(object):
             for key, group in self.groups():
                 tmp = group.select(selector)
                 if ((tmp.get_number_of_groups() != 0) or
-                    (tmp.get_number_of_atoms() != 0)):
+                        (tmp.get_number_of_atoms() != 0)):
                     answer.set_group(key, tmp)
             for key, atom in self.atoms():
                 if (selector.is_match(atom) == True):
@@ -592,7 +620,8 @@ class AtomGroup(object):
         AtomGroup._copy_attributes(restructured, self)
 
         # calc the rest
-        rest_of_target = AtomGroup._get_rest_of_frame_molecule(self, restructured)
+        rest_of_target = AtomGroup._get_rest_of_frame_molecule(
+            self, restructured)
         AtomGroup._assign_rest_molecule(rest_of_target, restructured)
 
         return restructured
@@ -620,7 +649,7 @@ class AtomGroup(object):
 
     @staticmethod
     def _assign_rest_molecule(rest_molecule, output_atom_group,
-                              model_id = "model_1", chain_id = "Z", res_name = "UNK"):
+                              model_id="model_1", chain_id="Z", res_name="UNK"):
         chain = AtomGroup()
         res = AtomGroup()
         res.name = res_name
@@ -631,17 +660,16 @@ class AtomGroup(object):
         chain.set_group(1, res)
 
         output_atom_group[model_id].set_group(chain_id, chain)
-
-
     # --------------------------------------------------------------------------
+
     def get_number_of_bonds(self):
         return len(self._bonds)
 
-    def get_bond_list(self, bond_list = None):
+    def get_bond_list(self, bond_list=None):
         """
         タプル('atom1のpath', 'atom2のpath', 結合次数)のリストを返す
         """
-        #self._update_path()
+        # self._update_path()
 
         if bond_list == None:
             bond_list = []
@@ -659,7 +687,7 @@ class AtomGroup(object):
 
         return bond_list
 
-    def add_bond(self, atom1, atom2, order =1):
+    def add_bond(self, atom1, atom2, order=1):
         """
         結合情報を追加する
         order = 結合次数
@@ -724,7 +752,6 @@ class AtomGroup(object):
             box_max.z = max(box_max.z, atm.xyz.z)
         return (box_min, box_max)
 
-
     def center(self):
         """
         return Position value of the center
@@ -743,13 +770,13 @@ class AtomGroup(object):
 
         return center
 
-
     # file format --------------------------------------------------------------
+
     def get_xyz(self):
         """
         XYZフォーマット文字列を返す
         """
-        output  = '%d\n' % (self.get_number_of_all_atoms())
+        output = '%d\n' % (self.get_number_of_all_atoms())
         output += '# \n'
         output += self._get_xyz_recursive()
         return output
@@ -791,7 +818,8 @@ class AtomGroup(object):
         answer = AtomGroup()
         for key, group in self.groups():
             if other.has_group(key):
-                answer.set_group(key, self.get_group(key) & other.get_group(key))
+                answer.set_group(key, self.get_group(key)
+                                 & other.get_group(key))
                 if (answer.get_group(key).get_number_of_all_atoms() == 0):
                     answer.remove_group(key)
 
@@ -801,20 +829,19 @@ class AtomGroup(object):
 
         return answer
 
-
     def __iand__(self, rhs):
         """
         implement of '&=' operator
         """
         assert(isinstance(rhs, AtomGroup) == True)
-        #self.update_path(self.get_path())
-        #rhs.update_path(rhs.get_path())
+        # self.update_path(self.get_path())
+        # rhs.update_path(rhs.get_path())
 
         for key, group in self.groups():
             if rhs.has_group(key):
                 self._groups[key] &= rhs._groups[key]
                 if ((self._groups[key].get_number_of_groups() == 0) and
-                    (self._groups[key].get_number_of_atoms() == 0)):
+                        (self._groups[key].get_number_of_atoms() == 0)):
                     self.remove_group(key)
             else:
                 self.remove_group(key)
@@ -836,8 +863,8 @@ class AtomGroup(object):
         implement of '|=' operator
         """
         assert(isinstance(rhs, AtomGroup) == True)
-        #self.update_path(self.get_path())
-        #rhs.update_path(rhs.get_path())
+        # self.update_path(self.get_path())
+        # rhs.update_path(rhs.get_path())
 
         self.merge(rhs)
         return self
@@ -941,11 +968,11 @@ class AtomGroup(object):
         if "sort_groups" in data:
             self.sort_groups = data["sort_groups"]
 
-        #self._update_path()
+        # self._update_path()
         return self
 
     def get_raw_data(self):
-        #self._update_path()
+        # self._update_path()
         data = {}
         if (len(self._groups) > 0):
             groups = {}
@@ -970,7 +997,7 @@ class AtomGroup(object):
         return data
 
     def __str__(self):
-        #self._update_path()
+        # self._update_path()
         return self._get_str()
 
     def _get_str(self, key='', indent_level=0):
@@ -984,7 +1011,7 @@ class AtomGroup(object):
                                                         parent=self.parent.name)
         answer += '\n'
         for key, atomgroup in self.groups():
-            answer += atomgroup._get_str(key, indent_level +1)
+            answer += atomgroup._get_str(key, indent_level + 1)
         for key, atom in self.atoms():
             answer += "{indent}{atom} {atom_path}\n".format(indent=indent,
                                                             atom_path=atom.path,
@@ -997,7 +1024,6 @@ class AtomGroup(object):
         # answer += '{indent}>\n'.format(indent=indent)
 
         return answer
-
 
     def __getitem__(self, key):
         """
@@ -1030,10 +1056,10 @@ class AtomGroup(object):
         else:
             raise ValueError(value)
 
-
     # ------------------------------------------------------------------
     # serialize
     # ------------------------------------------------------------------
+
     def __getstate__(self):
         return self.get_raw_data()
 
