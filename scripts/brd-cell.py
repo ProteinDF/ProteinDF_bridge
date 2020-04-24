@@ -28,7 +28,7 @@ def main():
                         nargs=1,
                         type=float,
                         default=1.0,
-                        help='density (g cm^-3')
+                        help='density (g cm^-3)')
     parser.add_argument("-v", "--verbose",
                         action="store_true",
                         default=False)
