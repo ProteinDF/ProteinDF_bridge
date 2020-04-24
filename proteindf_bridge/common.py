@@ -27,6 +27,9 @@ except:
     except:
         import msgpack_pure as msgpack
 
+AVOGADRO_CONST = 6.02214076e+23
+
+
 def mpac2py(path):
     """
     load message pack binary file to python dictionary data
