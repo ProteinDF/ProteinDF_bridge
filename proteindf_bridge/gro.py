@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
+from .periodictable import PeriodicTable
+from .atomgroup import AtomGroup
+from .atom import Atom
+from .position import Position
 import logging
 logger = logging.getLogger(__name__)
 
-from .position import Position
-from .atom import Atom
-from .atomgroup import AtomGroup
-from .periodictable import PeriodicTable
 
 class SimpleGro(object):
     """
@@ -23,6 +23,7 @@ class SimpleGro(object):
         2WATER  HW3    6   1.326   0.120   0.568  1.9427 -0.8216 -0.0244
     1.82060   1.82060   1.82060
     """
+
     def __init__(self):
         self._title = ""
         self._num_of_atoms = 0
@@ -60,8 +61,8 @@ class SimpleGro(object):
 
                 atom_data = (residue_number, residue_name, atom_name, atom_number,
                              position_x, position_y, position_z,
-                            velocity_x, velocity_y, velocity_z)
-                #print(atom_data)
+                             velocity_x, velocity_y, velocity_z)
+                # print(atom_data)
                 self._atoms.append(atom_data)
 
             # box vectors
@@ -73,13 +74,11 @@ class SimpleGro(object):
                 box_vectors.append(0.0)
             self._box_vectors = box_vectors
 
-
     def _str2float(self, str):
         if len(str) == 0:
             return 0.0
         else:
             return float(str)
-
 
     def get_atomgroup(self):
         pt = PeriodicTable()
@@ -95,7 +94,7 @@ class SimpleGro(object):
             (res_id, res_name, name, id, x, y, z, vx, vy, vz) = atom_data
             if current_res_id != res_id:
                 if current_ag != None:
-                    ag.set_group(current_res_id, current_ag)
+                    chain.set_group(current_res_id, current_ag)
                 current_res_id = res_id
                 current_ag = AtomGroup()
                 current_ag.name = res_name
@@ -114,7 +113,8 @@ class SimpleGro(object):
                 else:
                     symbol = name[0]
             atom.symbol = symbol
-            atom.position = Position(x * 10.0, y * 10.0, z * 10.0) # nm -> angstrom
+            atom.position = Position(
+                x * 10.0, y * 10.0, z * 10.0)  # nm -> angstrom
             current_ag.set_atom(id, atom)
 
         if current_ag != None:
@@ -129,7 +129,7 @@ class SimpleGro(object):
 
         self._title = atomgroup.name
         self._num_of_atoms = atomgroup.get_number_of_atoms()
-        self._atoms  = []
+        self._atoms = []
 
         #count = 0
         serial = 1
@@ -144,7 +144,7 @@ class SimpleGro(object):
                         atom_name = atom.name
                         atom_number = serial
                         serial += 1
-                        position_x = atom.xyz.x * 0.1 # angstrom -> nm
+                        position_x = atom.xyz.x * 0.1  # angstrom -> nm
                         position_y = atom.xyz.y * 0.1
                         position_z = atom.xyz.z * 0.1
                         velocity_x = 0.0
@@ -157,8 +157,8 @@ class SimpleGro(object):
 
         (pos1, pos2) = atomgroup.box()
         # the vdw radii of "C" = 1.96
-        self._box_vectors = (abs(pos2.x - pos1.x), abs(pos2.y - pos1.y), abs(pos2.z - pos1.z))
-
+        self._box_vectors = (abs(pos2.x - pos1.x),
+                             abs(pos2.y - pos1.y), abs(pos2.z - pos1.z))
 
     def __str__(self):
         answer = ""

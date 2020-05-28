@@ -44,6 +44,7 @@ setup(name='proteindf_bridge',
           'scripts/yml2mpac.py',
 
           'scripts/brd-box.py',
+          'scripts/brd-density.py',
           'scripts/brd-formula.py',
           'scripts/brd-restructure.py',
           'scripts/brd-select.py',
