@@ -23,20 +23,16 @@ from .superposer import Superposer
 from .matrix import Matrix
 from .atomgroup import AtomGroup
 from .atom import Atom
+from .functions import load_msgpack
 from .position import Position
 from .error import BrInputError
+
 import os
 import math
 import re
+
 import logging
 logger = logging.getLogger(__name__)
-try:
-    import msgpack
-except:
-    try:
-        import umsgpack as msgpack
-    except:
-        import msgpack_pure as msgpack
 
 
 class Modeling:
@@ -53,8 +49,7 @@ class Modeling:
         "ACE-ALA-NMEデータを読み込み、データを返す"
         if self._ACE_ALA_NME == None:
             res_file = open(self._ACE_ALA_NME_data_path, "rb")
-            res_data = msgpack.unpackb(res_file.read())
-            res_file.close()
+            res_data = load_msgpack(res_file)
             self._ACE_ALA_NME = AtomGroup(res_data)
         return self._ACE_ALA_NME
 

@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+
 import proteindf_bridge as bridge
+
 
 def main():
     # initialize

@@ -25,14 +25,11 @@ import argparse
 import subprocess
 import shlex
 import re
-import logging
-
-try:
-    import msgpack
-except:
-    import msgpack_pure as msgpack
 
 import proteindf_bridge as bridge
+
+import logging
+
 
 def main():
     """
@@ -48,7 +45,7 @@ def main():
                         )
     parser.add_argument("-v", "--verbose",
                         action="store_true",
-                        default = False)
+                        default=False)
     args = parser.parse_args()
 
     # setting
@@ -59,13 +56,10 @@ def main():
     # reading
     if verbose:
         print("reading: %s\n" % (mpac_file_path))
-    mpac_file = open(mpac_file_path, "rb")
-    mpac_data = msgpack.unpackb(mpac_file.read())
-    mpac_file.close()
 
     # prepare atomgroup
-    models = bridge.AtomGroup(mpac_data)
-    #print(models)
+    models = bridge.load_atomgroup(mpac_file_path)
+    # print(models)
 
     #
     r = Relax(models)
@@ -89,8 +83,8 @@ class Relax(object):
         self._logger.setLevel(logging.INFO)
 
         self._chain_residues = None
-        self._registered_group = None # leapで処理できる残基名リスト
-        self._res_set = None # 計算対象の残基名リスト
+        self._registered_group = None  # leapで処理できる残基名リスト
+        self._res_set = None  # 計算対象の残基名リスト
         self._leapin_premd_filepath = 'leap_pre.in'
         self._leapin_md1_filepath = 'leap_md1.in'
         self._leapin_md2_filepath = 'leap_md2.in'
@@ -108,7 +102,8 @@ class Relax(object):
         # check models
         self._num_of_models = atomgroup.get_number_of_groups()
         if self._num_of_models > 1:
-            self._logger.warn('# of models(={}) > 1'.format(self._num_of_models))
+            self._logger.warn(
+                '# of models(={}) > 1'.format(self._num_of_models))
         (self._model_name, self._model) = list(atomgroup.groups())[0]
         self._logger.info("model: {}".format(self._model_name))
 
@@ -127,17 +122,19 @@ class Relax(object):
 
         for res in self._res_set:
             if res not in self._registered_group:
-                self._logger.info('{} is not found in registered group.'.format(res))
+                self._logger.info(
+                    '{} is not found in registered group.'.format(res))
                 self._ligands.append(res)
         self._logger.info('check groups. done.')
 
         self._logger.debug(str(self._ligands))
         for ligand in self._ligands:
-            frcmod_path = '{ligand}.frcmod'.format(ligand = ligand)
-            prep_path = '{ligand}.prep'.format(ligand = ligand)
+            frcmod_path = '{ligand}.frcmod'.format(ligand=ligand)
+            prep_path = '{ligand}.prep'.format(ligand=ligand)
             if ((os.path.exists(frcmod_path) == True) and
-                (os.path.exists(prep_path) == True)):
-                self._logger.info('already created parameters: {ligand}'.format(ligand = ligand))
+                    (os.path.exists(prep_path) == True)):
+                self._logger.info(
+                    'already created parameters: {ligand}'.format(ligand=ligand))
             else:
                 self._make_prep(ligand)
 
@@ -146,18 +143,15 @@ class Relax(object):
         self._do_leap(self._leapin_md1_filepath)
         self._prepare_mdin_step1()
 
-
     def step2(self):
         self._prepare_leapin_step2()
         self._do_leap(self._leapin_md2_filepath)
         self._prepare_mdin_step2()
 
-
     def step3(self):
         self._prepare_leapin_step3()
         self._do_leap(self._leapin_md3_filepath)
         self._prepare_mdin_step3()
-
 
     def _prepare_leapin_step1(self):
         md1_input_pdb_filepath = 'md1_input.pdb'
@@ -190,11 +184,11 @@ class Relax(object):
         })
 
         # output
-        self._logger.info('save leap.in file: {}'.format(self._leapin_md1_filepath))
+        self._logger.info('save leap.in file: {}'.format(
+            self._leapin_md1_filepath))
         fout = open(self._leapin_md1_filepath, 'w')
         fout.write(leapin_contents)
         fout.close()
-
 
     def _prepare_leapin_step2(self):
         self._neutralize()
@@ -210,14 +204,22 @@ class Relax(object):
 
         (box_min, box_max) = self._model.box()
         distance = 0.0
-        distance = max(distance, center.distance_from(bridge.Position(box_min.x, box_min.y, box_min.z)))
-        distance = max(distance, center.distance_from(bridge.Position(box_max.x, box_min.y, box_min.z)))
-        distance = max(distance, center.distance_from(bridge.Position(box_max.x, box_max.y, box_min.z)))
-        distance = max(distance, center.distance_from(bridge.Position(box_max.x, box_min.y, box_max.z)))
-        distance = max(distance, center.distance_from(bridge.Position(box_max.x, box_max.y, box_max.z)))
-        distance = max(distance, center.distance_from(bridge.Position(box_min.x, box_max.y, box_min.z)))
-        distance = max(distance, center.distance_from(bridge.Position(box_min.x, box_max.y, box_max.z)))
-        distance = max(distance, center.distance_from(bridge.Position(box_min.x, box_min.y, box_max.z)))
+        distance = max(distance, center.distance_from(
+            bridge.Position(box_min.x, box_min.y, box_min.z)))
+        distance = max(distance, center.distance_from(
+            bridge.Position(box_max.x, box_min.y, box_min.z)))
+        distance = max(distance, center.distance_from(
+            bridge.Position(box_max.x, box_max.y, box_min.z)))
+        distance = max(distance, center.distance_from(
+            bridge.Position(box_max.x, box_min.y, box_max.z)))
+        distance = max(distance, center.distance_from(
+            bridge.Position(box_max.x, box_max.y, box_max.z)))
+        distance = max(distance, center.distance_from(
+            bridge.Position(box_min.x, box_max.y, box_min.z)))
+        distance = max(distance, center.distance_from(
+            bridge.Position(box_min.x, box_max.y, box_max.z)))
+        distance = max(distance, center.distance_from(
+            bridge.Position(box_min.x, box_min.y, box_max.z)))
         solcap_closeness = max(distance + 10.0, 30.0)
 
         leapin_templ = """
@@ -252,11 +254,11 @@ class Relax(object):
         leapin_templ = bridge.Utils.unindent_block(leapin_templ)
 
         # output
-        self._logger.info('save leap.in file: {}'.format(self._leapin_md2_filepath))
+        self._logger.info('save leap.in file: {}'.format(
+            self._leapin_md2_filepath))
         fout = open(self._leapin_md2_filepath, 'w')
         fout.write(leapin_contents)
         fout.close()
-
 
     def _prepare_leapin_step3(self):
         md3_input_pdb_filepath = 'md3_input.pdb'
@@ -289,18 +291,18 @@ class Relax(object):
         })
 
         # output
-        self._logger.info('save leap.in file: {}'.format(self._leapin_md3_filepath))
+        self._logger.info('save leap.in file: {}'.format(
+            self._leapin_md3_filepath))
         fout = open(self._leapin_md3_filepath, 'w')
         fout.write(leapin_contents)
         fout.close()
-
 
     def _save_pdb(self, filepath):
         models = bridge.AtomGroup()
         models[self._model_name] = self._model
 
         # prepare BrPdb object
-        pdb_obj = bridge.Pdb(mode = 'amber')
+        pdb_obj = bridge.Pdb(mode='amber')
         pdb_obj.set_by_atomgroup(models)
 
         # output PDB
@@ -334,13 +336,17 @@ class Relax(object):
 
             bond_list = self._model.get_bond_list()
             for bond in bond_list:
-                (model_name1, chain_name1, resid1, atom_name1) = self._divide_path(bond[0])
-                (model_name2, chain_name2, resid2, atom_name2) = self._divide_path(bond[1])
+                (model_name1, chain_name1, resid1,
+                 atom_name1) = self._divide_path(bond[0])
+                (model_name2, chain_name2, resid2,
+                 atom_name2) = self._divide_path(bond[1])
                 self._model[chain_name1][resid1].name = "CYX"
                 self._model[chain_name2][resid2].name = "CYX"
 
-                resid1 = self._get_serial_resid(chain_residues, chain_name1, resid1)
-                resid2 = self._get_serial_resid(chain_residues, chain_name2, resid2)
+                resid1 = self._get_serial_resid(
+                    chain_residues, chain_name1, resid1)
+                resid2 = self._get_serial_resid(
+                    chain_residues, chain_name2, resid2)
                 leap_ssbond_cmd += 'bond protein.{resid1}.SG protein.{resid2}.SG\n'.format(resid1=resid1,
                                                                                            resid2=resid2)
             f = open(self._leapin_ssbond_filepath, 'w')
@@ -353,7 +359,8 @@ class Relax(object):
         if self._chain_residues == None:
             chain_residues = []
             for chain_name, chain in self._model.groups():
-                chain_residues.append((chain_name, int(chain.get_number_of_groups())))
+                chain_residues.append(
+                    (chain_name, int(chain.get_number_of_groups())))
                 self._logger.info('# of residues in chain {chain_name}: {num_res}'.format(chain_name=chain_name,
                                                                                           num_res=chain.get_number_of_groups()))
             self._chain_residues = chain_residues
@@ -386,7 +393,6 @@ class Relax(object):
 
         return index
 
-
     def _trans_HIS(self):
         self._logger.info('check HIS...')
         for chain_name, chain in self._model.groups():
@@ -411,9 +417,11 @@ class Relax(object):
                     elif has_HD2:
                         res.name = 'HID'
                     else:
-                        self._logger.warn('cannot assign HIS: {}/{}'.format(chain_name, resid))
+                        self._logger.warn(
+                            'cannot assign HIS: {}/{}'.format(chain_name, resid))
                         for atmkey, atm in res.atoms():
-                            self._logger.warn('atom name: "{}"'.format(atm.name))
+                            self._logger.warn(
+                                'atom name: "{}"'.format(atm.name))
         self._logger.info('check HIS. done.')
 
     def _neutralize(self):
@@ -426,7 +434,8 @@ class Relax(object):
             (anion_chain_name, anion_res_name) = self._divide_path(anion_path)
             (cation_chain_name, cation_res_name) = self._divide_path(cation_path)
             exempt_list.append((anion_chain_name, anion_res_name, anion_type))
-            exempt_list.append((cation_chain_name, cation_res_name, cation_type))
+            exempt_list.append(
+                (cation_chain_name, cation_res_name, cation_type))
 
         modeling = bridge.Modeling()
         for chain_name, chain in self._model.groups():
@@ -440,7 +449,8 @@ class Relax(object):
                         self._logger.info("add ion for N-term: {}".format(ag))
                         self._add_ions_to_new_chain(ag)
                     else:
-                        self._logger.info('exempt adding ion: {}/{} Nterm'.format(chain_name, resname))
+                        self._logger.info(
+                            'exempt adding ion: {}/{} Nterm'.format(chain_name, resname))
                 if res.has_atom('OXT'):
                     if (chain_name, resid, 'CTM') not in exempt_list:
                         # C-term
@@ -448,38 +458,47 @@ class Relax(object):
                         self._logger.info("add ion for C-term: {}".format(ag))
                         self._add_ions_to_new_chain(ag)
                     else:
-                        self._logger.info('exempt adding ion: {}/{} Cterm'.format(chain_name, resname))
+                        self._logger.info(
+                            'exempt adding ion: {}/{} Cterm'.format(chain_name, resname))
 
                 if resname == 'GLU':
                     if (chain_name, resid, 'GLU') not in exempt_list:
                         ag = modeling.neutralize_GLU(res)
-                        self._logger.info("add ion for GLU({}): {}".format(resid, ag))
+                        self._logger.info(
+                            "add ion for GLU({}): {}".format(resid, ag))
                         self._add_ions_to_new_chain(ag)
                     else:
-                        self._logger.info('exempt adding ion: {}/{} GLU'.format(chain_name, resname))
+                        self._logger.info(
+                            'exempt adding ion: {}/{} GLU'.format(chain_name, resname))
                 elif resname == 'ASP':
                     if (chain_name, resid, 'ASP') not in exempt_list:
                         ag = modeling.neutralize_ASP(res)
-                        self._logger.info("add ion for ASP({}): {}".format(resid, ag))
+                        self._logger.info(
+                            "add ion for ASP({}): {}".format(resid, ag))
                         self._add_ions_to_new_chain(ag)
                     else:
-                        self._logger.info('exempt adding ion: {}/{} ASP'.format(chain_name, resname))
+                        self._logger.info(
+                            'exempt adding ion: {}/{} ASP'.format(chain_name, resname))
                 elif resname == 'LYS':
                     if (chain_name, resid, 'LYS') not in exempt_list:
                         ag = modeling.neutralize_LYS(res)
-                        self._logger.info("add ion for LYS({}): {}".format(resid, ag))
+                        self._logger.info(
+                            "add ion for LYS({}): {}".format(resid, ag))
                         self._add_ions_to_new_chain(ag)
                     else:
-                        self._logger.info('exempt adding ion: {}/{} LYS'.format(chain_name, resname))
+                        self._logger.info(
+                            'exempt adding ion: {}/{} LYS'.format(chain_name, resname))
                 elif resname == 'ARG':
                     if (((chain_name, resid, 'ARG') not in exempt_list) and
                         ((chain_name, resid, 'ARG1') not in exempt_list) and
-                        ((chain_name, resid, 'ARG2') not in exempt_list)):
+                            ((chain_name, resid, 'ARG2') not in exempt_list)):
                         ag = modeling.neutralize_ARG(res)
-                        self._logger.info("add ion for ARG({}): {}".format(resid, ag))
+                        self._logger.info(
+                            "add ion for ARG({}): {}".format(resid, ag))
                         self._add_ions_to_new_chain(ag)
                     else:
-                        self._logger.info('exempt adding ion: {}/{} ARG'.format(chain_name, resname))
+                        self._logger.info(
+                            'exempt adding ion: {}/{} ARG'.format(chain_name, resname))
 
     def _add_ions_to_new_chain(self, atomgroup):
         # for Amber PDB format
@@ -488,17 +507,17 @@ class Relax(object):
         for atom_name, atom in atomgroup.atoms():
             num_of_residues = self._get_num_of_residues()
             if atom.symbol == 'Na':
-                res = bridge.AtomGroup(name = 'Na+')
+                res = bridge.AtomGroup(name='Na+')
                 res.set_atom('Na+ ', atom)
-                chain.set_group(num_of_residues +1, res)
+                chain.set_group(num_of_residues + 1, res)
             elif atom.symbol == 'Cl':
-                res = bridge.AtomGroup(name = 'Cl-')
+                res = bridge.AtomGroup(name='Cl-')
                 res.set_atom('Cl- ', atom)
-                chain.set_group(num_of_residues +1, res)
+                chain.set_group(num_of_residues + 1, res)
             else:
                 raise
         num_of_chains = self._model.get_number_of_groups()
-        self._model.set_group(chr(ord('A') +num_of_chains +1), chain)
+        self._model.set_group(chr(ord('A') + num_of_chains + 1), chain)
 
     def _get_num_of_residues(self):
         answer = 0
@@ -506,15 +525,14 @@ class Relax(object):
             answer += chain.get_number_of_groups()
         return answer
 
-
     def _check_ionpairs_by_dummy(self):
         select_Na = bridge.Select_Atom('Na')
         select_Cl = bridge.Select_Atom('Cl')
         model_Na = self._model.select(select_Na)
         model_Cl = self._model.select(select_Cl)
 
-        #print(model_Na)
-        #print(model_Cl)
+        # print(model_Na)
+        # print(model_Cl)
 
         atom_list = []
         for chain_name, chain in model_Na.groups():
@@ -526,8 +544,10 @@ class Relax(object):
                         for chain_name2, chain2 in ionpairs.groups():
                             for resid2, res2 in chain2.groups():
                                 for atomname2, atom2 in res2.atoms():
-                                    self._logger.info('found ion pair: {}'.format(atom.path))
-                                    self._logger.info('              : {}'.format(atom2.path))
+                                    self._logger.info(
+                                        'found ion pair: {}'.format(atom.path))
+                                    self._logger.info(
+                                        '              : {}'.format(atom2.path))
                                     atom_list.append(atom.path)
                                     atom_list.append(atom2.path)
 
@@ -548,8 +568,8 @@ class Relax(object):
         for pair in ionpairs:
             anion_path = pair[0]
             cation_path = pair[1]
-            self._logger.info('pair> {} <-> {}'.format(anion_path, cation_path))
-
+            self._logger.info(
+                'pair> {} <-> {}'.format(anion_path, cation_path))
 
     def _prepare_mdin_step1(self):
         mdin_templ = """
@@ -571,7 +591,6 @@ class Relax(object):
         f = open('md1.in', 'w')
         f.write(mdin_templ)
         f.close()
-
 
     def _prepare_mdin_step2(self):
         mdin_templ = """
@@ -601,7 +620,6 @@ class Relax(object):
         f = open('md2.in', 'w')
         f.write(mdin_contents)
         f.close()
-
 
     def _prepare_mdin_step3(self):
         mdin_templ = """
@@ -634,7 +652,6 @@ class Relax(object):
         f.write(mdin_contents)
         f.close()
 
-
     def _get_wat_residues(self):
         # load PDB file
         pdb_obj = bridge.Pdb()
@@ -657,8 +674,7 @@ class Relax(object):
 
         return (start, end)
 
-
-    def _get_ion_residues(self, pdb_filepath = 'md3_before.pdb'):
+    def _get_ion_residues(self, pdb_filepath='md3_before.pdb'):
         # load PDB file
         pdb_obj = bridge.Pdb()
         # pdb_obj.debug = debug
@@ -701,10 +717,11 @@ class Relax(object):
         ag_ligand[ligand] = self._model.select(ligand_selecter)
 
         # make ligand pdb
-        biopdb = bridge.Pdb(mode = 'amber')
+        biopdb = bridge.Pdb(mode='amber')
         biopdb.set_by_atomgroup(ag_ligand)
         ligand_pdb_filepath = '{ligand}.pdb'.format(ligand=ligand)
-        self._logger.info('save ligand pdb file: {}'.format(ligand_pdb_filepath))
+        self._logger.info(
+            'save ligand pdb file: {}'.format(ligand_pdb_filepath))
         pdb_f = open(ligand_pdb_filepath, 'w')
         pdb_f.write(str(biopdb))
         pdb_f.close()
@@ -712,16 +729,16 @@ class Relax(object):
         #
         self._logger.info('calc charges...')
         antechamber_cmd = '{ANTECHAMBER} -fi pdb -i {LIG}.pdb -fo prepi -o {LIG}.prep -at gaff -c bcc -nc 0 -rn {LIG}'.format(
-            ANTECHAMBER = self._antechamber_cmd,
-            LIG = ligand
+            ANTECHAMBER=self._antechamber_cmd,
+            LIG=ligand
         )
         self._exec_cmd(antechamber_cmd)
 
         #
         self._logger.info('parmchk...')
         parmchk_cmd = '{PARMCHK} -i {LIG}.prep -f prepi -o {LIG}.frcmod'.format(
-            PARMCHK = self._parmchk_cmd,
-            LIG = ligand
+            PARMCHK=self._parmchk_cmd,
+            LIG=ligand
         )
         self._exec_cmd(parmchk_cmd)
 
@@ -781,7 +798,7 @@ class Relax(object):
     def _make_res_DB(self):
         """
         """
-        biopdb = bridge.Pdb(mode = 'amber')
+        biopdb = bridge.Pdb(mode='amber')
         protein = bridge.AtomGroup()
         protein.set_group('model_1', self._model)
         protein_amber = biopdb.get_modpdb_atomgroup(protein)
@@ -794,6 +811,7 @@ class Relax(object):
         self._logger.debug('input group:> ')
         for grp in self._res_set:
             self._logger.info(' {}'.format(grp))
+
 
 if __name__ == "__main__":
     main()

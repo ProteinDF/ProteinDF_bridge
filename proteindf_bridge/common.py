@@ -19,26 +19,4 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
-try:
-    import msgpack
-except:
-    try:
-        import umsgpack as msgpack
-    except:
-        import msgpack_pure as msgpack
-
 AVOGADRO_CONST = 6.02214076e+23
-
-
-def mpac2py(path):
-    """
-    load message pack binary file to python dictionary data
-    """
-    assert(isinstance(path, str) == True)
-
-    f = open(path, "rb")
-    contents = f.read()
-    data = msgpack.unpackb(contents)
-    f.close()
-
-    return data

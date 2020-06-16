@@ -87,7 +87,7 @@ setup(name='proteindf_bridge',
 
       install_requires=[
           'configparser',
-          'msgpack-python',
+          'msgpack',
           'pyyaml',
           'numpy'
       ],

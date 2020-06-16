@@ -20,6 +20,7 @@
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+
 import proteindf_bridge as bridge
 
 
@@ -31,17 +32,18 @@ def main():
                         help='DB(SQLite3) file')
     parser.add_argument("-v", "--verbose",
                         action="store_true",
-                        default = False)
+                        default=False)
     args = parser.parse_args()
 
     # setting
     db_file = args.FILE[0]
     verbose = args.verbose
 
-    db = bridge.DbManager(db = db_file, sql_debugout = verbose)
+    db = bridge.DbManager(db=db_file, sql_debugout=verbose)
     print(db)
 
     # end
+
 
 if __name__ == '__main__':
     main()

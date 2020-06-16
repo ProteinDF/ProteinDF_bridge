@@ -2,14 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import logging
-import logging.config
-try:
-    import msgpack
-except:
-    import msgpack_pure as msgpack
 
 import proteindf_bridge as bridge
+
+import logging
+import logging.config
+
 
 def get_ions(atomgroup, logger):
     ions = []
@@ -18,12 +16,15 @@ def get_ions(atomgroup, logger):
         ions.extend(new_ions)
     for key, atom in atomgroup.atoms():
         if atom.symbol not in ('Na', 'Cl'):
-            logger.debug("pass>'{}':'{}'@{}".format(key, atom.symbol, atomgroup.name))
+            logger.debug("pass>'{}':'{}'@{}".format(key,
+                                                    atom.symbol, atomgroup.name))
         else:
-            logger.debug("FOUND>'{}':'{}'@{}".format(key, atom.symbol, atomgroup.name))
+            logger.debug("FOUND>'{}':'{}'@{}".format(key,
+                                                     atom.symbol, atomgroup.name))
             atomgroup.erase_atom(key)
             ions.append(atom)
     return ions
+
 
 def get_max_resid(model):
     assert isinstance(model, bridge.AtomGroup)
@@ -43,7 +44,7 @@ def reorder_ions_for_amber(protein, logger):
     # atomgroup for ions
     for model_name, model in protein.groups():
         max_resid = get_max_resid(model)
-        current_resid = max_resid +1
+        current_resid = max_resid + 1
 
         for chain_name, chain in model.groups():
             ions = get_ions(chain, logger)
@@ -57,6 +58,7 @@ def reorder_ions_for_amber(protein, logger):
 
     return protein
 
+
 def main():
     # parse args
     parser = argparse.ArgumentParser(description='reorder protein')
@@ -68,12 +70,11 @@ def main():
                         help='output file (bridge format)')
     parser.add_argument("-v", "--verbose",
                         action="store_true",
-                        default = False)
+                        default=False)
     parser.add_argument("-d", "--debug",
                         action="store_true",
-                        default = False)
+                        default=False)
     args = parser.parse_args()
-
 
     # setting
     input_path = args.INPUT_FILE[0]
@@ -91,18 +92,13 @@ def main():
     logger.addHandler(handler)
 
     # reading
-    protein = None
-    with open(input_path, "rb") as mpac_file:
-        mpac_data = msgpack.unpackb(mpac_file.read())
-        protein = bridge.AtomGroup(mpac_data)
+    protein = bridge.load_atomgroup(input_path)
 
     # reorder
     mod_protein = reorder_ions_for_amber(protein, logger)
 
     # output
-    with open(output_path, "wb") as mpac_file:
-        raw_data = mod_protein.get_raw_data()
-        mpac_file.write(msgpack.packb(raw_data))
+    bridge.save_msgpack(mod_protein.get_raw_data(), output_path)
 
 
 if __name__ == '__main__':

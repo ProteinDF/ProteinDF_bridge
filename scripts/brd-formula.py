@@ -3,10 +3,6 @@
 
 import sys
 import argparse
-try:
-    import msgpack
-except:
-    import msgpack_pure as msgpack
 
 import proteindf_bridge as bridge
 
@@ -30,9 +26,7 @@ def main():
     # reading
     if (verbose == True):
         print("reading: %s\n" % (mpac_file_path))
-    mpac_file = open(mpac_file_path, "rb")
-    mpac_data = msgpack.unpackb(mpac_file.read())
-    mpac_file.close()
+    mpac_data = bridge.load_msgpack(mpac_file_path)
 
     # prepare atomgroup
     atom_group = bridge.AtomGroup(mpac_data)

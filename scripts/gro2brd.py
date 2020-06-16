@@ -4,17 +4,13 @@
 import argparse
 import pprint
 
-try:
-    import msgpack
-except:
-    import msgpack_pure as msgpack
-
 import proteindf_bridge as bridge
 
 
 def main():
     # parse args
-    parser = argparse.ArgumentParser(description='translate from gro to bridge file')
+    parser = argparse.ArgumentParser(
+        description='translate from gro to bridge file')
     parser.add_argument('GRO_FILE',
                         nargs=1,
                         help='gro file')
@@ -39,16 +35,14 @@ def main():
     # print(gro_obj)
     atom_group = gro_obj.get_atomgroup()
 
-    # output DfData as MsgPack
+    # output DfData
     data = atom_group.get_raw_data()
     # pprint.pprint(data)
-    mpac = msgpack.packb(data)
 
     # output file
     if (verbose == True):
         print("writing: %s\n" % (output_path))
-    with open(output_path, "wb") as f:
-        f.write(mpac)
+    bridge.save_msgpack(data, output_path)
 
 
 if __name__ == '__main__':

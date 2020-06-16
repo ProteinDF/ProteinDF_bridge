@@ -26,10 +26,6 @@ convert YAML file to MsgPack.
 import sys
 import argparse
 import yaml
-try:
-    import msgpack
-except:
-    import msgpack_pure as msgpack
 
 
 def main():
@@ -53,11 +49,7 @@ def main():
     contents = contents.decode('utf8')  # for Japanese
     yaml_data = list(yaml.load_all(contents, Loader=yaml.SafeLoader))
     if len(yaml_data) > 0:
-        mpac_data = msgpack.packb(yaml_data[0])
-
-    fout = open(mpac_path, "wb")
-    fout.write(mpac_data)
-    fout.close()
+        bridge.save_msgpack(yaml_data[0], mpac_path)
 
 
 if __name__ == '__main__':

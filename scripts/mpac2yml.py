@@ -22,16 +22,14 @@
 import sys
 import argparse
 import yaml
-try:
-    import msgpack
-except:
-    import msgpack_pure as msgpack
 
 import proteindf_bridge as bridge
 
+
 def main():
     # initialize
-    parser = argparse.ArgumentParser(description='display file formatted by MsgPack using YAML.')
+    parser = argparse.ArgumentParser(
+        description='display file formatted by MsgPack using YAML.')
     parser.add_argument('FILE',
                         nargs=1,
                         help='Amber PDB file')
@@ -39,14 +37,7 @@ def main():
 
     file_path = args.FILE[0]
 
-    f = open(file_path, "rb")
-    contents = f.read()
-    data = msgpack.unpackb(contents)
-    if isinstance(data, list):
-        data = bridge.Utils.to_unicode_list(data)
-    elif isinstance(data, dict):
-        data = bridge.Utils.to_unicode_dict(data)
-    f.close()
+    data = bridge.load_msgpack(file_path)
     # print(data)
 
     yaml_str = yaml.dump(data,
@@ -56,6 +47,7 @@ def main():
                          line_break='\n')
     yaml_str = bridge.Utils.to_unicode(yaml_str)
     print(yaml_str)
+
 
 if __name__ == '__main__':
     main()

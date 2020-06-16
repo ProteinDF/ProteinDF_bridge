@@ -23,11 +23,6 @@ import sys
 import argparse
 import pprint
 
-try:
-    import msgpack
-except:
-    import msgpack_pure as msgpack
-
 import proteindf_bridge as bridge
 
 
@@ -35,7 +30,8 @@ def main():
     # initialize
 
     # parse args
-    parser = argparse.ArgumentParser(description='translate from PDB to bridge file')
+    parser = argparse.ArgumentParser(
+        description='translate from PDB to bridge file')
     parser.add_argument('PDB_FILE',
                         nargs=1,
                         help='pdb file')
@@ -73,23 +69,21 @@ def main():
     pdb_obj = bridge.Pdb()
     pdb_obj.debug = debug
     pdb_obj.load(pdb_file_path)
-    #print(pdb_obj)
-    atom_group = pdb_obj.get_atomgroup(select_model = select_model,
-                                       select_altloc = select_altloc)
+    # print(pdb_obj)
+    atom_group = pdb_obj.get_atomgroup(select_model=select_model,
+                                       select_altloc=select_altloc)
 
-    # output DfData as MsgPack
+    # output DfData
     data = atom_group.get_raw_data()
-    #pprint.pprint(data)
-    mpac = msgpack.packb(data)
+    # pprint.pprint(data)
 
     # output file
     if (verbose == True):
         print("writing: %s\n" % (output_path))
-    savefile = open(output_path, "wb");
-    savefile.write(mpac)
-    savefile.close()
+    bridge.save_msgpack(data, output_path)
 
     # end
+
 
 if __name__ == '__main__':
     main()

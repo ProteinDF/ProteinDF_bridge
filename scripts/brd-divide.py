@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+
 import proteindf_bridge as bridge
+
 
 def divide_lowest_atomgroup(atomgroup):
     group_list = []
@@ -32,7 +34,7 @@ def main():
                         help='output brd file')
     parser.add_argument("-v", "--verbose",
                         action="store_true",
-                        default = False)
+                        default=False)
     args = parser.parse_args()
 
     # setting

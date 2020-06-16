@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+
 import proteindf_bridge as bridge
+
 
 def divide_lowest_atomgroup(atomgroup):
     group_list = []
@@ -18,6 +20,7 @@ def divide_lowest_atomgroup(atomgroup):
         group_list.append(subgroup)
 
     return group_list
+
 
 def divide_mainchain(atomgroup):
     main_chain_atoms = ['N', 'H', 'CA', 'HA', 'C', 'O']
@@ -45,7 +48,6 @@ def divide_mainchain(atomgroup):
     return group_list
 
 
-
 def main():
     # parse args
     parser = argparse.ArgumentParser(description='bridge file divider')
@@ -59,7 +61,7 @@ def main():
                         help='output brd file')
     parser.add_argument("-v", "--verbose",
                         action="store_true",
-                        default = False)
+                        default=False)
     args = parser.parse_args()
 
     # setting
@@ -91,7 +93,8 @@ def main():
         for atomgroup in group_list:
             print("---- {} ----".format(atomgroup.name))
             for atom_key, atom in atomgroup.atoms():
-                print("{atom}: {atom_key}".format(atom_key=atom_key, atom=str(atom)))
+                print("{atom}: {atom_key}".format(
+                    atom_key=atom_key, atom=str(atom)))
 
 
 if __name__ == '__main__':

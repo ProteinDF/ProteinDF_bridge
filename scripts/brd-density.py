@@ -5,11 +5,6 @@ import sys
 import argparse
 import math
 
-try:
-    import msgpack
-except:
-    import msgpack_pure as msgpack
-
 import proteindf_bridge as bridge
 
 
@@ -56,9 +51,7 @@ def main():
         print("box [A]: {} {} {}".format(box_x, box_y, box_z))
         print("use nm: {}".format(is_use_nm))
 
-    mpac_file = open(mpac_file_path, "rb")
-    mpac_data = msgpack.unpackb(mpac_file.read())
-    mpac_file.close()
+    mpac_data = bridge.load_msgpack(mpac_file_path)
 
     # prepare atomgroup
     atom_group = bridge.AtomGroup(mpac_data)

@@ -3,10 +3,6 @@
 
 import sys
 import argparse
-try:
-    import msgpack
-except:
-    import msgpack_pure as msgpack
 
 import proteindf_bridge as bridge
 
@@ -54,11 +50,9 @@ def main():
         print("#mols in cell: {} x {} x {}".format(num_x, num_y, num_z))
 
     # load input file
-    ag = bridge.AtomGroup()
-    with open(input_path, "rb") as f:
-        mpac_data = msgpack.unpackb(f.read())
-        ag = bridge.AtomGroup(mpac_data)
+    ag = bridge.load_atomgroup(input_path)
     # print(ag)
+
     num_of_res = ag.get_number_of_groups()
     (pos_min, pos_max) = ag.box()
     cell_size = pos_max - pos_min
@@ -90,10 +84,9 @@ def main():
     # output
     if verbose:
         print("OUTPUT: {}".format(output_path))
-    with open(output_path, "wb") as f:
-        data = cell.get_raw_data()
-        mpac = msgpack.packb(data)
-        f.write(mpac)
+
+    data = cell.get_raw_data()
+    bridge.save_msgpack(data, output_path)
 
 
 if __name__ == '__main__':
