@@ -15,6 +15,9 @@ class SSBond(object):
     >>> models = tmp_pdb.get_atomgroup()
     >>> ssbond = SSBond()
     >>> ssbond.check(models)
+    /model_1/A/6/ /model_1/A/11/ 2.0203361106508986
+    /model_1/A/7/ /model_1/B/7/ 2.0182586553759654
+    /model_1/A/20/ /model_1/B/19/ 2.0179301276307857
 
     """
     _ss_bond_max_length = 2.1 * 1.1

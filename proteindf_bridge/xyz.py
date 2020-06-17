@@ -29,9 +29,11 @@ from .position import Position
 from .atom import Atom
 from .atomgroup import AtomGroup
 
+
 class Xyz(object):
     """
     """
+
     def __init__(self, *args, **kwargs):
         """
         create empty XYZ object
@@ -49,7 +51,8 @@ class Xyz(object):
                 else:
                     raise BrInputError('Xyz.__init__', 'illegal object type')
             else:
-                raise BrInputError('Xyz.__init__', 'illegal the number of args')
+                raise BrInputError(
+                    'Xyz.__init__', 'illegal the number of args')
 
     def load(self, file_path):
         if (os.path.isfile(file_path) != True):
@@ -81,8 +84,8 @@ class Xyz(object):
         root = AtomGroup()
         root.name = self._comment
         for i in range(len(self._atoms)):
-            atom = Atom(symbol = self._atoms[i]['symbol'],
-                        position = self._atoms[i]['position'])
+            atom = Atom(symbol=self._atoms[i]['symbol'],
+                        position=self._atoms[i]['position'])
             root.set_atom(str(i), atom)
         return root
 
@@ -115,18 +118,6 @@ class Xyz(object):
         return self.get_text()
 
 
-def main():
-    parser = argparse.ArgumentParser(description='read XYZ file')
-    parser.add_argument('FILE',
-                        nargs = 1,
-                        help = 'XYZ file')
-    args = parser.parse_args()
-
-    file_path = args.FILE[0]
-
-    xyz_obj = Xyz(file_path)
-    print(xyz_obj)
-
-
 if __name__ == '__main__':
-    main()
+    import doctest
+    doctest.testmod()
