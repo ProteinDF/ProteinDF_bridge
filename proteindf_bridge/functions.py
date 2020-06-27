@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import inspect
+import os
 import yaml
 try:
     import msgpack
@@ -15,10 +17,19 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def locate():
+    """
+    return tuple of (file, function, line number)
+    cf.) https://qiita.com/ymko/items/b46d32b98f013f06d805
+    """
+    frame = inspect.currentframe().f_back
+    return os.path.basename(frame.f_code.co_filename), frame.f_code.co_name, frame.f_lineno
+
+
 def load_yaml(yaml_path):
     assert(isinstance(yaml_path, str))
 
-    yaml_data = None
+    data = None
     with open(yaml_path) as f:
         contents = f.read()
         # contents = contents.decode('utf8')  # for Japanese
@@ -36,7 +47,7 @@ def parse_yaml(yaml_data):
 
 def get_yaml(data):
     yaml_str = ""
-    if data != None:
+    if data is not None:
         yaml_str = yaml.dump(data,
                              encoding='utf8',
                              allow_unicode=True,
