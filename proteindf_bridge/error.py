@@ -23,7 +23,8 @@ class BrError(Exception):
     """
     Base class for this Bridge module
     """
-    def __init__(self, errmsg =""):
+
+    def __init__(self, errmsg=""):
         self.errmsg = errmsg
 
     def __str__(self):
@@ -38,9 +39,11 @@ class BrInputError(BrError):
         expr -- input expression in which the error occurred
         msg  -- explanation of the error
     """
+
     def __init__(self, expr, msg):
         super().__init__()
         self.errmsg = "Input Error: {} ({})".format(msg, str(expr))
+
 
 class BrValueError(BrError):
     """
@@ -50,6 +53,7 @@ class BrValueError(BrError):
         expr -- input expression in which the error occurred
         msg  -- explanation of the error
     """
+
     def __init__(self, expr, msg):
         super().__init__()
         self.errmsg = "Value Error: {} ({})".format(msg, str(expr))

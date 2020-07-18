@@ -54,59 +54,68 @@ class Superposer(object):
         self._update_positions2 = None
         self._rmsd = None
 
-        #self._calc(self._atomgroup1,
+        # self._calc(self._atomgroup1,
         #           self._atomgroup2)
 
     #
     def _get_num_of_positions(self):
-      return self._num_of_positions
+        return self._num_of_positions
 
     num_of_positions = property(_get_num_of_positions)
     # -----------------------------------------------------------------
+
     def _get_positions1(self):
         return self._positions1
 
     positions1 = property(_get_positions1)
     # -----------------------------------------------------------------
+
     def _get_positions2(self):
         return self._positions2
 
     positions2 = property(_get_positions2)
     # -----------------------------------------------------------------
+
     def _get_center1(self):
-        if self._center1 == None:
+        if self._center1 is None:
             self._center1 = self.get_center(self.positions1)
-            #print("center1: {}".format(self._center1))
+            # print("center1: {}".format(self._center1))
         return self._center1
 
     center1 = property(_get_center1)
     # -----------------------------------------------------------------
+
     def _get_center2(self):
-        if self._center2 == None:
+        if self._center2 is None:
             self._center2 = self.get_center(self.positions2)
-            #print("center2: {}".format(self._center2))
+            # print("center2: {}".format(self._center2))
         return self._center2
 
     center2 = property(_get_center2)
     # -----------------------------------------------------------------
+
     def _get_shift_positions1(self):
-        if self._shift_positions1 == None:
-            self._shift_positions1 = self._shift_positions(self.positions1, self.center1)
-            #print(self._shift_positions1)
+        if self._shift_positions1 is None:
+            self._shift_positions1 = self._shift_positions(
+                self.positions1, self.center1)
+            # print(self._shift_positions1)
         return self._shift_positions1
 
     shift_positions1 = property(_get_shift_positions1)
     # -----------------------------------------------------------------
+
     def _get_shift_positions2(self):
-        if self._shift_positions2 == None:
-            self._shift_positions2 = self._shift_positions(self.positions2, self.center2)
-            #print(self._shift_positions2)
+        if self._shift_positions2 is None:
+            self._shift_positions2 = self._shift_positions(
+                self.positions2, self.center2)
+            # print(self._shift_positions2)
         return self._shift_positions2
 
     shift_positions2 = property(_get_shift_positions2)
     # -----------------------------------------------------------------
+
     def _get_rotation_mat(self):
-        if self._rotation_mat == None:
+        if self._rotation_mat is None:
             self._rotation_mat = self._get_rotation_matrix(self.num_of_positions,
                                                            self.shift_positions1,
                                                            self.shift_positions2)
@@ -114,9 +123,10 @@ class Superposer(object):
 
     rotation_mat = property(_get_rotation_mat)
     # -----------------------------------------------------------------
+
     def _get_update_positions1(self):
         # positions1 を回転
-        if self._update_positions1 == None:
+        if self._update_positions1 is None:
             self._update_positions1 = copy.deepcopy(self.shift_positions1)
             for i in range(len(self.positions1)):
                 self._update_positions1[i].rotate(self.rotation_mat)
@@ -124,22 +134,25 @@ class Superposer(object):
 
     update_positions1 = property(_get_update_positions1)
     # -----------------------------------------------------------------
+
     def _get_update_positions2(self):
         # positions2 はそのまま
-        if self._update_positions2 == None:
+        if self._update_positions2 is None:
             self._update_positions2 = copy.deepcopy(self.shift_positions2)
         return self._update_positions2
 
     update_positions2 = property(_get_update_positions2)
     # -----------------------------------------------------------------
+
     def _get_rmsd(self):
-        if self._rmsd == None:
+        if self._rmsd is None:
             self._rmsd = self._calc_rmsd(self.update_positions1,
                                          self.update_positions2)
         return self._rmsd
 
     rmsd = property(_get_rmsd)
     # -----------------------------------------------------------------
+
     def superimpose(self, atomgroup):
         # positions1 を移動
         answer = AtomGroup(atomgroup)
@@ -158,7 +171,8 @@ class Superposer(object):
         num_of_positions = len(positions1)
         assert(num_of_positions == len(positions2))
 
-        (translation_vct1, self._translation_vct2) = self._fix_positions(positions1, positions2)
+        (translation_vct1, self._translation_vct2) = self._fix_positions(
+            positions1, positions2)
 
         self._rotation_mat = self._get_rotation_matrix(num_of_positions,
                                                        positions1, positions2)
@@ -168,7 +182,7 @@ class Superposer(object):
                                self._translation_vct2)
 
         self._rmsd = self._calc_rmsd(positions1, positions2)
-        #print('<<<< superposer')
+        # print('<<<< superposer')
 
     def _match_positions(self, atom_group1, atom_group2):
         """
@@ -186,7 +200,7 @@ class Superposer(object):
 
         for key, atom1 in atom_group1.atoms():
             if atom_group2.has_atom(key):
-                #print(str(atom1), str(atom_group2.get_atom(key)))
+                # print(str(atom1), str(atom_group2.get_atom(key)))
                 positions1 += [atom1.xyz]
                 positions2 += [atom_group2.get_atom(key).xyz]
 
@@ -197,7 +211,7 @@ class Superposer(object):
         center2 = self.get_center(positions2)
 
         translation_vct1 = - center1
-        translation_vct2 =   center2
+        translation_vct2 = center2
 
         for i in range(len(positions1)):
             positions1[i] -= center1
@@ -205,7 +219,6 @@ class Superposer(object):
             positions2[i] -= center2
 
         return (translation_vct1, translation_vct2)
-
 
     def get_center(self, positions):
         """
@@ -216,12 +229,12 @@ class Superposer(object):
         num_of_positions = len(positions)
         for i in range(num_of_positions):
             c += positions[i]
-        c /= num_of_positions
+        c /= float(num_of_positions)
 
         return c
 
     def _shift_positions(self, positions, center):
-        answer = [ p - center for p in positions ]
+        answer = [p - center for p in positions]
 
         # check
         sum_of_positions = Position()
@@ -254,32 +267,32 @@ class Superposer(object):
             r.add(2, 1, z2 * y1)
             r.add(2, 2, z2 * z1)
 
-        #print(' > rot mat: r')
-        #print(r)
+        # print(' > rot mat: r')
+        # print(r)
         tr = r.copy()
         tr.transpose()
-        #print(' > rot mat: tr')
-        #print(tr)
+        # print(' > rot mat: tr')
+        # print(tr)
         trr = tr * r
-        #print(' > rot mat: trr')
-        #print(trr)
+        # print(' > rot mat: trr')
+        # print(trr)
         trr = trr.get_symmetric_matrix()
-        #print(trr)
+        # print(trr)
 
         eigval, eigvec = trr.eig()
-        #print('eigval')
-        #print(eigval)
-        #print('eigvec')
-        #print(eigvec)
+        # print('eigval')
+        # print(eigval)
+        # print('eigvec')
+        # print(eigvec)
         a = self._make_right_handed(eigvec)
-        #print('a')
-        #print(a)
+        # print('a')
+        # print(a)
 
         b = Matrix(3, 3)
         for i in range(3):
             for j in range(3):
                 for k in range(3):
-                    v = r.get(j , k) * a.get(i, k)
+                    v = r.get(j, k) * a.get(i, k)
                     b.add(i, j, v)
 
             # normalize b[i]
@@ -291,8 +304,8 @@ class Superposer(object):
             for j in range(3):
                 v = b.get(i, j)
                 b.set(i, j, v * t)
-        #print('b')
-        #print(b)
+        # print('b')
+        # print(b)
 
         # b[2] = b[0] x b[1]
         tmp_vct = self._calc_vector_product(b.get_row_vector(0),

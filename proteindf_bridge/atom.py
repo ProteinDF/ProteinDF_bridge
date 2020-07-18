@@ -247,7 +247,8 @@ class Atom(object):
             elif key == 'force':
                 self.force = Position(value)
             else:
-                logger.debug("bridge::Atom > unknown key: {}".format(key))
+                logger.debug(
+                    "bridge::Atom > unknown key: {}={}".format(key, str(value)))
         return self
 
     def get_raw_data(self):

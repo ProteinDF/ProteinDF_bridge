@@ -19,17 +19,15 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
-import optparse
 import math
-import copy
 import numpy
+
+from .vector import Vector
+from .error import BrInputError
 
 import logging
 logger = logging.getLogger(__name__)
 
-from .error import BrInputError
-from .vector import Vector
 
 class Position(object):
     """
@@ -95,6 +93,7 @@ class Position(object):
     True
 
     """
+
     def __init__(self, *args, **kwds):
         self._initialize()
 
@@ -105,11 +104,11 @@ class Position(object):
                 self._position[1] = float(args[1])
                 self._position[2] = float(args[2])
             elif len_args == 1:
-                if (isinstance(args[0], Position) == True):
+                if isinstance(args[0], Position):
                     self._position[0] = args[0]._position[0]
                     self._position[1] = args[0]._position[1]
                     self._position[2] = args[0]._position[2]
-                elif ((isinstance(args[0], (list, tuple, numpy.ndarray)) == True) and (len(args[0]) == 3)):
+                elif (isinstance(args[0], (list, tuple, numpy.ndarray)) and len(args[0]) == 3):
                     self._position[0] = float(args[0][0])
                     self._position[1] = float(args[0][1])
                     self._position[2] = float(args[0][2])
@@ -117,9 +116,12 @@ class Position(object):
                     line = args[0]
                     line = line.replace(",", " ")
                     inputs = line.split()
-                    self._position[0] = float(inputs.pop(0).rstrip(",")) if (len(inputs) > 0) else 0.0
-                    self._position[1] = float(inputs.pop(0).rstrip(",")) if (len(inputs) > 0) else 0.0
-                    self._position[2] = float(inputs.pop(0).rstrip(",")) if (len(inputs) > 0) else 0.0
+                    self._position[0] = float(inputs.pop(0).rstrip(
+                        ",")) if (len(inputs) > 0) else 0.0
+                    self._position[1] = float(inputs.pop(0).rstrip(
+                        ",")) if (len(inputs) > 0) else 0.0
+                    self._position[2] = float(inputs.pop(0).rstrip(
+                        ",")) if (len(inputs) > 0) else 0.0
             else:
                 raise BrInputError("position::__init__", "illegal input")
 
@@ -164,8 +166,8 @@ class Position(object):
         tmp = Position(position)
         self._position = tmp._position
 
-    def square_distance_from(self, other = None):
-        if other == None:
+    def square_distance_from(self, other=None):
+        if other is None:
             other = Position()
         other = Position(other)
 
@@ -175,7 +177,7 @@ class Position(object):
             d2 += tmp * tmp
         return d2
 
-    def distance_from(self, other = None):
+    def distance_from(self, other=None):
         d2 = self.square_distance_from(other)
         return math.sqrt(d2)
 
@@ -213,7 +215,7 @@ class Position(object):
 
     def __eq__(self, rhs):
         answer = False
-        if (isinstance(rhs, Position) == True):
+        if isinstance(rhs, Position):
             if (self.distance_from(rhs) < self.epsilon):
                 answer = True
         return answer
@@ -228,26 +230,25 @@ class Position(object):
         return math.sqrt(sum([x * x for x in self._position]))
 
     def __add__(self, rhs):
-        if (isinstance(rhs, Position) == True):
-            return Position([ x + y for x, y in zip(self._position, rhs._position)])
+        if isinstance(rhs, Position):
+            return Position([x + y for x, y in zip(self._position, rhs._position)])
         else:
-            raise BrInputError("position.__add__", "illegal input: Position is required.")
-
-    def __sub__(self, rhs):
-        return self.__add__(-rhs)
+            raise BrInputError("position.__add__",
+                               "illegal input: Position is required.")
 
     def __sub__(self, rhs):
         return self.__add__(-rhs)
 
     def __mul__(self, rhs2):
         rhs1 = Position(self)
-        if (isinstance(rhs2, Position) == True):
+        if isinstance(rhs2, Position):
             return sum([x * y for x, y in zip(rhs1._position, rhs2._position)])
-        elif (isinstance(rhs2, float) == True):
+        elif isinstance(rhs2, float):
             rhs1._position = [x * rhs2 for x in rhs1._position]
             return rhs1
         else:
-            raise BrInputError("position.__add__", "illegal input: Position is required.")
+            raise BrInputError("position.__add__",
+                               "illegal input: Position is required.")
 
     __rmul__ = __mul__
 
@@ -258,11 +259,11 @@ class Position(object):
         self._position[2] *= v
         return self
 
-    def __div__(self, rhs):
+    def __truediv__(self, rhs):
         v = float(rhs)
         return Position([x / v for x in self._position])
 
-    def __idiv__(self, rhs):
+    def __itruediv__(self, rhs):
         return self.__imul__(1.0 / float(rhs))
 
     def __getitem__(self, i):

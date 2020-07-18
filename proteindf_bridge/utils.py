@@ -19,13 +19,10 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
 import sys
 import re
-import copy
 import pickle
 
-import types
 try:
     unicode = unicode
 except NameError:
@@ -33,7 +30,7 @@ except NameError:
     str = str
     unicode = str
     bytes = bytes
-    basestring = (str,bytes)
+    basestring = (str, bytes)
 else:
     # 'unicode' exists, must be Python 2
     str = str
@@ -44,16 +41,21 @@ else:
 
 class Utils(object):
     @classmethod
-    def sort_nicely(cls, l):
+    def sort_nicely(cls, given_list):
         """
         Sort the given list in the way that humans expect.
         ref: http://www.codinghorror.com/blog/2007/12/sorting-for-humans-natural-sort-order.html
         """
-        l = [ str(x) for x in l ]
-        convert = lambda text: int(text) if text.isdigit() else text
-        alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
-        l.sort(key=alphanum_key)
-        return l
+        str_list = [str(x) for x in given_list]
+
+        def convert(text):
+            return int(text) if text.isdigit() else text
+
+        def alphanum_key(key):
+            return [convert(c) for c in re.split('([0-9]+)', key)]
+
+        str_list.sort(key=alphanum_key)
+        return str_list
 
     @classmethod
     def add_spaces(cls, s, num_add):
@@ -76,7 +78,7 @@ class Utils(object):
         """
         if num_del < min(cls.num_spaces(s)):
             raise ValueError("removing more spaces than there are!")
-        return '\n'.join([ line[num_del:] for line in s.splitlines()])
+        return '\n'.join([line[num_del:] for line in s.splitlines()])
 
     @classmethod
     def unindent_block(cls, s):
@@ -95,8 +97,8 @@ class Utils(object):
         answer = ""
         len1 = len(str1)
         len2 = len(str2)
-        l = min(len1, len2)
-        for i in range(l):
+        length = min(len1, len2)
+        for i in range(length):
             c1 = str1[i]
             c2 = str2[i]
             if c1 == c2:
@@ -122,7 +124,7 @@ class Utils(object):
             elif isinstance(v, (str, bytes)):
                 v = cls.to_unicode(v)
             else:
-                pass # do nothing
+                pass  # do nothing
             answer[new_key] = v
         return answer
 
@@ -140,7 +142,7 @@ class Utils(object):
             elif isinstance(v, (str, bytes)):
                 v = cls.to_unicode(v)
             else:
-                pass # do nothing
+                pass  # do nothing
             answer.append(v)
         return answer
 
@@ -149,14 +151,14 @@ class Utils(object):
         """
         byteをstr(utf-8)に変換する
         """
-        #try:
+        # try:
         #    if sys.version_info[0] >= 3:
         #        # Python3
         #        assert isinstance(unicode_or_str, (str, bytes))
         #    else:
         #        # Python2
         #        assert isinstance(unicode_or_str, (unicode, str, bytes))
-        #except:
+        # except:
         #    print(type(unicode_or_str))
         #    print(unicode_or_str)
         #    raise
@@ -207,8 +209,7 @@ class Utils(object):
         except:
             if len(input_str) > 0:
                 tmp = input_str.upper()
-                if (tmp[0] == 'Y' or
-                    tmp[0] == 'T'):
+                if (tmp[0] == 'Y' or tmp[0] == 'T'):
                     answer = True
         return answer
 
@@ -218,12 +219,13 @@ class Utils(object):
             for k, v in data.items():
                 cls.check_pickled(v)
         else:
-            #print('>' * level, data)
+            # print('>' * level, data)
             try:
                 pickle.dumps(data)
             except:
                 print(type(data), data)
                 raise
+
 
 if __name__ == "__main__":
     import doctest

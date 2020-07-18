@@ -92,6 +92,10 @@ setup(name='proteindf_bridge',
           'numpy'
       ],
 
-      data_files=[('data', ['data/ACE_ALA_NME.brd'])],
+      data_files=[('data', ['data/ACE_ALA_NME.brd',
+                            'data/ACE_ALA_NME_trans1.brd',
+                            'data/ACE_ALA_NME_trans2.brd',
+                            'data/ACE_ALA_NME_cis1.brd',
+                            'data/ACE_ALA_NME_cis2.brd'])],
       # test_suite='tests'
       )
