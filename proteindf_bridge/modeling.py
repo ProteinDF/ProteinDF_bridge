@@ -26,7 +26,7 @@ from .atom import Atom
 from .functions import load_msgpack
 from .position import Position
 from .error import BrInputError
-from .xyz import Xyz
+# from .xyz import Xyz
 
 import os
 import math
@@ -37,83 +37,24 @@ logger = logging.getLogger(__name__)
 
 
 class Modeling:
-    _ACE_ALA_NME_data_path = os.path.join(
+    _ACE_ALA_NME_path_base = os.path.join(
         os.environ.get('PDF_HOME', '.'),
         'data',
-        "ACE_ALA_NME.brd")
-    _ACE_ALA_NME_trans1_data_path = os.path.join(
-        os.environ.get('PDF_HOME', '.'),
-        'data',
-        "ACE_ALA_NME_trans1.brd")
-    _ACE_ALA_NME_trans2_data_path = os.path.join(
-        os.environ.get('PDF_HOME', '.'),
-        'data',
-        "ACE_ALA_NME_trans2.brd")
-    _ACE_ALA_NME_cis1_data_path = os.path.join(
-        os.environ.get('PDF_HOME', '.'),
-        'data',
-        "ACE_ALA_NME_cis1.brd")
-    _ACE_ALA_NME_cis2_data_path = os.path.join(
-        os.environ.get('PDF_HOME', '.'),
-        'data',
-        "ACE_ALA_NME_cis2.brd")
+        "ACE_ALA_NME_{}.brd")
+    _ACE_ALA_NME_comformers = ["trans1", "trans2", "cis1", "cis2"]
 
     def __init__(self):
-        self._ACE_ALA_NME = None
-        self._ACE_ALA_NME_trans1 = None
-        self._ACE_ALA_NME_trans2 = None
-        self._ACE_ALA_NME_cis1 = None
-        self._ACE_ALA_NME_cis2 = None
+        self._ACE_ALA_NME = {}
+        for comformer in self._ACE_ALA_NME_comformers:
+            brd_path = self._ACE_ALA_NME_path_base.format(comformer)
+            # print(comformer, brd_path)
+            atomgroup = AtomGroup(load_msgpack(brd_path))
+            assert(atomgroup.get_number_of_all_atoms() > 0)
+            self._ACE_ALA_NME[comformer] = atomgroup
 
-    # -----------------------------------------------------------------
-    def _get_ACE_ALA_NME(self):
-        "ACE-ALA-NMEデータを読み込み、データを返す"
-        if self._ACE_ALA_NME is None:
-            res_data = load_msgpack(self._ACE_ALA_NME_data_path)
-            self._ACE_ALA_NME = AtomGroup(res_data)
-        return self._ACE_ALA_NME
-
-    ACE_ALA_NME = property(_get_ACE_ALA_NME)
-
-    # -----------------------------------------------------------------
-    def _get_ACE_ALA_NME_trans1(self):
-        "ACE-ALA-NMEデータを読み込み、データを返す"
-        if self._ACE_ALA_NME_trans1 is None:
-            res_data = load_msgpack(self._ACE_ALA_NME_trans1_data_path)
-            self._ACE_ALA_NME_trans1 = AtomGroup(res_data)
-        return self._ACE_ALA_NME_trans1
-
-    ACE_ALA_NME_trans1 = property(_get_ACE_ALA_NME_trans1)
-
-    # -----------------------------------------------------------------
-    def _get_ACE_ALA_NME_trans2(self):
-        "ACE-ALA-NMEデータを読み込み、データを返す"
-        if self._ACE_ALA_NME_trans2 is None:
-            res_data = load_msgpack(self._ACE_ALA_NME_trans2_data_path)
-            self._ACE_ALA_NME_trans2 = AtomGroup(res_data)
-        return self._ACE_ALA_NME_trans2
-
-    ACE_ALA_NME_trans2 = property(_get_ACE_ALA_NME_trans2)
-
-    # -----------------------------------------------------------------
-    def _get_ACE_ALA_NME_cis1(self):
-        "ACE-ALA-NMEデータを読み込み、データを返す"
-        if self._ACE_ALA_NME_cis1 is None:
-            res_data = load_msgpack(self._ACE_ALA_NME_cis1_data_path)
-            self._ACE_ALA_NME_cis1 = AtomGroup(res_data)
-        return self._ACE_ALA_NME_cis1
-
-    ACE_ALA_NME_cis1 = property(_get_ACE_ALA_NME_cis1)
-
-    # -----------------------------------------------------------------
-    def _get_ACE_ALA_NME_cis2(self):
-        "ACE-ALA-NMEデータを読み込み、データを返す"
-        if self._ACE_ALA_NME_cis2 is None:
-            res_data = load_msgpack(self._ACE_ALA_NME_cis2_data_path)
-            self._ACE_ALA_NME_cis2 = AtomGroup(res_data)
-        return self._ACE_ALA_NME_cis2
-
-    ACE_ALA_NME_cis2 = property(_get_ACE_ALA_NME_cis2)
+    def _get_ACE_ALA_NME(self, comformer):
+        assert(comformer in self._ACE_ALA_NME_comformers)
+        return self._ACE_ALA_NME[comformer]
 
     # -----------------------------------------------------------------
     def get_ACE_simple(self, next_aa):
@@ -193,112 +134,25 @@ class Modeling:
                      ||   | |      ||    |
                      O    H CB     O     H
         """
-        AA3 = AtomGroup(self.ACE_ALA_NME)
-        # print("> AA3['2']")
-        # print(AA3['2'])
-        # print("> res")
-        # print(res)
-        (AA3_part, res_part) = self._match_residues(AA3['2'], res)
+        AAN = None
+        rmsd_min = 1000.0
+        for comformer in self._ACE_ALA_NME_comformers:
+            ref_AAN = self._get_ACE_ALA_NME(comformer)
+            (matched, rmsd) = self._match_ACE(ref_AAN, res, next_aa)
+            # print(comformer, rmsd)
+            if rmsd < rmsd_min:
+                rmsd_min = rmsd
+                AAN = matched
 
-        if next_aa is not None:
-            if next_aa.has_atom('C'):
-                AA3_part.set_atom('C2', AA3['1']['C'])
-                res_part.set_atom('C2', next_aa['C'])
-            if next_aa.has_atom('O'):
-                AA3_part.set_atom('O2', AA3['1']['O'])
-                res_part.set_atom('O2', next_aa['O'])
-            if next_aa.has_atom('CA'):
-                AA3_part.set_atom('CH3', AA3['1']['CH3'])
-                res_part.set_atom('CH3', next_aa['CA'])
-
-        # print("> AA3_part")
-        # print(AA3_part)
-        # print("> res_part")
-        # print(res_part)
-        # print("----")
-        sp = Superposer(AA3_part, res_part)
-        rmsd = sp.rmsd
-        # rotation_mat = sp.rotation_mat
-        if rmsd > 1.0:
+        if rmsd_min > 1.0:
             logger.warn("RMSD value is too large: {}".format(rmsd))
 
-        spAA3 = sp.superimpose(AA3)
-        answer = AtomGroup(spAA3['1'])
+        answer = AtomGroup(AAN['1'])
         answer.path = '/ACE'
 
         return answer
 
-    def get_NME(self, res, next_aa=None):
-        """
-        template (ACE-ALA-NME) format:
-        HH3[1-3]-CH3-C -  N-CA(HA)-C-    N-CH3-HH3[1-3]
-                     ||   | |      ||    |
-                     O    H CB     O     H
-        """
-        # AA3 = AtomGroup(self.ACE_ALA_NME)
-        # # print("> AA3['2']")
-        # # print(AA3['2'])
-        # print("> res")
-        # print(res)
-        # (AA3_part, res_part) = self._match_residues2(AA3['2'], res)
-
-        # # AA3_part = AtomGroup()
-        # # res_part = AtomGroup()
-        # if next_aa is not None:
-        #     if next_aa.has_atom('N'):
-        #         AA3_part.set_atom('N2', AA3['3']['N'])
-        #         res_part.set_atom('N2', next_aa['N'])
-        #     if next_aa.has_atom('H'):
-        #         AA3_part.set_atom('NH2', AA3['3']['H'])
-        #         res_part.set_atom('NH2', next_aa['H'])
-        #     if next_aa.has_atom('CA'):
-        #         AA3_part.set_atom('CH3', AA3['3']['CH3'])
-        #         res_part.set_atom('CH3', next_aa['CA'])
-
-        # print("> AA3_part")
-        # print(AA3_part)
-        # print("> res_part")
-        # print(res_part)
-        # print("----")
-        # sp = Superposer(AA3_part, res_part)
-        # rmsd = sp.rmsd
-        # # rotation_mat = sp.rotation_mat
-        # if rmsd > 1.0:
-        #     logger.warn("RMSD value is too large: {}".format(rmsd))
-
-        # spAA3 = sp.superimpose(AA3)
-
-        # xyz1 = Xyz(AA3)
-        # xyz1.save("aa3-1.xyz")
-        # xyz2 = Xyz(spAA3)
-        # xyz2.save("aa3-2.xyz")
-
-        matched_AAN = None
-        (matched_AAN1, rmsd_trans1) = self._match_NME(self.ACE_ALA_NME_trans1, res, next_aa)
-        if rmsd_trans1 > 1.0:
-            (matched_AAN2, rmsd_trans2) = self._match_NME(self.ACE_ALA_NME_trans2, res, next_aa)
-            if rmsd_trans2 > 1.0:
-                (matched_AAN3, rmsd_cis1) = self._match_NME(self.ACE_ALA_NME_cis1, res, next_aa)
-                if rmsd_cis1 > 1.0:
-                    (matched_AAN4, rmsd_cis2) = self._match_NME(self.ACE_ALA_NME_cis2, res, next_aa)
-                    if rmsd_cis2 > 1.0:
-                        logger.warn("RMSD value is too large: trnas1={} trans2={} cis1={} cis2={}".format(rmsd_trans1, rmsd_trans2,
-                                                                                                          rmsd_cis1, rmsd_cis2))
-                    else:
-                        matched_AAN = matched_AAN4
-                else:
-                    matched_AAN = matched_AAN3
-            else:
-                matched_AAN = matched_AAN2
-        else:
-            matched_AAN = matched_AAN1
-
-        answer = AtomGroup(matched_AAN['3'])
-        answer.path = '/NME'
-
-        return answer
-
-    def _match_NME(self, AAN, res, next_aa):
+    def _match_ACE(self, AAN, res, next_aa):
         '''AAN (ACE-ALA-NME)
         '''
         assert(isinstance(AAN, AtomGroup))
@@ -316,6 +170,46 @@ class Modeling:
             if next_aa.has_atom('CA'):
                 AAN_part.set_atom('CH3', AAN['3']['CH3'])
                 res_part.set_atom('CH3', next_aa['CA'])
+
+        sp = Superposer(AAN_part, res_part)
+        rmsd = sp.rmsd
+
+        matched_AAN = sp.superimpose(AAN)
+
+        return (matched_AAN, rmsd)
+
+    def get_NME(self, res, next_aa=None):
+        """
+        template (ACE-ALA-NME) format:
+        HH3[1-3]-CH3-C -  N-CA(HA)-C-    N-CH3-HH3[1-3]
+                     ||   | |      ||    |
+                     O    H CB     O     H
+        """
+        AAN = None
+        rmsd_min = 1000.0
+        for comformer in self._ACE_ALA_NME_comformers:
+            ref_AAN = self._get_ACE_ALA_NME(comformer)
+            (matched, rmsd) = self._match_NME(ref_AAN, res, next_aa)
+            # print(comformer, rmsd)
+            if rmsd < rmsd_min:
+                rmsd_min = rmsd
+                AAN = matched
+
+        if rmsd_min > 1.0:
+            logger.warn("RMSD value is too large: {}".format(rmsd))
+
+        answer = AtomGroup(AAN['3'])
+        answer.path = '/NME'
+
+        return answer
+
+    def _match_NME(self, AAN, res, next_aa):
+        '''AAN (ACE-ALA-NME)
+        '''
+        assert(isinstance(AAN, AtomGroup))
+        assert(isinstance(res, AtomGroup))
+        (AAN_part, res_part) = self._match_residues2(AAN['2'], res)
+
         # for NME
         if next_aa is not None:
             if next_aa.has_atom('C'):
@@ -328,11 +222,6 @@ class Modeling:
                 AAN_part.set_atom('CH3', AAN['1']['CH3'])
                 res_part.set_atom('CH3', next_aa['CA'])
 
-        # print("> AA3_part")
-        # print(AA3_part)
-        # print("> res_part")
-        # print(res_part)
-        # print("----")
         sp = Superposer(AAN_part, res_part)
         rmsd = sp.rmsd
 
@@ -362,20 +251,6 @@ class Modeling:
 
             if ans_res1.get_number_of_atoms() >= max_number_of_atoms:
                 break
-
-        # match CB
-        # if ans_res1.get_number_of_atoms() < max_number_of_atoms:
-        #     res1_CB = None
-        #     res2_CB = None
-        #     if res1.has_atom('CB'):
-        #         print('res1 found CB')
-        #         res1_CB = res1['CB']
-        #     if res2.has_atom('CB'):
-        #         print('res2 found CB')
-        #         res2_CB = res2['CB']
-        #     if (res1_CB is not None) and (res2_CB is not None):
-        #         ans_res1.set_atom('CB', res1_CB)
-        #         ans_res2.set_atom('CB', res2_CB)
 
         # match amino-'H'
         if ans_res1.get_number_of_atoms() < max_number_of_atoms:
