@@ -157,7 +157,7 @@ class Modeling:
         '''
         assert(isinstance(AAN, AtomGroup))
         assert(isinstance(res, AtomGroup))
-        (AAN_part, res_part) = self._match_residues2(AAN['2'], res)
+        (AAN_part, res_part) = self._match_residues(AAN['2'], res)
 
         # for ACE
         if next_aa is not None:
@@ -208,7 +208,7 @@ class Modeling:
         '''
         assert(isinstance(AAN, AtomGroup))
         assert(isinstance(res, AtomGroup))
-        (AAN_part, res_part) = self._match_residues2(AAN['2'], res)
+        (AAN_part, res_part) = self._match_residues(AAN['2'], res)
 
         # for NME
         if next_aa is not None:
@@ -236,48 +236,6 @@ class Modeling:
         GLYはHA1, HA2とあるので突き合せない。
         """
         atom_names = ['CA', 'O', 'C', 'N', 'CB', 'HA']
-        if max_number_of_atoms == -1:
-            max_number_of_atoms = len(atom_names)
-        ans_res1 = AtomGroup()
-        ans_res2 = AtomGroup()
-
-        for atom_name in atom_names:
-            pickup_atoms1 = res1.pickup_atoms(atom_name)
-            if len(pickup_atoms1) > 0:
-                pickup_atoms2 = res2.pickup_atoms(atom_name)
-                if len(pickup_atoms2) > 0:
-                    ans_res1.set_atom(atom_name, pickup_atoms1[0])
-                    ans_res2.set_atom(atom_name, pickup_atoms2[0])
-
-            if ans_res1.get_number_of_atoms() >= max_number_of_atoms:
-                break
-
-        # match amino-'H'
-        if ans_res1.get_number_of_atoms() < max_number_of_atoms:
-            res1_H = None
-            res2_H = None
-            if res1.has_atom('H'):
-                res1_H = res1['H']
-            elif res1.has_atom('CD'):
-                # for proline
-                res1_H = res1['CD']
-            if res2.has_atom('H'):
-                res2_H = res2['H']
-            elif res2.has_atom('CD'):
-                res2_H = res2['CD']
-            if ((res1_H is not None) and (res2_H is not None)):
-                ans_res1.set_atom('H', res1_H)
-                ans_res2.set_atom('H', res2_H)
-
-        return (ans_res1, ans_res2)
-
-    def _match_residues2(self, res1, res2, max_number_of_atoms=-1):
-        """
-        2つのアミノ酸残基のN, H, CA, HA, C, Oの原子を突き合わせる。
-        アミノ酸残基がプロリンだった場合は、CDの炭素をHに命名する。
-        GLYはHA1, HA2とあるので突き合せない。
-        """
-        atom_names = ['CA', 'O', 'C', 'CB']
         if max_number_of_atoms == -1:
             max_number_of_atoms = len(atom_names)
         ans_res1 = AtomGroup()
