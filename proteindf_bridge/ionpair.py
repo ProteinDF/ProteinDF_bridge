@@ -19,12 +19,13 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
+from .aminoacid import AminoAcid
+from .atomgroup import AtomGroup
+from .position import Position
+
 import logging
 logger = logging.getLogger(__name__)
 
-from .position import Position
-from .atomgroup import AtomGroup
-from .aminoacid import AminoAcid
 
 class IonPair(object):
     def __init__(self, model):
@@ -37,7 +38,7 @@ class IonPair(object):
             for (anion_pos, anion_type) in anion_pos_array:
 
                 for cation_path, cation_pos_array in cation_list.items():
-                    for (cation_pos,cation_type) in cation_pos_array:
+                    for (cation_pos, cation_type) in cation_pos_array:
 
                         d = anion_pos.distance_from(cation_pos)
                         if d < 4.0:
@@ -76,13 +77,11 @@ class IonPair(object):
 
         return (anion_list, cation_list)
 
-
     def _get_center_Nterm(self, res):
         """
         N末端のイオン対判定用座標を返す
         """
         return res['N'].xyz
-
 
     def _get_center_Cterm(self, res):
         """
@@ -94,7 +93,6 @@ class IonPair(object):
         ag.set_atom('O2', res['OXT'])
         return ag.center()
 
-
     def _get_center_GLU(self, res):
         """
         GLUのイオン対判定用座標を返す
@@ -104,7 +102,6 @@ class IonPair(object):
         ag.set_atom('O1', res['OE1'])
         ag.set_atom('O2', res['OE2'])
         return ag.center()
-
 
     def _get_center_ASP(self, res):
         """
@@ -116,13 +113,17 @@ class IonPair(object):
         ag.set_atom('O2', res['OD2'])
         return ag.center()
 
-
     def _get_center_LYS(self, res):
         """
         LYSのイオン対判定用座標を返す
         """
-        return res['NZ'].xyz
-
+        xyz = None
+        if res.has_atom('NZ'):
+            xyz = res['NZ'].xyz
+        else:
+            logger.critical('The LYS has no "NZ" atom.')
+            raise
+        return xyz
 
     def _get_center_ARG(self, res, case=0):
         """
@@ -144,10 +145,10 @@ class IonPair(object):
         elif case == 2:
             answer = res['NH2'].xyz
         else:
-            logger.warning("unknown mode={}".format(mode))
+            logger.warning("unknown case={}".format(case))
 
         return answer
 
 
-#if __name__ == "__main__":
+# if __name__ == "__main__":
 #    main()
