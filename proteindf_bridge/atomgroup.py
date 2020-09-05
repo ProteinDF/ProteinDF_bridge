@@ -719,9 +719,9 @@ class AtomGroup(object):
         assert(isinstance(atom2, Atom))
         assert(isinstance(order, int))
 
-        common_path = Utils.get_common_str(atom1.path, atom2.path)
+        common_path = self._get_common_path(atom1.path, atom2.path)
+        logger.debug("_add_bond_norm > ", self.path, common_path, atom1.path, atom2.path)
         family = self.get_family(common_path)
-        # print("_add_bond_norm> ", self.path, common_path, atom1.path, atom2.path)
         if family is not None:
             family._add_bond(bond_info)
         else:
@@ -731,16 +731,28 @@ class AtomGroup(object):
         (atom1, atom2, order) = bond_info
         atom1_path = atom1.path
         atom2_path = atom2.path
-        common_path1 = Utils.get_common_str(self.path, atom1_path)
-        common_path2 = Utils.get_common_str(self.path, atom2_path)
+        common_path1 = self._get_common_path(self.path, atom1_path)
+        common_path2 = self._get_common_path(self.path, atom2_path)
         if len(common_path1) > 0:
             atom1_path = atom1_path[len(common_path1):]
         if len(common_path2) > 0:
             atom2_path = atom2_path[len(common_path2):]
-        # print("_add_bond> ", self.path, atom1_path, atom2_path)
+        logger.debug("_add_bond> ", self.path, atom1_path, atom2_path)
         self._bonds.append((atom1_path, atom2_path, order))
 
+    def _get_common_path(self, path1, path2):
+        common_path = "/"
+        common_path_raw = Utils.get_common_str(path1, path2)
+        if common_path_raw[-1] == '/':
+            common_path = common_path_raw
+        else:
+            last_slash_index = common_path_raw.rfind('/')
+            if last_slash_index != -1:
+                common_path = common_path_raw[0:last_slash_index + 1]
+        return common_path
+
     # --------------------------------------------------------------------------
+
     def box(self):
         """
         """
