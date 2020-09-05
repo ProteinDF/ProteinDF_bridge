@@ -19,6 +19,9 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
+from .atomgroup import AtomGroup
+from .atom import Atom
+from .position import Position
 import sys
 import os
 import optparse
@@ -27,14 +30,12 @@ import copy
 import logging
 logger = logging.getLogger(__name__)
 
-from .position import Position
-from .atom import Atom
-from .atomgroup import AtomGroup
 
 class Pdb(object):
     """
     """
-    def __init__(self, file_path = None, mode = None):
+
+    def __init__(self, file_path=None, mode=None):
         """
         create empty PDB object
 
@@ -67,6 +68,25 @@ class Pdb(object):
             'CL': 'CL '
         }
 
+        # leapではNH2はHとみなされず、NH2を重ねて付加してしまう
+        self._modpdb_amber_resatom_table = {
+            "NME": {
+                "HN2": "H",
+                "H1": "HH31",
+                "H2": "HH32",
+                "H3": "HH33",
+            },
+        }
+        # reduceではNH2が無いとNH2を付加してしまう
+        self._modpdb_formal_resatom_table = {
+            "NME": {
+                "H": "HN2",
+                "HH31": "H1",
+                "HH32": "H2",
+                "HH33": "H3",
+            },
+        }
+
     def __get_debug(self):
         if not '_debug' in self.__dict__:
             self._debug = False
@@ -77,69 +97,69 @@ class Pdb(object):
 
     debug = property(__get_debug, __set_debug)
 
-    #def get_number_of_items(self):
+    # def get_number_of_items(self):
     #    return len(self._data)
 
-    #def get_name(self, index):
+    # def get_name(self, index):
     #    answer = None
     #    if ((0 <= index) and (index < self.get_number_of_items())):
     #        answer = self._data[index].get('name', None)
     #    return answer
 
-    #def set_name(self, index, name):
+    # def set_name(self, index, name):
     #    if ((0 <= index) and (index < self.get_number_of_items())):
     #        self._data[index]['name'] = name
 
-    #def get_element(self, index):
+    # def get_element(self, index):
     #    answer = None
     #    if ((0 <= index) and (index < self.get_number_of_items())):
     #        answer = self._data[index].get('element', None)
     #    return answer
 
-    #def set_element(self, index, element):
+    # def set_element(self, index, element):
     #    if ((0 <= index) and (index < self.get_number_of_items())):
     #        self._data[index]['element'] = element
 
-    #def get_posision(self, index):
+    # def get_posision(self, index):
     #    answer = None
     #    if ((0 <= index) and (index < self.get_number_of_items())):
     #        answer = self._data[index].get('coord', None)
     #    return answer
 
-    #def set_position(self, index, position):
+    # def set_position(self, index, position):
     #    if ((0 <= index) and (index < self.get_number_of_items())):
     #        self._data[index]['coord'] = position
 
-    #def get_charge(self, index):
+    # def get_charge(self, index):
     #    answer = 0
     #    if ((0 <= index) and (index < self.get_number_of_items())):
     #        answer = self._data[index].get('charge', 0)
     #    return answer
 
-    #def set_charge(self, index, charge):
+    # def set_charge(self, index, charge):
     #    if ((0 <= index) and (index < self.get_number_of_items())):
     #        self._data[index]['charge'] = charge
 
-    #def get_occupancy(self, index):
+    # def get_occupancy(self, index):
     #    answer = None
     #    if ((0 <= index) and (index < self.get_number_of_items())):
     #        answer = self._data[index].get('occupancy', None)
     #    return answer
 
-    #def get_temp_factor(self, index):
+    # def get_temp_factor(self, index):
     #    answer = None
     #    if ((0 <= index) and (index < self.get_number_of_items())):
     #        answer = self._data[index].get('temp_factor', None)
     #    return answer
 
-    #def set_temp_factor(self, serial, temp_factor):
+    # def set_temp_factor(self, serial, temp_factor):
     #    serial = int(serial)
     #    self._data[serial]['temp_factor'] = temp_factor
 
     def renumber(self):
         for model_serial, model in self._data.items():
             for index in range(len(model)):
-                model[index]['serial'] = index +1
+                model[index]['serial'] = index + 1
 
     def load(self, file_path):
         if (os.path.isfile(file_path) != True):
@@ -157,7 +177,7 @@ class Pdb(object):
                     break
                 line = line.rstrip('\n')
 
-                #if (len(line) != 80):
+                # if (len(line) != 80):
                 #    continue
                 if (self.debug == True):
                     print(line)
@@ -296,7 +316,7 @@ class Pdb(object):
 
         for model_serial, model_items in self._data.items():
             if ((select_model == None) or
-                (int(select_model) == int(model_serial))):
+                    (int(select_model) == int(model_serial))):
 
                 model_name = "model_%d" % (model_serial)
                 model = AtomGroup()
@@ -346,7 +366,7 @@ class Pdb(object):
 
                         # set the atom object ------------------------------
                         if ((alt_loc == ' ') or
-                            (alt_loc == select_altloc)):
+                                (alt_loc == select_altloc)):
                             model[chain_id][res_key].set_atom(atom_key, atom)
                         else:
                             logger.debug('skip alt_loc=\"{alt_loc}\" atom: {atom_str}'.format(alt_loc=alt_loc,
@@ -409,7 +429,7 @@ class Pdb(object):
 
                         # serial number
                         #serial_match_obj = re_atom_serial.match(key)
-                        #if (serial_match_obj != None):
+                        # if (serial_match_obj != None):
                         #    serial = int(match_obj.group(1))
                         item["serial"] = serial
                         serial += 1
@@ -422,7 +442,7 @@ class Pdb(object):
                         if name.strip().lstrip() == 'OXT':
                             has_OXT = True
                         item["name"] = name
-                        item["coord"] = [ atom.xyz.x, atom.xyz.y, atom.xyz.z ]
+                        item["coord"] = [atom.xyz.x, atom.xyz.y, atom.xyz.z]
 
                         if set_b_factor == 'charge':
                             item['temp_factor'] = atom.charge
@@ -446,7 +466,7 @@ class Pdb(object):
 
     def _sort_by_serial(self):
         for model_serial, model in self._data.items():
-            model.sort(key = lambda x: int(x['serial']))
+            model.sort(key=lambda x: int(x['serial']))
 
     def __str__(self):
         occupancy = 1.0
@@ -481,8 +501,14 @@ class Pdb(object):
         return output
 
     def get_modpdb_atomgroup(self, ag_protein):
-        """
-        ag_protein タンパク質のAtomGroup object
+        """ Change the name of a residue or atom.
+            Called by 'set_by_atomgroup()'
+
+        Args:
+            ag_protein (AtomGroup): AtomGroup object of protein
+
+        Returns:
+            AtomGroup: renamed object
         """
         assert(isinstance(ag_protein, AtomGroup))
         mode = self._mode
@@ -493,9 +519,9 @@ class Pdb(object):
                 for res_key, res in chain.groups():
                     res = self._modpdb_res(res, mode)
                     for atom_key, atom in res.atoms():
+                        atom = self._modpdb_resatom(res, atom, mode)
                         atom = self._modpdb_atom(atom, mode)
         return retval
-
 
     def _modpdb_atom(self, atom, mode=None):
         new_name = atom.name
@@ -505,8 +531,9 @@ class Pdb(object):
         if mode == 'AMBER':
             if atomname in self._modpdb_amber_atm_tbl:
                 new_name = self._modpdb_amber_atm_tbl[atomname]
-            elif ((len(new_name) < 4) and (atomname[0] == symbol[0])):
-                new_name = ' {}'.format(new_name)
+            if len(new_name) != 4:
+                if ((len(new_name) < 4) and (atomname[0] == symbol[0])):
+                    new_name = ' {}'.format(new_name)
 
             # 原子名対策
             new_name_lstrip = new_name.lstrip()
@@ -517,10 +544,11 @@ class Pdb(object):
         elif mode == 'FORMAL':
             if atomname in self._modpdb_formal_atm_tbl:
                 new_name = self._modpdb_formal_atm_tbl[atomname]
-            elif (0 < len(new_name)) and (len(new_name) < 4) and (atomname[0] == symbol[0]):
-                new_name = ' {}'.format(new_name)
-            else:
-                new_name = symbol
+            if len(new_name) != 4:
+                if (0 < len(new_name)) and (len(new_name) < 4) and (atomname[0] == symbol[0]):
+                    new_name = ' {}'.format(new_name)
+                else:
+                    new_name = symbol
         else:
             pass
 
@@ -546,6 +574,23 @@ class Pdb(object):
                 res.name = self._modpdb_formal_res_tbl[resname]
         return res
 
+    def _modpdb_resatom(self, res, atom, mode=None):
+        resname = res.name.upper()
+        resname = resname.strip().lstrip()
+        atom_name = atom.name.strip().lstrip().upper()
+
+        if mode == 'AMBER':
+            if resname in self._modpdb_amber_resatom_table:
+                if atom_name in self._modpdb_amber_resatom_table[resname]:
+                    atom.name = self._modpdb_amber_resatom_table[resname][atom_name]
+                    print(":{}@{} -> :{}@{}".format(resname, atom_name, resname, atom.name))
+        else:
+            if resname in self._modpdb_formal_resatom_table:
+                if atom_name in self._modpdb_formal_resatom_table[resname]:
+                    atom.name = self._modpdb_formal_resatom_table[resname][atom_name]
+
+        return atom
+
     def _rename_to_amber_dialect(self, res):
         """translate HIS to HID, HIE or HIP
         """
@@ -570,18 +615,17 @@ class Pdb(object):
         return res
 
 
-
 def main():
     # initialize
 
     # parse args
-    parser = optparse.OptionParser(usage = "%prog [options] PDB_FILE",
-                                   version = "%prog 1.0")
-    parser.add_option("-o", "--output", dest = "output_path",
-                      help = "PDB output file", metavar = "FILE")
-    parser.add_option("-v", "--verbose", dest = "verbose",
-                      action="store_false", default = False,
-                      help = "print message")
+    parser = optparse.OptionParser(usage="%prog [options] PDB_FILE",
+                                   version="%prog 1.0")
+    parser.add_option("-o", "--output", dest="output_path",
+                      help="PDB output file", metavar="FILE")
+    parser.add_option("-v", "--verbose", dest="verbose",
+                      action="store_false", default=False,
+                      help="print message")
     (opts, args) = parser.parse_args()
 
     if (len(args) == 0):
@@ -597,6 +641,7 @@ def main():
     print(pdb_obj)
 
     # end
+
 
 if __name__ == '__main__':
     main()
