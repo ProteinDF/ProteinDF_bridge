@@ -720,7 +720,7 @@ class AtomGroup(object):
         assert(isinstance(order, int))
 
         common_path = self._get_common_path(atom1.path, atom2.path)
-        logger.debug("_add_bond_norm > ", self.path, common_path, atom1.path, atom2.path)
+        logger.debug("_add_bond_norm > {} {} {} {}".format(self.path, common_path, atom1.path, atom2.path))
         family = self.get_family(common_path)
         if family is not None:
             family._add_bond(bond_info)
@@ -737,7 +737,7 @@ class AtomGroup(object):
             atom1_path = atom1_path[len(common_path1):]
         if len(common_path2) > 0:
             atom2_path = atom2_path[len(common_path2):]
-        logger.debug("_add_bond> ", self.path, atom1_path, atom2_path)
+        logger.debug("_add_bond> {} {} {}".format(self.path, atom1_path, atom2_path))
         self._bonds.append((atom1_path, atom2_path, order))
 
     def _get_common_path(self, path1, path2):
