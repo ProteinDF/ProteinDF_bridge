@@ -259,7 +259,7 @@ class DbManager(object):
         if isinstance(where, dict):
             where_sections = []
             for key, value in where.items():
-                where_sections.append('%s=?' % (key))
+                where_sections.append('{}=?'.format(key))
                 parameters.append(value)
             where_str = 'WHERE ' + ' and '.join(where_sections)
         elif where != None:
