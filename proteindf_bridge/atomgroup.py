@@ -29,7 +29,7 @@ from .select import Select
 from .atom import Atom
 from .position import Position
 from .periodictable import PeriodicTable
-from .utils import Utils
+from .str_processing import StrUtils
 
 import logging
 logger = logging.getLogger(__name__)
@@ -87,7 +87,7 @@ class AtomGroup(object):
                         self.set_group(k, v)
                     self._bonds = copy.copy(rhs._bonds)
                     self.name = rhs.name
-                    self._path = Utils.to_unicode(rhs._path)
+                    self._path = StrUtils.to_unicode(rhs._path)
                     self._update_path()
                     self.parent = rhs._parent
                     self._sort_atoms = rhs._sort_atoms
@@ -158,7 +158,7 @@ class AtomGroup(object):
         if query_path == self.path:
             return self
 
-        common_path = Utils.get_common_str(self.path, query_path)
+        common_path = StrUtils.get_common_str(self.path, query_path)
         if len(common_path) == 0:
             return None
 
@@ -228,7 +228,12 @@ class AtomGroup(object):
             kinds[symbol] += 1
 
         return kinds
+
     # --------------------------------------------------------------------------
+    def get_num_of_groups(self):
+        '''Return the number of groups
+        '''
+        return len(self._groups)
 
     def groups(self):
         """
@@ -236,7 +241,7 @@ class AtomGroup(object):
         """
         if self._sort_groups == 'nice':
             keys = list(self._groups.keys())
-            keys = Utils.sort_nicely(keys)
+            keys = StrUtils.sort_nicely(keys)
             for k in keys:
                 yield(k, self._groups[k])
         else:
@@ -248,7 +253,7 @@ class AtomGroup(object):
         入力されたkeyもしくは名前の原子団が含まれている場合、その原子を返す。
         無い場合はNoneを返す。
         """
-        key_or_name = Utils.to_unicode(key_or_name)
+        key_or_name = StrUtils.to_unicode(key_or_name)
         if key_or_name in self._groups:
             return self._groups.get(key_or_name, None)
         else:
@@ -259,7 +264,7 @@ class AtomGroup(object):
 
     def set_group(self, key, value):
         key = str(key)
-        key = Utils.to_unicode(key)
+        key = StrUtils.to_unicode(key)
         assert(isinstance(value, AtomGroup))
         if '_groups' not in self.__dict__:
             self._groups = {}
@@ -272,7 +277,7 @@ class AtomGroup(object):
         無い場合はFalseを返す。
         """
         answer = False
-        key = Utils.to_unicode(key)
+        key = StrUtils.to_unicode(key)
         if key in self._groups:
             answer = True
         return answer
@@ -283,7 +288,7 @@ class AtomGroup(object):
         無い場合はFalseを返す。
         """
         answer = False
-        name = Utils.to_unicode(name)
+        name = StrUtils.to_unicode(name)
         for k, grp in self.groups():
             if grp.name == name:
                 answer = True
@@ -308,20 +313,25 @@ class AtomGroup(object):
     def remove_group(self, key):
         """remove group
         """
-        key = Utils.to_unicode(key)
+        key = StrUtils.to_unicode(key)
         self._groups.pop(key, None)
 
     def get_group_list(self):
         return [k for k, v in self.groups()]
 
     # --------------------------------------------------------------------------
+    def get_num_of_atoms(self):
+        '''Return the number of atoms
+        '''
+        return len(self._atoms)
+
     def atoms(self):
         """
         原子のリストを返す
         """
         if self._sort_atoms == 'nice':
             keys = list(self._atoms.keys())
-            keys = Utils.sort_nicely(keys)
+            keys = StrUtils.sort_nicely(keys)
             for k in keys:
                 yield(k, self._atoms[k])
         else:
@@ -336,7 +346,7 @@ class AtomGroup(object):
         入力されたkeyもしくは名前の原子が含まれている場合、その原子を返す。
         無い場合はNoneを返す。
         """
-        key_or_name = Utils.to_unicode(key_or_name)
+        key_or_name = StrUtils.to_unicode(key_or_name)
         if key_or_name in self._atoms:
             return self._atoms.get(key_or_name, None)
         else:
@@ -347,7 +357,7 @@ class AtomGroup(object):
 
     def _set_atom(self, key, value):
         key = str(key)
-        key = Utils.to_unicode(key)
+        key = StrUtils.to_unicode(key)
         assert(isinstance(value, Atom))
         self._atoms[key] = Atom(value,
                                 parent=self,
@@ -376,7 +386,7 @@ class AtomGroup(object):
         無い場合はFalseを返す。
         """
         answer = False
-        key = Utils.to_unicode(key)
+        key = StrUtils.to_unicode(key)
         if key in self._atoms:
             answer = True
         return answer
@@ -387,7 +397,7 @@ class AtomGroup(object):
         無い場合はFalseを返す。
         """
         answer = False
-        name = Utils.to_unicode(name)
+        name = StrUtils.to_unicode(name)
         name = name.strip().lstrip()
         for k, atm in self.atoms():
             atm_name = atm.name.strip().lstrip()
@@ -414,7 +424,7 @@ class AtomGroup(object):
     def remove_atom(self, key):
         """remove atom
         """
-        key = Utils.to_unicode(key)
+        key = StrUtils.to_unicode(key)
         self._atoms.pop(key, None)
 
     def pickup_atoms(self, key_or_name):
@@ -476,7 +486,7 @@ class AtomGroup(object):
         return self._name
 
     def _set_name(self, name):
-        self._name = Utils.to_unicode(name)
+        self._name = StrUtils.to_unicode(name)
 
     name = property(_get_name, _set_name)
 
@@ -524,7 +534,7 @@ class AtomGroup(object):
         return self._path
 
     def _set_path(self, value):
-        value = Utils.to_unicode(value)
+        value = StrUtils.to_unicode(value)
         if (len(value) == 0) or (value[-1] != '/'):
             value += '/'
 
@@ -742,7 +752,7 @@ class AtomGroup(object):
 
     def _get_common_path(self, path1, path2):
         common_path = "/"
-        common_path_raw = Utils.get_common_str(path1, path2)
+        common_path_raw = StrUtils.get_common_str(path1, path2)
         if common_path_raw[-1] == '/':
             common_path = common_path_raw
         else:
@@ -820,7 +830,7 @@ class AtomGroup(object):
 
     # private method -----------------------------------------------------------
     def _merge_group(self, key, group):
-        key = Utils.to_unicode(key)
+        key = StrUtils.to_unicode(key)
         assert(isinstance(group, AtomGroup))
         if (self.has_group(key)):
             self._groups[key].merge(group)
@@ -951,7 +961,7 @@ class AtomGroup(object):
     # --------------------------------------------------------------------------
     def set_by_dict_data(self, data):
         assert(isinstance(data, dict))
-        data = Utils.to_unicode_dict(data)
+        data = StrUtils.to_unicode_dict(data)
 
         tmp_groups = {}
         tmp_atoms = {}
@@ -977,11 +987,11 @@ class AtomGroup(object):
 
         # store groups and atoms in order
         grp_keys = tmp_groups.keys()
-        grp_keys = Utils.sort_nicely(grp_keys)
+        grp_keys = StrUtils.sort_nicely(grp_keys)
         for grp_key in grp_keys:
             self.set_group(grp_key, tmp_groups[grp_key])
         atom_keys = tmp_atoms.keys()
-        atom_keys = Utils.sort_nicely(atom_keys)
+        atom_keys = StrUtils.sort_nicely(atom_keys)
         for atom_key in atom_keys:
             self.set_atom(atom_key, tmp_atoms[atom_key])
 
@@ -1056,7 +1066,7 @@ class AtomGroup(object):
         keyが一致した原子団、原子を返す。
         もしkeyが一致しなければ、名前から検索する。
         """
-        key = Utils.to_unicode(str(key))
+        key = StrUtils.to_unicode(str(key))
         if (self.has_group(key)):
             return self._groups[key]
         elif key in self._atoms:
@@ -1072,7 +1082,7 @@ class AtomGroup(object):
 
     def __setitem__(self, key, value):
         """operator[] for setter"""
-        key = Utils.to_unicode(key)
+        key = StrUtils.to_unicode(key)
         if isinstance(value, AtomGroup):
             self.set_group(key, value)
         elif isinstance(value, Atom):

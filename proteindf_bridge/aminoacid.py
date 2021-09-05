@@ -19,10 +19,14 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 class AminoAcid(object):
     _AA_list = [
         'ALA',
-        'ASX', # ASP or ASN
+        'ASX',  # ASP or ASN
         'ASN',
         'ASP',
         'CYS',
@@ -45,13 +49,13 @@ class AminoAcid(object):
         'SEC',
         'VAL',
         'TRP',
-        'XAA', # unspecified amino acid
+        'XAA',  # unspecified amino acid
         'TYR',
-        'GLX'  #GLN, GLU or GLA, GLP
+        'GLX'  # GLN, GLU or GLA, GLP
     ]
 
     def __init__(self, *args, **kwargs):
-        self._logger = logging.getLogger(__name__)
+        pass
 
     @classmethod
     def is_aminoacid(self, atomgroup):

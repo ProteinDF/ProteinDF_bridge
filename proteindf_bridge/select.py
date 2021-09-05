@@ -23,7 +23,7 @@ import re
 
 from .atom import Atom
 from .position import Position
-from .utils import Utils
+from .str_processing import StrUtils
 
 import logging
 logger = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ class Select_Symbol(Select):
 
 class Select_Name(Select):
     def __init__(self, query):
-        self.query = Utils.to_unicode(query)
+        self.query = StrUtils.to_unicode(query)
 
     def is_match(self, obj):
         answer = False
@@ -77,7 +77,7 @@ class Select_Path(Select):
     """
 
     def __init__(self, query, use_wildcard=True):
-        self._query = Utils.to_unicode(query)
+        self._query = StrUtils.to_unicode(query)
         self._is_used_wildcard = use_wildcard
 
         if use_wildcard:
@@ -110,7 +110,7 @@ class Select_Path_simple(Select):
     """
 
     def __init__(self, query):
-        self._query = Utils.to_unicode(query)
+        self._query = StrUtils.to_unicode(query)
 
     def is_match(self, obj):
         answer = False
@@ -125,7 +125,7 @@ class Select_Path_wildcard(Select):
     """
 
     def __init__(self, query):
-        self._query = Utils.to_unicode(query)
+        self._query = StrUtils.to_unicode(query)
         self._regex_selecter = self._prepare(query)
 
     def _prepare(self, query):
@@ -145,7 +145,7 @@ class Select_PathRegex(Select):
     """
 
     def __init__(self, query):
-        self._query = Utils.to_unicode(query)
+        self._query = StrUtils.to_unicode(query)
         self._regex = re.compile(query)
 
     def is_match(self, obj):

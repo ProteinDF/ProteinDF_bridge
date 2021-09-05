@@ -10,7 +10,7 @@ except:
     import msgpack_pure as msgpack
 
 from .atomgroup import AtomGroup
-from .utils import Utils
+from .str_processing import StrUtils
 
 
 import logging
@@ -53,7 +53,7 @@ def get_yaml(data):
                              allow_unicode=True,
                              default_flow_style=False,
                              line_break='\n')
-        yaml_str = Utils.to_unicode(yaml_str)
+        yaml_str = StrUtils.to_unicode(yaml_str)
 
     return yaml_str
 
@@ -76,9 +76,9 @@ def load_msgpack(mpac_path):
         mpac_data = msgpack.unpackb(f.read(), strict_map_key=False)
 
         if isinstance(mpac_data, list):
-            mpac_data = Utils.to_unicode_list(mpac_data)
+            mpac_data = StrUtils.to_unicode_list(mpac_data)
         elif isinstance(mpac_data, dict):
-            mpac_data = Utils.to_unicode_dict(mpac_data)
+            mpac_data = StrUtils.to_unicode_dict(mpac_data)
 
     return mpac_data
 

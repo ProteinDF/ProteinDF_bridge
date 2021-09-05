@@ -23,7 +23,7 @@ from .atom import Atom
 from .error import BrInputError, BrValueError
 from .functions import load_msgpack, save_msgpack
 from .position import Position
-from .utils import Utils
+
 import re
 import pprint
 

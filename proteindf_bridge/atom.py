@@ -21,7 +21,7 @@
 
 from .position import Position
 from .periodictable import PeriodicTable
-from .utils import Utils
+from .str_processing import StrUtils
 from .error import BrInputError
 import copy
 import math
@@ -66,9 +66,9 @@ class Atom(object):
                     self._xyz = Position(rhs._xyz)
                     self._force = Position(rhs._force)
                     self.name = rhs._name
-                    self._label = Utils.to_unicode(rhs.label)
+                    self._label = StrUtils.to_unicode(rhs.label)
                     self._charge = float(rhs._charge)
-                    self._path = Utils.to_unicode(rhs._path)
+                    self._path = StrUtils.to_unicode(rhs._path)
                 elif (isinstance(rhs, dict) == True):
                     self.set_by_raw_data(rhs)
                 elif isinstance(rhs, str):
@@ -172,7 +172,7 @@ class Atom(object):
 
     def _set_name(self, name):
         name = str(name)
-        self._name = Utils.to_unicode(name)
+        self._name = StrUtils.to_unicode(name)
 
     name = property(_get_name, _set_name)
 
@@ -181,7 +181,7 @@ class Atom(object):
         return self._label
 
     def _set_label(self, label):
-        self._label = Utils.to_unicode(label)
+        self._label = StrUtils.to_unicode(label)
 
     label = property(_get_label, _set_label)
 
@@ -209,7 +209,7 @@ class Atom(object):
         return self._path
 
     def _set_path(self, path):
-        self._path = Utils.to_unicode(path)
+        self._path = StrUtils.to_unicode(path)
 
     path = property(_get_path, _set_path)
 
