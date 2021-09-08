@@ -20,6 +20,7 @@
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
 import copy
+import csv
 from collections import OrderedDict
 
 from .error import BrInputError
@@ -230,11 +231,6 @@ class AtomGroup(object):
         return kinds
 
     # --------------------------------------------------------------------------
-    def get_num_of_groups(self):
-        '''Return the number of groups
-        '''
-        return len(self._groups)
-
     def groups(self):
         """
         原子団のリストを返す
@@ -320,11 +316,6 @@ class AtomGroup(object):
         return [k for k, v in self.groups()]
 
     # --------------------------------------------------------------------------
-    def get_num_of_atoms(self):
-        '''Return the number of atoms
-        '''
-        return len(self._atoms)
-
     def atoms(self):
         """
         原子のリストを返す
@@ -1058,6 +1049,29 @@ class AtomGroup(object):
         # answer += '{indent}>\n'.format(indent=indent)
 
         return answer
+
+    def save_csv(self, path):
+        rows = self._get_csv_list()
+        print(len(rows))
+        with open(path, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            for row in rows:
+                # print(row)
+                writer.writerow(row)
+
+    def _get_csv_list(self, parents=[]):
+        rows = list()
+        for key, subgrp in self.groups():
+            new_parents = copy.copy(parents)
+            new_parents.extend([key, subgrp.name])
+            rows.extend(subgrp._get_csv_list(new_parents))
+
+        for key, atom in self.atoms():
+            row = copy.copy(parents)
+            row.extend([atom.symbol, atom.xyz.x, atom.xyz.y, atom.xyz.z, atom.charge])
+            rows.append(row)
+
+        return rows
 
     def __getitem__(self, key):
         """

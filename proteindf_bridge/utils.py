@@ -75,7 +75,7 @@ class Utils(object):
                     if req_res_id == res_id:
                         return counter
             else:
-                num_of_groups = chain.get_num_of_groups()
+                num_of_groups = chain.get_number_of_groups()
                 counter += num_of_groups
 
         return 0

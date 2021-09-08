@@ -45,7 +45,7 @@ def main():
                         help='select model')
     parser.add_argument('-l', '--alt_loc',
                         nargs=1,
-                        default='A',
+                        default=['A'],
                         help='select alc_loc')
     parser.add_argument('-d', '--debug',
                         action='store_true',

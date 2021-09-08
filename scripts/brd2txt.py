@@ -19,7 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
 import argparse
 
 import proteindf_bridge as bridge
@@ -31,6 +30,10 @@ def main():
     parser.add_argument('FILE',
                         nargs=1,
                         help='bridge file')
+    parser.add_argument('-c', '--csv',
+                        nargs=1,
+                        default=[""],
+                        help='output as CSV file')
     parser.add_argument("-v", "--verbose",
                         action="store_true",
                         default=False)
@@ -38,6 +41,7 @@ def main():
 
     # setting
     mpac_file_path = args.FILE[0]
+    csv_file_path = args.csv[0]
     verbose = args.verbose
 
     # reading
@@ -49,7 +53,10 @@ def main():
     atom_group = bridge.AtomGroup(mpac_data)
 
     # output
-    print(atom_group)
+    if (len(csv_file_path) > 0):
+        atom_group.save_csv(csv_file_path)
+    else:
+        print(atom_group)
 
 
 if __name__ == '__main__':
