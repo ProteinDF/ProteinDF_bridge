@@ -21,21 +21,16 @@
 
 import sys
 import argparse
-try:
-    import msgpack
-except:
-    import msgpack_pure as msgpack
 
 import proteindf_bridge as bridge
+
 
 def load_brd(path, verbose=False):
     if verbose:
         print("reading: %s\n" % (path))
-    mpac_file = open(path, "rb")
-    mpac_data =msgpack.unpackb(mpac_file.read())
-    mpac_file.close()
-    atomgroup = bridge.AtomGroup(mpac_data)
+    atomgroup = bridge.load_atomgroup(path)
     return atomgroup
+
 
 def main():
     # parse args
@@ -48,11 +43,11 @@ def main():
                         help='bridge file')
     parser.add_argument('-q', '--quaternion',
                         action="store_true",
-                        default = False,
+                        default=False,
                         help='use quaternion')
     parser.add_argument("-v", "--verbose",
                         action="store_true",
-                        default = False)
+                        default=False)
     args = parser.parse_args()
 
     # setting
@@ -73,12 +68,13 @@ def main():
     print('rmsd: {}'.format(rmsd))
 
     #print('>>>> ag1')
-    #print(atomgroup1)
+    # print(atomgroup1)
     #print('>>>> ag2')
-    #print(atomgroup2)
+    # print(atomgroup2)
     ag = sp.superimpose(atomgroup1)
     #print('>>>> after')
     print(ag)
+
 
 if __name__ == '__main__':
     main()

@@ -21,16 +21,14 @@
 
 import sys
 import argparse
-try:
-    import msgpack
-except:
-    import msgpack_pure as msgpack
 
 import proteindf_bridge as bridge
 
+
 def main():
     # parse args
-    parser = argparse.ArgumentParser(description='transform XYZ file to bridge file')
+    parser = argparse.ArgumentParser(
+        description='transform XYZ file to bridge file')
     parser.add_argument('XYZ_PATH',
                         nargs=1,
                         help='xyz file path')
@@ -39,7 +37,7 @@ def main():
                         help='bridge file path')
     parser.add_argument("-v", "--verbose",
                         action="store_true",
-                        default = False)
+                        default=False)
     args = parser.parse_args()
 
     # setting
@@ -54,10 +52,8 @@ def main():
     xyz.load(xyz_file_path)
     atomgroup = xyz.get_atom_group()
 
-    brd_file = open(brd_file_path, "wb");
-    mpac = msgpack.packb(atomgroup.get_raw_data())
-    brd_file.write(mpac)
-    brd_file.close()
+    bridge.save_msgpack(atomgroup.get_raw_data(), brd_file_path)
+
 
 if __name__ == '__main__':
     main()

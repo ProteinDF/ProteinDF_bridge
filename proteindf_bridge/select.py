@@ -21,18 +21,19 @@
 
 import re
 
+from .atom import Atom
+from .position import Position
+from .str_processing import StrUtils
+
 import logging
 logger = logging.getLogger(__name__)
-
-from .utils import Utils
-from .position import Position
-from .atom import Atom
 
 
 class Select(object):
     """
     Selecterインターフェースクラス
     """
+
     def is_match(self, obj):
         """
         条件に適合した場合、Trueを返す
@@ -46,6 +47,7 @@ class Select_Symbol(Select):
     """
     原子記号で選択する
     """
+
     def __init__(self, atom_symbol):
         self._atom_symbol = atom_symbol.upper()
 
@@ -57,9 +59,10 @@ class Select_Symbol(Select):
                 answer = True
         return answer
 
+
 class Select_Name(Select):
     def __init__(self, query):
-        self.query = Utils.to_unicode(query)
+        self.query = StrUtils.to_unicode(query)
 
     def is_match(self, obj):
         answer = False
@@ -68,11 +71,13 @@ class Select_Name(Select):
             answer = True
         return answer
 
+
 class Select_Path(Select):
     """
     """
-    def __init__(self, query, use_wildcard = True):
-        self._query = Utils.to_unicode(query)
+
+    def __init__(self, query, use_wildcard=True):
+        self._query = StrUtils.to_unicode(query)
         self._is_used_wildcard = use_wildcard
 
         if use_wildcard:
@@ -103,8 +108,9 @@ class Select_Path(Select):
 class Select_Path_simple(Select):
     """
     """
+
     def __init__(self, query):
-        self._query = Utils.to_unicode(query)
+        self._query = StrUtils.to_unicode(query)
 
     def is_match(self, obj):
         answer = False
@@ -117,8 +123,9 @@ class Select_Path_simple(Select):
 class Select_Path_wildcard(Select):
     """selector using path with wildcard
     """
+
     def __init__(self, query):
-        self._query = Utils.to_unicode(query)
+        self._query = StrUtils.to_unicode(query)
         self._regex_selecter = self._prepare(query)
 
     def _prepare(self, query):
@@ -136,8 +143,9 @@ class Select_PathRegex(Select):
     """
     pathに対する正規表現で選択する
     """
+
     def __init__(self, query):
-        self._query = Utils.to_unicode(query)
+        self._query = StrUtils.to_unicode(query)
         self._regex = re.compile(query)
 
     def is_match(self, obj):
@@ -148,10 +156,12 @@ class Select_PathRegex(Select):
             answer = True
         return answer
 
+
 class Select_Range(Select):
     '''
     半径で選択する
     '''
+
     def __init__(self, pos, d):
         self._pos = Position(pos)
         d = float(d)
@@ -167,9 +177,11 @@ class Select_Range(Select):
                 answer = True
         return answer
 
+
 class Select_Atom(Select):
     """
     """
+
     def __init__(self, atom):
         from .atom import Atom
         self._atom = Atom(atom)
@@ -178,14 +190,15 @@ class Select_Atom(Select):
         answer = False
         if ((isinstance(obj, Atom)) and
             (self._atom.atomic_number == obj.atomic_number) and
-            (self._atom.xyz == obj.xyz)):
-                answer = True
+                (self._atom.xyz == obj.xyz)):
+            answer = True
         return answer
 
 
 class Select_AtomGroup(Select):
     """reference atomgroupと同じ原子が存在しているものを返す
     """
+
     def __init__(self, ref_atomgroup, range=1.0E-5):
         from .atomgroup import AtomGroup
         assert(isinstance(ref_atomgroup, AtomGroup))
@@ -196,9 +209,9 @@ class Select_AtomGroup(Select):
         answer = False
         if isinstance(obj, Atom):
             for ref_atom in self._ref_atoms:
-                #if ref_atom == obj:
+                # if ref_atom == obj:
                 if ((ref_atom.atomic_number == obj.atomic_number) and
-                    (ref_atom.xyz.distance_from(obj.xyz) < self._range)):
+                        (ref_atom.xyz.distance_from(obj.xyz) < self._range)):
                     answer = True
                     break
 

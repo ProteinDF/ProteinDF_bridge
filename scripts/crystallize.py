@@ -1,11 +1,11 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import sys
 import argparse
-try:
-    import msgpack
-except:
-    import msgpack_pure as msgpack
 
 import proteindf_bridge as bridge
+
 
 def main():
     # parse args
@@ -35,7 +35,7 @@ def main():
 
     parser.add_argument("-v", "--verbose",
                         action="store_true",
-                        default = False)
+                        default=False)
     args = parser.parse_args()
 
     print(args)
@@ -50,14 +50,14 @@ def main():
         print("#mols in cell: {} x {} x {}".format(num_x, num_y, num_z))
 
     # load input file
-    ag = bridge.AtomGroup()
-    with open(input_path, "rb") as f:
-        mpac_data = msgpack.unpackb(f.read())
-        ag = bridge.AtomGroup(mpac_data)
+    ag = bridge.load_atomgroup(input_path)
     # print(ag)
+
+    num_of_res = ag.get_number_of_groups()
     (pos_min, pos_max) = ag.box()
     cell_size = pos_max - pos_min
     if verbose:
+        print("residues: {}".format(num_of_res))
         print("min: {}".format(pos_min))
         print("max: {}".format(pos_max))
         print("cell size: {}".format(cell_size))
@@ -75,17 +75,18 @@ def main():
 
                 new_ag = bridge.AtomGroup(ag)
                 new_ag.shift_by(shift)
-                cell.set_group(count, new_ag)
-                count += 1
+
+                for resid, res in new_ag.groups():
+                    cell.set_group(count, res)
+                    count += 1
     # print(cell)
 
     # output
     if verbose:
         print("OUTPUT: {}".format(output_path))
-    with open(output_path, "wb") as f:
-        data = cell.get_raw_data()
-        mpac = msgpack.packb(data)
-        f.write(mpac)
+
+    data = cell.get_raw_data()
+    bridge.save_msgpack(data, output_path)
 
 
 if __name__ == '__main__':

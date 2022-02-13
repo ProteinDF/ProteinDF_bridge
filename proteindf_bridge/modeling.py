@@ -19,47 +19,42 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
+from .superposer import Superposer
+from .matrix import Matrix
+from .atomgroup import AtomGroup
+from .atom import Atom
+from .functions import load_msgpack
+from .position import Position
+from .error import BrInputError
+# from .xyz import Xyz
+
 import os
 import math
 import re
+
 import logging
 logger = logging.getLogger(__name__)
-try:
-    import msgpack
-except:
-    try:
-        import umsgpack as msgpack
-    except:
-        import msgpack_pure as msgpack
-
-from .error import BrInputError
-from .position import Position
-from .atom import Atom
-from .atomgroup import AtomGroup
-from .matrix import Matrix
-from .superposer import Superposer
 
 
 class Modeling:
-    _ACE_ALA_NME_data_path = os.path.join(
+    _ACE_ALA_NME_path_base = os.path.join(
         os.environ.get('PDF_HOME', '.'),
         'data',
-        "ACE_ALA_NME.brd")
+        "ACE_ALA_NME_{}.brd")
+    _ACE_ALA_NME_comformers = ["trans1", "trans2", "cis1", "cis2"]
 
     def __init__(self):
-        self._ACE_ALA_NME = None
+        self._ACE_ALA_NME = {}
+        for comformer in self._ACE_ALA_NME_comformers:
+            brd_path = self._ACE_ALA_NME_path_base.format(comformer)
+            # print(comformer, brd_path)
+            atomgroup = AtomGroup(load_msgpack(brd_path))
+            assert(atomgroup.get_number_of_all_atoms() > 0)
+            self._ACE_ALA_NME[comformer] = atomgroup
 
-    # -----------------------------------------------------------------
-    def _get_ACE_ALA_NME(self):
-        "ACE-ALA-NMEデータを読み込み、データを返す"
-        if self._ACE_ALA_NME == None:
-            res_file = open(self._ACE_ALA_NME_data_path, "rb")
-            res_data = msgpack.unpackb(res_file.read())
-            res_file.close()
-            self._ACE_ALA_NME = AtomGroup(res_data)
-        return self._ACE_ALA_NME
-
-    ACE_ALA_NME = property(_get_ACE_ALA_NME)
+    def _get_ACE_ALA_NME(self, comformer):
+        assert(comformer in self._ACE_ALA_NME_comformers)
+        return self._ACE_ALA_NME[comformer]
 
     # -----------------------------------------------------------------
     def get_ACE_simple(self, next_aa):
@@ -77,14 +72,14 @@ class Modeling:
 
         Cs = next_aa.pickup_atoms('C')
         if len(Cs) > 0:
-            answer.set_atom('C',  Cs[0])
+            answer.set_atom('C', Cs[0])
         else:
             raise BrInputError(next_aa,
                                'cannot found "C" atom on building ACE.')
 
         Os = next_aa.pickup_atoms('O')
         if len(Os) > 0:
-            answer.set_atom('O',  Os[0])
+            answer.set_atom('O', Os[0])
         else:
             raise BrInputError(next_aa,
                                'cannot found "O" atom on building ACE.')
@@ -108,14 +103,14 @@ class Modeling:
 
         Ns = next_aa.pickup_atoms('N')
         if len(Ns) > 0:
-            answer.set_atom('N',  Ns[0])
+            answer.set_atom('N', Ns[0])
         else:
             raise BrInputError(next_aa,
                                'cannot found "N" atom on building NME.')
 
         Hs = next_aa.pickup_atoms('H')
         if len(Hs) > 0:
-            answer.set_atom('H',  Hs[0])
+            answer.set_atom('H', Hs[0])
         else:
             # for proline
             CDs = next_aa.pickup_atoms('CD')
@@ -132,95 +127,128 @@ class Modeling:
         return answer
 
     # -----------------------------------------------------------------
-    def get_ACE(self, res, next_aa =None):
+    def get_ACE(self, res, next_aa=None):
         """
         template (ACE-ALA-NME) format:
         HH3[1-3]-CH3-C -  N-CA(HA)-C-    N-CH3-HH3[1-3]
                      ||   | |      ||    |
                      O    H CB     O     H
         """
-        AA3 = AtomGroup(self.ACE_ALA_NME)
-        (AA3_part, res_part) = self._match_residues(AA3['2'], res)
+        AAN = None
+        rmsd_min = 1000.0
+        for comformer in self._ACE_ALA_NME_comformers:
+            ref_AAN = self._get_ACE_ALA_NME(comformer)
+            (matched, rmsd) = self._match_ACE(ref_AAN, res, next_aa)
+            # print(comformer, rmsd)
+            if rmsd < rmsd_min:
+                rmsd_min = rmsd
+                AAN = matched
 
-        if next_aa != None:
-            if next_aa.has_atom('C'):
-                AA3_part.set_atom('C2', AA3['1']['C'])
-                res_part.set_atom('C2', next_aa['C'])
-            if next_aa.has_atom('O'):
-                AA3_part.set_atom('O2', AA3['1']['O'])
-                res_part.set_atom('O2', next_aa['O'])
-            if next_aa.has_atom('CA'):
-                AA3_part.set_atom('CH3', AA3['1']['CH3'])
-                res_part.set_atom('CH3', next_aa['CA'])
-
-        sp = Superposer(AA3_part, res_part)
-        rmsd = sp.rmsd
-        rotation_mat = sp.rotation_mat
-        if rmsd > 1.0:
+        if rmsd_min > 1.0:
             logger.warn("RMSD value is too large: {}".format(rmsd))
 
-        spAA3 = sp.superimpose(AA3)
-        answer = AtomGroup(spAA3['1'])
+        answer = AtomGroup(AAN['1'])
         answer.path = '/ACE'
 
         return answer
 
-    def get_NME(self, res, next_aa =None):
+    def _match_ACE(self, AAN, res, next_aa):
+        '''AAN (ACE-ALA-NME)
+        '''
+        assert(isinstance(AAN, AtomGroup))
+        assert(isinstance(res, AtomGroup))
+        (AAN_part, res_part) = self._match_residues(AAN['2'], res)
+
+        # for ACE
+        if next_aa is not None:
+            if next_aa.has_atom('N'):
+                AAN_part.set_atom('N2', AAN['3']['N'])
+                res_part.set_atom('N2', next_aa['N'])
+            if next_aa.has_atom('H'):
+                AAN_part.set_atom('NH2', AAN['3']['H'])
+                res_part.set_atom('NH2', next_aa['H'])
+            if next_aa.has_atom('CA'):
+                AAN_part.set_atom('CH3', AAN['3']['CH3'])
+                res_part.set_atom('CH3', next_aa['CA'])
+
+        sp = Superposer(AAN_part, res_part)
+        rmsd = sp.rmsd
+
+        matched_AAN = sp.superimpose(AAN)
+
+        return (matched_AAN, rmsd)
+
+    def get_NME(self, res, next_aa=None):
         """
         template (ACE-ALA-NME) format:
         HH3[1-3]-CH3-C -  N-CA(HA)-C-    N-CH3-HH3[1-3]
                      ||   | |      ||    |
                      O    H CB     O     H
         """
-        AA3 = AtomGroup(self.ACE_ALA_NME)
+        AAN = None
+        rmsd_min = 1000.0
+        for comformer in self._ACE_ALA_NME_comformers:
+            ref_AAN = self._get_ACE_ALA_NME(comformer)
+            (matched, rmsd) = self._match_NME(ref_AAN, res, next_aa)
+            # print(comformer, rmsd)
+            if rmsd < rmsd_min:
+                rmsd_min = rmsd
+                AAN = matched
 
-        AA3_part = AtomGroup()
-        res_part = AtomGroup()
-        if next_aa != None:
-            if next_aa.has_atom('N'):
-                AA3_part.set_atom('N2', AA3['3']['N'])
-                res_part.set_atom('N2', next_aa['N'])
-            if next_aa.has_atom('H'):
-                AA3_part.set_atom('NH2', AA3['3']['H'])
-                res_part.set_atom('NH2', next_aa['H'])
-            if next_aa.has_atom('CA'):
-                AA3_part.set_atom('CH3', AA3['3']['CH3'])
-                res_part.set_atom('CH3', next_aa['CA'])
-
-        (AA3_part_tmp, res_part_tmp) = self._match_residues(AA3['2'], res,
-                                                            4 - AA3_part.get_number_of_atoms() +1)
-        AA3_part |= AA3_part_tmp
-        res_part |= res_part_tmp
-
-        sp = Superposer(AA3_part, res_part)
-        rmsd = sp.rmsd
-        rotation_mat = sp.rotation_mat
-        if rmsd > 1.0:
+        if rmsd_min > 1.0:
             logger.warn("RMSD value is too large: {}".format(rmsd))
 
-        spAA3 = sp.superimpose(AA3)
-        answer = AtomGroup(spAA3['3'])
+        answer = AtomGroup(AAN['3'])
         answer.path = '/NME'
 
         return answer
 
-    def _match_residues(self, res1, res2, max_number_of_atoms =-1):
+    def _match_NME(self, AAN, res, next_aa):
+        '''AAN (ACE-ALA-NME)
+        '''
+        assert(isinstance(AAN, AtomGroup))
+        assert(isinstance(res, AtomGroup))
+        (AAN_part, res_part) = self._match_residues(AAN['2'], res)
+
+        # for NME
+        if next_aa is not None:
+            if next_aa.has_atom('C'):
+                AAN_part.set_atom('C2', AAN['1']['C'])
+                res_part.set_atom('C2', next_aa['C'])
+            if next_aa.has_atom('O'):
+                AAN_part.set_atom('O2', AAN['1']['O'])
+                res_part.set_atom('O2', next_aa['O'])
+            if next_aa.has_atom('CA'):
+                AAN_part.set_atom('CH3', AAN['1']['CH3'])
+                res_part.set_atom('CH3', next_aa['CA'])
+
+        sp = Superposer(AAN_part, res_part)
+        rmsd = sp.rmsd
+
+        matched_AAN = sp.superimpose(AAN)
+
+        return (matched_AAN, rmsd)
+
+    def _match_residues(self, res1, res2, max_number_of_atoms=-1):
         """
         2つのアミノ酸残基のN, H, CA, HA, C, Oの原子を突き合わせる。
         アミノ酸残基がプロリンだった場合は、CDの炭素をHに命名する。
         GLYはHA1, HA2とあるので突き合せない。
         """
-        atom_names = ['CA', 'N', 'O', 'C', 'HA']
+        atom_names = ['CA', 'O', 'C', 'N', 'CB', 'HA']
         if max_number_of_atoms == -1:
             max_number_of_atoms = len(atom_names)
         ans_res1 = AtomGroup()
         ans_res2 = AtomGroup()
 
         for atom_name in atom_names:
-            if ((res1.has_atom(atom_name) == True) and
-                (res2.has_atom(atom_name) == True)):
-                ans_res1.set_atom(atom_name, res1[atom_name])
-                ans_res2.set_atom(atom_name, res2[atom_name])
+            pickup_atoms1 = res1.pickup_atoms(atom_name)
+            if len(pickup_atoms1) > 0:
+                pickup_atoms2 = res2.pickup_atoms(atom_name)
+                if len(pickup_atoms2) > 0:
+                    ans_res1.set_atom(atom_name, pickup_atoms1[0])
+                    ans_res2.set_atom(atom_name, pickup_atoms2[0])
+
             if ans_res1.get_number_of_atoms() >= max_number_of_atoms:
                 break
 
@@ -237,7 +265,7 @@ class Modeling:
                 res2_H = res2['H']
             elif res2.has_atom('CD'):
                 res2_H = res2['CD']
-            if ((res1_H != None) and (res2_H != None)):
+            if ((res1_H is not None) and (res2_H is not None)):
                 ans_res1.set_atom('H', res1_H)
                 ans_res2.set_atom('H', res2_H)
 
@@ -254,22 +282,22 @@ class Modeling:
         assert(isinstance(C2, Atom))
 
         ethane = AtomGroup()
-        ethane.set_atom('C1', Atom(symbol = 'C', name = 'C1',
-                                             position = Position( 0.00000, 0.00000, 0.00000)))
-        ethane.set_atom('H11', Atom(symbol = 'H', name = 'H11',
-                                              position = Position(-0.85617, -0.58901, -0.35051)))
-        ethane.set_atom('H12', Atom(symbol = 'H', name = 'H12',
-                                              position = Position(-0.08202,  1.03597, -0.35051)))
-        ethane.set_atom('H13', Atom(symbol = 'H', name = 'H13',
-                                              position = Position( 0.93818, -0.44696, -0.35051)))
-        ethane.set_atom('C2', Atom(symbol = 'C', name = 'C2',
-                                             position = Position( 0.00000, 0.00000, 1.47685)))
-        ethane.set_atom('H21', Atom(symbol = 'H', name = 'H21',
-                                              position = Position(-0.93818,  0.44696, 1.82736)))
-        ethane.set_atom('H22', Atom(symbol = 'H', name = 'H22',
-                                              position = Position( 0.85617,  0.58901, 1.82736)))
-        ethane.set_atom('H23', Atom(symbol = 'H', name = 'H23',
-                                              position = Position( 0.08202, -1.03597, 1.82736)))
+        ethane.set_atom('C1', Atom(symbol='C', name='C1',
+                                   position=Position(0.00000, 0.00000, 0.00000)))
+        ethane.set_atom('H11', Atom(symbol='H', name='H11',
+                                    position=Position(-0.85617, -0.58901, -0.35051)))
+        ethane.set_atom('H12', Atom(symbol='H', name='H12',
+                                    position=Position(-0.08202, 1.03597, -0.35051)))
+        ethane.set_atom('H13', Atom(symbol='H', name='H13',
+                                    position=Position(0.93818, -0.44696, -0.35051)))
+        ethane.set_atom('C2', Atom(symbol='C', name='C2',
+                                   position=Position(0.00000, 0.00000, 1.47685)))
+        ethane.set_atom('H21', Atom(symbol='H', name='H21',
+                                    position=Position(-0.93818, 0.44696, 1.82736)))
+        ethane.set_atom('H22', Atom(symbol='H', name='H22',
+                                    position=Position(0.85617, 0.58901, 1.82736)))
+        ethane.set_atom('H23', Atom(symbol='H', name='H23',
+                                    position=Position(0.08202, -1.03597, 1.82736)))
 
         inC21 = C2.xyz - C1.xyz
         refC21 = ethane['C2'].xyz - ethane['C1'].xyz
@@ -289,65 +317,65 @@ class Modeling:
         return answer
 
     # -----------------------------------------------------------------
-    def get_NH3(self, angle = 0.5 * math.pi, length = 1.0):
-        pi23 = math.pi * 2.0 / 3.0 # (pi * 2/3)
+    def get_NH3(self, angle=0.5 * math.pi, length=1.0):
+        pi23 = math.pi * 2.0 / 3.0  # (pi * 2/3)
         sin23 = math.sin(pi23)
         cos23 = math.cos(pi23)
-        pi43 = math.pi * 4.0 / 3.0 # (pi * 4/3)
-        sin43 = math.sin(pi43)
-        cos43 = math.cos(pi43)
+        # pi43 = math.pi * 4.0 / 3.0  # (pi * 4/3)
+        # sin43 = math.sin(pi43)
+        # cos43 = math.cos(pi43)
         sin_input = math.sin(angle)
         cos_input = math.cos(angle)
 
         # z軸まわりに120度回転
-        #z1_rot = Matrix(3, 3)
-        #z1_rot.set(0, 0,  cos23)
-        #z1_rot.set(0, 1, -sin23)
-        #z1_rot.set(1, 0,  sin23)
-        #z1_rot.set(1, 1,  cos23)
-        #z1_rot.set(2, 2,  1.0)
+        # z1_rot = Matrix(3, 3)
+        # z1_rot.set(0, 0,  cos23)
+        # z1_rot.set(0, 1, -sin23)
+        # z1_rot.set(1, 0,  sin23)
+        # z1_rot.set(1, 1,  cos23)
+        # z1_rot.set(2, 2,  1.0)
         # z軸まわりに240度回転
-        #z2_rot = Matrix(3, 3)
-        #z2_rot.set(0, 0,  cos43)
-        #z2_rot.set(0, 1, -sin43)
-        #z2_rot.set(1, 0,  sin43)
-        #z2_rot.set(1, 1,  cos43)
-        #z2_rot.set(2, 2,  1.0)
+        # z2_rot = Matrix(3, 3)
+        # z2_rot.set(0, 0,  cos43)
+        # z2_rot.set(0, 1, -sin43)
+        # z2_rot.set(1, 0,  sin43)
+        # z2_rot.set(1, 1,  cos43)
+        # z2_rot.set(2, 2,  1.0)
         # y軸まわりに回転
-        #y_rot = Matrix(3, 3)
-        #y_rot.set(0, 0,  cos_input)
-        #y_rot.set(0, 2, -sin_input)
-        #y_rot.set(2, 0,  sin_input)
-        #y_rot.set(2, 2,  cos_input)
-        #y_rot.set(1, 1,  1.0)
+        # y_rot = Matrix(3, 3)
+        # y_rot.set(0, 0,  cos_input)
+        # y_rot.set(0, 2, -sin_input)
+        # y_rot.set(2, 0,  sin_input)
+        # y_rot.set(2, 2,  cos_input)
+        # y_rot.set(1, 1,  1.0)
 
-        #pos_H1 = Position(1.0, 0.0, 0.0)
-        #pos_H1.rotate(y_rot)
-        #pos_H1 *= length
-        #pos_H2 = Position(1.0, 0.0, 0.0)
-        #pos_H2.rotate(y_rot)
-        #pos_H2.rotate(z1_rot)
-        #pos_H2 *= length
-        #pos_H3 = Position(1.0, 0.0, 0.0)
-        #pos_H3.rotate(y_rot)
-        #pos_H3.rotate(z2_rot)
-        #pos_H3 *= length
+        # pos_H1 = Position(1.0, 0.0, 0.0)
+        # pos_H1.rotate(y_rot)
+        # pos_H1 *= length
+        # pos_H2 = Position(1.0, 0.0, 0.0)
+        # pos_H2.rotate(y_rot)
+        # pos_H2.rotate(z1_rot)
+        # pos_H2 *= length
+        # pos_H3 = Position(1.0, 0.0, 0.0)
+        # pos_H3.rotate(y_rot)
+        # pos_H3.rotate(z2_rot)
+        # pos_H3 *= length
 
         # X-Z平面上、Y軸に対してangle度開く
         xz_rot = Matrix(3, 3)
-        xz_rot.set(0, 0,  cos_input)
+        xz_rot.set(0, 0, cos_input)
         xz_rot.set(0, 2, -sin_input)
-        xz_rot.set(2, 0,  sin_input)
-        xz_rot.set(2, 2,  cos_input)
-        xz_rot.set(1, 1,  1.0)
+        xz_rot.set(2, 0, sin_input)
+        xz_rot.set(2, 2, cos_input)
+        xz_rot.set(1, 1, 1.0)
 
         # X-Y平面上、Z軸に対して120度開く
         xy_rot = Matrix(3, 3)
-        xy_rot.set(0, 0,  cos23)
+        xy_rot.set(0, 0, cos23)
         xy_rot.set(0, 1, -sin23)
-        xy_rot.set(1, 0,  sin23)
-        xy_rot.set(1, 1,  cos23)
-        xy_rot.set(2, 2,  1.0)
+        xy_rot.set(1, 0, sin23)
+        xy_rot.set(1, 1, cos23)
+        xy_rot.set(2, 2, 1.0)
 
         pos_H1 = Position(0.0, 0.0, 1.0)
         pos_H1.rotate(xz_rot)
@@ -366,28 +394,28 @@ class Modeling:
         pos_H3 *= length
 
         NH3 = AtomGroup()
-        N = Atom(symbol = 'N',
-                        position = Position(0.0, 0.0, 0.0))
-        H1 = Atom(symbol = 'H',
-                         position = pos_H1)
-        H2 = Atom(symbol = 'H',
-                         position = pos_H2)
-        H3 = Atom(symbol = 'H',
-                         position = pos_H3)
-        #X1 = Atom(symbol = 'X',
+        N = Atom(symbol='N',
+                 position=Position(0.0, 0.0, 0.0))
+        H1 = Atom(symbol='H',
+                  position=pos_H1)
+        H2 = Atom(symbol='H',
+                  position=pos_H2)
+        H3 = Atom(symbol='H',
+                  position=pos_H3)
+        # X1 = Atom(symbol = 'X',
         #                position = Position(1.0, 0.0, 0.0))
-        #X2 = Atom(symbol = 'X',
+        # X2 = Atom(symbol = 'X',
         #                position = Position(0.0, 1.0, 0.0))
-        #X3 = Atom(symbol = 'X',
+        # X3 = Atom(symbol = 'X',
         #                position = Position(0.0, 0.0, 1.0))
 
         NH3.set_atom('N', N)
         NH3.set_atom('H1', H1)
         NH3.set_atom('H2', H2)
         NH3.set_atom('H3', H3)
-        #NH3.set_atom('X1', X1)
-        #NH3.set_atom('X2', X2)
-        #NH3.set_atom('X3', X3)
+        # NH3.set_atom('X1', X1)
+        # NH3.set_atom('X2', X2)
+        # NH3.set_atom('X3', X3)
 
         return NH3
 
@@ -418,7 +446,7 @@ class Modeling:
         b.norm()
 
         cos_theta = a.dot(b)
-        sin_theta = math.sqrt(1 - cos_theta*cos_theta)
+        sin_theta = math.sqrt(1 - cos_theta * cos_theta)
 
         n = a.cross(b)
         n.norm()
@@ -428,24 +456,25 @@ class Modeling:
         nz = n.z
 
         rot = Matrix(3, 3)
-        rot.set(0, 0, nx*nx * (1.0 - cos_theta) +      cos_theta)
-        rot.set(0, 1, nx*ny * (1.0 - cos_theta) + nz * sin_theta)
-        rot.set(0, 2, nx*nz * (1.0 - cos_theta) - ny * sin_theta)
-        rot.set(1, 0, nx*ny * (1.0 - cos_theta) - nz * sin_theta)
-        rot.set(1, 1, ny*ny * (1.0 - cos_theta) +      cos_theta)
-        rot.set(1, 2, nx*nz * (1.0 - cos_theta) + nx * sin_theta)
-        rot.set(2, 0, nx*nz * (1.0 - cos_theta) + ny * sin_theta)
-        rot.set(2, 1, ny*nz * (1.0 - cos_theta) - nx * sin_theta)
-        rot.set(2, 2, nz*nz * (1.0 - cos_theta) +      cos_theta)
+        rot.set(0, 0, nx * nx * (1.0 - cos_theta) + cos_theta)
+        rot.set(0, 1, nx * ny * (1.0 - cos_theta) + nz * sin_theta)
+        rot.set(0, 2, nx * nz * (1.0 - cos_theta) - ny * sin_theta)
+        rot.set(1, 0, nx * ny * (1.0 - cos_theta) - nz * sin_theta)
+        rot.set(1, 1, ny * ny * (1.0 - cos_theta) + cos_theta)
+        rot.set(1, 2, nx * nz * (1.0 - cos_theta) + nx * sin_theta)
+        rot.set(2, 0, nx * nz * (1.0 - cos_theta) + ny * sin_theta)
+        rot.set(2, 1, ny * nz * (1.0 - cos_theta) - nx * sin_theta)
+        rot.set(2, 2, nz * nz * (1.0 - cos_theta) + cos_theta)
 
         return rot
     # -----------------------------------------------------------------
+
     def get_last_index(self, res):
         answer = 0
         re_obj = re.compile('([0-9]+)')
         for key, atom in res.atoms():
             m = re_obj.search(key)
-            if m != None:
+            if m is not None:
                 num = m.group(0)
                 num = int(num)
                 answer = max(num, answer)
@@ -478,9 +507,9 @@ class Modeling:
         pos = self._get_neutralize_pos_NH3_type(ag)
 
         answer = AtomGroup()
-        Cl = Atom(symbol = 'Cl',
-                            name = 'Cl',
-                            position = pos)
+        Cl = Atom(symbol='Cl',
+                  name='Cl',
+                  position=pos)
         answer.set_atom('Cl', Cl)
         return answer
 
@@ -497,12 +526,11 @@ class Modeling:
         pos = self._get_neutralize_pos_NH2_type(ag)
 
         answer = AtomGroup()
-        Cl = Atom(symbol = 'Cl',
-                            name = 'Cl',
-                            position = pos)
+        Cl = Atom(symbol='Cl',
+                  name='Cl',
+                  position=pos)
         answer.set_atom('Cl', Cl)
         return answer
-
 
     def neutralize_Cterm(self, res):
         """
@@ -515,9 +543,9 @@ class Modeling:
         pos = self._get_neutralize_pos_COO_type(ag)
 
         answer = AtomGroup()
-        Na = Atom(symbol = 'Na',
-                            name = 'Na',
-                            position = pos)
+        Na = Atom(symbol='Na',
+                  name='Na',
+                  position=pos)
         answer.set_atom('Na', Na)
         return answer
 
@@ -530,11 +558,11 @@ class Modeling:
         pos = self._get_neutralize_pos_COO_type(ag)
 
         answer = AtomGroup()
-        Na = Atom(symbol = 'Na',
-                            name = 'Na',
-                            position = pos)
+        Na = Atom(symbol='Na',
+                  name='Na',
+                  position=pos)
         key = self.get_last_index(res)
-        answer.set_atom('{}_Na'.format(key+1), Na)
+        answer.set_atom('{}_Na'.format(key + 1), Na)
         return answer
 
     def neutralize_ASP(self, res):
@@ -545,11 +573,11 @@ class Modeling:
         pos = self._get_neutralize_pos_COO_type(ag)
 
         answer = AtomGroup()
-        Na = Atom(symbol = 'Na',
-                            name = 'Na',
-                            position = pos)
+        Na = Atom(symbol='Na',
+                  name='Na',
+                  position=pos)
         key = self.get_last_index(res)
-        answer.set_atom('{}_Na'.format(key+1), Na)
+        answer.set_atom('{}_Na'.format(key + 1), Na)
         return answer
 
     def neutralize_LYS(self, res):
@@ -561,11 +589,11 @@ class Modeling:
         pos = self._get_neutralize_pos_NH3_type(ag)
 
         answer = AtomGroup()
-        Cl = Atom(symbol = 'Cl',
-                            name = 'Cl',
-                            position = pos)
+        Cl = Atom(symbol='Cl',
+                  name='Cl',
+                  position=pos)
         key = self.get_last_index(res)
-        answer.set_atom('{}_Cl'.format(key+1), Cl)
+        answer.set_atom('{}_Cl'.format(key + 1), Cl)
         return answer
 
     def neutralize_ARG(self, res, case=0):
@@ -582,8 +610,8 @@ class Modeling:
             NH2 = res['NH2']
             CZ = res['CZ']
             M = Position(0.5 * (NH1.xyz.x + NH2.xyz.x),
-                                   0.5 * (NH1.xyz.y + NH2.xyz.y),
-                                   0.5 * (NH1.xyz.z + NH2.xyz.z))
+                         0.5 * (NH1.xyz.y + NH2.xyz.y),
+                         0.5 * (NH1.xyz.z + NH2.xyz.z))
             vCM = M - CZ.xyz
             vCM.norm()
             pos = CZ.xyz + length * vCM
@@ -593,8 +621,8 @@ class Modeling:
             HH12 = res['HH12']
             N = res['NH1']
             M = Position(0.5 * (HH11.xyz.x + HH12.xyz.x),
-                                   0.5 * (HH11.xyz.y + HH12.xyz.y),
-                                   0.5 * (HH11.xyz.z + HH12.xyz.z))
+                         0.5 * (HH11.xyz.y + HH12.xyz.y),
+                         0.5 * (HH11.xyz.z + HH12.xyz.z))
             vNM = M - N.xyz
             vNM.norm()
             pos = N.xyz + length * vNM
@@ -604,8 +632,8 @@ class Modeling:
             HH22 = res['HH22']
             N = res['NH2']
             M = Position(0.5 * (HH21.xyz.x + HH22.xyz.x),
-                                   0.5 * (HH21.xyz.y + HH22.xyz.y),
-                                   0.5 * (HH21.xyz.z + HH22.xyz.z))
+                         0.5 * (HH21.xyz.y + HH22.xyz.y),
+                         0.5 * (HH21.xyz.z + HH22.xyz.z))
             vNM = M - N.xyz
             vNM.norm()
             pos = N.xyz + length * vNM
@@ -613,11 +641,11 @@ class Modeling:
             pass
 
         answer = AtomGroup()
-        Cl = Atom(symbol = 'Cl',
-                            name = 'Cl',
-                            position = pos)
+        Cl = Atom(symbol='Cl',
+                  name='Cl',
+                  position=pos)
         key = self.get_last_index(res)
-        answer.set_atom('{}_Cl'.format(key+1), Cl)
+        answer.set_atom('{}_Cl'.format(key + 1), Cl)
         return answer
 
     # ------------------------------------------------------------------
@@ -645,21 +673,21 @@ class Modeling:
         else:
             raise
 
-        Na1 = Atom(symbol = 'Na',
-                             name = 'Na',
-                             position = self._get_neutralize_pos_POO_type(POO1))
+        Na1 = Atom(symbol='Na',
+                   name='Na',
+                   position=self._get_neutralize_pos_POO_type(POO1))
 
         POO2 = AtomGroup()
         POO2.set_atom('P', ag['PA'])
-        POO2.set_atom('O1', ag['O1A']) # amber format: OA1, pdb: O1A
-        POO2.set_atom('O2', ag['O2A']) # amber format: OA2, pdb: O2A
-        Na2 = Atom(symbol = 'Na',
-                             name = 'Na',
-                             position = self._get_neutralize_pos_POO_type(POO2))
+        POO2.set_atom('O1', ag['O1A'])  # amber format: OA1, pdb: O1A
+        POO2.set_atom('O2', ag['O2A'])  # amber format: OA2, pdb: O2A
+        Na2 = Atom(symbol='Na',
+                   name='Na',
+                   position=self._get_neutralize_pos_POO_type(POO2))
 
         key = self.get_last_index(ag)
-        answer.set_atom('{}_Na1'.format(key+1), Na1)
-        answer.set_atom('{}_Na2'.format(key+1), Na2)
+        answer.set_atom('{}_Na1'.format(key + 1), Na1)
+        answer.set_atom('{}_Na2'.format(key + 1), Na2)
         return answer
 
     # ------------------------------------------------------------------
@@ -668,7 +696,7 @@ class Modeling:
         H1 = ag['H1']
         H2 = ag['H2']
         H3 = ag['H3']
-        N  = ag['N']
+        N = ag['N']
 
         # 重心を計算
         M = Position((H1.xyz.x + H2.xyz.x + H3.xyz.x) / 3.0,
@@ -679,12 +707,11 @@ class Modeling:
 
         return N.xyz + length * vNM
 
-
     def _get_neutralize_pos_NH2_type(self, ag):
         length = 3.187
         H1 = ag['H1']
         H2 = ag['H2']
-        N  = ag['N']
+        N = ag['N']
 
         vNH1 = H1.xyz - N.xyz
         vNH2 = H2.xyz - N.xyz
@@ -695,17 +722,16 @@ class Modeling:
         answer = N.xyz + length * vM
         return answer
 
-
     def _get_neutralize_pos_COO_type(self, ag):
         length = 2.521
         O1 = ag['O1']
         O2 = ag['O2']
-        C  = ag['C']
+        C = ag['C']
 
         # 中点を計算
         M = Position(0.5 * (O1.xyz.x + O2.xyz.x),
-                               0.5 * (O1.xyz.y + O2.xyz.y),
-                               0.5 * (O1.xyz.z + O2.xyz.z))
+                     0.5 * (O1.xyz.y + O2.xyz.y),
+                     0.5 * (O1.xyz.z + O2.xyz.z))
         vCM = M - C.xyz
         vCM.norm()
 
@@ -716,11 +742,11 @@ class Modeling:
         length = 2.748
         O1 = ag['O1']
         O2 = ag['O2']
-        P  = ag['P']
+        P = ag['P']
 
         M = Position(0.5 * (O1.xyz.x + O2.xyz.x),
-                               0.5 * (O1.xyz.y + O2.xyz.y),
-                               0.5 * (O1.xyz.z + O2.xyz.z))
+                     0.5 * (O1.xyz.y + O2.xyz.y),
+                     0.5 * (O1.xyz.z + O2.xyz.z))
 
         vPM = M - P.xyz
         vPM.norm()

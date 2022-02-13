@@ -18,18 +18,18 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
+from .atomgroup import AtomGroup
+from .atom import Atom
+from .error import BrInputError, BrValueError
+from .functions import load_msgpack, save_msgpack
+from .position import Position
+
 import re
 import pprint
-import msgpack
 
 import logging
 logger = logging.getLogger(__name__)
 
-from .error import BrInputError, BrValueError
-from .utils import Utils
-from .position import Position
-from .atom import Atom
-from .atomgroup import AtomGroup
 
 class SimpleMmcif(object):
     """
@@ -39,12 +39,11 @@ class SimpleMmcif(object):
     _re_loop_block = re.compile("^\s*loop_\s*$")
     _re_loop_header = re.compile("^(_\S+)\s*$")
 
-    def __init__(self, file_path = None):
+    def __init__(self, file_path=None):
         self._data = {}
 
         if file_path:
             self.load(file_path)
-
 
     def load(self, file_path):
         with open(file_path) as file_obj:
@@ -59,10 +58,9 @@ class SimpleMmcif(object):
                     # print("data: {}".format(name))
                     self._data[name] = self._load_data_block(file_obj)
 
-
     def _get_line(self, file_obj):
         line = ""
-        start_semicolon = False # flag of start ";" block
+        start_semicolon = False  # flag of start ";" block
         while True:
             failback_pos = file_obj.tell()
             current_line = file_obj.readline()
@@ -97,7 +95,7 @@ class SimpleMmcif(object):
                 line += " " + current_line
                 continue
             else:
-                #if start_semicolon:
+                # if start_semicolon:
                 #    line += '"'
                 #    start_semicolon = False
                 if start_semicolon == True:
@@ -109,7 +107,6 @@ class SimpleMmcif(object):
 
         #print("getline: [{}]".format(line))
         return line
-
 
     def _get_value(self, value):
         if (value[0] == '"' and value[-1] == '"'):
@@ -155,7 +152,6 @@ class SimpleMmcif(object):
 
         return (kv, tables)
 
-
     def _load_loop_block(self, file_obj):
         data = []
 
@@ -199,7 +195,7 @@ class SimpleMmcif(object):
                 row = {}
                 num_of_columns = len(header)
                 for i in range(num_of_columns):
-                    value = contents_match_obj.group(i +1)
+                    value = contents_match_obj.group(i + 1)
                     row[header[i]] = self._get_value(value)
                 data.append(row)
                 last_contents_filepointer = file_obj.tell()
@@ -212,27 +208,14 @@ class SimpleMmcif(object):
 
         return data
 
-
     def load_msgpack(self, file_path):
-        packed = None
-        with open(file_path, "rb") as file_obj:
-            packed = file_obj.read()
-        self._data = msgpack.unpackb(packed)
-        if isinstance(self._data, list):
-            self._data = Utils.to_unicode_list(self._data)
-        elif isinstance(self._data, dict):
-            self._data = Utils.to_unicode_dict(self._data)
-
+        self._data = load_msgpack(file_path)
 
     def save_msgpack(self, file_path):
-        packed = msgpack.packb(self._data)
-        with open(file_path, "wb") as file_obj:
-            file_obj.write(packed)
-
+        save_msgpack(self._data, file_path)
 
     def get_molecule_names(self):
         return list(self._data.keys())
-
 
     def get_atomgroup(self, name):
         ag = AtomGroup()
@@ -242,10 +225,10 @@ class SimpleMmcif(object):
             self._get_atomgroup_list(mol_data, ag)
             self._get_atomgroup_bond_list(mol_data, ag)
         except BrInputError as e:
-            raise BrInputError(name, "Invalid mmcif data: name={}".format(name))
+            raise BrInputError(
+                name, "Invalid mmcif data: name={}".format(name))
 
         return ag
-
 
     def _get_atomgroup_list(self, list_item, ag):
         assert(isinstance(ag, AtomGroup))
@@ -258,7 +241,6 @@ class SimpleMmcif(object):
         except BrInputError as e:
             raise e
 
-
     def _get_atomgroup_dict(self, dict_item, output_atomgroup):
         """output_atomgroupに出力する
         """
@@ -267,6 +249,7 @@ class SimpleMmcif(object):
 
         re_numbers = re.compile("^[\+\-]?\d*(\.\d+)?$")
         # check input coordinates(x, y, z)
+
         def get_coordinates(xyz, dict_item):
             assert((xyz == "x") or (xyz == "y") or (xyz == "z"))
             answer = None
@@ -281,14 +264,15 @@ class SimpleMmcif(object):
             elif re_numbers.match(xyz_model):
                 answer = float(xyz_model)
             else:
-                logger.warning("Invalid coordinate({}) [{}, {}]".format(xyz, xyz_ideal, xyz_model))
+                logger.warning("Invalid coordinate({}) [{}, {}]".format(
+                    xyz, xyz_ideal, xyz_model))
                 # raise BrValueError([xyz_ideal, xyz_model], "Invalid coordinate({})".format(xyz))
 
             return answer
 
         # output key-value
         #print(">" * 10)
-        #for key, value in dict_item.items():
+        # for key, value in dict_item.items():
         #    print("{}> {}".format(key, value))
         #print("<" * 10)
 
@@ -318,7 +302,6 @@ class SimpleMmcif(object):
                 atom.charge = charge
             output_atomgroup.set_atom(id, atom)
 
-
         # if "_chem_comp_bond.comp_id" in dict_item:
         #     atom1_name = dict_item["_chem_comp_bond.atom_id_1"]
         #     atom2_name = dict_item["_chem_comp_bond.atom_id_2"]
@@ -336,7 +319,6 @@ class SimpleMmcif(object):
         #     atom2 = output_atomgroup.get_atom(atom2_name)
         #     output_atomgroup.add_bond(atom1, atom2, bond_order)
 
-
     def _get_atomgroup_bond_list(self, list_item, ag):
         """ bond 専用
         """
@@ -349,7 +331,6 @@ class SimpleMmcif(object):
                     self._get_atomgroup_bond_dict(item, ag)
         except BrInputError as e:
             raise e
-
 
     def _get_atomgroup_bond_dict(self, dict_item, output_atomgroup):
         """ bond 専用
@@ -374,7 +355,6 @@ class SimpleMmcif(object):
             atom2 = output_atomgroup.get_atom(atom2_name)
             output_atomgroup.add_bond(atom1, atom2, bond_order)
 
-
     def __str__(self):
         answer = ""
         for name in self._data.keys():
@@ -386,6 +366,7 @@ class SimpleMmcif(object):
                 answer += "  ----\n"
                 for row in range(len(table)):
                     for key, value in table[row].items():
-                        answer += "  [{id}]{key}: {value}\n".format(id=row, key=key, value=value)
+                        answer += "  [{id}]{key}: {value}\n".format(
+                            id=row, key=key, value=value)
 
         return answer

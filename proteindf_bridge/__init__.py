@@ -21,10 +21,11 @@
 
 from __future__ import absolute_import
 
+from .common import *
 from .functions import *
 
 #from .common import NullHandler
-from .utils import Utils, str, bytes, basestring, unicode
+from .str_processing import *
 from .error import BrError, BrInputError, BrValueError
 
 from .vector import Vector
@@ -36,6 +37,11 @@ from .atom import Atom
 from .atomgroup import AtomGroup
 #from bond import Bond
 
+from .path import Path
+from .aminoacid import AminoAcid
+from .format import *
+from .utils import Utils
+
 # from .select import Select, Select_Name, Select_Path, Select_Path_simple, Select_Path_wildcard, Select_PathRegex, Select_Atom, Select_Range
 from .select import *
 
@@ -45,12 +51,11 @@ from .mol2 import SimpleMol2
 from .gro import SimpleGro
 from .xyz import Xyz
 
-from .aminoacid import AminoAcid
-
 from .amber_prmtop import AmberPrmtop
 
 from .modeling import Modeling
 from .ionpair import IonPair
+from .ssbond import SSBond
 from .neutralize import Neutralize
 
 from .superposer import Superposer

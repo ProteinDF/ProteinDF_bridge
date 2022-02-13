@@ -3,19 +3,13 @@
 
 import os
 import argparse
+import pprint
+
+import proteindf_bridge as bridge
+
 import logging
 import logging.config
 
-import pprint
-
-try:
-    import msgpack
-except:
-    import msgpack_pure as msgpack
-
-import proteindf_bridge as bridge
-import proteindf_tools as pdf
-import qclobot as qclo
 
 def get_rest_of_frame_molecule(frame_molecule, selected_molecule):
     # calc the rest
@@ -25,8 +19,9 @@ def get_rest_of_frame_molecule(frame_molecule, selected_molecule):
 
     return rest_molecule
 
+
 def assign_rest_molecule(rest_molecule, output_atom_group,
-                         model_id = "model_1", chain_id = "Z", res_name = "UNK"):
+                         model_id="model_1", chain_id="Z", res_name="UNK"):
     chain = bridge.AtomGroup()
     res = bridge.AtomGroup()
     res.name = res_name
@@ -38,8 +33,10 @@ def assign_rest_molecule(rest_molecule, output_atom_group,
 
     output_atom_group[model_id].set_group(chain_id, chain)
 
+
 def main():
-    parser = argparse.ArgumentParser(description='restructure brd file by reference file')
+    parser = argparse.ArgumentParser(
+        description='restructure brd file by reference file')
     parser.add_argument('target_brd_path',
                         nargs=1,
                         help='target brd file')
@@ -87,10 +84,11 @@ def main():
             print("output brd file: {}".format(output_path))
         bridge.save_atomgroup(restructured, output_path)
 
+
 if __name__ == '__main__':
     #import cProfile
     #pr = cProfile.Profile()
-    #pr.enable()
+    # pr.enable()
     main()
-    #pr.disable()
-    #pr.dump_stats('program.profile')
+    # pr.disable()
+    # pr.dump_stats('program.profile')

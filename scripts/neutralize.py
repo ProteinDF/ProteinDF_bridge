@@ -2,14 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import logging
-import logging.config
-try:
-    import msgpack
-except:
-    import msgpack_pure as msgpack
 
 import proteindf_bridge as bridge
+
+import logging
+import logging.config
+
 
 def main():
     # parse args
@@ -22,12 +20,11 @@ def main():
                         help='output file (bridge format)')
     parser.add_argument("-v", "--verbose",
                         action="store_true",
-                        default = False)
+                        default=False)
     parser.add_argument("-d", "--debug",
                         action="store_true",
-                        default = False)
+                        default=False)
     args = parser.parse_args()
-
 
     # setting
     input_path = args.INPUT_FILE[0]
@@ -45,19 +42,15 @@ def main():
     logger.addHandler(handler)
 
     # reading
-    protein = None
-    with open(input_path, "rb") as mpac_file:
-        mpac_data = msgpack.unpackb(mpac_file.read())
-        protein = bridge.AtomGroup(mpac_data)
+    protein = bridge.load_atomgroup(input_path)
 
     # neutralize
     neutralizer = bridge.Neutralize(protein)
     mod_protein = neutralizer.neutralized
 
     # output
-    with open(output_path, "wb") as mpac_file:
-        raw_data = mod_protein.get_raw_data()
-        mpac_file.write(msgpack.packb(raw_data))
+    bridge.save_msgpack(mod_protein.get_raw_data(), output_path)
+
 
 if __name__ == '__main__':
     main()

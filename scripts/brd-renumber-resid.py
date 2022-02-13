@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import sys
 import argparse
@@ -8,7 +9,8 @@ import proteindf_bridge as bridge
 
 def main():
     # parse args
-    parser = argparse.ArgumentParser(description='renumber resid in bridge file')
+    parser = argparse.ArgumentParser(
+        description='renumber resid in bridge file')
     parser.add_argument('FILE',
                         nargs=1,
                         help='bridge file')
@@ -23,7 +25,7 @@ def main():
                         help='output brd file')
     parser.add_argument("-v", "--verbose",
                         action="store_true",
-                        default = False)
+                        default=False)
     parser.add_argument('-q', '--query',
                         nargs=1,
                         type=str,

@@ -1,4 +1,4 @@
-#!/usrbin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import logging
@@ -7,6 +7,7 @@ from .modeling import Modeling
 from .ionpair import IonPair
 
 logger = logging.getLogger(__name__)
+
 
 class Neutralize(object):
     def __init__(self, protein):
@@ -32,7 +33,7 @@ class Neutralize(object):
 
     def _neutralize(self, protein):
         assert(isinstance(protein, AtomGroup))
-        exempt_list = [] # self._exempt_list()
+        exempt_list = []  # self._exempt_list()
 
         modeling = Modeling()
         for model_name, model in protein.groups():
@@ -84,7 +85,7 @@ class Neutralize(object):
                     elif resname == 'ARG':
                         if (((chain_name, resid, 'ARG') not in exempt_list) and
                             ((chain_name, resid, 'ARG1') not in exempt_list) and
-                            ((chain_name, resid, 'ARG2') not in exempt_list)):
+                                ((chain_name, resid, 'ARG2') not in exempt_list)):
                             ag = modeling.neutralize_ARG(res)
                             logger.info("add ion for ARG({}): {}".format(resid, ag))
                             self._add_ions(res, ag)

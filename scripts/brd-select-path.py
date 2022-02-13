@@ -21,12 +21,9 @@
 
 import sys
 import argparse
-try:
-    import msgpack
-except:
-    import msgpack_pure as msgpack
 
 import proteindf_bridge as bridge
+
 
 def main():
     # parse args
@@ -41,7 +38,7 @@ def main():
                         help='output brd file')
     parser.add_argument("-v", "--verbose",
                         action="store_true",
-                        default = False)
+                        default=False)
     parser.add_argument('-q', '--query',
                         nargs=1,
                         type=str,
@@ -59,13 +56,11 @@ def main():
     # reading
     if verbose:
         print("reading: {}".format(mpac_file_path))
-    mpac_file = open(mpac_file_path, "rb")
-    mpac_data =msgpack.unpackb(mpac_file.read())
-    mpac_file.close()
+    mpac_data = load_msgpack(mpac_file_path)
 
     # prepare atomgroup
     atomgroup = bridge.AtomGroup(mpac_data)
-    #print(atom_group)
+    # print(atom_group)
 
     # selecter
     if verbose:
@@ -78,13 +73,12 @@ def main():
     if len(output_path) > 0:
         if (verbose == True):
             print("writing: %s\n" % (output_path))
-        with open(output_path, "wb") as output_file:
-            output_data = selected.get_raw_data()
-            output_mpac = msgpack.packb(output_data)
-            output_file.write(output_mpac)
+
+        output_data = selected.get_raw_data()
+        bridge.save_msgpack(output_data, output_path)
     else:
         print(selected)
-    
+
 
 if __name__ == '__main__':
     main()

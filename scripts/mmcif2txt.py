@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+
 import proteindf_bridge as bridge
+
 
 def main():
     parser = argparse.ArgumentParser(description='parse mmCIF file')
@@ -34,6 +36,7 @@ def main():
         mmcif.save_msgpack(write_mpac_file_path)
 
     # print(mmcif)
+
 
 if __name__ == '__main__':
     main()

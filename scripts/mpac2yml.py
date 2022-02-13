@@ -22,40 +22,35 @@
 import sys
 import argparse
 import yaml
-try:
-    import msgpack
-except:
-    import msgpack_pure as msgpack
 
 import proteindf_bridge as bridge
 
+
 def main():
     # initialize
-    parser = argparse.ArgumentParser(description='display file formatted by MsgPack using YAML.')
-    parser.add_argument('FILE',
+    parser = argparse.ArgumentParser(
+        description='display file formatted by MsgPack using YAML.')
+    parser.add_argument('mpac_path',
                         nargs=1,
-                        help='Amber PDB file')
+                        help='message pack file path')
+    parser.add_argument('yaml_path',
+                        nargs="?",
+                        default=[""],
+                        help='YAML file path')
     args = parser.parse_args()
 
-    file_path = args.FILE[0]
+    mpac_file_path = args.mpac_path[0]
+    yaml_file_path = args.yaml_path[0]
 
-    f = open(file_path, "rb")
-    contents = f.read()
-    data = msgpack.unpackb(contents)
-    if isinstance(data, list):
-        data = bridge.Utils.to_unicode_list(data)
-    elif isinstance(data, dict):
-        data = bridge.Utils.to_unicode_dict(data)
-    f.close()
+    data = bridge.load_msgpack(mpac_file_path)
     # print(data)
 
-    yaml_str = yaml.dump(data,
-                         encoding='utf8',
-                         allow_unicode=True,
-                         default_flow_style=False,
-                         line_break='\n')
-    yaml_str = bridge.Utils.to_unicode(yaml_str)
-    print(yaml_str)
+    if len(yaml_file_path) > 0:
+        bridge.save_yaml(data, yaml_file_path)
+    else:
+        yaml_str = bridge.get_yaml(data)
+        print(yaml_str)
+
 
 if __name__ == '__main__':
     main()

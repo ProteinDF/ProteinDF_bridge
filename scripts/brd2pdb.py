@@ -21,16 +21,14 @@
 
 import sys
 import argparse
-try:
-    import msgpack
-except:
-    import msgpack_pure as msgpack
 
 import proteindf_bridge as bridge
 
+
 def main():
     # parse args
-    parser = argparse.ArgumentParser(description='transform bridge file to PDB file')
+    parser = argparse.ArgumentParser(
+        description='transform bridge file to PDB file')
     parser.add_argument('FILE',
                         nargs=1,
                         help='bridge file')
@@ -39,11 +37,11 @@ def main():
                         help='PDB output file')
     parser.add_argument('-a', '--amber',
                         action="store_true",
-                        default = False,
+                        default=False,
                         help='amber mod pdb format')
     parser.add_argument("-v", "--verbose",
                         action="store_true",
-                        default = False)
+                        default=False)
     args = parser.parse_args()
 
     # setting
@@ -57,16 +55,14 @@ def main():
     # reading
     if (verbose == True):
         print("reading: %s\n" % (mpac_file_path))
-    mpac_file = open(mpac_file_path, "rb")
-    mpac_data = msgpack.unpackb(mpac_file.read())
-    mpac_file.close()
+    mpac_data = bridge.load_msgpack(mpac_file_path)
 
     # prepare atomgroup
     atom_group = bridge.AtomGroup(mpac_data)
-    #print(atom_group)
+    # print(atom_group)
 
     # prepare BrPdb object
-    pdb_obj = bridge.Pdb(mode = pdb_mode)
+    pdb_obj = bridge.Pdb(mode=pdb_mode)
     pdb_obj.set_by_atomgroup(atom_group)
 
     # output PDB
@@ -79,6 +75,7 @@ def main():
         print(pdb_obj)
 
     # end
+
 
 if __name__ == '__main__':
     main()

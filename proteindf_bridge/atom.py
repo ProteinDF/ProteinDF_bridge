@@ -19,15 +19,15 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
+from .position import Position
+from .periodictable import PeriodicTable
+from .str_processing import StrUtils
+from .error import BrInputError
 import copy
 import math
 import logging
 logger = logging.getLogger(__name__)
 
-from .error import BrInputError
-from .utils import Utils
-from .periodictable import PeriodicTable
-from .position import Position
 
 class Atom(object):
     """
@@ -47,6 +47,7 @@ class Atom(object):
     >>> b.symbol
     'Na'
     """
+
     def __init__(self, *args, **kwargs):
         self._atomic_number = PeriodicTable.get_atomic_number('X')
         self._xyz = Position()
@@ -65,9 +66,9 @@ class Atom(object):
                     self._xyz = Position(rhs._xyz)
                     self._force = Position(rhs._force)
                     self.name = rhs._name
-                    self._label = Utils.to_unicode(rhs.label)
+                    self._label = StrUtils.to_unicode(rhs.label)
                     self._charge = float(rhs._charge)
-                    self._path = Utils.to_unicode(rhs._path)
+                    self._path = StrUtils.to_unicode(rhs._path)
                 elif (isinstance(rhs, dict) == True):
                     self.set_by_raw_data(rhs)
                 elif isinstance(rhs, str):
@@ -77,12 +78,14 @@ class Atom(object):
                 else:
                     raise BrInputError('atom.__init__', 'illegal type')
             else:
-                raise BrInputError('atom.__init__', 'illegal the number of args')
+                raise BrInputError(
+                    'atom.__init__', 'illegal the number of args')
 
         if 'symbol' in kwargs:
-            self._atomic_number = PeriodicTable.get_atomic_number(kwargs.get('symbol'))
+            self._atomic_number = PeriodicTable.get_atomic_number(
+                kwargs.get('symbol'))
         self._xyz = Position(kwargs.get('position', self._xyz))
-        self._xyz = Position(kwargs.get('xyz', self._xyz)) # alias
+        self._xyz = Position(kwargs.get('xyz', self._xyz))  # alias
         self._force = kwargs.get('force', self._force)
         if 'name' in kwargs:
             self.name = kwargs.get('name')
@@ -163,12 +166,13 @@ class Atom(object):
 
     is_real = property(__is_real)
     # --------------------------------------------------------------------------
+
     def _get_name(self):
         return self._name
 
     def _set_name(self, name):
         name = str(name)
-        self._name = Utils.to_unicode(name)
+        self._name = StrUtils.to_unicode(name)
 
     name = property(_get_name, _set_name)
 
@@ -177,7 +181,7 @@ class Atom(object):
         return self._label
 
     def _set_label(self, label):
-        self._label = Utils.to_unicode(label)
+        self._label = StrUtils.to_unicode(label)
 
     label = property(_get_label, _set_label)
 
@@ -191,6 +195,10 @@ class Atom(object):
     charge = property(_get_charge, _set_charge)
 
     # --------------------------------------------------------------------------
+    def weight(self):
+        return PeriodicTable.atomic_weight(self._atomic_number)
+
+    # --------------------------------------------------------------------------
     def __get_vdw(self):
         return PeriodicTable.vdw(self._atomic_number)
 
@@ -201,7 +209,7 @@ class Atom(object):
         return self._path
 
     def _set_path(self, path):
-        self._path = Utils.to_unicode(path)
+        self._path = StrUtils.to_unicode(path)
 
     path = property(_get_path, _set_path)
 
@@ -213,7 +221,7 @@ class Atom(object):
         if ((isinstance(rhs, Atom) == True) and
             (self.atomic_number == rhs.atomic_number) and
             # (math.fabs(self.charge - rhs.charge) < 1.0E-10) and
-            (self.xyz == rhs.xyz)):
+                (self.xyz == rhs.xyz)):
             answer = True
         return answer
 
@@ -239,7 +247,8 @@ class Atom(object):
             elif key == 'force':
                 self.force = Position(value)
             else:
-                logger.debug("bridge::Atom > unknown key: {}".format(key))
+                logger.debug(
+                    "bridge::Atom > unknown key: {}={}".format(key, str(value)))
         return self
 
     def get_raw_data(self):
@@ -258,9 +267,11 @@ class Atom(object):
     def __str__(self):
         symbol_name = "{symbol:<2}({name:<4})".format(symbol=self.symbol,
                                                       name=self.name)
-        xyz = "{: 8.3f} {: 8.3f} {: 8.3f}".format(self.xyz.x, self.xyz.y, self.xyz.z)
+        xyz = "{: 8.3f} {: 8.3f} {: 8.3f}".format(
+            self.xyz.x, self.xyz.y, self.xyz.z)
         charge = "{: 5.2f}".format(self.charge)
-        force = "{: 8.3f} {: 8.3f} {: 8.3f}".format(self.force.x, self.force.y, self.force.z)
+        force = "{: 8.3f} {: 8.3f} {: 8.3f}".format(
+            self.force.x, self.force.y, self.force.z)
 
         answer = "{symbol_name} {xyz}, {charge}, {force}".format(symbol_name=symbol_name,
                                                                  xyz=xyz,

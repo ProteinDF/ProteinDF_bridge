@@ -19,6 +19,12 @@ DOCTESTS=" \
   xyz \
   "
 
+# for i in ${DOCTESTS}; do
+#     echo ">>>> doctest: ${i}"
+#     python -m proteindf_bridge.${i}
+#     echo "done."
+# done
+
 # ======================================================================
 # unit test
 # ======================================================================
@@ -26,9 +32,13 @@ UNITTESTS=" \
   position \
   atom \
   atomgroup \
-  select \
   biopdb \
+  format \
   gro \
+  path \
+  select \
+  ssbond \
+  utils \
   "
 
 rm -rf test_*

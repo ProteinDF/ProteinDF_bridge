@@ -19,211 +19,67 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-import sys
-import re
-import copy
-import pickle
+from .atomgroup import AtomGroup
+from .format import Format
 
-import types
-try:
-    unicode = unicode
-except NameError:
-    # 'unicode' is undefined, must be Python 3
-    str = str
-    unicode = str
-    bytes = bytes
-    basestring = (str,bytes)
-else:
-    # 'unicode' exists, must be Python 2
-    str = str
-    unicode = unicode
-    bytes = str
-    basestring = basestring
+import logging
+logger = logging.getLogger(__name__)
 
 
 class Utils(object):
     @classmethod
-    def sort_nicely(cls, l):
+    def remove_WAT(cls, atomgroup):
+        """ remove water(WAT or HOH) residues
         """
-        Sort the given list in the way that humans expect.
-        ref: http://www.codinghorror.com/blog/2007/12/sorting-for-humans-natural-sort-order.html
-        """
-        l = [ str(x) for x in l ]
-        convert = lambda text: int(text) if text.isdigit() else text
-        alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
-        l.sort(key=alphanum_key)
-        return l
+        assert(isinstance(atomgroup, AtomGroup))
+
+        answer = AtomGroup(atomgroup)
+        wat_keys = ["HOH", "WAT"]
+        remove_groups = []
+        for key, grp in answer.groups():
+            grp_name = grp.name
+            logger.debug("check group name: {}".format(grp_name))
+            if grp_name in wat_keys:
+                logger.debug("remove name: {}".format(grp_name))
+                remove_groups.append(key)
+                continue
+
+            answer.set_group(key, cls.remove_WAT(grp))
+
+        for key in remove_groups:
+            answer.remove_group(key)
+
+        return answer
 
     @classmethod
-    def add_spaces(cls, s, num_add):
-        """
-        行頭にnum_add分のスペースを追加する
-        """
-        spc = ' ' * num_add
-        return spc + spc.join(s.splitlines(True))
+    def get_sequential_residue_id(cls, protein, req_chain_id, req_res_id):
+        """Returns the amino acid residue number of the entire sequence.
 
-    @classmethod
-    def num_spaces(cls, s):
-        """
-        行頭のスペース数を返す
-        """
-        return [len(line) - len(line.lstrip()) for line in s.splitlines()]
+        Args:
+            protein (AtomGroup): AtomGroup representing a protein
+            req_chain_id (str): chain id
+            req_res_id (str): residue id
 
-    @classmethod
-    def del_spaces(cls, s, num_del):
+        Returns:
+            int: Return serial number of the amino acid residue. If it does not apply, 0 is returned.
         """
-        """
-        if num_del < min(cls.num_spaces(s)):
-            raise ValueError("removing more spaces than there are!")
-        return '\n'.join([ line[num_del:] for line in s.splitlines()])
+        assert(Format.is_protein(protein))
+        req_chain_id = str(req_chain_id)
+        req_res_id = str(req_res_id)
 
-    @classmethod
-    def unindent_block(cls, s):
-        return cls.del_spaces(s, min(cls.num_spaces(s)))
-
-    @classmethod
-    def get_common_str(cls, str1, str2):
-        """
-        (先頭から)共通文字列を返す
-
-        >>> a = 'abcdef'
-        >>> b = 'abcdefg'
-        >>> Utils.get_common_str(a, b)
-        'abcdef'
-        """
-        answer = ""
-        len1 = len(str1)
-        len2 = len(str2)
-        l = min(len1, len2)
-        for i in range(l):
-            c1 = str1[i]
-            c2 = str2[i]
-            if c1 == c2:
-                answer += c1
+        counter = 0
+        for chain_id, chain in protein.groups():
+            if req_chain_id == chain_id:
+                for res_id, res in chain.groups():
+                    counter += 1
+                    if req_res_id == res_id:
+                        return counter
             else:
-                break
-        return answer
+                num_of_groups = chain.get_number_of_groups()
+                counter += num_of_groups
 
-    @classmethod
-    def to_unicode_dict(cls, d):
-        """
-        byteを保存してある辞書に対して、
-        str(utf-8)をキーとする辞書に変換する。
-        """
-        assert isinstance(d, dict)
-        answer = {}
-        for k, v in d.items():
-            new_key = cls.to_unicode(k)
-            if isinstance(v, list):
-                v = cls.to_unicode_list(v)
-            elif isinstance(v, dict):
-                v = cls.to_unicode_dict(v)
-            elif isinstance(v, (str, bytes)):
-                v = cls.to_unicode(v)
-            else:
-                pass # do nothing
-            answer[new_key] = v
-        return answer
+        return 0
 
-    @classmethod
-    def to_unicode_list(cls, l):
-        """
-        """
-        assert isinstance(l, list)
-        answer = []
-        for v in l:
-            if isinstance(v, list):
-                v = cls.to_unicode_list(v)
-            elif isinstance(v, dict):
-                v = cls.to_unicode_dict(v)
-            elif isinstance(v, (str, bytes)):
-                v = cls.to_unicode(v)
-            else:
-                pass # do nothing
-            answer.append(v)
-        return answer
-
-    @classmethod
-    def to_unicode(cls, unicode_or_str):
-        """
-        byteをstr(utf-8)に変換する
-        """
-        #try:
-        #    if sys.version_info[0] >= 3:
-        #        # Python3
-        #        assert isinstance(unicode_or_str, (str, bytes))
-        #    else:
-        #        # Python2
-        #        assert isinstance(unicode_or_str, (unicode, str, bytes))
-        #except:
-        #    print(type(unicode_or_str))
-        #    print(unicode_or_str)
-        #    raise
-
-        value = unicode_or_str
-        if sys.version_info[0] >= 3:
-            # Python3
-            if isinstance(unicode_or_str, bytes):
-                value = unicode_or_str.decode('utf-8')
-        else:
-            # Python2
-            if isinstance(unicode_or_str, str):
-                try:
-                    value = unicode_or_str.decode('utf-8')
-                except:
-                    print(type(unicode_or_str))
-                    print(unicode_or_str)
-                    raise
-
-        return value
-
-    @classmethod
-    def to_bytes(cls, unicode_or_str):
-        assert isinstance(unicode_or_str, (str, bytes))
-
-        value = unicode_or_str
-        if sys.version_info[0] >= 3:
-            # Python3
-            if isinstance(unicode_or_str, str):
-                value = unicode_or_str.encode('utf-8')
-        else:
-            # Python2
-            if isinstance(unicode_or_str, unicode):
-                value = unicode_or_str.encode('utf-8')
-
-        return value
-
-    @classmethod
-    def str_to_bool(cls, input_str):
-        if isinstance(input_str, bool):
-            return input_str
-
-        answer = False
-        try:
-            tmp = int(input_str)
-            if tmp != 0:
-                answer = True
-        except:
-            if len(input_str) > 0:
-                tmp = input_str.upper()
-                if (tmp[0] == 'Y' or
-                    tmp[0] == 'T'):
-                    answer = True
-        return answer
-
-    @classmethod
-    def check_pickled(cls, data, level=0):
-        if isinstance(data, dict):
-            for k, v in data.items():
-                cls.check_pickled(v)
-        else:
-            #print('>' * level, data)
-            try:
-                pickle.dumps(data)
-            except:
-                print(type(data), data)
-                raise
 
 if __name__ == "__main__":
     import doctest

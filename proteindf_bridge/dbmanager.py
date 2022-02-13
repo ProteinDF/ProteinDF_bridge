@@ -20,9 +20,10 @@
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
+import sqlite3
 import logging
 logger = logging.getLogger(__name__)
-import sqlite3
+
 
 class DbManager(object):
     """
@@ -58,6 +59,7 @@ class DbManager(object):
     [{'coulumn1': u'Miyagi', 'coulumn2': u'Sendai', 'id': 2},\
  {'coulumn1': u'Tokyo', 'coulumn2': u'Shinjuku', 'id': 3}]
     """
+
     def __init__(self, db=':memory:', sql_debugout=False):
         self._connection = sqlite3.connect(db)
         self._cursor = self._connection.cursor()
@@ -257,7 +259,7 @@ class DbManager(object):
         if isinstance(where, dict):
             where_sections = []
             for key, value in where.items():
-                where_sections.append('%s=?' % (key))
+                where_sections.append('{}=?'.format(key))
                 parameters.append(value)
             where_str = 'WHERE ' + ' and '.join(where_sections)
         elif where != None:
@@ -269,9 +271,11 @@ class DbManager(object):
                          where_str=where_str)
 
         # execute
+        logger.debug("DB select: {}".format(sql))
         self.execute(sql, parameters)
 
         data = self._cursor.fetchall()
+        logger.debug(data)
         answer = [{}] * len(data)
         fields = []
         if self._cursor.description:
@@ -368,7 +372,7 @@ class DbManager(object):
         answer = ""
         if self._cursor.description:
             for col, field_description in enumerate(self._cursor.description):
-                #print(field_description)
+                # print(field_description)
                 field_name = field_description[0]
                 names.append(field_name)
                 field_length = field_description[2] or 12
@@ -384,6 +388,7 @@ class DbManager(object):
                 result.append(format % tuple(row))
             answer = "\n".join(result)
         return answer
+
 
 if __name__ == '__main__':
     import doctest
