@@ -26,6 +26,7 @@ from .position import Position
 from .str_processing import StrUtils
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -53,10 +54,12 @@ class Select_Symbol(Select):
 
     def is_match(self, obj):
         answer = False
+
         if isinstance(obj, Atom):
             symbol = obj.symbol.upper()
             if symbol == self._atom_symbol:
                 answer = True
+
         return answer
 
 
@@ -67,14 +70,13 @@ class Select_Name(Select):
     def is_match(self, obj):
         answer = False
         name = obj.name.strip().rstrip()
-        if (name == self.query):
+        if name == self.query:
             answer = True
         return answer
 
 
 class Select_Path(Select):
-    """
-    """
+    """ """
 
     def __init__(self, query, use_wildcard=True):
         self._query = StrUtils.to_unicode(query)
@@ -85,9 +87,9 @@ class Select_Path(Select):
             self._regex_selecter = self._prepare(query)
 
     def _prepare(self, query):
-        query = re.sub("(?<!\\\)\*", '.*', query)
-        query = re.sub("(?<!\\\)\?", '?', query)
-        query = '^' + query + '$'
+        query = re.sub("(?<!\\\)\*", ".*", query)
+        query = re.sub("(?<!\\\)\?", "?", query)
+        query = "^" + query + "$"
 
         return Select_PathRegex(query)
 
@@ -100,14 +102,13 @@ class Select_Path(Select):
     def _is_match_nowildcard(self, obj):
         answer = False
         path = obj.path
-        if (self._query == path):
+        if self._query == path:
             answer = True
         return answer
 
 
 class Select_Path_simple(Select):
-    """
-    """
+    """ """
 
     def __init__(self, query):
         self._query = StrUtils.to_unicode(query)
@@ -115,23 +116,22 @@ class Select_Path_simple(Select):
     def is_match(self, obj):
         answer = False
         path = obj.path
-        if (self._query == path):
+        if self._query == path:
             answer = True
         return answer
 
 
 class Select_Path_wildcard(Select):
-    """selector using path with wildcard
-    """
+    """selector using path with wildcard"""
 
     def __init__(self, query):
         self._query = StrUtils.to_unicode(query)
         self._regex_selecter = self._prepare(query)
 
     def _prepare(self, query):
-        query = re.sub("(?<!\\\)\*", '.*', query)
-        query = re.sub("(?<!\\\)\?", '?', query)
-        query = '^' + query + '$'
+        query = re.sub("(?<!\\\)\*", ".*", query)
+        query = re.sub("(?<!\\\)\?", "?", query)
+        query = "^" + query + "$"
 
         return Select_PathRegex(query)
 
@@ -151,16 +151,16 @@ class Select_PathRegex(Select):
     def is_match(self, obj):
         answer = False
         path = obj.path
-        if (self._regex.search(path) != None):
-            #print("path=[%s] regex=[%s]" % (path, self._query))
+        if self._regex.search(path) != None:
+            # print("path=[%s] regex=[%s]" % (path, self._query))
             answer = True
         return answer
 
 
 class Select_Range(Select):
-    '''
+    """
     半径で選択する
-    '''
+    """
 
     def __init__(self, pos, d):
         self._pos = Position(pos)
@@ -179,29 +179,34 @@ class Select_Range(Select):
 
 
 class Select_Atom(Select):
-    """
-    """
+    """ """
 
-    def __init__(self, atom):
+    def __init__(self, atom, distance=0.1):
         from .atom import Atom
+
         self._atom = Atom(atom)
+        self._distance2 = distance * distance
 
     def is_match(self, obj):
         answer = False
-        if ((isinstance(obj, Atom)) and
-            (self._atom.atomic_number == obj.atomic_number) and
-                (self._atom.xyz == obj.xyz)):
-            answer = True
+        if isinstance(obj, Atom):
+            if (self._atom.atomic_number == obj.atomic_number) and (
+                self._atom.xyz.square_distance_from(obj.xyz) < self._distance2
+            ):
+                answer = True
+        # else:
+        #     logger.warning("type mismatch in Select_Atom(): {}".format(str(obj)))
+
         return answer
 
 
 class Select_AtomGroup(Select):
-    """reference atomgroupと同じ原子が存在しているものを返す
-    """
+    """reference atomgroupと同じ原子が存在しているものを返す"""
 
-    def __init__(self, ref_atomgroup, range=1.0E-5):
+    def __init__(self, ref_atomgroup, range=1.0e-5):
         from .atomgroup import AtomGroup
-        assert(isinstance(ref_atomgroup, AtomGroup))
+
+        assert isinstance(ref_atomgroup, AtomGroup)
         self._ref_atoms = ref_atomgroup.get_atom_list()
         self._range = range
 
@@ -210,8 +215,9 @@ class Select_AtomGroup(Select):
         if isinstance(obj, Atom):
             for ref_atom in self._ref_atoms:
                 # if ref_atom == obj:
-                if ((ref_atom.atomic_number == obj.atomic_number) and
-                        (ref_atom.xyz.distance_from(obj.xyz) < self._range)):
+                if (ref_atom.atomic_number == obj.atomic_number) and (
+                    ref_atom.xyz.distance_from(obj.xyz) < self._range
+                ):
                     answer = True
                     break
 
