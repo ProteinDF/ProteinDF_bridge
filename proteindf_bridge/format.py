@@ -51,18 +51,14 @@ class Format(object):
             for chain_key, chain in model.groups():
                 answer &= cls.is_chain(chain)
         else:
-            locate = locate()
-            logger.debug(
-                "no groups found in model: name={} at {}/{}/{}".format(
-                    model.name, locate[0], locate[1], locate[2]
-                )
-            )
+            loc = locate()
+            logger.debug("no groups found in model: name={} at {}/{}/{}".format(model.name, loc[0], loc[1], loc[2]))
 
         if model.get_number_of_atoms() != 0:
-            locate = locate()
+            loc = locate()
             logger.critical(
                 "not allowed existing any atoms in model: name={} at {}/{}/{}".format(
-                    model.name, locate[0], locate[1], locate[2]
+                    model.name, loc[0], loc[1], loc[2]
                 )
             )
             answer = False
