@@ -28,12 +28,12 @@ import optparse
 import re
 import copy
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 class Pdb(object):
-    """
-    """
+    """ """
 
     def __init__(self, file_path=None, mode=None):
         """
@@ -43,7 +43,7 @@ class Pdb(object):
         """
         self._data = {}
         self._ssbonds = []
-        if (file_path):
+        if file_path:
             self.load(file_path)
 
         self._mode = mode
@@ -51,22 +51,10 @@ class Pdb(object):
             self._mode = self._mode.upper()
 
         # modpdb table
-        self._modpdb_amber_atm_tbl = {
-            'NA': 'Na+ ',
-            'CL': 'Cl- '
-        }
-        self._modpdb_formal_atm_tbl = {
-            'NA': 'NA  ',
-            'CL': 'CL  '
-        }
-        self._modpdb_amber_res_tbl = {
-            'NA': 'Na+',
-            'CL': 'Cl-'
-        }
-        self._modpdb_formal_res_tbl = {
-            'NA': 'NA ',
-            'CL': 'CL '
-        }
+        self._modpdb_amber_atm_tbl = {"NA": "Na+ ", "CL": "Cl- "}
+        self._modpdb_formal_atm_tbl = {"NA": "NA  ", "CL": "CL  "}
+        self._modpdb_amber_res_tbl = {"NA": "Na+", "CL": "Cl-"}
+        self._modpdb_formal_res_tbl = {"NA": "NA ", "CL": "CL "}
 
         # leapではNH2はHとみなされず、NH2を重ねて付加してしまう
         self._modpdb_amber_resatom_table = {
@@ -88,7 +76,7 @@ class Pdb(object):
         }
 
     def __get_debug(self):
-        if not '_debug' in self.__dict__:
+        if not "_debug" in self.__dict__:
             self._debug = False
         return self._debug
 
@@ -159,10 +147,10 @@ class Pdb(object):
     def renumber(self):
         for model_serial, model in self._data.items():
             for index in range(len(model)):
-                model[index]['serial'] = index + 1
+                model[index]["serial"] = index + 1
 
     def load(self, file_path):
-        if (os.path.isfile(file_path) != True):
+        if os.path.isfile(file_path) != True:
             logger.critical("file not found: {}".format(file_path))
             raise
 
@@ -170,20 +158,20 @@ class Pdb(object):
         chain_serial = 0
         self._data.setdefault(model_serial, [])
 
-        with open(file_path, 'r') as fin:
+        with open(file_path, "r") as fin:
             while True:
                 line = fin.readline()
-                if (len(line) == 0):
+                if len(line) == 0:
                     break
-                line = line.rstrip('\n')
+                line = line.rstrip("\n")
 
                 # if (len(line) != 80):
                 #    continue
-                if (self.debug == True):
+                if self.debug == True:
                     print(line)
 
                 record_name = line[0:6]
-                if record_name == 'SSBOND':
+                if record_name == "SSBOND":
                     serNum = line[7:10]
                     chainID1 = str(line[15])
                     seqNum1 = int(line[17:21])
@@ -192,24 +180,22 @@ class Pdb(object):
                     seqNum2 = int(line[31:35])
                     icode2 = str(line[35])
 
-                    ssbond = ({'chain_id': chainID1,
-                               'seq_num': seqNum1},
-                              {'chain_id': chainID2,
-                               'seq_num': seqNum2})
+                    ssbond = ({"chain_id": chainID1, "seq_num": seqNum1}, {"chain_id": chainID2, "seq_num": seqNum2})
                     self._ssbonds.append(ssbond)
 
-                elif ((record_name == 'ATOM  ') or (record_name == 'HETATM')):
+                elif (record_name == "ATOM  ") or (record_name == "HETATM"):
 
-                    if (len(line) < 80):
-                        line = line + (' ' * (80 - len(line)))
+                    if len(line) < 80:
+                        line = line + (" " * (80 - len(line)))
 
                     serial = int(line[6:11])
-                    name = line[12:16]
+                    name4 = line[12:16]
+                    name = name4.strip()
                     alt_loc = line[16]
                     res_name = line[17:20]
                     chain_id = line[21]
-                    if (chain_id == ' ') and (res_name != 'WAT'):
-                        chain_id = chr(ord('A') + (chain_serial % 26))
+                    if (chain_id == " ") and (res_name != "WAT"):
+                        chain_id = chr(ord("A") + (chain_serial % 26))
                     res_seq = line[22:26]
                     i_code = line[26]
                     coord_x = line[30:38]
@@ -221,102 +207,109 @@ class Pdb(object):
                     charge = line[78:80].strip()
 
                     item = {}
-                    item['serial'] = serial
-                    item['record_name'] = record_name
-                    item['name'] = name
-                    item['alt_loc'] = alt_loc
+                    item["serial"] = serial
+                    item["record_name"] = record_name
+                    item["name"] = name
+                    item["alt_loc"] = alt_loc
 
                     # res_name
                     if res_name in ["HID", "HIE", "HIP"]:
                         # rename AMBER residue name dialect
                         res_name = "HIS"
-                    item['res_name'] = res_name
+                    item["res_name"] = res_name
 
-                    item['chain_id'] = chain_id
-                    item['res_seq'] = int(res_seq)
-                    item['i_code'] = i_code
-                    item['coord'] = [float(coord_x), float(coord_y), float(coord_z)]
+                    item["chain_id"] = chain_id
+                    item["res_seq"] = int(res_seq)
+                    item["i_code"] = i_code
+                    item["coord"] = [float(coord_x), float(coord_y), float(coord_z)]
 
-                    if (len(occupancy) != 0):
-                        item['occupancy'] = float(occupancy)
+                    if len(occupancy) != 0:
+                        item["occupancy"] = float(occupancy)
                     else:
-                        item['occupancy'] = 1.0
-                    if (len(temp_factor) != 0):
-                        item['temp_factor'] = float(temp_factor)
+                        item["occupancy"] = 1.0
+                    if len(temp_factor) != 0:
+                        item["temp_factor"] = float(temp_factor)
                     else:
-                        item['temp_factor'] = 0.0
+                        item["temp_factor"] = 0.0
 
-                    if (len(element) != 0):
+                    if len(element) != 0:
                         # TODO: 原子変換テーブル作成
                         element = element.strip()
-                        if element == 'D':
-                            element = 'H'
-                        item['element'] = element
+                        if element == "D":
+                            element = "H"
+                        item["element"] = element
                     else:
+                        # see https://www.cgl.ucsf.edu/chimera/docs/UsersGuide/tutorials/pdbintro.html
                         # TODO: テーブルを持って変換するように変更
-                        name2 = name.lstrip().upper()
+                        name4 = name4.upper()
+                        name2 = name4[0:2]
+                        name2s = name2.strip()
 
-                        if name2[0:2] == 'CL':
-                            element = 'Cl'
-                        elif name2[0:2] == 'NA':
-                            element = 'Na'
-                        elif name2[0:2] == 'MG':
-                            element = 'Mg'
-                        elif name2[0:2] == 'FE':
-                            element = 'Fe'
-                        elif name2[0] == 'H':
-                            element = 'H'
+                        if (len(name4.strip()) == 4) and (name2[0] == "H"):
+                            element = "H"
+                        elif len(name2s) == 2:
+                            element = name2[0] + name2[1].lower()
                         else:
-                            element = name[1]
-                        item['element'] = element
+                            element = name2[1]
 
-                    if (len(charge) != 0):
+                        # if name2 == "CL":
+                        #     element = "Cl"
+                        # elif name2 == "NA":
+                        #     element = "Na"
+                        # elif name2 == "MG":
+                        #     element = "Mg"
+                        # elif name2 == "FE":
+                        #     element = "Fe"
+                        # else:
+                        #     element = name[0]
+                        item["element"] = element
+
+                    if len(charge) != 0:
                         charge_last_char = charge[-1]
-                        if (charge_last_char == '+') or (charge_last_char == '-'):
+                        if (charge_last_char == "+") or (charge_last_char == "-"):
                             charge = charge_last_char + charge[0:-1]
-                        item['charge'] = charge
+                        item["charge"] = charge
                     else:
-                        item['charge'] = "  "
+                        item["charge"] = "  "
 
                     self._data[model_serial].append(item)
                     continue
-                elif (record_name == 'MODEL '):
+                elif record_name == "MODEL ":
                     serial = int(line[10:14])
                     model_serial = serial
                     self._data.setdefault(model_serial, [])
                     chain_serial = 0
                     continue
-                elif (record_name == 'TER   '):
-                    if (len(line) < 27):
-                        line = line + (' ' * (27 - len(line)))
+                elif record_name == "TER   ":
+                    if len(line) < 27:
+                        line = line + (" " * (27 - len(line)))
                     serial = int(line[6:11]) if line[6:11].isdigit() else 0
                     resname = line[17:20]
                     chain_id = line[21]
-                    if (chain_id == ' ') and (res_name != 'WAT'):
-                        chain_id = chr(ord('A') + (chain_serial % 26))
+                    if (chain_id == " ") and (res_name != "WAT"):
+                        chain_id = chr(ord("A") + (chain_serial % 26))
                         chain_serial += 1
                     res_seq = line[22:26]
                     i_code = line[26]
                     item = {}
-                    item['serial'] = serial
-                    item['record_name'] = record_name
-                    item['res_name'] = res_name
-                    item['chain_id'] = chain_id
-                    item['res_seq'] = res_seq
-                    item['i_code'] = i_code
+                    item["serial"] = serial
+                    item["record_name"] = record_name
+                    item["res_name"] = res_name
+                    item["chain_id"] = chain_id
+                    item["res_seq"] = res_seq
+                    item["i_code"] = i_code
 
                     self._data[model_serial].append(item)
                     continue
 
-    def get_atomgroup(self, select_model=None, select_altloc='A'):
+    def get_atomgroup(self, select_model=None, select_altloc="A"):
         """
         return AtomGroup object
         """
         root = AtomGroup()
 
         for model_serial, model_items in self._data.items():
-            if ((select_model == None) or
-                    (int(select_model) == int(model_serial))):
+            if (select_model == None) or (int(select_model) == int(model_serial)):
 
                 model_name = "model_%d" % (model_serial)
                 model = AtomGroup()
@@ -324,34 +317,34 @@ class Pdb(object):
 
                 for index in range(len(model_items)):
                     item = model_items[index]
-                    record_name = item['record_name']
-                    serial = item['serial']
+                    record_name = item["record_name"]
+                    serial = item["serial"]
 
-                    if ((record_name == 'ATOM  ') or (record_name == 'HETATM')):
-                        name = item['name'].lstrip().strip()
-                        alt_loc = item['alt_loc']
-                        res_name = item['res_name']
-                        chain_id = item['chain_id']
-                        res_seq = int(item['res_seq'])
-                        i_code = item['i_code']
-                        coord = item['coord']
-                        occupancy = item.get('occupancy', 1.0)
-                        temp_factor = item.get('temp_factor', 0.0)
-                        element = item.get('element', 'X')
-                        charge = item.get('charge', 0.0)
-                        if charge == '  ':
+                    if (record_name == "ATOM  ") or (record_name == "HETATM"):
+                        name = item["name"]
+                        alt_loc = item["alt_loc"]
+                        res_name = item["res_name"]
+                        chain_id = item["chain_id"]
+                        res_seq = int(item["res_seq"])
+                        i_code = item["i_code"]
+                        coord = item["coord"]
+                        occupancy = item.get("occupancy", 1.0)
+                        temp_factor = item.get("temp_factor", 0.0)
+                        element = item.get("element", "X")
+                        charge = item.get("charge", 0.0)
+                        if charge == "  ":
                             charge = 0.0
 
-                        if (chain_id == " "):
+                        if chain_id == " ":
                             chain_id = "_"
 
-                        if (model.has_group(chain_id) == False):
+                        if model.has_group(chain_id) == False:
                             chain = AtomGroup()
                             chain.name = chain_id
                             model.set_group(chain_id, chain)
 
                         res_key = "%d" % (res_seq)
-                        if (model[chain_id].has_group(res_key) == False):
+                        if model[chain_id].has_group(res_key) == False:
                             residue = AtomGroup()
                             residue.name = res_name
                             model[chain_id].set_group(res_key, residue)
@@ -365,25 +358,23 @@ class Pdb(object):
                         atom_key = "%d_%s" % (serial, name)
 
                         # set the atom object ------------------------------
-                        if ((alt_loc == ' ') or
-                                (alt_loc == select_altloc)):
+                        if (alt_loc == " ") or (alt_loc == select_altloc):
                             model[chain_id][res_key].set_atom(atom_key, atom)
                         else:
-                            logger.debug('skip alt_loc=\"{alt_loc}\" atom: {atom_str}'.format(alt_loc=alt_loc,
-                                                                                              atom_str=str(atom)))
+                            logger.debug(
+                                'skip alt_loc="{alt_loc}" atom: {atom_str}'.format(alt_loc=alt_loc, atom_str=str(atom))
+                            )
 
                 for ssbond in self._ssbonds:
-                    chain_id1 = ssbond[0]['chain_id']
-                    seq_num1 = ssbond[0]['seq_num']
-                    chain_id2 = ssbond[1]['chain_id']
-                    seq_num2 = ssbond[1]['seq_num']
+                    chain_id1 = ssbond[0]["chain_id"]
+                    seq_num1 = ssbond[0]["seq_num"]
+                    chain_id2 = ssbond[1]["chain_id"]
+                    seq_num2 = ssbond[1]["seq_num"]
 
-                    path1 = '/{chain_id}/{res_key}/SG'.format(chain_id=chain_id1,
-                                                              res_key=seq_num1)
-                    path2 = '/{chain_id}/{res_key}/SG'.format(chain_id=chain_id2,
-                                                              res_key=seq_num2)
-                    SG1 = model[chain_id1][seq_num1]['SG']
-                    SG2 = model[chain_id2][seq_num2]['SG']
+                    path1 = "/{chain_id}/{res_key}/SG".format(chain_id=chain_id1, res_key=seq_num1)
+                    path2 = "/{chain_id}/{res_key}/SG".format(chain_id=chain_id2, res_key=seq_num2)
+                    SG1 = model[chain_id1][seq_num1]["SG"]
+                    SG2 = model[chain_id2][seq_num2]["SG"]
                     model.add_bond(SG1, SG2, 1)
 
                 root.set_group(model_name, model)
@@ -391,7 +382,7 @@ class Pdb(object):
         return root
 
     def set_by_atomgroup(self, atomgroup, set_b_factor=None):
-        assert(isinstance(atomgroup, AtomGroup))
+        assert isinstance(atomgroup, AtomGroup)
         atomgroup = self.get_modpdb_atomgroup(atomgroup)
 
         re_model_serial = re.compile("^model_(\d+)")
@@ -402,16 +393,16 @@ class Pdb(object):
         model_serial = 1
         for model_key, model in atomgroup.groups():
             match_obj = re_model_serial.match(model_key)
-            if (match_obj != None):
+            if match_obj != None:
                 model_serial = int(match_obj.group(1))
             self._data.setdefault(model_serial, [])
 
             serial = 1
             for chain_id, chain in model.groups():
-                if (chain_id != "_"):
-                    item['chain_id'] = chain_id
+                if chain_id != "_":
+                    item["chain_id"] = chain_id
                 else:
-                    item['chain_id'] = " "
+                    item["chain_id"] = " "
 
                 for res_key, residue in chain.groups():
                     res_seq = 0
@@ -428,7 +419,7 @@ class Pdb(object):
                         item["record_name"] = "ATOM  "
 
                         # serial number
-                        #serial_match_obj = re_atom_serial.match(key)
+                        # serial_match_obj = re_atom_serial.match(key)
                         # if (serial_match_obj != None):
                         #    serial = int(match_obj.group(1))
                         item["serial"] = serial
@@ -439,13 +430,15 @@ class Pdb(object):
 
                         # name
                         name = atom.name
-                        if name.strip().lstrip() == 'OXT':
+                        if name.strip() == "OXT":
                             has_OXT = True
                         item["name"] = name
                         item["coord"] = [atom.xyz.x, atom.xyz.y, atom.xyz.z]
+                        item["element"] = atom.symbol
+                        item["charge"] = atom.charge
 
-                        if set_b_factor == 'charge':
-                            item['temp_factor'] = atom.charge
+                        if set_b_factor == "charge":
+                            item["temp_factor"] = atom.charge
 
                         self._data[model_serial].append(copy.copy(item))
 
@@ -466,7 +459,7 @@ class Pdb(object):
 
     def _sort_by_serial(self):
         for model_serial, model in self._data.items():
-            model.sort(key=lambda x: int(x['serial']))
+            model.sort(key=lambda x: int(x["serial"]))
 
     def __str__(self):
         occupancy = 1.0
@@ -475,33 +468,85 @@ class Pdb(object):
             output += "MODEL     %4d\n" % (model_serial)
             for index in range(len(model)):
                 item = model[index]
-                record_name = item['record_name']
-                serial = int(item['serial'])
-                if ((record_name == 'ATOM  ') or (record_name == 'HETATM')):
-                    name = item['name']
-                    alt_loc = item['alt_loc']
-                    res_name = item['res_name']
-                    chain_id = item['chain_id']
-                    res_seq = int(item['res_seq'])
-                    i_code = item['i_code']
-                    coord = item['coord']
-                    occupancy = item.setdefault('occupancy', 1.0)
-                    temp_factor = item.setdefault('temp_factor', 1.0)
-                    element = item.setdefault('element', '  ')
-                    charge = item.setdefault('charge', '  ')
-                    line = "ATOM  %5d %4s%c%3s %c%4d%c   %8.3f%8.3f%8.3f%6.2f%6.2f          %2s%2s\n" % (
-                        serial, name, alt_loc,
-                        res_name, chain_id, res_seq, i_code,
-                        coord[0], coord[1], coord[2],
-                        occupancy, temp_factor, element.upper(), charge)
+                record_name = item["record_name"]
+                serial = int(item["serial"])
+                if (record_name == "ATOM  ") or (record_name == "HETATM"):
+                    name = item["name"]
+                    element = item["element"]
+
+                    # see. https://www.cgl.ucsf.edu/chimera/docs/UsersGuide/tutorials/pdbintro.html
+                    if len(name) < 4:
+                        if len(element) == 1:
+                            name = " {:<3s}".format(name)
+                        else:
+                            name = "{:<4s}".format(name)
+
+                    alt_loc = item["alt_loc"]
+                    res_name = item["res_name"]
+                    chain_id = item["chain_id"]
+                    res_seq = int(item["res_seq"])
+                    i_code = item["i_code"]
+                    coord = item["coord"]
+                    occupancy = item.setdefault("occupancy", 1.0)
+                    temp_factor = item.setdefault("temp_factor", 1.0)
+                    element = item.setdefault("element", "  ")
+                    charge = int(item.setdefault("charge", 0))
+                    if charge == 0:
+                        charge = "  "
+
+                    # line = "ATOM  %5d %4s%c%3s %c%4d%c   %8.3f%8.3f%8.3f%6.2f%6.2f          %2s%2s\n" % (
+                    #     serial,
+                    #     name,
+                    #     alt_loc,
+                    #     res_name,
+                    #     chain_id,
+                    #     res_seq,
+                    #     i_code,
+                    #     coord[0],
+                    #     coord[1],
+                    #     coord[2],
+                    #     occupancy,
+                    #     temp_factor,
+                    #     element.upper(),
+                    #     charge,
+                    # )
+                    field = {
+                        "serial": serial,
+                        "name": name,
+                        "alt_loc": alt_loc,
+                        "res_name": res_name,
+                        "chain_id": chain_id,
+                        "res_seq": res_seq,
+                        "i_code": i_code,
+                        "x": coord[0],
+                        "y": coord[1],
+                        "z": coord[2],
+                        "occupancy": occupancy,
+                        "temp_factor": temp_factor,
+                        "element": element.upper(),
+                        "charge": charge,
+                    }
+                    line = "ATOM  {serial:>5d} {name:>4s}{alt_loc:1s}{res_name:>3s} {chain_id:1s}{res_seq:>4d}{i_code:1s}   {x:>8.3f}{y:>8.3f}{z:>8.3f}{occupancy:6.2f}{temp_factor:6.2f}          {element:>2s}{charge:2s}\n".format(
+                        **field
+                    )
                     output += line
-                elif (record_name == 'TER   '):
-                    line = "TER   %5d      %3s %c%4d%c\n" % (serial, res_name, chain_id, res_seq, i_code)
+                elif record_name == "TER   ":
+                    # line = "TER   %5d      %3s %c%4d%c\n" % (serial, res_name, chain_id, res_seq, i_code)
+                    field = {
+                        "serial": serial,
+                        "res_name": res_name,
+                        "chain_id": chain_id,
+                        "res_seq": res_seq,
+                        "i_code": i_code,
+                    }
+                    line = "TER   {serial:>5d}      {res_name:3s} {chain_id:1s}{res_seq:>4d}{i_code:1s}\n".format(
+                        **field
+                    )
                     output += line
         return output
 
     def get_modpdb_atomgroup(self, ag_protein):
-        """ Change the name of a residue or atom.
+        """Change the name of a residue or atom.
             Called by 'set_by_atomgroup()'
 
         Args:
@@ -510,7 +555,7 @@ class Pdb(object):
         Returns:
             AtomGroup: renamed object
         """
-        assert(isinstance(ag_protein, AtomGroup))
+        assert isinstance(ag_protein, AtomGroup)
         mode = self._mode
 
         retval = AtomGroup(ag_protein)
@@ -526,34 +571,30 @@ class Pdb(object):
     def _modpdb_atom(self, atom, mode=None):
         new_name = atom.name
 
-        atomname = atom.name.strip().lstrip().upper()
+        atomname = atom.name.strip().upper()
         symbol = atom.symbol
-        if mode == 'AMBER':
+        if mode == "AMBER":
             if atomname in self._modpdb_amber_atm_tbl:
                 new_name = self._modpdb_amber_atm_tbl[atomname]
-            if len(new_name) != 4:
-                if ((len(new_name) < 4) and (atomname[0] == symbol[0])):
-                    new_name = ' {}'.format(new_name)
+            # if len(new_name) != 4:
+            #     if (len(new_name) < 4) and (atomname[0] == symbol[0]):
+            #         new_name = " {}".format(new_name)
 
             # 原子名対策
-            new_name_lstrip = new_name.lstrip()
-            if len(new_name_lstrip) >= 2:
-                new_name_2 = new_name_lstrip[0:2]
-                if new_name_2.upper() == symbol.upper():
-                    new_name = " " * (len(new_name) - len(new_name_lstrip)) + symbol + new_name_lstrip[2:]
-        elif mode == 'FORMAL':
+            # new_name_lstrip = new_name.lstrip()
+            # if len(new_name_lstrip) >= 2:
+            #     new_name_2 = new_name_lstrip[0:2]
+            #     if new_name_2.upper() == symbol.upper():
+            #         new_name = " " * (len(new_name) - len(new_name_lstrip)) + symbol + new_name_lstrip[2:]
+        else:
+            # "FORMAL"
             if atomname in self._modpdb_formal_atm_tbl:
                 new_name = self._modpdb_formal_atm_tbl[atomname]
-            if len(new_name) != 4:
-                if (0 < len(new_name)) and (len(new_name) < 4) and (atomname[0] == symbol[0]):
-                    new_name = ' {}'.format(new_name)
-                else:
-                    new_name = symbol
-        else:
-            pass
-
-        # 4文字に足りない分は末尾に空白を入れる
-        new_name += " " * (4 - len(new_name))
+            # if len(new_name) != 4:
+            #     if (0 < len(new_name)) and (len(new_name) < 4) and (atomname[0] == symbol[0]):
+            #         new_name = " {}".format(new_name)
+            #     else:
+            #         new_name = symbol
 
         atom.name = new_name
         return atom
@@ -565,8 +606,8 @@ class Pdb(object):
 
         # rename res.name by using residue name table
         resname = res.name.upper()
-        resname = resname.strip().lstrip()
-        if mode == 'AMBER':
+        resname = resname.strip()
+        if mode == "AMBER":
             if resname in self._modpdb_amber_res_tbl:
                 res.name = self._modpdb_amber_res_tbl[resname]
         else:
@@ -579,7 +620,7 @@ class Pdb(object):
         resname = resname.strip().lstrip()
         atom_name = atom.name.strip().lstrip().upper()
 
-        if mode == 'AMBER':
+        if mode == "AMBER":
             if resname in self._modpdb_amber_resatom_table:
                 if atom_name in self._modpdb_amber_resatom_table[resname]:
                     atom.name = self._modpdb_amber_resatom_table[resname][atom_name]
@@ -592,9 +633,8 @@ class Pdb(object):
         return atom
 
     def _rename_to_amber_dialect(self, res):
-        """translate HIS to HID, HIE or HIP
-        """
-        assert(isinstance(res, AtomGroup))
+        """translate HIS to HID, HIE or HIP"""
+        assert isinstance(res, AtomGroup)
         if res.name == "HIS":
             # check kinds of "HIS"
             has_delta_H = False
@@ -619,16 +659,12 @@ def main():
     # initialize
 
     # parse args
-    parser = optparse.OptionParser(usage="%prog [options] PDB_FILE",
-                                   version="%prog 1.0")
-    parser.add_option("-o", "--output", dest="output_path",
-                      help="PDB output file", metavar="FILE")
-    parser.add_option("-v", "--verbose", dest="verbose",
-                      action="store_false", default=False,
-                      help="print message")
+    parser = optparse.OptionParser(usage="%prog [options] PDB_FILE", version="%prog 1.0")
+    parser.add_option("-o", "--output", dest="output_path", help="PDB output file", metavar="FILE")
+    parser.add_option("-v", "--verbose", dest="verbose", action="store_false", default=False, help="print message")
     (opts, args) = parser.parse_args()
 
-    if (len(args) == 0):
+    if len(args) == 0:
         parser.print_help()
         sys.exit(1)
 
@@ -643,5 +679,5 @@ def main():
     # end
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
