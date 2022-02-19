@@ -26,6 +26,7 @@ from .error import BrInputError
 import copy
 import math
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -49,19 +50,19 @@ class Atom(object):
     """
 
     def __init__(self, *args, **kwargs):
-        self._atomic_number = PeriodicTable.get_atomic_number('X')
+        self._atomic_number = PeriodicTable.get_atomic_number("X")
         self._xyz = Position()
         self._force = Position()
-        self.name = ''
-        self._label = ''
+        self.name = ""
+        self._label = ""
         self._charge = 0.0
-        self._path = ''
+        self._path = ""
         self._parent = None
 
         if len(args) > 0:
             if len(args) == 1:
                 rhs = args[0]
-                if (isinstance(rhs, Atom) == True):
+                if isinstance(rhs, Atom) == True:
                     self._atomic_number = rhs._atomic_number
                     self._xyz = Position(rhs._xyz)
                     self._force = Position(rhs._force)
@@ -69,36 +70,34 @@ class Atom(object):
                     self._label = StrUtils.to_unicode(rhs.label)
                     self._charge = float(rhs._charge)
                     self._path = StrUtils.to_unicode(rhs._path)
-                elif (isinstance(rhs, dict) == True):
+                elif isinstance(rhs, dict) == True:
                     self.set_by_raw_data(rhs)
                 elif isinstance(rhs, str):
                     self.symbol = rhs
                 elif isinstance(rhs, int):
                     self._atomic_number = rhs
                 else:
-                    raise BrInputError('atom.__init__', 'illegal type')
+                    raise BrInputError("atom.__init__", "illegal type")
             else:
-                raise BrInputError(
-                    'atom.__init__', 'illegal the number of args')
+                raise BrInputError("atom.__init__", "illegal the number of args")
 
-        if 'symbol' in kwargs:
-            self._atomic_number = PeriodicTable.get_atomic_number(
-                kwargs.get('symbol'))
-        self._xyz = Position(kwargs.get('position', self._xyz))
-        self._xyz = Position(kwargs.get('xyz', self._xyz))  # alias
-        self._force = kwargs.get('force', self._force)
-        if 'name' in kwargs:
-            self.name = kwargs.get('name')
-        if 'label' in kwargs:
-            self._label = kwargs.get('label')
-        if 'charge' in kwargs:
-            self._charge = kwargs.get('charge')
-        if 'path' in kwargs:
-            self._path = kwargs.get('path')
-        if 'parent' in kwargs:
-            self._parent = kwargs.get('parent')
-            #from .atomgroup import AtomGroup
-            #assert(isinstance(self._parent, AtomGroup))
+        if "symbol" in kwargs:
+            self._atomic_number = PeriodicTable.get_atomic_number(kwargs.get("symbol"))
+        self._xyz = Position(kwargs.get("position", self._xyz))
+        self._xyz = Position(kwargs.get("xyz", self._xyz))  # alias
+        self._force = kwargs.get("force", self._force)
+        if "name" in kwargs:
+            self.name = kwargs.get("name")
+        if "label" in kwargs:
+            self._label = kwargs.get("label")
+        if "charge" in kwargs:
+            self._charge = kwargs.get("charge")
+        if "path" in kwargs:
+            self._path = kwargs.get("path")
+        if "parent" in kwargs:
+            self._parent = kwargs.get("parent")
+            # from .atomgroup import AtomGroup
+            # assert(isinstance(self._parent, AtomGroup))
 
     # move ---------------------------------------------------------------------
     def move_to(self, position):
@@ -218,15 +217,18 @@ class Atom(object):
     # ==================================================================
     def __eq__(self, rhs):
         answer = False
-        if ((isinstance(rhs, Atom) == True) and
-            (self.atomic_number == rhs.atomic_number) and
+        if (
+            (isinstance(rhs, Atom) == True)
+            and (self.atomic_number == rhs.atomic_number)
+            and
             # (math.fabs(self.charge - rhs.charge) < 1.0E-10) and
-                (self.xyz == rhs.xyz)):
+            (self.xyz == rhs.xyz)
+        ):
             answer = True
         return answer
 
     def __ne__(self, rhs):
-        return not(self.__eq__(rhs))
+        return not (self.__eq__(rhs))
 
     # ==================================================================
     # raw data
@@ -234,30 +236,29 @@ class Atom(object):
     def set_by_raw_data(self, data):
         for key, value in data.items():
             if isinstance(key, bytes):
-                key = key.decode('utf-8')
+                key = key.decode("utf-8")
 
-            if key == 'Z':
+            if key == "Z":
                 self.atomic_number = value
-            elif key == 'name':
+            elif key == "name":
                 self.name = value
-            elif key == 'Q':
+            elif key == "Q":
                 self.charge = value
-            elif key == 'xyz':
+            elif key == "xyz":
                 self.xyz = Position(value)
-            elif key == 'force':
+            elif key == "force":
                 self.force = Position(value)
             else:
-                logger.debug(
-                    "bridge::Atom > unknown key: {}={}".format(key, str(value)))
+                logger.debug("bridge::Atom > unknown key: {}={}".format(key, str(value)))
         return self
 
     def get_raw_data(self):
         data = {}
-        data['Z'] = self._atomic_number
-        data['name'] = self.name
-        data['Q'] = self._charge
-        data['xyz'] = self._xyz.get_raw_data()
-        data['force'] = self._force.get_raw_data()
+        data["Z"] = self._atomic_number
+        data["name"] = self.name
+        data["Q"] = self._charge
+        data["xyz"] = self._xyz.get_raw_data()
+        data["force"] = self._force.get_raw_data()
 
         return data
 
@@ -265,18 +266,15 @@ class Atom(object):
     # debug
     # ==================================================================
     def __str__(self):
-        symbol_name = "{symbol:<2}({name:<4})".format(symbol=self.symbol,
-                                                      name=self.name)
-        xyz = "{: 8.3f} {: 8.3f} {: 8.3f}".format(
-            self.xyz.x, self.xyz.y, self.xyz.z)
+        name = "({})".format(self.name)
+        symbol_name = "{symbol:<2}{name:<6}".format(symbol=self.symbol, name=name)
+        xyz = "{: 8.3f} {: 8.3f} {: 8.3f}".format(self.xyz.x, self.xyz.y, self.xyz.z)
         charge = "{: 5.2f}".format(self.charge)
-        force = "{: 8.3f} {: 8.3f} {: 8.3f}".format(
-            self.force.x, self.force.y, self.force.z)
+        force = "{: 8.3f} {: 8.3f} {: 8.3f}".format(self.force.x, self.force.y, self.force.z)
 
-        answer = "{symbol_name} {xyz}, {charge}, {force}".format(symbol_name=symbol_name,
-                                                                 xyz=xyz,
-                                                                 charge=charge,
-                                                                 force=force)
+        answer = "{symbol_name} {xyz}, {charge}, {force}".format(
+            symbol_name=symbol_name, xyz=xyz, charge=charge, force=force
+        )
         return answer
 
     # ------------------------------------------------------------------
@@ -291,4 +289,5 @@ class Atom(object):
 
 if __name__ == "__main__":
     import doctest
+
     doctest.testmod()
