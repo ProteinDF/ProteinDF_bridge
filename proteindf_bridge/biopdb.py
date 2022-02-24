@@ -51,8 +51,31 @@ class Pdb(object):
             self._mode = self._mode.upper()
 
         # modpdb table
-        self._modpdb_amber_atm_tbl = {"NA": "Na+ ", "CL": "Cl- "}
-        self._modpdb_formal_atm_tbl = {"NA": "NA  ", "CL": "CL  "}
+        self._modpdb_amber_atm_tbl = [
+            {
+                "name": "NA",
+                "symbol": "Na",
+                "rename": "Na+",
+            },
+            {
+                "name": "CL",
+                "symbol": "Cl",
+                "rename": "Cl-",
+            },
+        ]
+        self._modpdb_formal_atm_tbl = [
+            {
+                "name": "NA",
+                "symbol": "Na",
+                "rename": "NA",
+            },
+            {
+                "name": "CL",
+                "symbol": "Cl",
+                "rename": "CL",
+            },
+        ]
+
         self._modpdb_amber_res_tbl = {"NA": "Na+", "CL": "Cl-"}
         self._modpdb_formal_res_tbl = {"NA": "NA ", "CL": "CL "}
 
@@ -574,8 +597,12 @@ class Pdb(object):
         atomname = atom.name.strip().upper()
         symbol = atom.symbol
         if mode == "AMBER":
-            if atomname in self._modpdb_amber_atm_tbl:
-                new_name = self._modpdb_amber_atm_tbl[atomname]
+            for item in self._modpdb_amber_atm_tbl:
+                if (item["name"] == atomname) and (item["symbol"] == symbol):
+                    new_name = item["rename"]
+
+            # if atomname in self._modpdb_amber_atm_tbl:
+            #     new_name = self._modpdb_amber_atm_tbl[atomname]
             # if len(new_name) != 4:
             #     if (len(new_name) < 4) and (atomname[0] == symbol[0]):
             #         new_name = " {}".format(new_name)
@@ -588,8 +615,12 @@ class Pdb(object):
             #         new_name = " " * (len(new_name) - len(new_name_lstrip)) + symbol + new_name_lstrip[2:]
         else:
             # "FORMAL"
-            if atomname in self._modpdb_formal_atm_tbl:
-                new_name = self._modpdb_formal_atm_tbl[atomname]
+            for item in self._modpdb_formal_atm_tbl:
+                if (item["name"] == atomname) and (item["symbol"] == symbol):
+                    new_name = item["rename"]
+
+            # if atomname in self._modpdb_formal_atm_tbl:
+            #     new_name = self._modpdb_formal_atm_tbl[atomname]
             # if len(new_name) != 4:
             #     if (0 < len(new_name)) and (len(new_name) < 4) and (atomname[0] == symbol[0]):
             #         new_name = " {}".format(new_name)
