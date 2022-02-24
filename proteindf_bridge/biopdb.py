@@ -375,7 +375,7 @@ class Pdb(object):
                             model[chain_id].set_group(res_key, residue)
 
                         # create atom object -------------------------------
-                        print(name, res_name, coord)
+                        # print(name, res_name, coord)
                         atom = Atom()
                         atom.symbol = element
                         atom.xyz = Position(coord)
