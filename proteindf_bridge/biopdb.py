@@ -270,6 +270,8 @@ class Pdb(object):
 
                         if (len(name4.strip()) == 4) and (name2[0] == "H"):
                             element = "H"
+                        elif name2[0].isnumeric() == True:
+                            element = name2[1]
                         elif len(name2s) == 2:
                             element = name2[0] + name2[1].lower()
                         else:
@@ -373,6 +375,7 @@ class Pdb(object):
                             model[chain_id].set_group(res_key, residue)
 
                         # create atom object -------------------------------
+                        print(name, res_name, coord)
                         atom = Atom()
                         atom.symbol = element
                         atom.xyz = Position(coord)
