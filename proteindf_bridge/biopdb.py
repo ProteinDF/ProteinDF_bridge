@@ -35,6 +35,8 @@ logger = logging.getLogger(__name__)
 class Pdb(object):
     """ """
 
+    AmberToolsVer = 22
+
     def __init__(self, file_path=None, mode=None):
         """
         create empty PDB object
@@ -79,24 +81,37 @@ class Pdb(object):
         self._modpdb_amber_res_tbl = {"NA": "Na+", "CL": "Cl-"}
         self._modpdb_formal_res_tbl = {"NA": "NA ", "CL": "CL "}
 
-        # leapではNH2はHとみなされず、NH2を重ねて付加してしまう
-        self._modpdb_amber_resatom_table = {
-            "NME": {
+        self._modpdb_amber_resatom_table = {}
+        self._modpdb_formal_resatom_table = {}
+        if self.AmberToolsVer < 22:
+            # leapではNH2はHとみなされず、NH2を重ねて付加してしまう
+            self._modpdb_amber_resatom_table["NME"] = {
                 "HN2": "H",
                 "H1": "HH31",
                 "H2": "HH32",
                 "H3": "HH33",
-            },
-        }
-        # reduceではNH2が無いとNH2を付加してしまう
-        self._modpdb_formal_resatom_table = {
-            "NME": {
+            }
+
+            # reduceではNH2が無いとNH2を付加してしまう
+            self._modpdb_formal_resatom_table["NME"] = {
                 "H": "HN2",
                 "HH31": "H1",
                 "HH32": "H2",
                 "HH33": "H3",
-            },
-        }
+            }
+
+        else:
+            # leapではNH2はHとみなされず、NH2を重ねて付加してしまう
+            self._modpdb_amber_resatom_table["NME"] = {
+                "HN2": "H",
+                "CH3": "C",
+            }
+
+            # reduceではNH2が無いとNH2を付加してしまう
+            self._modpdb_formal_resatom_table["NME"] = {
+                "H": "HN2",
+                "C": "CH3",
+            }
 
     def __get_debug(self):
         if not "_debug" in self.__dict__:
