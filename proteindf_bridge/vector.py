@@ -25,6 +25,7 @@ import copy
 import numpy
 from types import *
 
+
 class Vector(object):
     """
     >>> a = Vector(10)
@@ -53,7 +54,7 @@ class Vector(object):
     __body_struct_little_endian = "<d"
     __body_struct_big_endian = ">d"
 
-    def __init__(self, obj =[]):
+    def __init__(self, obj=[]):
         """
         初期化
 
@@ -65,9 +66,9 @@ class Vector(object):
         elif isinstance(obj, (list, numpy.ndarray)):
             self._data = numpy.array(obj)
         elif isinstance(obj, dict):
-            size = raw_data.get('size', 0)
-            buf = raw_data.get('data', None)
-            if (buf != None):
+            size = raw_data.get("size", 0)
+            buf = raw_data.get("data", None)
+            if buf != None:
                 self._data = numpy.array([0.0 for x in range(size)])
         elif isinstance(obj, Vector):
             self._data = copy.copy(obj._data)
@@ -86,9 +87,9 @@ class Vector(object):
 
     @property
     def data(self):
-        '''
+        """
         return numpy array
-        '''
+        """
         return self._data
 
     # --------------------------------------------------------------------------
@@ -111,7 +112,7 @@ class Vector(object):
         return self._data.tolist()
 
     def get_buffer(self):
-        #return buffer(self._data.tostring())
+        # return buffer(self._data.tostring())
         return self._data.tostring()
 
     def set_buffer(self, buf):
@@ -119,6 +120,13 @@ class Vector(object):
 
     def get_ndarray(self):
         return copy.deepcopy(self._data)
+
+    # --------------------------------------------------------------------------
+    def argsort(self):
+        return Vector(self._data.argsort())
+
+    def flip(self):
+        return Vector(numpy.flip(self._data))
 
     # --------------------------------------------------------------------------
     def __get_header_struct(self, is_little_endian):
@@ -134,23 +142,23 @@ class Vector(object):
             return self.__body_struct_big_endian
 
     def __str__(self):
-        output = ''
+        output = ""
         for order in range(0, len(self), 10):
-            output += '\n'
-            for j in range(order, min(order +10, len(self))):
-                output += '   %5d th' % (j +1)
-            output += '\n'
-            for j in range(order, min(order +10, len(self))):
-                output += '-----------'
-            output += '----\n\n'
-            for j in range(order, min(order +10, len(self))):
-                output += ' %10.6lf' % (self[j])
-            output += '\n'
+            output += "\n"
+            for j in range(order, min(order + 10, len(self))):
+                output += "   %5d th" % (j + 1)
+            output += "\n"
+            for j in range(order, min(order + 10, len(self))):
+                output += "-----------"
+            output += "----\n\n"
+            for j in range(order, min(order + 10, len(self))):
+                output += " %10.6lf" % (self[j])
+            output += "\n"
         return output
 
     def __add__(self, other):
         assert isinstance(other, Vector)
-        assert (len(self) == len(other))
+        assert len(self) == len(other)
 
         answer = Vector(self)
         answer += other
@@ -158,7 +166,7 @@ class Vector(object):
 
     def __iadd__(self, other):
         assert isinstance(other, Vector)
-        assert (len(self) == len(other))
+        assert len(self) == len(other)
 
         self._data += other._data
         return self
@@ -220,4 +228,5 @@ class Vector(object):
 
 if __name__ == "__main__":
     import doctest
+
     doctest.testmod()

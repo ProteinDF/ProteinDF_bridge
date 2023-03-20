@@ -57,7 +57,7 @@ class Matrix(object):
     """
     def __init__(self, *args, **kwargs):
         self._type = 'GE'
-        self._data = numpy.array([[0.0]], numpy.float)
+        self._data = numpy.array([[0.0]], float)
 
         size_of_args = len(args)
         if size_of_args == 1:
@@ -70,7 +70,7 @@ class Matrix(object):
                 self._data = copy.deepcopy(args[0])
                 assert(self._data.ndim == 2)
             elif isinstance(args[0], list):
-                self._data = numpy.array(args[0], numpy.float)
+                self._data = numpy.array(args[0], float)
                 assert(self._data.ndim == 2)
             else:
                 raise
@@ -79,8 +79,7 @@ class Matrix(object):
                 rows = args[0]
                 cols = args[1]
                 self._data = numpy.array(
-                    [[0.0 for c in range(cols)] for r in range(rows)],
-                    numpy.float)
+                    [[0.0 for c in range(cols)] for r in range(rows)], float)
                 return
             else:
                 raise
@@ -93,8 +92,7 @@ class Matrix(object):
                 data = kwargs.get('data', None)
                 if data:
                     self._data = numpy.array(
-                        [ [0.0 for c in range(cols)] for r in range(rows)],
-                        numpy.float)
+                        [ [0.0 for c in range(cols)] for r in range(rows)], float)
                     index = 0
                     for r in range(rows):
                         for c in range(cols):
@@ -267,7 +265,7 @@ class Matrix(object):
         return self._data.tostring()
 
     def set_buffer(self, b):
-        self._data = numpy.fromstring(b, dtype=numpy.float)
+        self._data = numpy.fromstring(b, dtype=float)
         self._data.shape = (self.rows, self.cols)
 
     def get_ndarray(self):
@@ -402,11 +400,10 @@ class SymmetricMatrix(Matrix):
             if isinstance(args[0], int):
                 dim = args[0]
                 self._data = numpy.array(
-                    [[0.0 for c in range(dim)] for r in range(dim)],
-                    numpy.float)
+                    [[0.0 for c in range(dim)] for r in range(dim)], float)
                 return
             elif isinstance(args[0], list):
-                self._data = numpy.array(args[0], numpy.float)
+                self._data = numpy.array(args[0], float)
                 assert(self._data.ndim == 2)
                 rows, cols = self._data.shape
                 assert(rows == cols)
@@ -426,8 +423,7 @@ class SymmetricMatrix(Matrix):
                 data = kwargs.get('data', None)
                 if data:
                     self._data = numpy.array(
-                        [ [0.0 for c in range(self.cols)] for r in range(self.rows)],
-                        numpy.float)
+                        [ [0.0 for c in range(self.cols)] for r in range(self.rows)], float)
                     index = 0
                     for r in range(self.rows):
                         for c in range(r +1):
@@ -440,8 +436,7 @@ class SymmetricMatrix(Matrix):
                 data = kwargs.get('data', None)
                 if data:
                     self._data = numpy.array(
-                        [ [0.0 for c in range(self.cols)] for r in range(self.rows)],
-                        numpy.float)
+                        [ [0.0 for c in range(self.cols)] for r in range(self.rows)], float)
                     index = 0
                     for r in range(self.rows):
                         for c in range(self.col):

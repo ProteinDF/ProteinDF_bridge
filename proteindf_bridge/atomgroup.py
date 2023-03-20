@@ -303,7 +303,7 @@ class AtomGroup(object):
     def erase_group(self, key):
         """remove group
 
-        absolete function.
+        obsolete function; use remove_group()
         """
         logger.info("absolete function: erase_group")
         self.remove_group(key)
