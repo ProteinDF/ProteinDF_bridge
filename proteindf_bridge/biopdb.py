@@ -422,7 +422,7 @@ class Pdb(object):
 
         return root
 
-    def set_by_atomgroup(self, atomgroup, set_b_factor=None):
+    def set_by_atomgroup(self, atomgroup, is_charge2tempfactor=False):
         assert isinstance(atomgroup, AtomGroup)
         atomgroup = self.get_modpdb_atomgroup(atomgroup)
 
@@ -478,7 +478,8 @@ class Pdb(object):
                         item["element"] = atom.symbol
                         item["charge"] = atom.charge
 
-                        if set_b_factor == "charge":
+                        # assign charge to temperature factor (B-factor)
+                        if is_charge2tempfactor:
                             item["temp_factor"] = atom.charge
 
                         self._data[model_serial].append(copy.copy(item))
