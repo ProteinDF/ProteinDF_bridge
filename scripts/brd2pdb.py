@@ -39,6 +39,10 @@ def main():
                         action="store_true",
                         default=False,
                         help='amber mod pdb format')
+    parser.add_argument('-c', '--charge2tempfactor',
+                        action="store_true",
+                        default=False,
+                        help='assign charge to temperature factor')
     parser.add_argument("-v", "--verbose",
                         action="store_true",
                         default=False)
@@ -50,6 +54,7 @@ def main():
     pdb_mode = None
     if args.amber:
         pdb_mode = 'amber'
+    is_charge2tempfactor = args.charge2tempfactor
     verbose = args.verbose
 
     # reading
@@ -63,7 +68,7 @@ def main():
 
     # prepare BrPdb object
     pdb_obj = bridge.Pdb(mode=pdb_mode)
-    pdb_obj.set_by_atomgroup(atom_group)
+    pdb_obj.set_by_atomgroup(atom_group, is_charge2tempfactor)
 
     # output PDB
     if output:
