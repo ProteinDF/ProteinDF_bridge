@@ -535,6 +535,8 @@ class Pdb(object):
                     charge = int(item.setdefault("charge", 0))
                     if charge == 0:
                         charge = "  "
+                    else:
+                        charge = "{:+1d}".format(charge)
 
                     # line = "ATOM  %5d %4s%c%3s %c%4d%c   %8.3f%8.3f%8.3f%6.2f%6.2f          %2s%2s\n" % (
                     #     serial,
