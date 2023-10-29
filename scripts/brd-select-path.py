@@ -27,23 +27,11 @@ import proteindf_bridge as bridge
 
 def main():
     # parse args
-    parser = argparse.ArgumentParser(description='bridge file selecter')
-    parser.add_argument('FILE',
-                        nargs=1,
-                        help='bridge file')
-    parser.add_argument('-o', '--output',
-                        nargs=1,
-                        type=str,
-                        default=[''],
-                        help='output brd file')
-    parser.add_argument("-v", "--verbose",
-                        action="store_true",
-                        default=False)
-    parser.add_argument('-q', '--query',
-                        nargs=1,
-                        type=str,
-                        default=["*"],
-                        help='select by using path string')
+    parser = argparse.ArgumentParser(description="bridge file selector")
+    parser.add_argument("FILE", nargs=1, help="bridge file")
+    parser.add_argument("-o", "--output", nargs=1, type=str, default=[""], help="output brd file")
+    parser.add_argument("-v", "--verbose", action="store_true", default=False)
+    parser.add_argument("-q", "--query", nargs=1, type=str, default=["*"], help="select by using path string")
     args = parser.parse_args()
 
     # setting
@@ -56,22 +44,22 @@ def main():
     # reading
     if verbose:
         print("reading: {}".format(mpac_file_path))
-    mpac_data = load_msgpack(mpac_file_path)
+    mpac_data = bridge.load_msgpack(mpac_file_path)
 
     # prepare atomgroup
     atomgroup = bridge.AtomGroup(mpac_data)
     # print(atom_group)
 
-    # selecter
+    # selector
     if verbose:
-        print('query=\"{}\"'.format(query))
-    # path_selecter = bridge.Select_Path_wildcard(query)
-    path_selecter = bridge.Select_Path_simple(query)
-    selected = atomgroup.select(path_selecter)
+        print('query="{}"'.format(query))
+    # path_selector = bridge.Select_Path_wildcard(query)
+    path_selector = bridge.Select_Path_simple(query)
+    selected = atomgroup.select(path_selector)
 
     # output
     if len(output_path) > 0:
-        if (verbose == True):
+        if verbose == True:
             print("writing: %s\n" % (output_path))
 
         output_data = selected.get_raw_data()
@@ -80,5 +68,5 @@ def main():
         print(selected)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
