@@ -29,8 +29,7 @@ from .matrix import Matrix
 
 
 class Superposer(object):
-    """
-    """
+    """ """
 
     def __init__(self, atom_group1, atom_group2):
         """
@@ -41,7 +40,7 @@ class Superposer(object):
         self._atomgroup2 = AtomGroup(atom_group2)
         (positions1, positions2) = self._match_positions(atom_group1, atom_group2)
         self._num_of_positions = len(positions1)
-        assert(self._num_of_positions == len(positions2))
+        assert self._num_of_positions == len(positions2)
         self._positions1 = positions1
         self._positions2 = positions2
 
@@ -96,8 +95,7 @@ class Superposer(object):
 
     def _get_shift_positions1(self):
         if self._shift_positions1 is None:
-            self._shift_positions1 = self._shift_positions(
-                self.positions1, self.center1)
+            self._shift_positions1 = self._shift_positions(self.positions1, self.center1)
             # print(self._shift_positions1)
         return self._shift_positions1
 
@@ -106,8 +104,7 @@ class Superposer(object):
 
     def _get_shift_positions2(self):
         if self._shift_positions2 is None:
-            self._shift_positions2 = self._shift_positions(
-                self.positions2, self.center2)
+            self._shift_positions2 = self._shift_positions(self.positions2, self.center2)
             # print(self._shift_positions2)
         return self._shift_positions2
 
@@ -116,9 +113,9 @@ class Superposer(object):
 
     def _get_rotation_mat(self):
         if self._rotation_mat is None:
-            self._rotation_mat = self._get_rotation_matrix(self.num_of_positions,
-                                                           self.shift_positions1,
-                                                           self.shift_positions2)
+            self._rotation_mat = self._get_rotation_matrix(
+                self.num_of_positions, self.shift_positions1, self.shift_positions2
+            )
         return self._rotation_mat
 
     rotation_mat = property(_get_rotation_mat)
@@ -146,8 +143,7 @@ class Superposer(object):
 
     def _get_rmsd(self):
         if self._rmsd is None:
-            self._rmsd = self._calc_rmsd(self.update_positions1,
-                                         self.update_positions2)
+            self._rmsd = self._calc_rmsd(self.update_positions1, self.update_positions2)
         return self._rmsd
 
     rmsd = property(_get_rmsd)
@@ -156,7 +152,7 @@ class Superposer(object):
     def superimpose(self, atomgroup):
         # positions1 を移動
         answer = AtomGroup(atomgroup)
-        answer.shift_by(- self.center1)
+        answer.shift_by(-self.center1)
 
         answer.rotate(self.rotation_mat)
 
@@ -169,17 +165,13 @@ class Superposer(object):
     def _calc(self, atom_group1, atom_group2):
         (positions1, positions2) = self._match_positions(atom_group1, atom_group2)
         num_of_positions = len(positions1)
-        assert(num_of_positions == len(positions2))
+        assert num_of_positions == len(positions2)
 
-        (translation_vct1, self._translation_vct2) = self._fix_positions(
-            positions1, positions2)
+        (translation_vct1, self._translation_vct2) = self._fix_positions(positions1, positions2)
 
-        self._rotation_mat = self._get_rotation_matrix(num_of_positions,
-                                                       positions1, positions2)
+        self._rotation_mat = self._get_rotation_matrix(num_of_positions, positions1, positions2)
 
-        self._update_positions(positions1, positions2,
-                               self._rotation_mat,
-                               self._translation_vct2)
+        self._update_positions(positions1, positions2, self._rotation_mat, self._translation_vct2)
 
         self._rmsd = self._calc_rmsd(positions1, positions2)
         # print('<<<< superposer')
@@ -193,8 +185,7 @@ class Superposer(object):
         positions2 = []
         for key, ag1 in atom_group1.groups():
             if atom_group2.has_group(key):
-                (p1, p2) = self._match_positions(ag1,
-                                                 atom_group2.get_group(key))
+                (p1, p2) = self._match_positions(ag1, atom_group2.get_group(key))
                 positions1 += p1
                 positions2 += p2
 
@@ -210,7 +201,7 @@ class Superposer(object):
         center1 = self.get_center(positions1)
         center2 = self.get_center(positions2)
 
-        translation_vct1 = - center1
+        translation_vct1 = -center1
         translation_vct2 = center2
 
         for i in range(len(positions1)):
@@ -240,12 +231,11 @@ class Superposer(object):
         sum_of_positions = Position()
         for p in answer:
             sum_of_positions += p
-        assert(sum_of_positions.distance_from() < 1.0E-5)
+        assert sum_of_positions.distance_from() < 1.0e-5
 
         return answer
 
-    def _get_rotation_matrix(self, num_of_points,
-                             positions1, positions2):
+    def _get_rotation_matrix(self, num_of_points, positions1, positions2):
         r = Matrix(3, 3)
 
         # r_ij = Sum_over_k{p2(k, i) * p1(k, j)}
@@ -280,13 +270,26 @@ class Superposer(object):
         # print(trr)
 
         eigval, eigvec = trr.eig()
-        # print('eigval')
-        # print(eigval)
-        # print('eigvec')
-        # print(eigvec)
+        print("eigval>")
+        print(eigval)
+        print("eigvec>")
+        print(eigvec)
+
+        eigval2 = Vector(3)
+        eigval2[0] = eigval[2]
+        eigval2[1] = eigval[1]
+        eigval2[2] = eigval[0]
+        eigvec2 = Matrix(3, 3)
+        for i in range(3):
+            eigvec2.set(i, 0, eigvec.get(i, 2))
+            eigvec2.set(i, 1, eigvec.get(i, 1))
+            eigvec2.set(i, 2, eigvec.get(i, 0))
+        print("eigvec2>")
+        print(eigvec2)
+
         a = self._make_right_handed(eigvec)
-        # print('a')
-        # print(a)
+        print("make right handled>")
+        print(a)
 
         b = Matrix(3, 3)
         for i in range(3):
@@ -304,22 +307,23 @@ class Superposer(object):
             for j in range(3):
                 v = b.get(i, j)
                 b.set(i, j, v * t)
-        # print('b')
-        # print(b)
+        print("b>")
+        print(b)
 
         # b[2] = b[0] x b[1]
-        tmp_vct = self._calc_vector_product(b.get_row_vector(0),
-                                            b.get_row_vector(1))
-        for i in range(3):
-            b.set(2, i, tmp_vct[i])
+        # tmp_vct = self._calc_vector_product(b.get_row_vector(0), b.get_row_vector(1))
+        # for i in range(3):
+        #     b.set(2, i, tmp_vct[i])
+        # print("b'>")
+        # print(b)
 
         # rotation matrix r_ij = b_ki * a_kj
         mat = self._set_rotation(a, b)
         return mat
 
     def _make_right_handed(self, mat):
-        assert(mat.rows == 3)
-        assert(mat.cols == 3)
+        assert mat.rows == 3
+        assert mat.cols == 3
 
         v1 = Vector(3)
         v2 = Vector(3)
@@ -338,8 +342,8 @@ class Superposer(object):
         return answer
 
     def _calc_vector_product(self, v1, v2):
-        assert(len(v1) == 3)
-        assert(len(v2) == 3)
+        assert len(v1) == 3
+        assert len(v2) == 3
 
         v3 = Vector(3)
         v3[0] = v1[1] * v2[2] - v1[2] * v2[1]
@@ -349,10 +353,10 @@ class Superposer(object):
         return v3
 
     def _set_rotation(self, a, b):
-        assert(a.rows == 3)
-        assert(a.cols == 3)
-        assert(b.rows == 3)
-        assert(b.cols == 3)
+        assert a.rows == 3
+        assert a.cols == 3
+        assert b.rows == 3
+        assert b.cols == 3
 
         r = Matrix(3, 3)
         for i in range(3):
@@ -362,8 +366,7 @@ class Superposer(object):
                     r.add(i, j, v)
         return r
 
-    def _update_positions(self, positions1, positions2,
-                          rotation_mat, translation_vct2):
+    def _update_positions(self, positions1, positions2, rotation_mat, translation_vct2):
         for i in range(len(positions1)):
             positions1[i].rotate(rotation_mat)
 
@@ -377,8 +380,7 @@ class Superposer(object):
         calc rmsd.
         store the value to self._rmsd
         """
-        num_of_positions = min(len(self.update_positions1),
-                               len(self.update_positions2))
+        num_of_positions = min(len(self.update_positions1), len(self.update_positions2))
         msd = 0.0
         for i in range(num_of_positions):
             msd += positions1[i].square_distance_from(positions2[i])
