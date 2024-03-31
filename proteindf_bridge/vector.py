@@ -85,6 +85,11 @@ class Vector(object):
     def min(self):
         return self._data.min()
 
+    def abs(self):
+        answer = Vector(self)
+        answer._data = numpy.abs(answer._data)
+        return answer
+
     @property
     def data(self):
         """
