@@ -548,8 +548,8 @@ class AtomGroup(object):
     def assign_charges(self, charges):
         assert isinstance(charges, Vector)
         index = AtomGroup._assign_charges(self, charges, 0)
-        print(index, len(charges))
         assert index == len(charges)
+        return index
 
     @staticmethod
     def _assign_charges(atomgroup, charges, charge_index):
