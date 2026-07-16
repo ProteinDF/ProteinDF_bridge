@@ -25,11 +25,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formatdate
-try:
-    import configparser
-except ImportError:
-    # for Python 2.x
-    import ConfigParser as configparser
+import configparser
 
 class Mail(object):
     def __init__(self):
@@ -45,11 +41,10 @@ class Mail(object):
         self.text = ""
 
     def load_config(self, path):
-        ini = ConfigParser.SafeConfigParser()
+        ini = configparser.ConfigParser()
         if os.path.exists(path):
-            f = open(INI_FILE, "r")
-            ini.readfp(f)
-            f.close()
+            with open(path, "r") as f:
+                ini.read_file(f)
 
         self.smtp_server = ini.get('mail', 'smtp_server')
         self.smtp_port = ini.get('mail', 'smtp_port')
@@ -59,7 +54,7 @@ class Mail(object):
         self.from_address = ini.get('mail', 'from_address')
         
     def save_config(self, path):
-        ini = ConfigParser.SafeConfigParser()
+        ini = configparser.ConfigParser()
         ini.add_section('mail')
         ini.set('mail', 'smtp_server', self.smtp_server)
         ini.set('mail', 'smtp_port', str(self.smtp_port))
@@ -67,10 +62,9 @@ class Mail(object):
         ini.set('mail', 'smtp_account', self.smtp_account)
         ini.set('mail', 'smtp_password', self.smtp_password)
         ini.set('mail', 'from_address', self.from_address)
-        
-        f = open(path, 'w')
-        ini.write(f)
-        f.close()
+
+        with open(path, 'w') as f:
+            ini.write(f)
         
     def send(self):
         msg = MIMEText(self.text.encode(self.charset),
