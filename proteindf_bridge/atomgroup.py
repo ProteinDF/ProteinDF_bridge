@@ -889,7 +889,12 @@ class AtomGroup(object):
         """
         implement of '^=' operator
         """
-        self = self ^ rhs
+        assert isinstance(rhs, AtomGroup)
+
+        result = self ^ rhs
+        self._atoms = result._atoms
+        self._groups = result._groups
+        self._bonds = result._bonds
 
         return self
 
