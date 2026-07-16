@@ -183,6 +183,8 @@ class Position(object):
 
     def norm(self):
         n = self.__abs__()
+        if n == 0:
+            return
         self._position = [x / n for x in self._position]
 
     def rotate(self, mat):

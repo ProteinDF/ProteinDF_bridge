@@ -889,7 +889,8 @@ class AtomGroup(object):
         """
         implement of '^=' operator
         """
-        self = self ^ rhs
+        result = self ^ rhs
+        self.__dict__.update(result.__dict__)
 
         return self
 

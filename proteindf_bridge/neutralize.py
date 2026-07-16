@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 class Neutralize(object):
     def __init__(self, protein):
+        self._model = protein
         self._neutral_obj = self._neutralize(protein)
 
     @property
