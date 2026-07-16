@@ -190,7 +190,9 @@ class Pdb(object):
     def load(self, file_path):
         if os.path.isfile(file_path) != True:
             logger.critical("file not found: {}".format(file_path))
-            raise
+            raise RuntimeError(
+                "file not found: {}".format(file_path)
+            )
 
         model_serial = 1
         chain_serial = 0
