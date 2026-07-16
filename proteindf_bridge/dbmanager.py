@@ -318,8 +318,7 @@ class DbManager(object):
                 row_items = {}
                 for index, item in enumerate(row):
                     row_items[field_names[index]] = item
-
-            answer.append(row_items)
+                answer.append(row_items)
         return answer
 
     # etc ====================================================================
