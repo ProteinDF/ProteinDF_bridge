@@ -1039,7 +1039,6 @@ class AtomGroup(object):
 
     def save_csv(self, path):
         rows = self._get_csv_list()
-        print(len(rows))
         with open(path, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
             for row in rows:
