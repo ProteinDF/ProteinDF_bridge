@@ -88,8 +88,8 @@ class DbManager(object):
         if not self.has_table(table_name):
             fields = []
             if isinstance(field_names, dict):
-                for k, v in field_names:
-                    fields.append('{name} {type}'.format(k, v))
+                for k, v in field_names.items():
+                    fields.append('{0} {1}'.format(k, v))
                 field_names = fields
             fields_str = ', '.join(field_names)
 
@@ -318,8 +318,7 @@ class DbManager(object):
                 row_items = {}
                 for index, item in enumerate(row):
                     row_items[field_names[index]] = item
-
-            answer.append(row_items)
+                answer.append(row_items)
         return answer
 
     # etc ====================================================================

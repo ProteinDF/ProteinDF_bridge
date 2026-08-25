@@ -531,7 +531,7 @@ class SymmetricMatrix(Matrix):
 
         # setup data
         # 'U' form
-        data = [0.0 for x in range(dim * (dim + 1) / 2)]
+        data = [0.0 for x in range(dim * (dim + 1) // 2)]
         index = 0
         for r in range(dim):
             for c in range(r + 1):
