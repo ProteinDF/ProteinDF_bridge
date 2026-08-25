@@ -4,32 +4,63 @@
 # package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
 #
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"POT-Creation-Date: 2026-08-25 15:08+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language: ja\n"
 "Language-Team: ja <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: ../../api/proteindf_bridge.position.rst:2 b559b92747f244b9ae7bb155816e37a9
+#: ../../api/proteindf_bridge.position.rst:2 17d75163b55b433188b4b0d6dc8260b8
 msgid "proteindf\\_bridge.position module"
 msgstr ""
 
-#: 613f1bee0bc54ead831f2044d9fdc74a of
+#: 558774c4fdbe468a895c0c3b90fe1074 of
 #: proteindf_bridge.position.Position.cross:1
-msgid "外積を求める"
+msgid "Compute the cross product."
+msgstr "外積を求める"
+
+#: ../../api/proteindf_bridge.position.rst 988cb6b1d45e4ac69cd4ac3b56b62e03
+#: 9e4f0ed968934f568f4671ea4f538ada a6c5db64ba3a4545a3742880da65c3eb
+#: c90479bd72944d98a589f36ff6bbe23f cb41b0e1d11047028a40d1537e942f43
+#: d5eb0da3de4849fbbd956469c5992f5c
+msgid "Return type"
 msgstr ""
 
-#: 9df018fdf65446df8ee3f9f2fc7c8982 of proteindf_bridge.position.Position.dot:1
-msgid "内積を求める"
+#: 269943b3bb4c49d3a100c466da38918f 6374d8fb27464b2db23d90cfa02a2c9e of
+#: proteindf_bridge.position.Position.distance_from:1
+#: proteindf_bridge.position.Position.square_distance_from:1
+msgid ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`float\\``"
 msgstr ""
 
+#: 96ec838c32774866a2ac24187eba84c8 of
+#: proteindf_bridge.position.Position.dot:1
+msgid "Compute the dot product."
+msgstr "内積を求める"
+
+#: 39eeeecd92bf464d96845108b267cfbc of
+#: proteindf_bridge.position.Position.get_raw_data:1
+msgid ""
+":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~typing.List\\`\\\\ "
+"\\\\\\[\\:py\\:class\\:\\`float\\`\\]`"
+msgstr ""
+
+#: 766c3502080b4c068039cc2b44800f0c a1b8a6734397432bbd85b10e724f7605 of
+#: proteindf_bridge.position.Position.move_to:1
+#: proteindf_bridge.position.Position.rotate:1
+msgid ":sphinx_autodoc_typehints_type:`\\:py\\:obj\\:\\`None\\``"
+msgstr ""
+
+#: 1251517a73984a29bf99cdcea65f8ba6 of
+#: proteindf_bridge.position.Position.norm:1
+msgid ""
+":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.position.Position\\``"
+msgstr ""

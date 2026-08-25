@@ -48,7 +48,7 @@ class StrUtils(object):
     @classmethod
     def add_spaces(cls, s, num_add):
         """
-        行頭にnum_add分のスペースを追加する
+        Prepend num_add spaces to the start of each line.
         """
         spc = ' ' * num_add
         return spc + spc.join(s.splitlines(True))
@@ -56,7 +56,7 @@ class StrUtils(object):
     @classmethod
     def num_spaces(cls, s):
         """
-        行頭のスペース数を返す
+        Return the number of leading spaces on each line.
         """
         return [len(line) - len(line.lstrip()) for line in s.splitlines()]
 
@@ -75,7 +75,7 @@ class StrUtils(object):
     @classmethod
     def get_common_str(cls, str1, str2):
         """
-        (先頭から)共通文字列を返す
+        Return the common string (from the beginning).
 
         >>> a = 'abcdef'
         >>> b = 'abcdefg'
@@ -98,8 +98,8 @@ class StrUtils(object):
     @classmethod
     def to_unicode_dict(cls, d):
         """
-        byteを保存してある辞書に対して、
-        str(utf-8)をキーとする辞書に変換する。
+        Convert a dict whose keys are stored as bytes into a dict
+        keyed by str (utf-8).
         """
         assert isinstance(d, dict)
         answer = {}
@@ -137,7 +137,7 @@ class StrUtils(object):
     @classmethod
     def to_unicode(cls, unicode_or_str):
         """
-        byteをstr(utf-8)に変換する
+        Convert bytes to str (utf-8).
         """
         if isinstance(unicode_or_str, bytes):
             return unicode_or_str.decode('utf-8')
@@ -146,7 +146,7 @@ class StrUtils(object):
     @classmethod
     def to_bytes(cls, unicode_or_str):
         """
-        strをbyte(utf-8)に変換する
+        Convert str to bytes (utf-8).
         """
         if isinstance(unicode_or_str, str):
             return unicode_or_str.encode('utf-8')

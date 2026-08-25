@@ -4,24 +4,34 @@
 # package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
 #
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"POT-Creation-Date: 2026-08-25 15:08+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language: ja\n"
 "Language-Team: ja <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../api/proteindf_bridge.superposer_quaternion.rst:2
-#: 9fb21ba351ed401dbd6ebfba2300ca18
+#: 80e8acaf121646408d16a5e659ab9090
 msgid "proteindf\\_bridge.superposer\\_quaternion module"
 msgstr ""
 
+#: 2147873ac47747fa972f3ffef9327c0b of
+#: proteindf_bridge.superposer_quaternion.Superposer_quaternion.calc:1
+msgid ""
+"Compute the centroid, quaternion, rotation matrix, and RMSD all at once, and"
+" return the RMSD."
+msgstr "重心・クォータニオン・回転行列・RMSDを一括計算してRMSDを返す"
+
+#: 04db2fb6a0cd46c7b637c7181e508516 of
+#: proteindf_bridge.superposer_quaternion.Superposer_quaternion.superimpose:1
+msgid "Superimpose the given AtomGroup and return the result."
+msgstr "指定された AtomGroup を重ね合わせて返す"

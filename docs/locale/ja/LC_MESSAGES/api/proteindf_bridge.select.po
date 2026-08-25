@@ -4,35 +4,34 @@
 # package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
 #
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"POT-Creation-Date: 2026-08-25 15:08+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language: ja\n"
 "Language-Team: ja <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: ../../api/proteindf_bridge.select.rst:2 09de6f5ba12045728f67efe58ea9c808
+#: ../../api/proteindf_bridge.select.rst:2 64b727b13ca246f18fc432b23726f5f0
 msgid "proteindf\\_bridge.select module"
 msgstr ""
 
-#: 59137cafeacd4822beac5dc5619b9713 of proteindf_bridge.select.Select:1
-msgid "Selecterインターフェースクラス"
-msgstr ""
+#: d46ad2f7a2d24a7cbf17f18971527d5f of proteindf_bridge.select.Select:1
+msgid "Selecter interface class."
+msgstr "Selecterインターフェースクラス"
 
-#: 2876de5634f44b0a8038194741dacfc0 47b06f82184c4d0aa72dfb3dd0633184
-#: 4d1d5fd353f7478e900186bbd3401fbe 5c092af2cff846bb8e1d8fb977255ee8
-#: 737eec3c7a7e496bb9a3324a85e86c30 94ccf3e75027457282929c7e2fb20497
-#: c26cfc55f48e47c9aefa124388556c72 eaedce1d65764703b1b1c997425ad21d
-#: ef484542b2544296a03f10c4e365335f fda04d53e8134c89814ef918801669da of
+#: 1032217985f74ef38747eeecb7403b3f 1f8217410ca0457f9f4f304cfbfde9f4
+#: 28a398e3e24e4fa0912a05e612613f71 2e851f07da714ff2addbbdb5982bb910
+#: 48212957172c47d28f41031ce3a3921f 525bff970eb9452493ab74806701bcba
+#: 800bc2125df54aee931da53e890a7129 816bd27371354dd19bca44a79cd7f096
+#: b29c59e779694d8e92c95ff9d5a26232 db0f455d8c1248d8a8f8df655b27ea63 of
 #: proteindf_bridge.select.Select.is_match:1
 #: proteindf_bridge.select.Select_Atom.is_match:1
 #: proteindf_bridge.select.Select_AtomGroup.is_match:1
@@ -43,14 +42,14 @@ msgstr ""
 #: proteindf_bridge.select.Select_Path_wildcard.is_match:1
 #: proteindf_bridge.select.Select_Range.is_match:1
 #: proteindf_bridge.select.Select_Symbol.is_match:1
-msgid "条件に適合した場合、Trueを返す"
-msgstr ""
+msgid "Return True if the condition is matched."
+msgstr "条件に適合した場合、Trueを返す"
 
-#: 16c1696fd61848b6878270433a47debe 27eea011a3aa455b9765a2130fbada2a
-#: 2e48c6910a6f487fbf10a4733f36de79 52c32005854b49648785db691364d25c
-#: 7e08148497ca48cfa1b9afc3d3f0a8e0 7f0fff629409469e87da50094d26bb8e
-#: 9b92b3fd2f9d4d148fe755de7d9a560d aaa88c92b8164f638740c7877a616511
-#: d712bffe7973444d9849b81904b8577b f9aeb34859984a7ea354978d532d96d8 of
+#: 258b08002eb648f38dd0b97541bc4c3d 38bb7f2907d74164b887b6e750aa4dcc
+#: 3e5c3dfc1144495992e26f06b23ac5dc 6a068b9a643c487e83fdb35f04833228
+#: 88162e1c534446f0a5335f33388005a8 a0928925fd1544f181ffcd4d4332f6a9
+#: a1fcc955e1bf4375a0408cf2440b3d23 ab3df44b2f8b40a9a4fdb44a5b8e9800
+#: f2395b68078c4ef78570de4124c02203 fd9781f74d4a44bd9e5ffbe910e0c9df of
 #: proteindf_bridge.select.Select.is_match:3
 #: proteindf_bridge.select.Select_Atom.is_match:3
 #: proteindf_bridge.select.Select_AtomGroup.is_match:3
@@ -61,29 +60,33 @@ msgstr ""
 #: proteindf_bridge.select.Select_Path_wildcard.is_match:3
 #: proteindf_bridge.select.Select_Range.is_match:3
 #: proteindf_bridge.select.Select_Symbol.is_match:3
-msgid "サブクラスはこのメソッドを実装すること"
-msgstr ""
+msgid "Subclasses must implement this method."
+msgstr "サブクラスはこのメソッドを実装すること"
 
-#: 90f2e3ddf2cc4060b03fcf2fa564dba6 of
+#: 31a404d26fd746b9a33ee305a79e35d3 of
 #: proteindf_bridge.select.Select_AtomGroup:1
-msgid "reference atomgroupと同じ原子が存在しているものを返す"
+msgid "Return the atoms that also exist in the reference atomgroup."
+msgstr "reference atomgroupと同じ原子が存在しているものを返す"
+
+#: b530f5667f3648b7a36416934146f021 of proteindf_bridge.select.Select_Path:1
+msgid ""
+":class:`Select_Path_wildcard` instead. Will be removed in a future version."
 msgstr ""
 
-#: dcab0716eae34de69dc35c71fc2e84f8 of
+#: af6dc9c270b1425987d1bc1714305af0 of
 #: proteindf_bridge.select.Select_PathRegex:1
-msgid "pathに対する正規表現で選択する"
-msgstr ""
+msgid "Select by a regular expression matched against the path."
+msgstr "pathに対する正規表現で選択する"
 
-#: 07f479d5e94747b99bd3adffcf6da039 of
+#: 48fa19dc24154137b118207c97ecd131 of
 #: proteindf_bridge.select.Select_Path_wildcard:1
 msgid "selector using path with wildcard"
 msgstr ""
 
-#: 448212c80b034fa29112ac4a0a7389ea of proteindf_bridge.select.Select_Range:1
-msgid "半径で選択する"
-msgstr ""
+#: d39b470b0efc4d18b0cf2f18644b9bc1 of proteindf_bridge.select.Select_Range:1
+msgid "Select by radius."
+msgstr "半径で選択する"
 
-#: f5dbd8dc7a084559bc5d686662cee6fa of proteindf_bridge.select.Select_Symbol:1
-msgid "原子記号で選択する"
-msgstr ""
-
+#: 3110217e050846c28896a822f1f41d5c of proteindf_bridge.select.Select_Symbol:1
+msgid "Select by atomic symbol."
+msgstr "原子記号で選択する"

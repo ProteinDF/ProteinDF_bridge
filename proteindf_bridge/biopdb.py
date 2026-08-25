@@ -88,7 +88,7 @@ class Pdb(object):
         self._modpdb_amber_resatom_table = {}
         self._modpdb_formal_resatom_table = {}
         if self.AmberToolsVer < 22:
-            # leapではNH2はHとみなされず、NH2を重ねて付加してしまう
+            # leap does not treat NH2 as H, so it ends up adding a duplicate NH2
             self._modpdb_amber_resatom_table["NME"] = {
                 "HN2": "H",
                 "H1": "HH31",
@@ -96,7 +96,7 @@ class Pdb(object):
                 "H3": "HH33",
             }
 
-            # reduceではNH2が無いとNH2を付加してしまう
+            # reduce adds NH2 if it is missing
             self._modpdb_formal_resatom_table["NME"] = {
                 "H": "HN2",
                 "HH31": "H1",
@@ -105,13 +105,13 @@ class Pdb(object):
             }
 
         else:
-            # leapではNH2はHとみなされず、NH2を重ねて付加してしまう
+            # leap does not treat NH2 as H, so it ends up adding a duplicate NH2
             self._modpdb_amber_resatom_table["NME"] = {
                 "HN2": "H",
                 "CH3": "C",
             }
 
-            # reduceではNH2が無いとNH2を付加してしまう
+            # reduce adds NH2 if it is missing
             self._modpdb_formal_resatom_table["NME"] = {
                 "H": "HN2",
                 "C": "CH3",
@@ -216,14 +216,14 @@ class Pdb(object):
                         item["temp_factor"] = 0.0
 
                     if len(element) != 0:
-                        # TODO: 原子変換テーブル作成
+                        # TODO: create an atom conversion table
                         element = element.strip()
                         if element == "D":
                             element = "H"
                         item["element"] = element
                     else:
                         # see https://www.cgl.ucsf.edu/chimera/docs/UsersGuide/tutorials/pdbintro.html
-                        # TODO: テーブルを持って変換するように変更
+                        # TODO: change to use a lookup table for the conversion
                         name4 = name4.upper()
                         name2 = name4[0:2]
                         name2s = name2.strip()

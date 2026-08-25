@@ -21,7 +21,7 @@ class Neutralize(object):
         ip = IonPair(model)
         ionpairs = ip.get_ion_pairs()
 
-        # 処理しやすいように並べ替え
+        # sort for easier processing
         exempt_list = []
         for (anion_path, cation_path, anion_type, cation_type) in ionpairs:
             (anion_chain_name, anion_res_name) = self._divide_path(anion_path)

@@ -79,13 +79,13 @@ class IonPair(object):
 
     def _get_center_Nterm(self, res):
         """
-        N末端のイオン対判定用座標を返す
+        Return the coordinates used for N-terminal ion-pair determination.
         """
         return res['N'].xyz
 
     def _get_center_Cterm(self, res):
         """
-        C末端のイオン対判定用座標を返す
+        Return the coordinates used for C-terminal ion-pair determination.
         """
         ag = AtomGroup()
         ag.set_atom('C', res['C'])
@@ -95,7 +95,7 @@ class IonPair(object):
 
     def _get_center_GLU(self, res):
         """
-        GLUのイオン対判定用座標を返す
+        Return the coordinates used for GLU ion-pair determination.
         """
         ag = AtomGroup()
         ag.set_atom('C', res['CD'])
@@ -105,7 +105,7 @@ class IonPair(object):
 
     def _get_center_ASP(self, res):
         """
-        ASPのイオン対判定用座標を返す
+        Return the coordinates used for ASP ion-pair determination.
         """
         ag = AtomGroup()
         ag.set_atom('C', res['CG'])
@@ -115,7 +115,7 @@ class IonPair(object):
 
     def _get_center_LYS(self, res):
         """
-        LYSのイオン対判定用座標を返す
+        Return the coordinates used for LYS ion-pair determination.
         """
         xyz = None
         if res.has_atom('NZ'):
@@ -127,9 +127,9 @@ class IonPair(object):
 
     def _get_center_ARG(self, res, case=0):
         """
-        case: 0; 中央
-        case: 1; NH1側
-        case: 2; NH2側
+        case: 0; center
+        case: 1; NH1 side
+        case: 2; NH2 side
         """
         case = int(case)
 

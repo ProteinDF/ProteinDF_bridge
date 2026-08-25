@@ -4,170 +4,254 @@
 # package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
 #
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"POT-Creation-Date: 2026-08-25 15:08+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language: ja\n"
 "Language-Team: ja <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: ../../api/proteindf_bridge.atomgroup.rst:2 2cadf953511140a1bc0b8a4c35c74b6f
+#: ../../api/proteindf_bridge.atomgroup.rst:2 2b9577cffbae41c096d6227bb2fd6483
 msgid "proteindf\\_bridge.atomgroup module"
 msgstr ""
 
-#: c13021d8da304c3f96a7033d8943ee04 of
+#: 826ad16ff1804b67829047b3d23e325a of
 #: proteindf_bridge.atomgroup.AtomGroup.add_bond:1
-msgid "結合情報を追加する order = 結合次数"
-msgstr ""
+msgid "Add bond information. order = bond order"
+msgstr "結合情報を追加する order = 結合次数"
 
-#: 209b148107de40b2b268780fc28ff64b of
+#: 9d59150d382341d1833a167ddaf14354 of
 #: proteindf_bridge.atomgroup.AtomGroup.atoms:1
-msgid "原子のリストを返す"
+msgid "Return the list of atoms."
+msgstr "原子のリストを返す"
+
+#: ../../api/proteindf_bridge.atomgroup.rst 10e317a19f594cabb9b51f300fb29019
+#: 148b351e8ba247a69951adef383e3e0f 514820d6653c4e9e82d7fdf703f2349e
+#: 5db747bfb45f4dc9868dcb44236db0ca 643add333ae845e7937b3cec692c5f9c
+#: 7c023d97b30a492fbd36542484a8c747 80abf671fd1f4b38b0f8496c5cb8d638
+#: a07b1a9b4cf34f949434b71dcee7dc22 ac82e6d5307447b29a87a199c31c136c
+#: c264b7c5a8f449e385e6b067c0e163d0 e1ef904243cf41c884097c6b5faae67c
+#: e5d6ae7648024fb3824da0b796fffe35 f1cebc6eee7f4741897902b8d49cfa4d
+msgid "Return type"
 msgstr ""
 
-#: 0d4e64b139d446a5adc4d5da0be0e021 of
+#: 7be40cf883134d73be11d2e59943dafc of
+#: proteindf_bridge.atomgroup.AtomGroup.atoms:3
+msgid ""
+":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~typing.Iterator\\`\\\\"
+" \\\\\\[\\:py\\:data\\:\\`\\~typing.Tuple\\`\\\\ "
+"\\\\\\[\\:py\\:class\\:\\`str\\`\\, "
+"\\:py\\:class\\:\\`\\~proteindf\\_bridge.atom.Atom\\`\\]\\]`"
+msgstr ""
+
+#: e160f5f18e944fb4a068e073fd332814 of
 #: proteindf_bridge.atomgroup.AtomGroup.center:1
 msgid "return Position value of the center"
 msgstr ""
 
-#: 1cd2f8510f614f3a8477ac0a508106d2 982e2c02470741db95b990c590b89a6a of
+#: 0078e4a09a974ebb88662eb9c1aa7b94 abe5ab0c1ca04fefa1002585ec45ec22 of
 #: proteindf_bridge.atomgroup.AtomGroup.erase_atom:1
 #: proteindf_bridge.atomgroup.AtomGroup.remove_atom:1
 msgid "remove atom"
 msgstr ""
 
-#: ec967b281b4749b6b276e3231e45c24f of
+#: 631252e46c554398a0f05c9bfb00e49c of
 #: proteindf_bridge.atomgroup.AtomGroup.erase_atom:3
-msgid "absolete function."
+msgid ":meth:`remove_atom` instead."
 msgstr ""
 
-#: d6b5dbefb0424139bf401ca85eea6f71 fca4664cf3eb45fcb640436b115de46a of
+#: 04e2b53d86684140b26fda2c499e9bca fe4539770b00447f91639d0961596e2f of
 #: proteindf_bridge.atomgroup.AtomGroup.erase_group:1
 #: proteindf_bridge.atomgroup.AtomGroup.remove_group:1
 msgid "remove group"
 msgstr ""
 
-#: e333fdb59ef04feea490bc12ba31f562 of
+#: 56b6309b83084d579aa13ecf3b69d04a of
 #: proteindf_bridge.atomgroup.AtomGroup.erase_group:3
-msgid "obsolete function; use remove_group()"
+msgid ":meth:`remove_group` instead."
 msgstr ""
 
-#: 6ad0b69f954b4e4db1b52692bea3b519 of
+#: 6ae35cd823924806827b39158063a8a8 a2f73b01b93f40fab303ae1f4156ca22
+#: d484d9ab4e454a9aabbb02ef1047c98e ebc6aa8608804528924fe74d500c4b30 of
+#: proteindf_bridge.atomgroup.AtomGroup.erase_group:5
+#: proteindf_bridge.atomgroup.AtomGroup.remove_group:3
+#: proteindf_bridge.atomgroup.AtomGroup.set_atom:1
+#: proteindf_bridge.atomgroup.AtomGroup.set_group:1
+msgid ":sphinx_autodoc_typehints_type:`\\:py\\:obj\\:\\`None\\``"
+msgstr ""
+
+#: f28eec05ad1a4738b183315a4ef7e668 of
 #: proteindf_bridge.atomgroup.AtomGroup.get_atom:1
-msgid "入力されたkeyもしくは名前の原子が含まれている場合、その原子を返す。 無い場合はNoneを返す。"
+msgid ""
+"Return the atom if one matching the given key or name is contained; "
+"otherwise return None."
+msgstr "入力されたkeyもしくは名前の原子が含まれている場合、その原子を返す。 無い場合はNoneを返す。"
+
+#: 63535f568c4a47dfa2c8e530b7d382a5 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_atom:4
+msgid ""
+":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.atom.Atom\\`"
+" \\| \\:py\\:obj\\:\\`None\\``"
 msgstr ""
 
-#: fca7dae62fe1498dbf81de8c49a82e83 of
+#: 738c4fdc83544ff2b9a2ad6a5ff0c113 fed8f50e9ee94262a05afe13fa2d1752 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_atom_keys:1
+#: proteindf_bridge.atomgroup.AtomGroup.get_group_list:1
+msgid ""
+":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~typing.List\\`\\\\ "
+"\\\\\\[\\:py\\:class\\:\\`str\\`\\]`"
+msgstr ""
+
+#: 95885bb708084508b247a09d02820b74 of
 #: proteindf_bridge.atomgroup.AtomGroup.get_atom_kinds:1
-msgid "原子種(シンボル)のリストを返す"
-msgstr ""
+msgid "Return the list of atomic species (symbols)."
+msgstr "原子種(シンボル)のリストを返す"
 
-#: b9fb421b43e4408fb06b09b2a2b566e3 of
+#: d0e6576865b846c98dd5cb20a597166f of
 #: proteindf_bridge.atomgroup.AtomGroup.get_atom_kinds_count:1
-msgid "原子種(シンボル)とその数を格納した辞書を返す"
-msgstr ""
+msgid "Return a dict mapping atomic species (symbols) to their counts."
+msgstr "原子種(シンボル)とその数を格納した辞書を返す"
 
-#: fcabd30855954f9a8207ade66b400906 of
+#: 48f38c559c764fdebd3680bd46f01108 of
 #: proteindf_bridge.atomgroup.AtomGroup.get_atom_list:1
-msgid "サブグループ内の原子をリスト型に格納して返す"
-msgstr ""
+msgid "Collect the atoms within the subgroups into a list and return it."
+msgstr "サブグループ内の原子をリスト型に格納して返す"
 
-#: b2ea9c4366c74645b7946843fa135191 of
+#: 7fb7e4f66bfb48cdae87e4e6f1ce82fa of
 #: proteindf_bridge.atomgroup.AtomGroup.get_bond_list:1
-msgid "タプル('atom1のpath', 'atom2のpath', 結合次数)のリストを返す"
-msgstr ""
+msgid "Return a list of tuples ('atom1 path', 'atom2 path', bond order)."
+msgstr "タプル('atom1のpath', 'atom2のpath', 結合次数)のリストを返す"
 
-#: 6fdd9246b3c24517a89bc103116dd4de of
+#: 0fe50ec2fd294aa1a4c2054286e53469 of
 #: proteindf_bridge.atomgroup.AtomGroup.get_formula:1
-msgid "分子式(組成式; composition formula)を返す"
-msgstr ""
+msgid "Return the molecular formula (composition formula)."
+msgstr "分子式(組成式; composition formula)を返す"
 
-#: 40fed17e0c4941379a82ffe5613177d6 of
+#: f0391bbea1994dadbd59e7967c219152 of
 #: proteindf_bridge.atomgroup.AtomGroup.get_group:1
-msgid "入力されたkeyもしくは名前の原子団が含まれている場合、その原子を返す。 無い場合はNoneを返す。"
+msgid ""
+"Return the group if one matching the given key or name is contained; "
+"otherwise return None."
+msgstr "入力されたkeyもしくは名前の原子団が含まれている場合、その原子を返す。 無い場合はNoneを返す。"
+
+#: 0e4409d877cc4381a81ea873a4e87cf9 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_group:4
+msgid ""
+":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.atomgroup.AtomGroup\\`"
+" \\| \\:py\\:obj\\:\\`None\\``"
 msgstr ""
 
-#: 6fb05805db484a9397de020ac10fb25c of
+#: d12b4fff1ea64bc3aad21cbcd87f7090 of
 #: proteindf_bridge.atomgroup.AtomGroup.get_path_list:1
-msgid "グループ内の原子のパスのリストを返す"
-msgstr ""
+msgid "Return the list of paths of the atoms within the group."
+msgstr "グループ内の原子のパスのリストを返す"
 
-#: c3fa51fc8a2643efa0dfddf9a57447cd of
+#: e61c72b798664883aac65f1290a30811 of
 #: proteindf_bridge.atomgroup.AtomGroup.get_xyz:1
-msgid "XYZフォーマット文字列を返す"
-msgstr ""
+msgid "Return the XYZ-format string."
+msgstr "XYZフォーマット文字列を返す"
 
-#: 390ec8f31efc42879cfa80c92519f004 of
+#: a1feaaae5e014a16bfdca4209b8b0053 of
 #: proteindf_bridge.atomgroup.AtomGroup.groups:1
-msgid "原子団のリストを返す"
+msgid "Return the list of molecular groups."
+msgstr "原子団のリストを返す"
+
+#: 7970543552c0409baf6fce3061a563e1 of
+#: proteindf_bridge.atomgroup.AtomGroup.groups:3
+msgid ""
+":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~typing.Iterator\\`\\\\"
+" \\\\\\[\\:py\\:data\\:\\`\\~typing.Tuple\\`\\\\ "
+"\\\\\\[\\:py\\:class\\:\\`str\\`\\, "
+"\\:py\\:class\\:\\`\\~proteindf\\_bridge.atomgroup.AtomGroup\\`\\]\\]`"
 msgstr ""
 
-#: 3f19cae37a224ad1984803f3ddbca448 of
+#: 4cc11c35fa204eec845041b187765bda of
 #: proteindf_bridge.atomgroup.AtomGroup.has_atom:1
-msgid "入力されたkeyもしくは名前の原子が含まれている場合、Trueを返す。 無い場合はFalseを返す。"
-msgstr ""
+msgid ""
+"Return True if an atom matching the given key or name is contained; "
+"otherwise return False."
+msgstr "入力されたkeyもしくは名前の原子が含まれている場合、Trueを返す。 無い場合はFalseを返す。"
 
-#: e570044c37e84405811fa1e10392d1e7 of
+#: e513e657f0f0495e820d58421e31034d of
 #: proteindf_bridge.atomgroup.AtomGroup.has_atomkey:1
-msgid "入力されたkeyの原子が含まれている場合、Trueを返す。 無い場合はFalseを返す。"
-msgstr ""
+msgid ""
+"Return True if an atom with the given key is contained; otherwise return "
+"False."
+msgstr "入力されたkeyの原子が含まれている場合、Trueを返す。 無い場合はFalseを返す。"
 
-#: 2a62d26627f1433fb3cbf08adf4ba088 of
+#: bdb29668cb0b430693a11eaac604576d of
 #: proteindf_bridge.atomgroup.AtomGroup.has_atomname:1
-msgid "入力された名前の原子が含まれている場合、Trueを返す。 無い場合はFalseを返す。"
-msgstr ""
+msgid ""
+"Return True if an atom with the given name is contained; otherwise return "
+"False."
+msgstr "入力された名前の原子が含まれている場合、Trueを返す。 無い場合はFalseを返す。"
 
-#: 9d95653b34684d8e8200cf0c60dad8f9 of
+#: 654f3d5ea1a1468e9557d739df5d15f8 of
 #: proteindf_bridge.atomgroup.AtomGroup.has_group:1
-msgid "入力されたkeyもしくは名前のグループが含まれている場合、Trueを返す。 無い場合はFalseを返す。"
+msgid ""
+"Return True if a group matching the given key or name is contained; "
+"otherwise return False."
+msgstr "入力されたkeyもしくは名前のグループが含まれている場合、Trueを返す。 無い場合はFalseを返す。"
+
+#: 8938f80b332d4a2d8a4a9cb9ecfe60ab 8faa425fd57249bf95e6f05b0f63d829
+#: ba095d25267f4f4e95aa422d3e90cee9 of
+#: proteindf_bridge.atomgroup.AtomGroup.has_group:4
+#: proteindf_bridge.atomgroup.AtomGroup.has_groupkey:4
+#: proteindf_bridge.atomgroup.AtomGroup.has_groupname:4
+msgid ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`bool\\``"
 msgstr ""
 
-#: ac498041123a425497c4eb8f3a5f3822 of
+#: 71af9f30910f4fe1b683405d75ca697f of
 #: proteindf_bridge.atomgroup.AtomGroup.has_groupkey:1
-msgid "入力されたkeyのグループが含まれている場合、Trueを返す。 無い場合はFalseを返す。"
-msgstr ""
+msgid ""
+"Return True if a group with the given key is contained; otherwise return "
+"False."
+msgstr "入力されたkeyのグループが含まれている場合、Trueを返す。 無い場合はFalseを返す。"
 
-#: 43a713a63f65436c9a4bb969d7607f0f of
+#: eaadefc1e2b149c08d4aa9dd238579ec of
 #: proteindf_bridge.atomgroup.AtomGroup.has_groupname:1
-msgid "入力されたnameのグループが含まれている場合、Trueを返す。 無い場合はFalseを返す。"
-msgstr ""
+msgid ""
+"Return True if a group with the given name is contained; otherwise return "
+"False."
+msgstr "入力されたnameのグループが含まれている場合、Trueを返す。 無い場合はFalseを返す。"
 
-#: 83d2c89c3e144e8fa14231fbce568be3 of
+#: d777f2f3269940d5849e77253e88d4df of
 #: proteindf_bridge.atomgroup.AtomGroup.merge:1
-msgid "原子団を結合する"
-msgstr ""
+msgid "Merge in another molecular group."
+msgstr "原子団を結合する"
 
-#: e331266492ef40d4a3a78fed046d404c of
+#: 7d4aa4aee997466da2ed7c3dd1e54ec8 of
 #: proteindf_bridge.atomgroup.AtomGroup.pickup_atoms:1
-msgid "key または nameが一致した原子の配列を返す"
-msgstr ""
+msgid "Return the array of atoms whose key or name matches."
+msgstr "key または nameが一致した原子の配列を返す"
 
-#: a8635e59877047bfbcef0b9d03cffffd of
+#: 391c660cd41b4d138a5fafe8aa39e750 of
 #: proteindf_bridge.atomgroup.AtomGroup.restructure:1
-msgid "referenceの構造を参照して、データ構造を再構築する。"
-msgstr ""
+msgid "Rebuild the data structure by referring to the structure of reference."
+msgstr "referenceの構造を参照して、データ構造を再構築する。"
 
-#: ceb62bb476b84af7b60bbb417f021df8 of
+#: b2251f8c4dbe47a38258bd0698a4b1d8 of
 #: proteindf_bridge.atomgroup.AtomGroup.restructure:3
-msgid "フラットな原子リストをPDBデータ構造にビルドアップするときに便利。"
-msgstr ""
+msgid ""
+"Useful when building up a flat list of atoms into a PDB-like data structure."
+msgstr "フラットな原子リストをPDBデータ構造にビルドアップするときに便利。"
 
-#: 94bfa4f78ce941e9966795ca7c8b73f4 of
+#: f028da92ef134b9da1700ab9ad028b76 of
 #: proteindf_bridge.atomgroup.AtomGroup.select:1
-msgid "selectorにSelectorオブジェクトを渡すことで 対応する原子団を返します"
-msgstr ""
+msgid ""
+"Pass a Selector object as selector to get back the corresponding molecular "
+"group."
+msgstr "selectorにSelectorオブジェクトを渡すことで 対応する原子団を返します"
 
-#: 4e67ecd8756e4e1097a9606b2455eac9 of
+#: b75ab0919b2943a8b090af9802f86ef5 of
 #: proteindf_bridge.atomgroup.AtomGroup.sum_of_atomic_number:1
-msgid "原子数の総和を返す"
-msgstr ""
-
+msgid "Return the sum of atomic numbers."
+msgstr "原子数の総和を返す"

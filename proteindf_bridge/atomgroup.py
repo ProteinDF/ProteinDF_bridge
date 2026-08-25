@@ -116,7 +116,7 @@ class AtomGroup(object):
         self._path = "/"
         self._parent = None
 
-        # 'nice'を指定すると数字順にアクセスできる
+        # specifying 'nice' allows access in numeric order
         self._sort_atoms = None
         self._sort_groups = None
 
@@ -196,7 +196,7 @@ class AtomGroup(object):
     # --------------------------------------------------------------------------
     def sum_of_atomic_number(self):
         """
-        原子数の総和を返す
+        Return the sum of atomic numbers.
         """
         answer = 0.0
         for key, grp in self.groups():
@@ -207,7 +207,7 @@ class AtomGroup(object):
 
     def get_atom_kinds(self):
         """
-        原子種(シンボル)のリストを返す
+        Return the list of atomic species (symbols).
         """
         answer = set()
         for key, group in self.groups():
@@ -219,7 +219,7 @@ class AtomGroup(object):
 
     def get_atom_kinds_count(self):
         """
-        原子種(シンボル)とその数を格納した辞書を返す
+        Return a dict mapping atomic species (symbols) to their counts.
         """
         kinds = {}
 
@@ -239,7 +239,7 @@ class AtomGroup(object):
     # --------------------------------------------------------------------------
     def groups(self) -> Iterator[Tuple[str, AtomGroup]]:
         """
-        原子団のリストを返す
+        Return the list of molecular groups.
         """
         if self._sort_groups == "nice":
             keys = list(self._groups.keys())
@@ -252,8 +252,8 @@ class AtomGroup(object):
 
     def get_group(self, key_or_name: str) -> Optional[AtomGroup]:
         """
-        入力されたkeyもしくは名前の原子団が含まれている場合、その原子を返す。
-        無い場合はNoneを返す。
+        Return the group if one matching the given key or name is
+        contained; otherwise return None.
         """
         key_or_name = StrUtils.to_unicode(key_or_name)
         if key_or_name in self._groups:
@@ -276,8 +276,8 @@ class AtomGroup(object):
 
     def has_groupkey(self, key: str) -> bool:
         """
-        入力されたkeyのグループが含まれている場合、Trueを返す。
-        無い場合はFalseを返す。
+        Return True if a group with the given key is contained;
+        otherwise return False.
         """
         answer = False
         key = StrUtils.to_unicode(key)
@@ -287,8 +287,8 @@ class AtomGroup(object):
 
     def has_groupname(self, name: str) -> bool:
         """
-        入力されたnameのグループが含まれている場合、Trueを返す。
-        無い場合はFalseを返す。
+        Return True if a group with the given name is contained;
+        otherwise return False.
         """
         answer = False
         name = StrUtils.to_unicode(name)
@@ -300,8 +300,8 @@ class AtomGroup(object):
 
     def has_group(self, key_or_name: str) -> bool:
         """
-        入力されたkeyもしくは名前のグループが含まれている場合、Trueを返す。
-        無い場合はFalseを返す。
+        Return True if a group matching the given key or name is
+        contained; otherwise return False.
         """
         return (self.has_groupkey(key_or_name)) or (self.has_groupname(key_or_name))
 
@@ -328,7 +328,7 @@ class AtomGroup(object):
     # --------------------------------------------------------------------------
     def atoms(self) -> Iterator[Tuple[str, Atom]]:
         """
-        原子のリストを返す
+        Return the list of atoms.
         """
         if self._sort_atoms == "nice":
             keys = list(self._atoms.keys())
@@ -344,8 +344,8 @@ class AtomGroup(object):
 
     def get_atom(self, key_or_name: str) -> Optional[Atom]:
         """
-        入力されたkeyもしくは名前の原子が含まれている場合、その原子を返す。
-        無い場合はNoneを返す。
+        Return the atom if one matching the given key or name is
+        contained; otherwise return None.
         """
         key_or_name = StrUtils.to_unicode(key_or_name)
         if key_or_name in self._atoms:
@@ -383,8 +383,8 @@ class AtomGroup(object):
 
     def has_atomkey(self, key):
         """
-        入力されたkeyの原子が含まれている場合、Trueを返す。
-        無い場合はFalseを返す。
+        Return True if an atom with the given key is contained;
+        otherwise return False.
         """
         answer = False
         key = StrUtils.to_unicode(key)
@@ -394,8 +394,8 @@ class AtomGroup(object):
 
     def has_atomname(self, name):
         """
-        入力された名前の原子が含まれている場合、Trueを返す。
-        無い場合はFalseを返す。
+        Return True if an atom with the given name is contained;
+        otherwise return False.
         """
         answer = False
         name = StrUtils.to_unicode(name)
@@ -409,8 +409,8 @@ class AtomGroup(object):
 
     def has_atom(self, key_or_name):
         """
-        入力されたkeyもしくは名前の原子が含まれている場合、Trueを返す。
-        無い場合はFalseを返す。
+        Return True if an atom matching the given key or name is
+        contained; otherwise return False.
         """
         return (self.has_atomkey(key_or_name)) or (self.has_atomname(key_or_name))
 
@@ -433,7 +433,7 @@ class AtomGroup(object):
 
     def pickup_atoms(self, key_or_name):
         """
-        key または nameが一致した原子の配列を返す
+        Return the array of atoms whose key or name matches.
         """
         answer = []
         for subgrp_key, subgrp in self.groups():
@@ -447,7 +447,7 @@ class AtomGroup(object):
 
     def get_atom_list(self):
         """
-        サブグループ内の原子をリスト型に格納して返す
+        Collect the atoms within the subgroups into a list and return it.
         """
         atom_list = []
         for subgrp_key, subgrp in self.groups():
@@ -460,7 +460,7 @@ class AtomGroup(object):
 
     def get_path_list(self):
         """
-        グループ内の原子のパスのリストを返す
+        Return the list of paths of the atoms within the group.
         """
         answer = []
         for subgrp_key, subgrp in self.groups():
@@ -470,7 +470,7 @@ class AtomGroup(object):
         return answer
 
     def get_formula(self):
-        """分子式(組成式; composition formula)を返す"""
+        """Return the molecular formula (composition formula)."""
         kinds = self.get_atom_kinds_count()
 
         formula = ""
@@ -550,7 +550,7 @@ class AtomGroup(object):
 
     def merge(self, rhs):
         """
-        原子団を結合する
+        Merge in another molecular group.
         """
         if not isinstance(rhs, AtomGroup):
             raise TypeError("Expected AtomGroup, got {}".format(type(rhs).__name__))
@@ -606,8 +606,8 @@ class AtomGroup(object):
 
     def select(self, selector):
         """
-        selectorにSelectorオブジェクトを渡すことで
-        対応する原子団を返します
+        Pass a Selector object as selector to get back the
+        corresponding molecular group.
         """
         if not isinstance(selector, Select):
             raise TypeError("Expected Select, got {}".format(type(selector).__name__))
@@ -632,9 +632,10 @@ class AtomGroup(object):
 
     # --------------------------------------------------------------------------
     def restructure(self, reference, range=1.0e-5):
-        """referenceの構造を参照して、データ構造を再構築する。
+        """Rebuild the data structure by referring to the structure of reference.
 
-        フラットな原子リストをPDBデータ構造にビルドアップするときに便利。
+        Useful when building up a flat list of atoms into a PDB-like
+        data structure.
         """
         assert isinstance(reference, AtomGroup)
 
@@ -692,7 +693,7 @@ class AtomGroup(object):
 
     def get_bond_list(self, bond_list=None):
         """
-        タプル('atom1のpath', 'atom2のpath', 結合次数)のリストを返す
+        Return a list of tuples ('atom1 path', 'atom2 path', bond order).
         """
         self._update_path(force=True)
 
@@ -714,8 +715,8 @@ class AtomGroup(object):
 
     def add_bond(self, atom1, atom2, order=1):
         """
-        結合情報を追加する
-        order = 結合次数
+        Add bond information.
+        order = bond order
         """
         if not isinstance(atom1, Atom):
             raise TypeError("Expected Atom for atom1, got {}".format(type(atom1).__name__))
@@ -728,7 +729,7 @@ class AtomGroup(object):
 
     def _add_bond_normalize(self, bond_info):
         """
-        結合情報を(正規化しながら)追加する
+        Add bond information (while normalizing it).
         """
         assert len(bond_info) == 3
         (atom1, atom2, order) = bond_info
@@ -813,7 +814,7 @@ class AtomGroup(object):
 
     def get_xyz(self):
         """
-        XYZフォーマット文字列を返す
+        Return the XYZ-format string.
         """
         output = "%d\n" % (self.get_number_of_all_atoms())
         output += "# \n"
@@ -822,7 +823,7 @@ class AtomGroup(object):
 
     def _get_xyz_recursive(self):
         """
-        get_xyz()メソッド内部で再帰的に呼ばれる関数
+        Function called recursively from within get_xyz().
         """
         output = ""
         for key, grp in self.groups():
@@ -1083,8 +1084,8 @@ class AtomGroup(object):
         """
         operator[] for getter
 
-        keyが一致した原子団、原子を返す。
-        もしkeyが一致しなければ、名前から検索する。
+        Return the group or atom whose key matches.
+        If no key matches, search by name instead.
         """
         key = StrUtils.to_unicode(str(key))
         if self.has_group(key):

@@ -50,7 +50,7 @@ class Bond(object):
         
     def _make_bond_matrix(self):
         """
-        結合行列を作成します
+        Create the bond matrix.
         """
         num_of_atoms = len(self._atoms)
         self._bondmat = SymmetricMatrix(num_of_atoms)
@@ -66,7 +66,7 @@ class Bond(object):
         
     def _make_distance_matrix(self):
         """
-        距離行列を作成します
+        Create the distance matrix.
         """
         num_of_atoms = len(self._atoms)
         self._distmat = SymmetricMatrix(num_of_atoms)

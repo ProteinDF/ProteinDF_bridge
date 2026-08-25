@@ -33,21 +33,21 @@ logger = logging.getLogger(__name__)
 
 class Select(object):
     """
-    Selecterインターフェースクラス
+    Selecter interface class.
     """
 
     def is_match(self, obj):
         """
-        条件に適合した場合、Trueを返す
+        Return True if the condition is matched.
 
-        サブクラスはこのメソッドを実装すること
+        Subclasses must implement this method.
         """
         return False
 
 
 class Select_Symbol(Select):
     """
-    原子記号で選択する
+    Select by atomic symbol.
     """
 
     def __init__(self, atom_symbol):
@@ -150,7 +150,7 @@ class Select_Path_wildcard(Select):
 
 class Select_PathRegex(Select):
     """
-    pathに対する正規表現で選択する
+    Select by a regular expression matched against the path.
     """
 
     def __init__(self, query):
@@ -168,7 +168,7 @@ class Select_PathRegex(Select):
 
 class Select_Range(Select):
     """
-    半径で選択する
+    Select by radius.
     """
 
     def __init__(self, pos, d):
@@ -210,7 +210,7 @@ class Select_Atom(Select):
 
 
 class Select_AtomGroup(Select):
-    """reference atomgroupと同じ原子が存在しているものを返す"""
+    """Return the atoms that also exist in the reference atomgroup."""
 
     def __init__(self, ref_atomgroup, range=1.0e-5):
         from .atomgroup import AtomGroup
