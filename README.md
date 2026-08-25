@@ -1,73 +1,56 @@
-# ProteinDF_bridge -- bridge scripts the ProteinDF package and other data/package
+# ProteinDF_bridge -- bridge scripts between ProteinDF and molecular data formats
 
-## What you need to use ProteinDF_bridge
+ProteinDF_bridge is a Python library for reading, manipulating, and converting various molecular structure formats (PDB, mmCIF, MOL2, GRO, Amber PRMTOP, etc.) for use with ProteinDF.
 
-* Python 2.x or later (recommended: above 3.6)
-* Python modules
-  * setuptools
-  * numpy
-  * argparse
-  * PyYaml
-  * msgpack-python, u-msgpack-python or msgpack-pure
-  * configparser
-  * ordereddict (for Python 2.6)
+## Requirements
 
-## How to install ProteinDF_bridge
+- Python 3.8 or later
+- Python packages:
+  - `numpy`
+  - `pyyaml`
+  - `msgpack`
 
-### get source files
+## Installation
 
-Clone a copy of the main ProteinDF_bridge git repo by running:
+### Clone repository
 
 ```bash
-git clone git://github.com/ProteinDF/ProteinDF_bridge.git
+git clone https://github.com/ProteinDF/ProteinDF_bridge.git
+cd ProteinDF_bridge
 ```
 
-
-### install ProteinDF_bridge module using the standard `venv` module (recommended)
-
-- required above Python 3.3
-
-#### confirm install directory
-
-Here, we will assume that the virtual environment of Python will be installed in the directory specified by the environment variable `PDF_HOME`.
-Set the environment variables according to the shell you are using.
-
-The following shows how to set them in bash:
-
-```
-$ export PDF_HOME=${HOME}/local/ProteinDF
-```
-
-#### prepare standard virtual environment of Python
-
-The following shows how to set them in bash:
-
-```
-$ python -m venv ${PDF_HOME}
-$ source ${PDF_HOME}/bin/activate
-```
-
-#### install module
-
-Enter the source directory and run build script:
+### Install using pip
 
 ```bash
-$ cd ProteinDF_bridge
-$ pip install --use-feature=in-tree-build .
+pip install .
 ```
 
-# Documents
+For development (editable install):
 
-sorry, in preparation.
+```bash
+pip install -e .
+```
 
+## Quick Start
 
-# License
+```python
+from proteindf_bridge import BioPdb, AtomGroup
 
-ProteinDF_bridge is licensed under the GNU GPL v3.
-The source code can be found on the Github.
+# Load structure from PDB
+pdb = BioPdb()
+pdb.load("protein.pdb")
 
+# Get AtomGroup representation
+ag = pdb.get_atomgroup()
+print(f"Total atoms: {ag.get_number_of_all_atoms()}")
+```
 
-# Bugs
+## Running Tests
 
-If you find any bugs, please let me know.
-And if you have a suggestion for improvement, please let me know.
+```bash
+pytest
+```
+
+## License
+
+ProteinDF_bridge is licensed under the GNU General Public License v3.0 (GPLv3).
