@@ -77,8 +77,22 @@ html_title = f"{project} {release}"
 # `sphinx-build -b latex -D language=ja . _build/latex/ja` (Japanese, uplatex)
 # require a local TeX installation (e.g. `brew install --cask mactex-no-gui`,
 # or texlive-lang-japanese on Linux, for the Japanese build).
+#
+# latex_engine must switch to uplatex for the Japanese build, but `-D
+# language=ja` only overrides the Config object *after* this module has
+# already run, so a plain `"uplatex" if language == "ja" else ...` here
+# would always see the "en" set above. Set it from a config-inited hook
+# instead, which fires once all -D overrides have been applied.
 
-latex_engine = "uplatex" if language == "ja" else "pdflatex"
+
+def _select_latex_engine(app, config):
+    config.latex_engine = "uplatex" if config.language == "ja" else "pdflatex"
+
+
+def setup(app):
+    app.connect("config-inited", _select_latex_engine)
+
+
 latex_elements = {
     "papersize": "a4paper",
 }
