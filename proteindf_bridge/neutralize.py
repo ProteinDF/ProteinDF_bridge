@@ -40,7 +40,8 @@ class Neutralize(object):
         return "", ""
 
     def _neutralize(self, protein):
-        assert isinstance(protein, AtomGroup)
+        if not isinstance(protein, AtomGroup):
+            raise TypeError("Expected AtomGroup, got {}".format(type(protein).__name__))
         result = AtomGroup(protein)
         exempt_list = []  # self._exempt_list()
 

@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 class Format(object):
     @classmethod
     def is_residue(cls, res):
-        assert isinstance(res, AtomGroup)
+        if not isinstance(res, AtomGroup):
+            return False
         answer = True
 
         if res.get_number_of_groups() > 0:
@@ -27,7 +28,8 @@ class Format(object):
 
     @classmethod
     def is_chain(cls, chain):
-        assert isinstance(chain, AtomGroup)
+        if not isinstance(chain, AtomGroup):
+            return False
         answer = True
 
         if chain.get_number_of_groups() > 0:
@@ -44,7 +46,8 @@ class Format(object):
 
     @classmethod
     def is_protein(cls, model):
-        assert isinstance(model, AtomGroup)
+        if not isinstance(model, AtomGroup):
+            return False
         answer = True
 
         if model.get_number_of_groups() > 0:
@@ -67,7 +70,8 @@ class Format(object):
 
     @classmethod
     def is_models(cls, models):
-        assert isinstance(models, AtomGroup)
+        if not isinstance(models, AtomGroup):
+            return False
         answer = True
 
         if models.get_number_of_groups() > 0:

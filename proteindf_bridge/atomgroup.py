@@ -264,7 +264,8 @@ class AtomGroup(object):
     def set_group(self, key, value):
         key = str(key)
         key = StrUtils.to_unicode(key)
-        assert isinstance(value, AtomGroup)
+        if not isinstance(value, AtomGroup):
+            raise TypeError("Expected AtomGroup, got {}".format(type(value).__name__))
         if "_groups" not in self.__dict__:
             self._groups = {}
         self._groups[key] = AtomGroup(value, parent=self)
@@ -355,11 +356,13 @@ class AtomGroup(object):
     def _set_atom(self, key, value):
         key = str(key)
         key = StrUtils.to_unicode(key)
-        assert isinstance(value, Atom)
+        if not isinstance(value, Atom):
+            raise TypeError("Expected Atom, got {}".format(type(value).__name__))
         self._atoms[key] = Atom(value, parent=self, path="{}{}".format(self.path, key))
 
     def set_atom(self, key, value):
-        assert isinstance(value, Atom)
+        if not isinstance(value, Atom):
+            raise TypeError("Expected Atom, got {}".format(type(value).__name__))
         key = str(key)
         keys = key.split("/", 1)
         while (len(keys) > 0) and (len(keys[0]) == 0):
@@ -546,7 +549,8 @@ class AtomGroup(object):
         """
         原子団を結合する
         """
-        assert isinstance(rhs, AtomGroup)
+        if not isinstance(rhs, AtomGroup):
+            raise TypeError("Expected AtomGroup, got {}".format(type(rhs).__name__))
         for key, group in rhs.groups():
             self._merge_group(key, group)
         for key, atom in rhs.atoms():
@@ -555,7 +559,8 @@ class AtomGroup(object):
     # --------------------------------------------------------------------------
 
     def assign_charges(self, charges):
-        assert isinstance(charges, Vector)
+        if not isinstance(charges, Vector):
+            raise TypeError("Expected Vector, got {}".format(type(charges).__name__))
         index = AtomGroup._assign_charges(self, charges, 0)
         assert index == len(charges)
 
@@ -601,7 +606,8 @@ class AtomGroup(object):
         selectorにSelectorオブジェクトを渡すことで
         対応する原子団を返します
         """
-        assert isinstance(selector, Select)
+        if not isinstance(selector, Select):
+            raise TypeError("Expected Select, got {}".format(type(selector).__name__))
         self._update_path(force=True)
 
         answer = None
@@ -708,9 +714,12 @@ class AtomGroup(object):
         結合情報を追加する
         order = 結合次数
         """
-        assert isinstance(atom1, Atom)
-        assert isinstance(atom2, Atom)
-        assert isinstance(order, int)
+        if not isinstance(atom1, Atom):
+            raise TypeError("Expected Atom for atom1, got {}".format(type(atom1).__name__))
+        if not isinstance(atom2, Atom):
+            raise TypeError("Expected Atom for atom2, got {}".format(type(atom2).__name__))
+        if not isinstance(order, int):
+            raise TypeError("Expected int for order, got {}".format(type(order).__name__))
         bond_info = (atom1, atom2, order)
         self._add_bond_normalize(bond_info)
 
