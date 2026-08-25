@@ -40,11 +40,12 @@ class Neutralize(object):
         return "", ""
 
     def _neutralize(self, protein):
-        assert(isinstance(protein, AtomGroup))
+        assert isinstance(protein, AtomGroup)
+        result = AtomGroup(protein)
         exempt_list = []  # self._exempt_list()
 
         modeling = Modeling()
-        for model_name, model in protein.groups():
+        for model_name, model in result.groups():
             logger.info("model: {}".format(model_name))
             for chain_name, chain in model.groups():
                 logger.info("chain: {}".format(chain_name))
@@ -105,7 +106,7 @@ class Neutralize(object):
                         logger.info("add ion for FAD({}): {}".format(resid, ag))
                         self._add_ions(res, ag)
 
-        return protein
+        return result
 
     def _add_ions(self, atomgroup, ions):
         assert isinstance(atomgroup, AtomGroup)
