@@ -20,6 +20,7 @@
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
 import re
+import warnings
 
 from .atom import Atom
 from .position import Position
@@ -76,19 +77,27 @@ class Select_Name(Select):
 
 
 class Select_Path(Select):
-    """ """
+    """
+    .. deprecated::
+       Use :class:`Select_Path_wildcard` instead.
+       Will be removed in a future version.
+    """
 
     def __init__(self, query, use_wildcard=True):
+        warnings.warn(
+            "Select_Path is deprecated, use Select_Path_wildcard instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self._query = StrUtils.to_unicode(query)
         self._is_used_wildcard = use_wildcard
 
         if use_wildcard:
-            logger.warning("Select_Path() is obsolete. please use Select_Path_wildcard().")
             self._regex_selecter = self._prepare(query)
 
     def _prepare(self, query):
-        query = re.sub("(?<!\\\)\*", ".*", query)
-        query = re.sub("(?<!\\\)\?", "?", query)
+        query = re.sub(r"(?<!\\)\*", ".*", query)
+        query = re.sub(r"(?<!\\)\?", "?", query)
         query = "^" + query + "$"
 
         return Select_PathRegex(query)
@@ -129,8 +138,8 @@ class Select_Path_wildcard(Select):
         self._regex_selecter = self._prepare(query)
 
     def _prepare(self, query):
-        query = re.sub("(?<!\\\)\*", ".*", query)
-        query = re.sub("(?<!\\\)\?", "?", query)
+        query = re.sub(r"(?<!\\)\*", ".*", query)
+        query = re.sub(r"(?<!\\)\?", "?", query)
         query = "^" + query + "$"
 
         return Select_PathRegex(query)

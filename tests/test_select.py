@@ -52,6 +52,13 @@ class Select_Tests(unittest.TestCase):
         self.assertEqual(sel['sub1']['H1'].path, '/sub1/H1')
         self.assertEqual(sel['sub2']['C1'].path, '/sub2/C1')
 
+    def test_select_path_deprecated(self):
+        import warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            sel = Select_Path("/sub1/*")
+            self.assertTrue(any(issubclass(item.category, DeprecationWarning) for item in w))
+
 
 def load_tests(loader, tests, ignore):
     from proteindf_bridge import select
