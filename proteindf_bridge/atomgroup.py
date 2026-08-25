@@ -21,6 +21,7 @@
 
 import copy
 import csv
+import warnings
 from collections import OrderedDict
 
 from .error import BrInputError
@@ -303,9 +304,13 @@ class AtomGroup(object):
     def erase_group(self, key):
         """remove group
 
-        obsolete function; use remove_group()
+        .. deprecated:: use :meth:`remove_group` instead.
         """
-        logger.info("absolete function: erase_group")
+        warnings.warn(
+            "erase_group() is deprecated, use remove_group() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.remove_group(key)
 
     def remove_group(self, key):
@@ -406,9 +411,13 @@ class AtomGroup(object):
     def erase_atom(self, key):
         """remove atom
 
-        absolete function.
+        .. deprecated:: use :meth:`remove_atom` instead.
         """
-        logger.info("absolete function: erase_atom()")
+        warnings.warn(
+            "erase_atom() is deprecated, use remove_atom() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.remove_atom(key)
 
     def remove_atom(self, key):
