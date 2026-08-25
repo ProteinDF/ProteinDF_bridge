@@ -1,0 +1,321 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2014, The ProteinDF development team
+# This file is distributed under the same license as the ProteinDF_bridge
+# package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"PO-Revision-Date: 2026-08-25 12:23+0900\n"
+"Last-Translator: Toshiyuki HIRANO <hiracchi@gmail.com>\n"
+"Language-Team: ja <LL@li.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../usage.md:1 70e5438871b9437c8f37dae5ab3b594d
+msgid "Command-line tools"
+msgstr "コマンドラインツール"
+
+#: ../../usage.md:3 9ca1c5ceb90448649307ca39a9aee106
+msgid ""
+"`ProteinDF_bridge` installs a set of small, single-purpose CLI scripts under"
+" `scripts/`. Each one is a thin wrapper around `proteindf_bridge` that reads"
+" one format and writes another, or performs one structure-editing operation "
+"on a bridge (`.brd`) file. Run any of them with `-h` for full options."
+msgstr ""
+"`ProteinDF_bridge` は `scripts/` 配下に、単機能の小さなCLIスクリプト群をインストールします。それぞれは "
+"`proteindf_bridge` "
+"の薄いラッパーで、あるフォーマットを読み込んで別のフォーマットを書き出すか、bridge(`.brd`)ファイルに対して1つの構造編集操作を行います。詳しいオプションは各スクリプトを"
+" `-h` 付きで実行してください。"
+
+#: ../../usage.md:8 c4b2132ed03447ea9301680b43f3d437
+msgid "Format conversion"
+msgstr "フォーマット変換"
+
+#: ../../usage.md 17cb00580617412f9b061b68401995fb
+#: 9732a2bb282d49eca728dd3a6a252369 a28eecc8404747a5abc0c336253dc8b7
+#: df399ff01fa84953983259524f8343d3
+msgid "Script"
+msgstr "スクリプト"
+
+#: ../../usage.md 2b50e47271074b72ab2bf2b9d5a3cef6
+#: 3e41eee5e3844c43bdf756167f2f72fa 555913b952044a1bb5311c864715f18d
+#: 8fe8fed86b9346b7a76b5924e5309fa3
+msgid "Description"
+msgstr "説明"
+
+#: ../../usage.md 48b54b350fed4462a31e88949bc25804
+msgid "`pdb2brd.py`"
+msgstr ""
+
+#: ../../usage.md 24d164f381724e60960233985ae513eb
+msgid "translate from PDB to bridge file"
+msgstr "PDBファイルからbridgeファイルへ変換"
+
+#: ../../usage.md b2b8e2b782594a30bc4cd332a8fadb83
+msgid "`brd2pdb.py`"
+msgstr ""
+
+#: ../../usage.md 763e73f0453345b5a915ccb444f0fb36
+msgid "transform bridge file to PDB file"
+msgstr "bridgeファイルからPDBファイルへ変換"
+
+#: ../../usage.md c8dd7c0dba174cd58cd6961e29ea6391
+msgid "`gro2brd.py`"
+msgstr ""
+
+#: ../../usage.md be99bf91bd944fdda3c9a4f82c2dfcb1
+msgid "translate from gro to bridge file"
+msgstr "groファイルからbridgeファイルへ変換"
+
+#: ../../usage.md 84e9af2afe4f43ee8d1e86acb5f0d173
+msgid "`brd2gro.py`"
+msgstr ""
+
+#: ../../usage.md b9087fdcf2004fbd9778c438971949d4
+msgid "output gro format from bridge file"
+msgstr "bridgeファイルからgro形式を出力"
+
+#: ../../usage.md e66f768794594474b66fcba184daffed
+msgid "`xyz2brd.py`"
+msgstr ""
+
+#: ../../usage.md 2b37172c40064f8187246e8e7b3c59f2
+msgid "transform XYZ file to bridge file"
+msgstr "XYZファイルからbridgeファイルへ変換"
+
+#: ../../usage.md a315d76722b442ef9e02dd5794875203
+msgid "`brd2xyz.py`"
+msgstr ""
+
+#: ../../usage.md 13f06f1758f84860b33c6e799b6beade
+msgid "transform bridge file to XYZ file"
+msgstr "bridgeファイルからXYZファイルへ変換"
+
+#: ../../usage.md d0a17b071695411dac337fb05beb0230
+msgid "`mmcif2txt.py`"
+msgstr ""
+
+#: ../../usage.md 28d3499e025a4a8c9748a459a80c5346
+msgid "parse mmCIF file"
+msgstr "mmCIFファイルを解析"
+
+#: ../../usage.md c85b132647c043e59ecc5985fae467bd
+msgid "`mmcif2mol2.py`"
+msgstr ""
+
+#: ../../usage.md e4be8988ae5c43ab9e4d01028aa6f03a
+msgid "parse mmCIF file to mol2 file"
+msgstr "mmCIFファイルをmol2ファイルへ変換"
+
+#: ../../usage.md 00c0c4c9029141a4acc63c69b697a6c4
+msgid "`read_amber_prmtop.py`"
+msgstr ""
+
+#: ../../usage.md bd2beb33eb4049ff9a87e57f9bc91b24
+msgid "parse Amber prmtop"
+msgstr "Amber prmtopを解析"
+
+#: ../../usage.md 633153e440e649e085065bc2c77a5be8
+msgid "`mpac2yml.py` / `yml2mpac.py`"
+msgstr ""
+
+#: ../../usage.md 234f3ff8d75645d19575082f756c9141
+msgid "convert between MsgPack and YAML bridge representations"
+msgstr "MsgPack表現とYAML表現のbridgeファイルを相互変換"
+
+#: ../../usage.md 7cedf3ca556a4744ba83dccb7d91b326
+msgid "`mpac2txt.py`"
+msgstr ""
+
+#: ../../usage.md 19adc30ac13648c286254d1348c41df9
+msgid "display file formatted by MsgPack using YAML"
+msgstr "MsgPack形式のファイルをYAMLとして表示"
+
+#: ../../usage.md cfb96d9ef7e0471ebf012526779b1043
+msgid "`brd2txt.py`"
+msgstr ""
+
+#: ../../usage.md 12089c15aa8b4177a1c71f20074ac9f5
+msgid "print molecular bridge file"
+msgstr "分子bridgeファイルの内容を表示"
+
+#: ../../usage.md 4b1fb89617124f89a44bcfc1b778be62
+msgid "`db2txt.py`"
+msgstr ""
+
+#: ../../usage.md f1ab502f10914180a75d17af1092c8fb
+msgid "print DB (sqlite3) file"
+msgstr "DB(sqlite3)ファイルの内容を表示"
+
+#: ../../usage.md:26 c8aa6f86ed4341a590aec56c10759edd
+msgid "Structure editing"
+msgstr "構造編集"
+
+#: ../../usage.md 8ca3969ff0a4426e8bc1ffb51041c789
+msgid "`brd-select.py`"
+msgstr ""
+
+#: ../../usage.md fb14e5b72df74c01867baa3423905acc
+msgid "bridge file selector"
+msgstr "bridgeファイルのセレクタ"
+
+#: ../../usage.md 2a3b892afae84a658248cab54c9a1679
+msgid "`brd-select-path.py`"
+msgstr ""
+
+#: ../../usage.md b1322aff79724946804c96c31a5853db
+msgid "bridge file selector (by path)"
+msgstr "bridgeファイルのセレクタ(パス指定)"
+
+#: ../../usage.md 7b014e5652634128aef69af9c9a487bb
+msgid "`brd-divide.py`"
+msgstr ""
+
+#: ../../usage.md fe0e16a546fb432392cb06a49cfc7c88
+msgid "bridge file divider"
+msgstr "bridgeファイルの分割"
+
+#: ../../usage.md 412e21e4c6f749e5940fa4ddc24a0095
+msgid "`brd-divide-mainchain.py`"
+msgstr ""
+
+#: ../../usage.md e5bdf27b764c47aabe14b40664f9b7e2
+msgid "bridge file divider (main chain)"
+msgstr "bridgeファイルの分割(主鎖)"
+
+#: ../../usage.md 8032749df82c44c3b56b42267e2b09e3
+msgid "`brd-restructure.py`"
+msgstr ""
+
+#: ../../usage.md d0f45e5b5ca04cd2b1594d81a2b1d0c8
+msgid "restructure brd file by reference file"
+msgstr "参照ファイルを用いてbrdファイルを再構成"
+
+#: ../../usage.md 1b48a06df53841b59d4f25890da54431
+msgid "`brd-renumber-resid.py`"
+msgstr ""
+
+#: ../../usage.md d5e73688cc664e8d95fa40b6e159fb5b
+msgid "renumber resid in bridge file"
+msgstr "bridgeファイル内の残基番号を振り直す"
+
+#: ../../usage.md 560d72afe1dc46bdad7b39d787886f3a
+msgid "`brd-setup-bond.py`"
+msgstr ""
+
+#: ../../usage.md 2595eadfcb3f4602b5d9dc83576d7175
+msgid "setup bonds"
+msgstr "結合を設定"
+
+#: ../../usage.md afb426560a5e41ddaeedafaf2ded8498
+msgid "`brd-show-bonds.py`"
+msgstr ""
+
+#: ../../usage.md 0ba2e5a6358a48a8b17de5bb1c5683e4
+msgid "show bonds"
+msgstr "結合を表示"
+
+#: ../../usage.md 6c56fd7a1a1246269a907ee231aafc17
+msgid "`brd-show-res.py`"
+msgstr ""
+
+#: ../../usage.md 57402e72ef0347248aef11e5d82c3d6b
+msgid "print residues in the bridge file"
+msgstr "bridgeファイル内の残基を表示"
+
+#: ../../usage.md 34322be31d8d4be6b8103921e679f97e
+msgid "`remove_wat.py`"
+msgstr ""
+
+#: ../../usage.md 7e30a3b9c44f44049fbb9927fd315e78
+msgid "remove water molecules in bridge file"
+msgstr "bridgeファイル内の水分子を除去"
+
+#: ../../usage.md 7f91fb6f757242959f00255dc1deb9fe
+msgid "`reorder.py`"
+msgstr ""
+
+#: ../../usage.md 23ae15cd2f814b6cb97e310594f31c52
+msgid "reorder protein"
+msgstr "タンパク質の原子順序を並べ替え"
+
+#: ../../usage.md f3d3c9122cd24eeeb236b676b2b24184
+msgid "`neutralize.py`"
+msgstr ""
+
+#: ../../usage.md baf6b729461348b3b1b7ec2786af2216
+msgid "neutralize protein"
+msgstr "タンパク質を中和"
+
+#: ../../usage.md e2289ce3ecc74a67ae93dd21c5ea821e
+msgid "`crystallize.py`"
+msgstr ""
+
+#: ../../usage.md 47c55d7a25f64e579cb8176a90943e61
+msgid "crystallize molecules"
+msgstr "分子を結晶化"
+
+#: ../../usage.md eec0cdd082244d8a952360a9b1374b6d
+msgid "`superposer.py`"
+msgstr ""
+
+#: ../../usage.md 7ba7ac8be7754fdaabb93ca3bb9b6cf4
+msgid "superpose"
+msgstr "構造の重ね合わせ"
+
+#: ../../usage.md:45 5ffd0a39961244929b9b193f409e9c76
+msgid "Analysis"
+msgstr "解析"
+
+#: ../../usage.md f0d69d854dd444dc9ef9e175d476651e
+msgid "`brd-box.py`"
+msgstr ""
+
+#: ../../usage.md 729950817cb8422b957d10c3c629d5cf
+msgid "calc box size"
+msgstr "ボックスサイズを計算"
+
+#: ../../usage.md e71d676197f4482c9941835e28620462
+msgid "`brd-density.py`"
+msgstr ""
+
+#: ../../usage.md 90f6ec01f9844481a95f20deaca2fb7f
+msgid "calc density"
+msgstr "密度を計算"
+
+#: ../../usage.md 3b79d58145f54d4890f66892bcff6d62
+msgid "`brd-formula.py`"
+msgstr ""
+
+#: ../../usage.md 42855e351b404dbb882e459b52d93501
+msgid "print molecular formula"
+msgstr "分子式を表示"
+
+#: ../../usage.md:53 125fd1186e254d28bf88815dc01a019b
+msgid "Development"
+msgstr "開発"
+
+#: ../../usage.md 1ea459a9277247078629b2b2d647524a
+msgid "`doctest_runner.py`"
+msgstr ""
+
+#: ../../usage.md 726ed3e189b64314bec01241323a8772
+msgid "run doctests across `proteindf_bridge`"
+msgstr "`proteindf_bridge` 全体のdoctestを実行"
+
+#: ../../usage.md 7332709501e749628d14dfd20dd155ab
+msgid "`module_inspect.py`"
+msgstr ""
+
+#: ../../usage.md bb2be31e23db4108856d9f8a2dd3fdf7
+msgid "inspect module contents"
+msgstr "モジュールの内容を調査"

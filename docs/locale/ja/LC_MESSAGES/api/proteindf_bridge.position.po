@@ -1,0 +1,35 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2014, The ProteinDF development team
+# This file is distributed under the same license as the ProteinDF_bridge
+# package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../api/proteindf_bridge.position.rst:2 b559b92747f244b9ae7bb155816e37a9
+msgid "proteindf\\_bridge.position module"
+msgstr ""
+
+#: 613f1bee0bc54ead831f2044d9fdc74a of
+#: proteindf_bridge.position.Position.cross:1
+msgid "外積を求める"
+msgstr ""
+
+#: 9df018fdf65446df8ee3f9f2fc7c8982 of proteindf_bridge.position.Position.dot:1
+msgid "内積を求める"
+msgstr ""
+

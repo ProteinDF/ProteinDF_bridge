@@ -1,0 +1,41 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2014, The ProteinDF development team
+# This file is distributed under the same license as the ProteinDF_bridge
+# package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"PO-Revision-Date: 2026-08-25 12:23+0900\n"
+"Last-Translator: Toshiyuki HIRANO <hiracchi@gmail.com>\n"
+"Language-Team: ja <LL@li.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../installation.md:1 debc73d6ee6946b69b1fc3c15f6f1a2f
+msgid "Installation"
+msgstr "インストール"
+
+#: ../../installation.md:3 f83b4e7c40e14adc9c174de548d2b175
+msgid "Requirements"
+msgstr "必要要件"
+
+#: ../../installation.md:5 155c9992c2024ae2a63f29a7d97772bb
+msgid "Python 3.7 or later"
+msgstr "Python 3.7 以降"
+
+#: ../../installation.md:6 9be67e33e0eb4bf3887691d5fe6d2c5a
+msgid "`numpy`, `pyyaml`, `msgpack`, `configparser`"
+msgstr "`numpy`, `pyyaml`, `msgpack`, `configparser`"
+
+#: ../../installation.md:8 2e7b4bf5fe1c4a0c91dade41d8ca39bf
+msgid "From source"
+msgstr "ソースからのインストール"

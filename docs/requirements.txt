@@ -1,0 +1,6 @@
+sphinx>=7
+myst-parser
+furo
+sphinx-intl
+sphinx-copybutton
+sphinx-autodoc-typehints
