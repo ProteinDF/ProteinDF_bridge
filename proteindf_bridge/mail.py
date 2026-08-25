@@ -46,12 +46,14 @@ class Mail(object):
             with open(path, "r") as f:
                 ini.read_file(f)
 
-        self.smtp_server = ini.get('mail', 'smtp_server')
-        self.smtp_port = ini.get('mail', 'smtp_port')
-        self.use_SSL = ini.get('mail', 'use_SSL')
-        self.smtp_account = ini.get('mail', 'smtp_account')
-        self.smtp_password = ini.get('mail', 'smtp_password')
-        self.from_address = ini.get('mail', 'from_address')
+        if ini.has_section('mail'):
+            self.smtp_server = ini.get('mail', 'smtp_server', fallback=self.smtp_server)
+            port = ini.get('mail', 'smtp_port', fallback=None)
+            self.smtp_port = int(port) if port and port != 'None' else None
+            self.use_SSL = ini.getboolean('mail', 'use_SSL', fallback=self.use_SSL)
+            self.smtp_account = ini.get('mail', 'smtp_account', fallback=self.smtp_account)
+            self.smtp_password = ini.get('mail', 'smtp_password', fallback=self.smtp_password)
+            self.from_address = ini.get('mail', 'from_address', fallback=self.from_address)
         
     def save_config(self, path):
         ini = configparser.ConfigParser()
