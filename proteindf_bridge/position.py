@@ -285,8 +285,8 @@ class Position(object):
         return self.get_raw_data()
 
     def __setstate__(self, state):
-        assert(isinstance(state, (set, list)))
-        assert(len(state) == 3)
+        assert isinstance(state, (list, tuple))
+        assert len(state) == 3
         self._initialize()
 
         self._position[0] = float(state[0])
