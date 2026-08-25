@@ -78,12 +78,12 @@ class DbManager(object):
     # table ==================================================================
     def create_table(self, table_name, field_names, primary_key=None):
         """
-        TABLEを作成する
+        Create a TABLE.
 
-        table_name: テーブル名
-        field_names: フィールド(カラム)名
-        型を指定しない場合は、field_namesをリストにする。
-        型を指定する場合は、field_namesは{名前:型}の辞書型にする。
+        table_name: the table name
+        field_names: the field (column) names.
+        If no type is specified, field_names should be a list.
+        If a type is specified, field_names should be a dict of {name: type}.
         """
         if not self.has_table(table_name):
             fields = []
@@ -111,7 +111,7 @@ class DbManager(object):
 
     def get_table_names(self):
         """
-        TABLEの名前をリストで返す
+        Return the TABLE names as a list.
         """
         table_names = []
         sql = "SELECT name FROM sqlite_master WHERE type='table'"
@@ -124,7 +124,7 @@ class DbManager(object):
 
     def has_table(self, table_name):
         """
-        指定されたTABLEを保持しているかどうかを返す
+        Return whether the specified TABLE exists.
         """
         table_names = self.get_table_names()
         return (table_name in table_names)
@@ -132,7 +132,7 @@ class DbManager(object):
     # field ==================================================================
     def get_field_names(self, table_name, fields="*"):
         """
-        指定されたTABLE内のフィールドをリストで返す
+        Return the fields within the specified TABLE as a list.
         """
         field_names = None
         if (self.has_table(table_name) == True):
@@ -146,7 +146,7 @@ class DbManager(object):
 
     def get_primary_keys(self, table_name):
         """
-        primary key制約のフィールド名のリストを返す
+        Return the list of field names under the primary key constraint.
         """
         answer = []
         if (self.has_table(table_name) == True):
@@ -175,9 +175,9 @@ class DbManager(object):
 
     def insert(self, table, contents):
         """
-        データレコードを追加
+        Insert a data record.
 
-        contentsは、filedをキーとした辞書型
+        contents is a dict keyed by field.
         """
         fields = []
         values = []
@@ -195,9 +195,9 @@ class DbManager(object):
 
     def update(self, table, contents, where):
         """
-        データレコードを更新
+        Update a data record.
 
-        contents、whereは、filedをキーとした辞書型
+        contents and where are dicts keyed by field.
         """
         parameters = []
         set_sections = []
@@ -224,7 +224,7 @@ class DbManager(object):
 
     def delete(self, table, where):
         """
-        データレコードを削除
+        Delete a data record.
         """
         parameters = []
 
@@ -245,8 +245,8 @@ class DbManager(object):
 
     def select(self, table, fields=None, where=None):
         """
-        データを取得する
-        where句はANDのみサポート
+        Retrieve data.
+        Only AND is supported in the where clause.
         """
         # make SQL
         parameters = []
@@ -293,7 +293,7 @@ class DbManager(object):
     # SQL ====================================================================
     def execute(self, sql, parameters=None):
         """
-        SQLを実行する
+        Execute the SQL.
         """
         logger.debug("sql> {0}".format(sql))
         if (parameters != None):
@@ -303,7 +303,7 @@ class DbManager(object):
 
     def get_results(self, sql):
         """
-        SQLを実行し、結果をリストで返す
+        Execute the SQL and return the results as a list.
         """
         self.execute(sql)
         data = self._cursor.fetchall()
@@ -324,14 +324,14 @@ class DbManager(object):
     # etc ====================================================================
     def set_user_version(self, version):
         """
-        ユーザーバージョンを設定する
+        Set the user version.
         """
         version = int(version)
         self.execute('PRAGMA user_version = %d;' % (version))
 
     def get_user_version(self):
         """
-        ユーザーバージョンを返す
+        Return the user version.
         """
         answer = 0
         results = self.get_results('PRAGMA user_version;')

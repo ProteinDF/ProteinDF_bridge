@@ -144,7 +144,7 @@ class Superposer_quaternion(object):
     # -----------------------------------------------------------------
     def superimpose(self, atomgroup):
         """
-        指定された AtomGroup を重ね合わせて返す
+        Superimpose the given AtomGroup and return the result.
         """
         answer = AtomGroup(atomgroup)
         answer.shift_by(-self.center1)
@@ -155,7 +155,8 @@ class Superposer_quaternion(object):
     # -----------------------------------------------------------------
     def calc(self):
         """
-        重心・クォータニオン・回転行列・RMSDを一括計算してRMSDを返す
+        Compute the centroid, quaternion, rotation matrix, and RMSD all
+        at once, and return the RMSD.
         """
         return self.rmsd
 

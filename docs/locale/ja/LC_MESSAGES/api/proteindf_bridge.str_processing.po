@@ -4,43 +4,42 @@
 # package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
 #
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"POT-Creation-Date: 2026-08-25 15:08+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language: ja\n"
 "Language-Team: ja <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../api/proteindf_bridge.str_processing.rst:2
-#: c4c4d7d555ab4e9083b29fd9f23eab90
+#: d12bd5aa59b04befa7dff38437abbb0b
 msgid "proteindf\\_bridge.str\\_processing module"
 msgstr ""
 
-#: 4333811309054f16a4890755bec03e39 of
+#: a969498cad0e4bd1a129e11999eaae1f of
 #: proteindf_bridge.str_processing.StrUtils.add_spaces:1
-msgid "行頭にnum_add分のスペースを追加する"
-msgstr ""
+msgid "Prepend num_add spaces to the start of each line."
+msgstr "行頭にnum_add分のスペースを追加する"
 
-#: ce41f9db800f4306adcda095af6d12d1 of
+#: f170658504d34138a9b7ea252690286b of
 #: proteindf_bridge.str_processing.StrUtils.get_common_str:1
-msgid "(先頭から)共通文字列を返す"
-msgstr ""
+msgid "Return the common string (from the beginning)."
+msgstr "(先頭から)共通文字列を返す"
 
-#: 3d1ea983ff38435593b7dac9fae49e74 of
+#: 05bcd11183d14ce192d09b13e618c888 of
 #: proteindf_bridge.str_processing.StrUtils.num_spaces:1
-msgid "行頭のスペース数を返す"
-msgstr ""
+msgid "Return the number of leading spaces on each line."
+msgstr "行頭のスペース数を返す"
 
-#: fdeb5e29e0144678b67a8fbad506f235 of
+#: 1d8afd7e0960429095d1a225d726a240 of
 #: proteindf_bridge.str_processing.StrUtils.sort_nicely:1
 msgid ""
 "Sort the given list in the way that humans expect. ref: "
@@ -48,13 +47,19 @@ msgid ""
 "order.html"
 msgstr ""
 
-#: 42d5ac161a754c2aab54cbc6a354b8a9 of
+#: 17312e33ee8b41eaa6be3c8a4ef36463 of
+#: proteindf_bridge.str_processing.StrUtils.to_bytes:1
+msgid "Convert str to bytes (utf-8)."
+msgstr ""
+
+#: 051de2b3418a4f5582de927897d0068e of
 #: proteindf_bridge.str_processing.StrUtils.to_unicode:1
-msgid "byteをstr(utf-8)に変換する"
-msgstr ""
+msgid "Convert bytes to str (utf-8)."
+msgstr "byteをstr(utf-8)に変換する"
 
-#: 0a04f0de4de1451cbeb1d3add5614ffc of
+#: 8a4f75f3ba524564bb776d9f6249c59c of
 #: proteindf_bridge.str_processing.StrUtils.to_unicode_dict:1
-msgid "byteを保存してある辞書に対して、 str(utf-8)をキーとする辞書に変換する。"
-msgstr ""
-
+msgid ""
+"Convert a dict whose keys are stored as bytes into a dict keyed by str "
+"(utf-8)."
+msgstr "byteを保存してある辞書に対して、 str(utf-8)をキーとする辞書に変換する。"

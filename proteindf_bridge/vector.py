@@ -56,9 +56,9 @@ class Vector(object):
 
     def __init__(self, obj=None):
         """
-        初期化
+        Initialize.
 
-        内部変数self._dataはnumpy.array(float)型
+        The internal variable self._data is of type numpy.array(float).
         """
         if obj is None:
             obj = []

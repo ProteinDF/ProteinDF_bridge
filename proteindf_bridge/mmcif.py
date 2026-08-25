@@ -242,7 +242,7 @@ class SimpleMmcif(object):
             raise e
 
     def _get_atomgroup_dict(self, dict_item, output_atomgroup):
-        """output_atomgroupに出力する
+        """Write into output_atomgroup.
         """
         assert(isinstance(output_atomgroup, AtomGroup))
         assert(isinstance(dict_item, dict))
@@ -320,7 +320,7 @@ class SimpleMmcif(object):
         #     output_atomgroup.add_bond(atom1, atom2, bond_order)
 
     def _get_atomgroup_bond_list(self, list_item, ag):
-        """ bond 専用
+        """ For bonds only.
         """
         assert(isinstance(ag, AtomGroup))
         try:
@@ -333,7 +333,7 @@ class SimpleMmcif(object):
             raise e
 
     def _get_atomgroup_bond_dict(self, dict_item, output_atomgroup):
-        """ bond 専用
+        """ For bonds only.
         """
         assert(isinstance(output_atomgroup, AtomGroup))
         assert(isinstance(dict_item, dict))

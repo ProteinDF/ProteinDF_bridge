@@ -200,13 +200,13 @@ class Position(object):
 
     def dot(self, rhs):
         """
-        内積を求める
+        Compute the dot product.
         """
         return numpy.dot(self._position, rhs._position)
 
     def cross(self, rhs):
         """
-        外積を求める
+        Compute the cross product.
         """
         n = numpy.cross(self._position, rhs._position)
         answer = Position(n)

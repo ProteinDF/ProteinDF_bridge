@@ -33,8 +33,8 @@ class Superposer(object):
 
     def __init__(self, atom_group1, atom_group2):
         """
-        @param atom_group1[in] RMSD・回転行列を求めたい分子団
-        @param atom_group2[in] 基準となる分子団
+        @param atom_group1[in] the molecular group for which the RMSD and rotation matrix are computed
+        @param atom_group2[in] the reference molecular group
         """
         self._atomgroup1 = AtomGroup(atom_group1)
         self._atomgroup2 = AtomGroup(atom_group2)
@@ -122,7 +122,7 @@ class Superposer(object):
     # -----------------------------------------------------------------
 
     def _get_update_positions1(self):
-        # positions1 を回転
+        # rotate positions1
         if self._update_positions1 is None:
             self._update_positions1 = copy.deepcopy(self.shift_positions1)
             for i in range(len(self.positions1)):
@@ -133,7 +133,7 @@ class Superposer(object):
     # -----------------------------------------------------------------
 
     def _get_update_positions2(self):
-        # positions2 はそのまま
+        # positions2 is left unchanged
         if self._update_positions2 is None:
             self._update_positions2 = copy.deepcopy(self.shift_positions2)
         return self._update_positions2
@@ -150,13 +150,13 @@ class Superposer(object):
     # -----------------------------------------------------------------
 
     def superimpose(self, atomgroup):
-        # positions1 を移動
+        # shift positions1
         answer = AtomGroup(atomgroup)
         answer.shift_by(-self.center1)
 
         answer.rotate(self.rotation_mat)
 
-        # positions2 のcenterに移動
+        # shift to the center of positions2
         answer.shift_by(self.center2)
 
         return answer

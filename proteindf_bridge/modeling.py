@@ -60,7 +60,7 @@ class Modeling:
     # -----------------------------------------------------------------
     def get_ACE_simple(self, next_aa):
         """
-        隣のC-alphaの位置をメチル基にする。
+        Turn the neighboring C-alpha position into a methyl group.
         """
         answer = AtomGroup()
 
@@ -88,7 +88,7 @@ class Modeling:
 
     def get_NME_simple(self, next_aa):
         """
-        隣のC-alphaの位置をメチル基にする。
+        Turn the neighboring C-alpha position into a methyl group.
         """
         answer = AtomGroup()
 
@@ -224,9 +224,9 @@ class Modeling:
 
     def _match_residues(self, res1, res2, max_number_of_atoms=-1):
         """
-        2つのアミノ酸残基のN, H, CA, HA, C, Oの原子を突き合わせる。
-        アミノ酸残基がプロリンだった場合は、CDの炭素をHに命名する。
-        GLYはHA1, HA2とあるので突き合せない。
+        Match up the N, H, CA, HA, C, and O atoms of two amino acid residues.
+        If the residue is proline, the CD carbon is renamed to H.
+        GLY has HA1 and HA2, so it is not matched.
         """
         atom_names = ["CA", "O", "C", "N", "CB", "HA"]
         if max_number_of_atoms == -1:
@@ -267,9 +267,9 @@ class Modeling:
     # -----------------------------------------------------------------
     def add_methyl(self, C1, C2):
         """
-        -CH3の水素を付加
+        Add the hydrogens of -CH3.
 
-        C1に水素を付加
+        Add a hydrogen to C1.
         """
         assert isinstance(C1, Atom)
         assert isinstance(C2, Atom)
@@ -312,21 +312,21 @@ class Modeling:
         sin_input = math.sin(angle)
         cos_input = math.cos(angle)
 
-        # z軸まわりに120度回転
+        # rotate 120 degrees around the z-axis
         # z1_rot = Matrix(3, 3)
         # z1_rot.set(0, 0,  cos23)
         # z1_rot.set(0, 1, -sin23)
         # z1_rot.set(1, 0,  sin23)
         # z1_rot.set(1, 1,  cos23)
         # z1_rot.set(2, 2,  1.0)
-        # z軸まわりに240度回転
+        # rotate 240 degrees around the z-axis
         # z2_rot = Matrix(3, 3)
         # z2_rot.set(0, 0,  cos43)
         # z2_rot.set(0, 1, -sin43)
         # z2_rot.set(1, 0,  sin43)
         # z2_rot.set(1, 1,  cos43)
         # z2_rot.set(2, 2,  1.0)
-        # y軸まわりに回転
+        # rotate around the y-axis
         # y_rot = Matrix(3, 3)
         # y_rot.set(0, 0,  cos_input)
         # y_rot.set(0, 2, -sin_input)
@@ -346,7 +346,7 @@ class Modeling:
         # pos_H3.rotate(z2_rot)
         # pos_H3 *= length
 
-        # X-Z平面上、Y軸に対してangle度開く
+        # open by angle degrees about the Y-axis, in the X-Z plane
         xz_rot = Matrix(3, 3)
         xz_rot.set(0, 0, cos_input)
         xz_rot.set(0, 2, -sin_input)
@@ -354,7 +354,7 @@ class Modeling:
         xz_rot.set(2, 2, cos_input)
         xz_rot.set(1, 1, 1.0)
 
-        # X-Y平面上、Z軸に対して120度開く
+        # open by 120 degrees about the Z-axis, in the X-Y plane
         xy_rot = Matrix(3, 3)
         xy_rot.set(0, 0, cos23)
         xy_rot.set(0, 1, -sin23)
@@ -403,7 +403,7 @@ class Modeling:
     # -----------------------------------------------------------------
     def select_residues(self, chain, from_resid, to_resid):
         """
-        連続したアミノ酸残基を返す
+        Return consecutive amino acid residues.
         """
         answer = AtomGroup()
         for resid_key, res in chain.groups():
@@ -416,7 +416,7 @@ class Modeling:
     # -----------------------------------------------------------------
     def arbitary_rotate_matrix(self, in_a, in_b):
         """
-        ベクトルaをbへ合わせる回転行列(3x3)を返す
+        Return the rotation matrix (3x3) that aligns vector a with b.
         """
         assert isinstance(in_a, Position)
         assert isinstance(in_b, Position)
@@ -474,9 +474,9 @@ class Modeling:
 
     def _neutralize_Nterm(self, res):
         """
-        N末端側を中性化するためにCl-(AtomGroup)を返す
+        Return a Cl- (AtomGroup) to neutralize the N-terminal side.
 
-        H1, N2, HXT(or H3)が指定されている必要があります。
+        H1, N2, and HXT (or H3) must be specified.
         """
         ag = AtomGroup()
         ag.set_atom("N", res["N"])
@@ -511,7 +511,7 @@ class Modeling:
 
     def neutralize_Cterm(self, res):
         """
-        C末端側を中性化するためにNa+(AtomGroup)を返す
+        Return a Na+ (AtomGroup) to neutralize the C-terminal side.
         """
         ag = AtomGroup()
         ag.set_atom("C", res["C"])
@@ -567,9 +567,9 @@ class Modeling:
 
     def neutralize_ARG(self, res, case=0):
         """
-        case: 0; 中央
-        case: 1; NH1側
-        case: 2; NH2側
+        case: 0; center
+        case: 1; NH1 side
+        case: 2; NH2 side
         """
         case = int(case)
         pos = Position()
@@ -658,7 +658,7 @@ class Modeling:
         H3 = ag["H3"]
         N = ag["N"]
 
-        # 重心を計算
+        # compute the centroid
         M = Position(
             (H1.xyz.x + H2.xyz.x + H3.xyz.x) / 3.0,
             (H1.xyz.y + H2.xyz.y + H3.xyz.y) / 3.0,
@@ -690,7 +690,7 @@ class Modeling:
         O2 = ag["O2"]
         C = ag["C"]
 
-        # 中点を計算
+        # compute the midpoint
         M = Position(0.5 * (O1.xyz.x + O2.xyz.x), 0.5 * (O1.xyz.y + O2.xyz.y), 0.5 * (O1.xyz.z + O2.xyz.z))
         vCM = M - C.xyz
         vCM.norm()
