@@ -71,6 +71,17 @@ class PositionTests(unittest.TestCase):
         with self.assertRaises(BrValueError):
             pos.norm()
 
+    def test_setstate(self):
+        pos = Position()
+        pos.__setstate__([4.0, 5.0, 6.0])
+        self.assertEqual(pos.xyz, [4.0, 5.0, 6.0])
+
+        pos.__setstate__((7.0, 8.0, 9.0))
+        self.assertEqual(pos.xyz, [7.0, 8.0, 9.0])
+
+        with self.assertRaises(AssertionError):
+            pos.__setstate__({1.0, 2.0, 3.0})
+
 
 def load_tests(loader, tests, ignore):
     from proteindf_bridge import position
