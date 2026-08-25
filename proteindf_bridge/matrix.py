@@ -75,7 +75,7 @@ class Matrix(object):
                 self._data = numpy.array(args[0], float)
                 assert self._data.ndim == 2
             else:
-                raise
+                raise TypeError("Unsupported argument type for Matrix: {}".format(type(args[0])))
         elif size_of_args == 2:
             if isinstance(args[0], int) and isinstance(args[1], int):
                 rows = args[0]
@@ -83,7 +83,7 @@ class Matrix(object):
                 self._data = numpy.array([[0.0 for c in range(cols)] for r in range(rows)], float)
                 return
             else:
-                raise
+                raise TypeError("Matrix dimensions must be integers, got ({}, {})".format(type(args[0]), type(args[1])))
 
         if kwargs:
             rows = kwargs.get("row", 0)
@@ -100,9 +100,9 @@ class Matrix(object):
                             index += 1
                     return
                 else:
-                    raise
+                    raise ValueError("Data required for GE matrix initialization")
             else:
-                raise
+                raise ValueError("Unsupported matrix type: {}".format(matrix_type))
 
     def copy(self):
         answer = copy.deepcopy(self)
@@ -415,7 +415,7 @@ class SymmetricMatrix(Matrix):
                 self._data = copy.deepcopy(args[0])
                 assert self._data.ndim == 2
             else:
-                raise
+                raise TypeError("Unsupported argument type for SymmetricMatrix: {}".format(type(args[0])))
 
         if kwargs:
             rows = kwargs.get("row", 0)
@@ -433,7 +433,7 @@ class SymmetricMatrix(Matrix):
                             index += 1
                     return
                 else:
-                    raise
+                    raise ValueError("Data required for SP symmetric matrix initialization")
             elif matrix_type == "SY":
                 data = kwargs.get("data", None)
                 if data:
@@ -446,9 +446,9 @@ class SymmetricMatrix(Matrix):
                             index += 1
                     return
                 else:
-                    raise
+                    raise ValueError("Data required for SY symmetric matrix initialization")
             else:
-                raise
+                raise ValueError("Unsupported matrix type: {}".format(matrix_type))
 
     @property
     def dim(self):
