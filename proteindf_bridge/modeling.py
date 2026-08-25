@@ -33,9 +33,7 @@ import os
 import sys
 import math
 import re
-
-# import pkg_resources
-import importlib.resources
+from importlib.resources import files
 
 import logging
 
@@ -44,17 +42,14 @@ logger = logging.getLogger(__name__)
 
 class Modeling:
     # ACE-ALA-NME coordination data
-    # The obtained method of `data` path is based on `pkgutil.get_data()`
-    _ACE_ALA_NME_path_base = os.path.join(
-        os.path.dirname(sys.modules["proteindf_bridge"].__file__), "data", "ACE_ALA_NME_{}.brd"
-    )
     _ACE_ALA_NME_conformers = ["trans1", "trans2", "cis1", "cis2"]
 
     def __init__(self):
         self._ACE_ALA_NME = {}
+        data_dir = files("proteindf_bridge").joinpath("data")
         for conformer in self._ACE_ALA_NME_conformers:
-            brd_path = self._ACE_ALA_NME_path_base.format(conformer)
-            atomgroup = AtomGroup(load_msgpack(brd_path))
+            brd_path = data_dir.joinpath(f"ACE_ALA_NME_{conformer}.brd")
+            atomgroup = AtomGroup(load_msgpack(str(brd_path)))
             assert atomgroup.get_number_of_all_atoms() > 0
             self._ACE_ALA_NME[conformer] = atomgroup
 
