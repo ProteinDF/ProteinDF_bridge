@@ -123,65 +123,6 @@ class Pdb(object):
 
     debug = property(__get_debug, __set_debug)
 
-    # def get_number_of_items(self):
-    #    return len(self._data)
-
-    # def get_name(self, index):
-    #    answer = None
-    #    if ((0 <= index) and (index < self.get_number_of_items())):
-    #        answer = self._data[index].get('name', None)
-    #    return answer
-
-    # def set_name(self, index, name):
-    #    if ((0 <= index) and (index < self.get_number_of_items())):
-    #        self._data[index]['name'] = name
-
-    # def get_element(self, index):
-    #    answer = None
-    #    if ((0 <= index) and (index < self.get_number_of_items())):
-    #        answer = self._data[index].get('element', None)
-    #    return answer
-
-    # def set_element(self, index, element):
-    #    if ((0 <= index) and (index < self.get_number_of_items())):
-    #        self._data[index]['element'] = element
-
-    # def get_posision(self, index):
-    #    answer = None
-    #    if ((0 <= index) and (index < self.get_number_of_items())):
-    #        answer = self._data[index].get('coord', None)
-    #    return answer
-
-    # def set_position(self, index, position):
-    #    if ((0 <= index) and (index < self.get_number_of_items())):
-    #        self._data[index]['coord'] = position
-
-    # def get_charge(self, index):
-    #    answer = 0
-    #    if ((0 <= index) and (index < self.get_number_of_items())):
-    #        answer = self._data[index].get('charge', 0)
-    #    return answer
-
-    # def set_charge(self, index, charge):
-    #    if ((0 <= index) and (index < self.get_number_of_items())):
-    #        self._data[index]['charge'] = charge
-
-    # def get_occupancy(self, index):
-    #    answer = None
-    #    if ((0 <= index) and (index < self.get_number_of_items())):
-    #        answer = self._data[index].get('occupancy', None)
-    #    return answer
-
-    # def get_temp_factor(self, index):
-    #    answer = None
-    #    if ((0 <= index) and (index < self.get_number_of_items())):
-    #        answer = self._data[index].get('temp_factor', None)
-    #    return answer
-
-    # def set_temp_factor(self, serial, temp_factor):
-    #    serial = int(serial)
-    #    self._data[serial]['temp_factor'] = temp_factor
-
     def renumber(self):
         for model_serial, model in self._data.items():
             for index in range(len(model)):
@@ -458,11 +399,6 @@ class Pdb(object):
                     has_OXT = False
                     for key, atom in residue.atoms():
                         item["record_name"] = "ATOM  "
-
-                        # serial number
-                        # serial_match_obj = re_atom_serial.match(key)
-                        # if (serial_match_obj != None):
-                        #    serial = int(match_obj.group(1))
                         item["serial"] = serial
                         serial += 1
 
@@ -538,22 +474,6 @@ class Pdb(object):
                     else:
                         charge = "{:+1d}".format(charge)
 
-                    # line = "ATOM  %5d %4s%c%3s %c%4d%c   %8.3f%8.3f%8.3f%6.2f%6.2f          %2s%2s\n" % (
-                    #     serial,
-                    #     name,
-                    #     alt_loc,
-                    #     res_name,
-                    #     chain_id,
-                    #     res_seq,
-                    #     i_code,
-                    #     coord[0],
-                    #     coord[1],
-                    #     coord[2],
-                    #     occupancy,
-                    #     temp_factor,
-                    #     element.upper(),
-                    #     charge,
-                    # )
                     field = {
                         "serial": serial,
                         "name": name,
@@ -575,7 +495,6 @@ class Pdb(object):
                     )
                     output += line
                 elif record_name == "TER   ":
-                    # line = "TER   %5d      %3s %c%4d%c\n" % (serial, res_name, chain_id, res_seq, i_code)
                     field = {
                         "serial": serial,
                         "res_name": res_name,
@@ -621,32 +540,11 @@ class Pdb(object):
             for item in self._modpdb_amber_atm_tbl:
                 if (item["name"] == atomname) and (item["symbol"] == symbol):
                     new_name = item["rename"]
-
-            # if atomname in self._modpdb_amber_atm_tbl:
-            #     new_name = self._modpdb_amber_atm_tbl[atomname]
-            # if len(new_name) != 4:
-            #     if (len(new_name) < 4) and (atomname[0] == symbol[0]):
-            #         new_name = " {}".format(new_name)
-
-            # 原子名対策
-            # new_name_lstrip = new_name.lstrip()
-            # if len(new_name_lstrip) >= 2:
-            #     new_name_2 = new_name_lstrip[0:2]
-            #     if new_name_2.upper() == symbol.upper():
-            #         new_name = " " * (len(new_name) - len(new_name_lstrip)) + symbol + new_name_lstrip[2:]
         else:
             # "FORMAL"
             for item in self._modpdb_formal_atm_tbl:
                 if (item["name"] == atomname) and (item["symbol"] == symbol):
                     new_name = item["rename"]
-
-            # if atomname in self._modpdb_formal_atm_tbl:
-            #     new_name = self._modpdb_formal_atm_tbl[atomname]
-            # if len(new_name) != 4:
-            #     if (0 < len(new_name)) and (len(new_name) < 4) and (atomname[0] == symbol[0]):
-            #         new_name = " {}".format(new_name)
-            #     else:
-            #         new_name = symbol
 
         atom.name = new_name
         return atom
