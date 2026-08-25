@@ -37,6 +37,27 @@ class TestNeutralize(unittest.TestCase):
         self.assertEqual(len(exempt), 2)
         self.assertIsNotNone(neut.neutralized)
 
+    def test_non_destructive_input(self):
+        protein = AtomGroup("protein")
+        model = AtomGroup("model_1")
+        chainA = AtomGroup("A")
+
+        glu = AtomGroup("1")
+        glu.name = "GLU"
+        glu.set_atom("CD", Atom(name="CD", xyz=Position([0.0, 0.0, 0.0])))
+        glu.set_atom("OE1", Atom(name="OE1", xyz=Position([0.0, 1.0, 0.0])))
+        glu.set_atom("OE2", Atom(name="OE2", xyz=Position([1.0, 0.0, 0.0])))
+        chainA.set_group("1", glu)
+        model.set_group("A", chainA)
+        protein.set_group("model_1", model)
+
+        initial_atom_count = protein.get_number_of_all_atoms()
+        neut = Neutralize(protein)
+        # Verify original protein is not modified
+        self.assertEqual(protein.get_number_of_all_atoms(), initial_atom_count)
+        # Neutralized object has additional ion atom
+        self.assertGreater(neut.neutralized.get_number_of_all_atoms(), initial_atom_count)
+
 
 if __name__ == "__main__":
     unittest.main()
