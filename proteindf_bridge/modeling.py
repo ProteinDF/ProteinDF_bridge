@@ -411,9 +411,9 @@ class Modeling:
         連続したアミノ酸残基を返す
         """
         answer = AtomGroup()
-        for resid, res in chain.groups():
-            resid = int(resid)
-            if from_resid <= resid <= to_resid:
+        for resid_key, res in chain.groups():
+            resid_int = int(resid_key)
+            if from_resid <= resid_int <= to_resid:
                 answer |= res
 
         return answer
