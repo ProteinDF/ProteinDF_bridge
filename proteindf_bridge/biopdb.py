@@ -364,12 +364,13 @@ class Pdb(object):
         return root
 
     def set_by_atomgroup(self, atomgroup, is_charge2tempfactor=False):
-        assert isinstance(atomgroup, AtomGroup)
+        if not isinstance(atomgroup, AtomGroup):
+            raise TypeError("Expected AtomGroup, got {}".format(type(atomgroup).__name__))
         atomgroup = self.get_modpdb_atomgroup(atomgroup)
 
-        re_model_serial = re.compile("^model_(\d+)")
-        re_res_seq = re.compile("^(\d+)")
-        re_atom_serial = re.compile("^(\d+)")
+        re_model_serial = re.compile(r"^model_(\d+)")
+        re_res_seq = re.compile(r"^(\d+)")
+        re_atom_serial = re.compile(r"^(\d+)")
         self._data = {}
         item = {}
         model_serial = 1
@@ -518,7 +519,8 @@ class Pdb(object):
         Returns:
             AtomGroup: renamed object
         """
-        assert isinstance(ag_protein, AtomGroup)
+        if not isinstance(ag_protein, AtomGroup):
+            raise TypeError("Expected AtomGroup, got {}".format(type(ag_protein).__name__))
         mode = self._mode
 
         retval = AtomGroup(ag_protein)
@@ -584,7 +586,8 @@ class Pdb(object):
 
     def _rename_to_amber_dialect(self, res):
         """translate HIS to HID, HIE or HIP"""
-        assert isinstance(res, AtomGroup)
+        if not isinstance(res, AtomGroup):
+            raise TypeError("Expected AtomGroup, got {}".format(type(res).__name__))
         if res.name == "HIS":
             # check kinds of "HIS"
             has_delta_H = False
