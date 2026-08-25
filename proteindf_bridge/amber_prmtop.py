@@ -83,7 +83,7 @@ class AmberPrmtop(object):
 
             while len(line) > 0:
                 name = line[0:4]
-                name.rstrip()
+                name = name.rstrip()
                 line = line[4:]
                 atom_names.append(name)
 

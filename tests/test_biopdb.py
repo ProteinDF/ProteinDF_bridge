@@ -1,10 +1,10 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
+import os
 import unittest
 import doctest
 
 from proteindf_bridge.biopdb import Pdb
+
+DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "proteindf_bridge", "data"))
 
 
 class PdbTests(unittest.TestCase):
@@ -15,10 +15,10 @@ class PdbTests(unittest.TestCase):
         pass
 
     def test_init(self):
-        pdb = Pdb("./data/2MGO.pdb")
+        pdb = Pdb(os.path.join(DATA_DIR, "2MGO.pdb"))
 
     def test_get_atomgroup(self):
-        pdb = Pdb("./data/2MGO.pdb")
+        pdb = Pdb(os.path.join(DATA_DIR, "2MGO.pdb"))
         ag = pdb.get_atomgroup()
 
         # model

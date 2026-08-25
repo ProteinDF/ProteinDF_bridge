@@ -31,6 +31,14 @@ class Neutralize(object):
 
         return exempt_list
 
+    def _divide_path(self, path):
+        parts = AtomGroup.divide_path(path)
+        if len(parts) >= 2:
+            return parts[-2], parts[-1]
+        elif len(parts) == 1:
+            return "", parts[0]
+        return "", ""
+
     def _neutralize(self, protein):
         assert(isinstance(protein, AtomGroup))
         exempt_list = []  # self._exempt_list()

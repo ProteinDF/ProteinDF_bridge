@@ -20,6 +20,7 @@
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
+import math
 import proteindf_bridge
 
 class PositionTest(unittest.TestCase):

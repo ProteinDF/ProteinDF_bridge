@@ -108,7 +108,7 @@ class Position(object):
                     self._position[0] = args[0]._position[0]
                     self._position[1] = args[0]._position[1]
                     self._position[2] = args[0]._position[2]
-                elif (isinstance(args[0], (list, tuple, numpy.ndarray)) and len(args[0]) == 3):
+                elif (isinstance(args[0], (list, tuple, numpy.ndarray, Vector)) and len(args[0]) == 3):
                     self._position[0] = float(args[0][0])
                     self._position[1] = float(args[0][1])
                     self._position[2] = float(args[0][2])
