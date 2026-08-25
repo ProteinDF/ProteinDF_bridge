@@ -620,8 +620,7 @@ class Modeling:
 
     # ------------------------------------------------------------------
     def neutralize_FAD(self, ag):
-        print("neutralize_FAD")
-        print(ag)
+        logger.debug("neutralize_FAD: %s", ag)
         answer = AtomGroup()
 
         POO1 = AtomGroup()

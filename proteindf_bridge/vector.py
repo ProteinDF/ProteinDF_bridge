@@ -76,8 +76,7 @@ class Vector(object):
         elif isinstance(obj, Vector):
             self._data = copy.copy(obj._data)
         else:
-            print(type(obj))
-            raise TypeError
+            raise TypeError("Unsupported type for Vector: {}".format(type(obj)))
 
     # --------------------------------------------------------------------------
     @property

@@ -147,7 +147,7 @@ class Pdb(object):
                 # if (len(line) != 80):
                 #    continue
                 if self.debug == True:
-                    print(line)
+                    logger.debug(line)
 
                 record_name = line[0:6]
                 if record_name == "SSBOND":
@@ -574,7 +574,7 @@ class Pdb(object):
             if resname in self._modpdb_amber_resatom_table:
                 if atom_name in self._modpdb_amber_resatom_table[resname]:
                     atom.name = self._modpdb_amber_resatom_table[resname][atom_name]
-                    print(":{}@{} -> :{}@{}".format(resname, atom_name, resname, atom.name))
+                    logger.debug(":{}@{} -> :{}@{}".format(resname, atom_name, resname, atom.name))
         else:
             if resname in self._modpdb_formal_resatom_table:
                 if atom_name in self._modpdb_formal_resatom_table[resname]:
