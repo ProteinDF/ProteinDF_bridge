@@ -46,7 +46,7 @@ class SSBond(object):
                         SG = Atom(res.get_atom('SG'))
                         SGs.append((res.path, SG))
                     else:
-                        logger.warn('not found SG atom in {}'.format(res.path))
+                        logger.warning('not found SG atom in {}'.format(res.path))
         self._check_SGs(SGs)
         self._isChecked = True
 

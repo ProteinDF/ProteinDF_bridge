@@ -102,7 +102,7 @@ class Relax(object):
         # check models
         self._num_of_models = atomgroup.get_number_of_groups()
         if self._num_of_models > 1:
-            self._logger.warn(
+            self._logger.warning(
                 '# of models(={}) > 1'.format(self._num_of_models))
         (self._model_name, self._model) = list(atomgroup.groups())[0]
         self._logger.info("model: {}".format(self._model_name))
@@ -417,10 +417,10 @@ class Relax(object):
                     elif has_HD2:
                         res.name = 'HID'
                     else:
-                        self._logger.warn(
+                        self._logger.warning(
                             'cannot assign HIS: {}/{}'.format(chain_name, resid))
                         for atmkey, atm in res.atoms():
-                            self._logger.warn(
+                            self._logger.warning(
                                 'atom name: "{}"'.format(atm.name))
         self._logger.info('check HIS. done.')
 
