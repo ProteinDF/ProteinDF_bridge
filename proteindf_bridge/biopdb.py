@@ -456,9 +456,9 @@ class Pdb(object):
                     # see. https://www.cgl.ucsf.edu/chimera/docs/UsersGuide/tutorials/pdbintro.html
                     if len(name) < 4:
                         if len(element) == 1:
-                            name = " {:<3s}".format(name)
+                            name = f" {name:<3s}"
                         else:
-                            name = "{:<4s}".format(name)
+                            name = f"{name:<4s}"
 
                     alt_loc = item["alt_loc"]
                     res_name = item["res_name"]
@@ -471,42 +471,15 @@ class Pdb(object):
                     element = item.setdefault("element", "  ")
                     charge = int(item.setdefault("charge", 0))
                     if charge == 0:
-                        charge = "  "
+                        charge_str = "  "
                     else:
-                        charge = "{:+1d}".format(charge)
+                        charge_str = f"{charge:+1d}"
 
-                    field = {
-                        "serial": serial,
-                        "name": name,
-                        "alt_loc": alt_loc,
-                        "res_name": res_name,
-                        "chain_id": chain_id,
-                        "res_seq": res_seq,
-                        "i_code": i_code,
-                        "x": coord[0],
-                        "y": coord[1],
-                        "z": coord[2],
-                        "occupancy": occupancy,
-                        "temp_factor": temp_factor,
-                        "element": element.upper(),
-                        "charge": charge,
-                    }
-                    line = "ATOM  {serial:>5d} {name:>4s}{alt_loc:1s}{res_name:>3s} {chain_id:1s}{res_seq:>4d}{i_code:1s}   {x:>8.3f}{y:>8.3f}{z:>8.3f}{occupancy:6.2f}{temp_factor:6.2f}          {element:>2s}{charge:2s}\n".format(
-                        **field
-                    )
-                    output += line
+                    element_str = element.upper()
+                    x, y, z = coord[0], coord[1], coord[2]
+                    output += f"ATOM  {serial:>5d} {name:>4s}{alt_loc:1s}{res_name:>3s} {chain_id:1s}{res_seq:>4d}{i_code:1s}   {x:>8.3f}{y:>8.3f}{z:>8.3f}{occupancy:6.2f}{temp_factor:6.2f}          {element_str:>2s}{charge_str:2s}\n"
                 elif record_name == "TER   ":
-                    field = {
-                        "serial": serial,
-                        "res_name": res_name,
-                        "chain_id": chain_id,
-                        "res_seq": res_seq,
-                        "i_code": i_code,
-                    }
-                    line = "TER   {serial:>5d}      {res_name:3s} {chain_id:1s}{res_seq:>4d}{i_code:1s}\n".format(
-                        **field
-                    )
-                    output += line
+                    output += f"TER   {serial:>5d}      {res_name:3s} {chain_id:1s}{res_seq:>4d}{i_code:1s}\n"
         return output
 
     def get_modpdb_atomgroup(self, ag_protein):

@@ -210,10 +210,7 @@ class Position(object):
         return answer
 
     def __str__(self):
-        answer = "(% 10.6f, % 10.6f, % 10.6f)" % (self.x,
-                                                  self.y,
-                                                  self.z)
-        return answer
+        return f"({self.x: 10.6f}, {self.y: 10.6f}, {self.z: 10.6f})"
 
     def __eq__(self, rhs):
         answer = False
