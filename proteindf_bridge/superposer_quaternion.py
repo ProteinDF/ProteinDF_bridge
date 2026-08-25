@@ -23,7 +23,7 @@ import math
 from .position import Position
 from .atomgroup import AtomGroup
 from .vector import Vector
-from .matrix import SymmetricMatrix
+from .matrix import SymmetricMatrix, Matrix
 
 class Superposer_quaternion(object):
     def __init__(self, atomgroup1, atomgroup2):
@@ -61,9 +61,6 @@ class Superposer_quaternion(object):
     def _get_r_A(self):
         if self._r_A == None:
             self._r_A = self._shift_positions(self._positions1, self.center1)
-            print('>>>> r_A')
-            for v in self._r_A:
-                print(v)
         return self._r_A
 
     r_A = property(_get_r_A)
@@ -71,9 +68,6 @@ class Superposer_quaternion(object):
     def _get_r_B(self):
         if self._r_B == None:
             self._r_B = self._shift_positions(self._positions2, self.center2)
-            print('>>>> r_B')
-            for v in self._r_B:
-                print(v)
         return self._r_B
 
     r_B = property(_get_r_B)
@@ -101,8 +95,6 @@ class Superposer_quaternion(object):
             va = self.va
             vb = self.vb
             self._matB = self._make_B(va, vb)
-            print('>>>> matB')
-            print(self._matB)
         return self._matB
 
     matB = property(_get_matB)
@@ -111,8 +103,6 @@ class Superposer_quaternion(object):
         if self._eigval == None:
             matB = self.matB
             (eigval, eigvec) = matB.eig()
-            print('>>>> eigval')
-            print(eigval)
             self._eigval = eigval
 
         return self._eigval
@@ -123,11 +113,14 @@ class Superposer_quaternion(object):
         if self._matR == None:
             q = self.eigval
             self._matR = self._make_R(q)
-            print('>>>> matR')
-            print(self._matR)
         return self._matR
 
     matR = property(_get_matR)
+
+    def _get_rotation_mat(self):
+        return self.matR
+
+    rotation_mat = property(_get_rotation_mat)
     # -----------------------------------------------------------------
     def _get_rmsd(self):
         if self._rmsd == None:
@@ -140,27 +133,22 @@ class Superposer_quaternion(object):
 
     rmsd = property(_get_rmsd)
     # -----------------------------------------------------------------
+    def superimpose(self, atomgroup):
+        """
+        指定された AtomGroup を重ね合わせて返す
+        """
+        answer = AtomGroup(atomgroup)
+        answer.shift_by(-self.center1)
+        answer.rotate(self.matR)
+        answer.shift_by(self.center2)
+        return answer
+
+    # -----------------------------------------------------------------
     def calc(self):
-        (positions1, positions2) = self.match_positions(atom_group1, atom_group2)
-        num_of_positions1 = len(positions1)
-        num_of_positions2 = len(positions2)
-        assert(num_of_positions1 == num_of_positions2)
-
-        center1 = self.calc_center(position1)
-        center2 = self.calc_center(position2)
-
-        # shift
-        r_A = self._shift_positions(position1, center1)
-        r_B = self._shift_positions(position2, center2)
-
-        # make a, b
-        va = self._make_va(r_A, r_B)
-        vb = self._make_vb(r_A, r_B)
-
-        matB = self.make_B(va, vb)
-        (eigval, eigvec) = matB.eig()
-
-        matR = self.make_R()
+        """
+        重心・クォータニオン・回転行列・RMSDを一括計算してRMSDを返す
+        """
+        return self.rmsd
 
 
     def _match_positions(self, atomgroup1, atomgroup2):
@@ -208,8 +196,6 @@ class Superposer_quaternion(object):
         for p in answer:
             sum_of_positions += p
         assert(sum_of_positions.distance_from() < 1.0E-5)
-        print('>>>> sum_of_positions:')
-        print(sum_of_positions)
 
         return answer
 
@@ -221,9 +207,6 @@ class Superposer_quaternion(object):
         for i in range(num_of_positions):
             va[i] = r_B[i] + r_A[i]
 
-        print('>>>> va:')
-        for v in va:
-            print(v)
         return va
 
     def _make_vb(self, r_A, r_B):
@@ -234,9 +217,6 @@ class Superposer_quaternion(object):
         for i in range(num_of_positions):
             vb[i] = r_B[i] - r_A[i]
 
-        print('>>>> vb:')
-        for v in vb:
-            print(v)
         return vb
 
     def _make_B(self, va, vb):
@@ -264,7 +244,6 @@ class Superposer_quaternion(object):
             B.add(2, 3,  by*bz - ay*az)
             B.add(3, 3,  ax*ax + ay*ay + bz*bz)
 
-        print(B)
         B *= 1.0 / float(num_of_positions * num_of_positions)
         return B
 

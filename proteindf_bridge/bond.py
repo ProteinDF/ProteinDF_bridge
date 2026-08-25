@@ -19,6 +19,10 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
+from .matrix import SymmetricMatrix
+from .atomgroup import AtomGroup
+
+
 class Bond(object):
     """
     """

@@ -17,8 +17,8 @@ class Neutralize(object):
     def neutralized(self):
         return self._neutral_obj
 
-    def _exempt_list(self):
-        ip = IonPair(self._model)
+    def _exempt_list(self, model):
+        ip = IonPair(model)
         ionpairs = ip.get_ion_pairs()
 
         # 処理しやすいように並べ替え

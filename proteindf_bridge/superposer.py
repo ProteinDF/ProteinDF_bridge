@@ -270,10 +270,6 @@ class Superposer(object):
         # print(trr)
 
         eigval, eigvec = trr.eig()
-        print("eigval>")
-        print(eigval)
-        print("eigvec>")
-        print(eigvec)
 
         eigval2 = Vector(3)
         eigval2[0] = eigval[2]
@@ -284,12 +280,8 @@ class Superposer(object):
             eigvec2.set(i, 0, eigvec.get(i, 2))
             eigvec2.set(i, 1, eigvec.get(i, 1))
             eigvec2.set(i, 2, eigvec.get(i, 0))
-        print("eigvec2>")
-        print(eigvec2)
 
         a = self._make_right_handed(eigvec)
-        print("make right handled>")
-        print(a)
 
         b = Matrix(3, 3)
         for i in range(3):
@@ -307,8 +299,6 @@ class Superposer(object):
             for j in range(3):
                 v = b.get(i, j)
                 b.set(i, j, v * t)
-        print("b>")
-        print(b)
 
         # b[2] = b[0] x b[1]
         # tmp_vct = self._calc_vector_product(b.get_row_vector(0), b.get_row_vector(1))

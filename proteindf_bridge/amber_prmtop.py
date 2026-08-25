@@ -65,10 +65,10 @@ class AmberPrmtop(object):
                     line = self._read_atomic_number(f)
 
     def _check_data(self):
-        print("# atomic_numbers: {}".format(len(self._atomic_numbers)))
-        print("# atom_names: {}".format(len(self._atom_names)))
-        print("# charges: {}".format(len(self._charges)))
-        print("# xyz: {}".format(len(self._xyz)))
+        logger.debug("# atomic_numbers: {}".format(len(self._atomic_numbers)))
+        logger.debug("# atom_names: {}".format(len(self._atom_names)))
+        logger.debug("# charges: {}".format(len(self._charges)))
+        logger.debug("# xyz: {}".format(len(self._xyz)))
 
     def _read_atom_name(self, f):
         logger.debug('read atomname')
@@ -88,11 +88,9 @@ class AmberPrmtop(object):
                 atom_names.append(name)
 
         self._atom_names = atom_names
-        print('line: ', line)
         return line
 
     def _read_charges(self, f):
-        print('read charge')
         logger.debug('read charge')
         charges = []
         for line in f:
@@ -105,11 +103,9 @@ class AmberPrmtop(object):
 
             values = line.split()
             for v in values:
-                # print(v, float(v))
                 charges.append(float(v) / 18.2223)
 
         self._charges = charges
-        print('line: ', line)
         return line
 
     def _read_atomic_number(self, f):
@@ -128,7 +124,6 @@ class AmberPrmtop(object):
                 atomic_numbers.append(int(v))
 
         self._atomic_numbers = atomic_numbers
-        print('line: ', line)
         return line
 
     def _load_inpcrd(self, inpcrd_path):

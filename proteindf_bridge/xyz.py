@@ -45,7 +45,7 @@ class Xyz(object):
             if len(args) == 1:
                 rhs = args[0]
                 if isinstance(rhs, str):
-                    self.load(file_path)
+                    self.load(rhs)
                 elif isinstance(rhs, AtomGroup):
                     self.set_by_atomgroup(rhs)
                 else:
