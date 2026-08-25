@@ -266,16 +266,12 @@ class Atom(object):
     # debug
     # ==================================================================
     def __str__(self):
-        name = "({})".format(self.name)
-        symbol_name = "{symbol:<2}{name:<6}".format(symbol=self.symbol, name=name)
-        xyz = "{: 8.3f} {: 8.3f} {: 8.3f}".format(self.xyz.x, self.xyz.y, self.xyz.z)
-        charge = "{: 5.2f}".format(self.charge)
-        force = "{: 8.3f} {: 8.3f} {: 8.3f}".format(self.force.x, self.force.y, self.force.z)
-
-        answer = "{symbol_name} {xyz}, {charge}, {force}".format(
-            symbol_name=symbol_name, xyz=xyz, charge=charge, force=force
-        )
-        return answer
+        name = f"({self.name})"
+        symbol_name = f"{self.symbol:<2}{name:<6}"
+        xyz = f"{self.xyz.x: 8.3f} {self.xyz.y: 8.3f} {self.xyz.z: 8.3f}"
+        charge = f"{self.charge: 5.2f}"
+        force = f"{self.force.x: 8.3f} {self.force.y: 8.3f} {self.force.z: 8.3f}"
+        return f"{symbol_name} {xyz}, {charge}, {force}"
 
     # ------------------------------------------------------------------
     # serialize

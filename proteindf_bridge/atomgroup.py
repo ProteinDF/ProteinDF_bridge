@@ -1038,21 +1038,18 @@ class AtomGroup(object):
     def _get_str(self, key="", indent_level=0):
         indent = "  " * indent_level
 
-        answer = "{indent}# group key={key} name={name}".format(indent=indent, key=key, name=self.name)
+        answer = f"{indent}# group key={key} name={self.name}"
         if self.parent is not None:
-            answer += "{indent} parent={parent}\n".format(indent=indent, parent=self.parent.name)
+            answer += f"{indent} parent={self.parent.name}\n"
         else:
             answer += "\n"
 
         for key, atomgroup in self.groups():
             answer += atomgroup._get_str(key, indent_level + 1)
         for key, atom in self.atoms():
-            answer += "{indent}{atom} {atom_path}\n".format(indent=indent, atom_path=atom.path, atom=str(atom))
+            answer += f"{indent}{atom} {atom.path}\n"
         for bond in self._bonds:
-            answer += "{indent}bond {atom_path1} <-{order}-> {atom_path2}\n".format(
-                indent=indent, atom_path1=bond[0], atom_path2=bond[1], order=bond[2]
-            )
-        # answer += '{indent}>\n'.format(indent=indent)
+            answer += f"{indent}bond {bond[0]} <-{bond[2]}-> {bond[1]}\n"
 
         return answer
 
