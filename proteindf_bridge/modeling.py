@@ -145,7 +145,7 @@ class Modeling:
                 AAN = matched
 
         if rmsd_min > 1.0:
-            logger.warn("RMSD value is too large: {}".format(rmsd))
+            logger.warning("RMSD value is too large: {}".format(rmsd))
 
         answer = AtomGroup(AAN["1"])
         answer.path = "/ACE"
@@ -195,7 +195,7 @@ class Modeling:
                 AAN = matched
 
         if rmsd_min > 1.0:
-            logger.warn("RMSD value is too large: {}".format(rmsd))
+            logger.warning("RMSD value is too large: {}".format(rmsd))
 
         answer = AtomGroup(AAN["3"])
         answer.path = "/NME"
