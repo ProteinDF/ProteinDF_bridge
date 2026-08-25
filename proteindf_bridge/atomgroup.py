@@ -1049,7 +1049,9 @@ class AtomGroup(object):
                 # print(row)
                 writer.writerow(row)
 
-    def _get_csv_list(self, parents=[]):
+    def _get_csv_list(self, parents=None):
+        if parents is None:
+            parents = []
         rows = list()
         for key, subgrp in self.groups():
             new_parents = copy.copy(parents)

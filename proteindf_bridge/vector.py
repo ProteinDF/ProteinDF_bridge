@@ -54,12 +54,15 @@ class Vector(object):
     __body_struct_little_endian = "<d"
     __body_struct_big_endian = ">d"
 
-    def __init__(self, obj=[]):
+    def __init__(self, obj=None):
         """
         初期化
 
         内部変数self._dataはnumpy.array(float)型
         """
+        if obj is None:
+            obj = []
+
         if isinstance(obj, int):
             size = obj
             self._data = numpy.array([0.0 for x in range(size)])
