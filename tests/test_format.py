@@ -1,12 +1,12 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
+import os
 import unittest
 import doctest
 
 from proteindf_bridge.biopdb import Pdb
 from proteindf_bridge.atomgroup import AtomGroup
 from proteindf_bridge.format import Format
+
+DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "proteindf_bridge", "data"))
 
 
 class FormatTest(unittest.TestCase):
@@ -17,7 +17,7 @@ class FormatTest(unittest.TestCase):
         pass
 
     def test_formats1(self):
-        pdb = Pdb("./data/2MGO.pdb")
+        pdb = Pdb(os.path.join(DATA_DIR, "2MGO.pdb"))
 
         models = pdb.get_atomgroup()
         self.assertTrue(Format.is_models(models))

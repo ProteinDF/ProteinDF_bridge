@@ -40,6 +40,7 @@ class Superposer_quaternion(object):
         self._vb = None
         self._matB = None
         self._eigval = None
+        self._eigvec = None
         self._matR = None
         self._rmsd = None
 
@@ -104,14 +105,22 @@ class Superposer_quaternion(object):
             matB = self.matB
             (eigval, eigvec) = matB.eig()
             self._eigval = eigval
+            self._eigvec = eigvec
 
         return self._eigval
 
     eigval = property(_get_eigval)
+
+    def _get_eigvec(self):
+        if self._eigvec == None:
+            self._get_eigval()
+        return self._eigvec
+
+    eigvec = property(_get_eigvec)
     # -----------------------------------------------------------------
     def _get_matR(self):
         if self._matR == None:
-            q = self.eigval
+            q = self.eigvec.get_row_vector(0)
             self._matR = self._make_R(q)
         return self._matR
 

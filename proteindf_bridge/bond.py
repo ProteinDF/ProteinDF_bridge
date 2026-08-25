@@ -45,7 +45,7 @@ class Bond(object):
             for q in range(p):
                 b = self._bondmat.get(p, q)
                 if b > 0:
-                    mol.add_bond(self._atoms[p], self._atoms[q], b)
+                    mol.add_bond(self._atoms[p], self._atoms[q], int(b))
         
         
     def _make_bond_matrix(self):

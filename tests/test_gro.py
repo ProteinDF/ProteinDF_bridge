@@ -1,11 +1,11 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
+import os
 import unittest
 import pickle
 import doctest
 
 from proteindf_bridge.gro import SimpleGro
+
+DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "proteindf_bridge", "data"))
 
 class GroTests(unittest.TestCase):
     def setUp(self):
@@ -16,11 +16,9 @@ class GroTests(unittest.TestCase):
 
     def test_load(self):
         gro = SimpleGro()
-        gro.load("./data/sample.gro")
-        # print(gro)
-
+        gro.load(os.path.join(DATA_DIR, "sample.gro"))
         ag = gro.get_atomgroup()
-        print(ag)
+        self.assertIsNotNone(ag)
 
 
 def load_tests(loader, tests, ignore):

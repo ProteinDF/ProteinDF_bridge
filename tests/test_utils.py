@@ -1,11 +1,11 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
+import os
 import unittest
 import doctest
 
 from proteindf_bridge.utils import Utils
 from proteindf_bridge.biopdb import Pdb
+
+DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "proteindf_bridge", "data"))
 
 
 class UtilsTest(unittest.TestCase):
@@ -16,7 +16,7 @@ class UtilsTest(unittest.TestCase):
         pass
 
     def test_get_sequential_residue_id(self):
-        pdb = Pdb("./data/3i3zH.pdb")
+        pdb = Pdb(os.path.join(DATA_DIR, "3i3zH.pdb"))
         models = pdb.get_atomgroup()
         protein = models["model_1"]
 
