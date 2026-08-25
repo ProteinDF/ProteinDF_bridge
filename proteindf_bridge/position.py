@@ -19,8 +19,11 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import math
 import numpy
+from typing import Union, Sequence, List, Optional, Any
 
 from .vector import Vector
 from .error import BrInputError, BrValueError
@@ -159,14 +162,14 @@ class Position(object):
     z = property(__get_z, __set_z)
 
     # --------------------------------------------------------------------------
-    def get_raw_data(self):
+    def get_raw_data(self) -> List[float]:
         return self._position
 
-    def move_to(self, position):
+    def move_to(self, position: Union[Position, Sequence[float], str]) -> None:
         tmp = Position(position)
         self._position = tmp._position
 
-    def square_distance_from(self, other=None):
+    def square_distance_from(self, other: Optional[Union[Position, Sequence[float]]] = None) -> float:
         if other is None:
             other = Position()
         other = Position(other)
@@ -177,23 +180,23 @@ class Position(object):
             d2 += tmp * tmp
         return d2
 
-    def distance_from(self, other=None):
+    def distance_from(self, other: Optional[Union[Position, Sequence[float]]] = None) -> float:
         d2 = self.square_distance_from(other)
         return math.sqrt(d2)
 
-    def norm(self):
+    def norm(self) -> Position:
         n = self.__abs__()
         if n < 1.0e-15:
             raise BrValueError("Position.norm()", "cannot normalize zero vector")
         self._position = [x / n for x in self._position]
+        return self
 
-    def rotate(self, mat):
-        assert(mat.rows == 3)
-        assert(mat.cols == 3)
+    def rotate(self, mat: Any) -> None:
+        assert mat.rows == 3
+        assert mat.cols == 3
         v1 = Vector(self._position)
         v2 = mat * v1
         self._position = v2.to_list()
-        return self
 
     def dot(self, rhs):
         """

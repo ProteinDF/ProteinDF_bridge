@@ -19,6 +19,10 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
+from typing import Union, Sequence, Optional, Dict, Any
+
 from .position import Position
 from .periodictable import PeriodicTable
 from .str_processing import StrUtils
@@ -100,16 +104,16 @@ class Atom(object):
             # assert(isinstance(self._parent, AtomGroup))
 
     # move ---------------------------------------------------------------------
-    def move_to(self, position):
+    def move_to(self, position: Union[Position, Sequence[float], str]) -> Atom:
         self.xyz.move_to(position)
         return self
 
-    def shift_by(self, direction):
-        direction = Position(direction)
-        self.xyz += direction
+    def shift_by(self, direction: Union[Position, Sequence[float], str]) -> Atom:
+        direction_pos = Position(direction)
+        self.xyz += direction_pos
         return self
 
-    def rotate(self, rotmat):
+    def rotate(self, rotmat: Any) -> None:
         self.xyz.rotate(rotmat)
 
     def __imul__(self, rhs):

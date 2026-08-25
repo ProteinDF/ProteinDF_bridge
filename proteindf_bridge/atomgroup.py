@@ -19,10 +19,13 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
 import copy
 import csv
 import warnings
 from collections import OrderedDict
+from typing import Optional, Iterator, Tuple, List, Dict, Any, Union, Sequence
 
 from .error import BrInputError
 from .vector import Vector
@@ -234,7 +237,7 @@ class AtomGroup(object):
         return kinds
 
     # --------------------------------------------------------------------------
-    def groups(self):
+    def groups(self) -> Iterator[Tuple[str, AtomGroup]]:
         """
         原子団のリストを返す
         """
@@ -247,7 +250,7 @@ class AtomGroup(object):
             for k, v in self._groups.items():
                 yield (k, v)
 
-    def get_group(self, key_or_name):
+    def get_group(self, key_or_name: str) -> Optional[AtomGroup]:
         """
         入力されたkeyもしくは名前の原子団が含まれている場合、その原子を返す。
         無い場合はNoneを返す。
@@ -261,7 +264,7 @@ class AtomGroup(object):
                     return grp
         return None
 
-    def set_group(self, key, value):
+    def set_group(self, key: str, value: AtomGroup) -> None:
         key = str(key)
         key = StrUtils.to_unicode(key)
         if not isinstance(value, AtomGroup):
@@ -271,7 +274,7 @@ class AtomGroup(object):
         self._groups[key] = AtomGroup(value, parent=self)
         self._update_path()
 
-    def has_groupkey(self, key):
+    def has_groupkey(self, key: str) -> bool:
         """
         入力されたkeyのグループが含まれている場合、Trueを返す。
         無い場合はFalseを返す。
@@ -282,7 +285,7 @@ class AtomGroup(object):
             answer = True
         return answer
 
-    def has_groupname(self, name):
+    def has_groupname(self, name: str) -> bool:
         """
         入力されたnameのグループが含まれている場合、Trueを返す。
         無い場合はFalseを返す。
@@ -295,14 +298,14 @@ class AtomGroup(object):
                 break
         return answer
 
-    def has_group(self, key_or_name):
+    def has_group(self, key_or_name: str) -> bool:
         """
         入力されたkeyもしくは名前のグループが含まれている場合、Trueを返す。
         無い場合はFalseを返す。
         """
         return (self.has_groupkey(key_or_name)) or (self.has_groupname(key_or_name))
 
-    def erase_group(self, key):
+    def erase_group(self, key: str) -> None:
         """remove group
 
         .. deprecated:: use :meth:`remove_group` instead.
@@ -314,16 +317,16 @@ class AtomGroup(object):
         )
         self.remove_group(key)
 
-    def remove_group(self, key):
+    def remove_group(self, key: str) -> None:
         """remove group"""
         key = StrUtils.to_unicode(key)
         self._groups.pop(key, None)
 
-    def get_group_list(self):
+    def get_group_list(self) -> List[str]:
         return [k for k, v in self.groups()]
 
     # --------------------------------------------------------------------------
-    def atoms(self):
+    def atoms(self) -> Iterator[Tuple[str, Atom]]:
         """
         原子のリストを返す
         """
@@ -336,10 +339,10 @@ class AtomGroup(object):
             for k, v in self._atoms.items():
                 yield (k, v)
 
-    def get_atom_keys(self):
+    def get_atom_keys(self) -> List[str]:
         return [k for k, v in self.atoms()]
 
-    def get_atom(self, key_or_name):
+    def get_atom(self, key_or_name: str) -> Optional[Atom]:
         """
         入力されたkeyもしくは名前の原子が含まれている場合、その原子を返す。
         無い場合はNoneを返す。
@@ -353,14 +356,14 @@ class AtomGroup(object):
                     return atm
         return None
 
-    def _set_atom(self, key, value):
+    def _set_atom(self, key: str, value: Atom) -> None:
         key = str(key)
         key = StrUtils.to_unicode(key)
         if not isinstance(value, Atom):
             raise TypeError("Expected Atom, got {}".format(type(value).__name__))
         self._atoms[key] = Atom(value, parent=self, path="{}{}".format(self.path, key))
 
-    def set_atom(self, key, value):
+    def set_atom(self, key: str, value: Atom) -> None:
         if not isinstance(value, Atom):
             raise TypeError("Expected Atom, got {}".format(type(value).__name__))
         key = str(key)

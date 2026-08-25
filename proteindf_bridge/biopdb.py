@@ -19,6 +19,10 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations
+
+from typing import Optional, List, Dict, Any, Union
+
 from .atomgroup import AtomGroup
 from .atom import Atom
 from .position import Position
@@ -283,7 +287,7 @@ class Pdb(object):
                     self._data[model_serial].append(item)
                     continue
 
-    def get_atomgroup(self, select_model=None, select_altloc="A"):
+    def get_atomgroup(self, select_model: Optional[int] = None, select_altloc: str = "A") -> AtomGroup:
         """
         return AtomGroup object
         """
@@ -363,7 +367,7 @@ class Pdb(object):
 
         return root
 
-    def set_by_atomgroup(self, atomgroup, is_charge2tempfactor=False):
+    def set_by_atomgroup(self, atomgroup: AtomGroup, is_charge2tempfactor: bool = False) -> None:
         if not isinstance(atomgroup, AtomGroup):
             raise TypeError("Expected AtomGroup, got {}".format(type(atomgroup).__name__))
         atomgroup = self.get_modpdb_atomgroup(atomgroup)
