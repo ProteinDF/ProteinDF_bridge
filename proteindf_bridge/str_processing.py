@@ -26,21 +26,6 @@ import pickle
 import logging
 logger = logging.getLogger(__name__)
 
-try:
-    unicode = unicode
-except NameError:
-    # 'unicode' is undefined, must be Python 3
-    str = str
-    unicode = str
-    bytes = bytes
-    basestring = (str, bytes)
-else:
-    # 'unicode' exists, must be Python 2
-    str = str
-    unicode = unicode
-    bytes = str
-    basestring = basestring
-
 
 class StrUtils(object):
     @classmethod
@@ -154,50 +139,18 @@ class StrUtils(object):
         """
         byteをstr(utf-8)に変換する
         """
-        # try:
-        #    if sys.version_info[0] >= 3:
-        #        # Python3
-        #        assert isinstance(unicode_or_str, (str, bytes))
-        #    else:
-        #        # Python2
-        #        assert isinstance(unicode_or_str, (unicode, str, bytes))
-        # except:
-        #    print(type(unicode_or_str))
-        #    print(unicode_or_str)
-        #    raise
-
-        value = unicode_or_str
-        if sys.version_info[0] >= 3:
-            # Python3
-            if isinstance(unicode_or_str, bytes):
-                value = unicode_or_str.decode('utf-8')
-        else:
-            # Python2
-            if isinstance(unicode_or_str, str):
-                try:
-                    value = unicode_or_str.decode('utf-8')
-                except:
-                    print(type(unicode_or_str))
-                    print(unicode_or_str)
-                    raise
-
-        return value
+        if isinstance(unicode_or_str, bytes):
+            return unicode_or_str.decode('utf-8')
+        return str(unicode_or_str)
 
     @classmethod
     def to_bytes(cls, unicode_or_str):
-        assert isinstance(unicode_or_str, (str, bytes))
-
-        value = unicode_or_str
-        if sys.version_info[0] >= 3:
-            # Python3
-            if isinstance(unicode_or_str, str):
-                value = unicode_or_str.encode('utf-8')
-        else:
-            # Python2
-            if isinstance(unicode_or_str, unicode):
-                value = unicode_or_str.encode('utf-8')
-
-        return value
+        """
+        strをbyte(utf-8)に変換する
+        """
+        if isinstance(unicode_or_str, str):
+            return unicode_or_str.encode('utf-8')
+        return unicode_or_str
 
     @classmethod
     def str_to_bool(cls, input_str):
@@ -209,10 +162,10 @@ class StrUtils(object):
             tmp = int(input_str)
             if tmp != 0:
                 answer = True
-        except:
+        except (ValueError, TypeError):
             if len(input_str) > 0:
                 tmp = input_str.upper()
-                if (tmp[0] == 'Y' or tmp[0] == 'T'):
+                if tmp[0] in ('Y', 'T'):
                     answer = True
         return answer
 
@@ -220,13 +173,12 @@ class StrUtils(object):
     def check_pickled(cls, data, level=0):
         if isinstance(data, dict):
             for k, v in data.items():
-                cls.check_pickled(v)
+                cls.check_pickled(v, level + 1)
         else:
-            # print('>' * level, data)
             try:
                 pickle.dumps(data)
-            except:
-                print(type(data), data)
+            except Exception as e:
+                logger.error("Failed to pickle data of type %s: %s", type(data), e)
                 raise
 
 
