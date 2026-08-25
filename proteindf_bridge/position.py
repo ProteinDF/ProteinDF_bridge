@@ -23,7 +23,7 @@ import math
 import numpy
 
 from .vector import Vector
-from .error import BrInputError
+from .error import BrInputError, BrValueError
 
 import logging
 logger = logging.getLogger(__name__)
@@ -183,6 +183,8 @@ class Position(object):
 
     def norm(self):
         n = self.__abs__()
+        if n < 1.0e-15:
+            raise BrValueError("Position.norm()", "cannot normalize zero vector")
         self._position = [x / n for x in self._position]
 
     def rotate(self, mat):

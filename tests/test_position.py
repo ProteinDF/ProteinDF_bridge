@@ -65,6 +65,12 @@ class PositionTests(unittest.TestCase):
         self.assertAlmostEqual(pos2.y, 2.0)
         self.assertAlmostEqual(pos2.z, 3.0)
 
+    def test_norm_zero_vector(self):
+        from proteindf_bridge.error import BrValueError
+        pos = Position([0.0, 0.0, 0.0])
+        with self.assertRaises(BrValueError):
+            pos.norm()
+
 
 def load_tests(loader, tests, ignore):
     from proteindf_bridge import position
