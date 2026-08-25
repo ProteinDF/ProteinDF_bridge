@@ -118,11 +118,11 @@ class Matrix(object):
                     v1 = self.get(r, c)
                     v2 = self.get(c, r)
                     if math.fabs(v1 - v2) > 1.0e-5:
-                        print("warning: %f(%d, %d) != %f(%d, %d)" % (v1, r, c, v2, c, r))
+                        logger.warning("warning: %f(%d, %d) != %f(%d, %d)", v1, r, c, v2, c, r)
                     answer.set(r, c, v1)
                 answer.set(r, r, self.get(r, r))
         else:
-            raise
+            raise TypeError("Cannot convert non-square Matrix to SymmetricMatrix")
 
         return answer
 
@@ -161,11 +161,9 @@ class Matrix(object):
     # --------------------------------------------------------------------------
     def get(self, row, col):
         if not ((0 <= row) and (row < self.rows)):
-            print("out of range in row: 0 <= {} < {}".format(row, self.rows))
-            raise
+            raise IndexError("out of range in row: 0 <= {} < {}".format(row, self.rows))
         if not ((0 <= col) and (col < self.cols)):
-            print("out of range in col: 0 <= {} < {}".format(col, self.cols))
-            raise
+            raise IndexError("out of range in col: 0 <= {} < {}".format(col, self.cols))
         return self._data[row, col]
 
     def set(self, row, col, value):

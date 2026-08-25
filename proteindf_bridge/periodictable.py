@@ -19,6 +19,10 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 class PeriodicTable(object):
     """
     >>> PeriodicTable.get_symbol(1)
@@ -80,28 +84,18 @@ class PeriodicTable(object):
         try:
             answer = PeriodicTable.__table[atomic_number]
             return answer
-        except:
-            print("ERROR @PeriodicTable::get_symbol(): not found input:%s." % (atomic_number))
+        except IndexError:
+            logger.error("PeriodicTable.get_symbol(): atomic number %s not found.", atomic_number)
             raise
-
 
     @staticmethod
     def get_atomic_number(symbol):
-        try:
-            symbol = str(symbol)
-        except:
-            raise
-
-        symbol = symbol.lower()
-        symbol = symbol.capitalize()
-        
+        symbol = str(symbol).lower().capitalize()
         try:
             answer = PeriodicTable.__table.index(symbol)
             return answer
         except ValueError:
-            print("ERROR @PeriodicTable::get_atomic_number(): not found symbol:%s." % (symbol))
-            raise
-        except:
+            logger.error("PeriodicTable.get_atomic_number(): symbol '%s' not found.", symbol)
             raise
 
     def __contains__(self, symbol):
