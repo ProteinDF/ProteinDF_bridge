@@ -8,11 +8,10 @@
 - [ ] `superposer_quaternion.py`: `Superposer_quaternion` に `superimpose()` を実装する。
       `scripts/superposer.py FILE1 FILE2 -q` が RMSD 表示直後に `AttributeError` で
       必ず落ちる(`Superposer.superimpose()` 相当の処理が丸ごと欠けている)。
-- [ ] `superposer_quaternion.py:143-163`: `calc()` メソッドを修正するか削除する。
-      未定義変数(`atom_group1`, `atom_group2`, `position1`, `position2`)と
+- [ ] `superposer_quaternion.py:143-163`: `calc()` メソッドを正しく実装する(後で実装予定)。
+      現状は未定義変数(`atom_group1`, `atom_group2`, `position1`, `position2`)と
       存在しないメソッド名(`self.match_positions` 等、正しくは `self._match_positions`)
-      を参照しており、呼び出せば必ず例外になる。現状どこからも呼ばれていない
-      デッドコードなので、実装し直すか削除するかを決める。
+      を参照しているため、呼び出し時の動作を整理して実装し直す。
 
 ## 優先度: 中(特定条件下で例外/誤動作)
 
@@ -44,8 +43,7 @@
       呼び出し自体は現在コメントアウトされているデッドコードだが、将来
       再度有効化する場合は先に直す必要がある(「対イオン追加の除外リスト」機能が
       実質無効化されたままになっている点も要検討)。
-- [ ] `setup.cfg`(`version = 2024.3.0`)と `proteindf_bridge/_version.py`
-      (`__version__ = "2022.2.5"`)のバージョン表記を一致させる。
+- [x] `setup.cfg` と `proteindf_bridge/_version.py` のバージョン表記を `2026.8.0` に一致させた。
 - [ ] `mail.py`: `smtp_password` が設定ファイルに平文保存される点を、
       運用ドキュメント([[pdf-dev-proteindf-bridge]])に注意書きとして残すか、
       keyring 等への移行を検討する。
