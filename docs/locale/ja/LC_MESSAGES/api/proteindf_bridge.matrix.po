@@ -1,0 +1,44 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2014, The ProteinDF development team
+# This file is distributed under the same license as the ProteinDF_bridge
+# package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../api/proteindf_bridge.matrix.rst:2 a06776ae844b445a9b762637017a8c79
+msgid "proteindf\\_bridge.matrix module"
+msgstr ""
+
+#: 13a97398824a477e9d29da77df10aa42 of proteindf_bridge.matrix.Matrix.data:1
+msgid "return numpy array"
+msgstr ""
+
+#: d6c2e1ae07af4f6f85ec7f42d463dc0d of
+#: proteindf_bridge.matrix.Matrix.get_ndarray:1
+msgid "return numpy.ndarray object"
+msgstr ""
+
+#: 68988fe8bab9465bbf42d07a2b2ec0b1 of proteindf_bridge.matrix.Matrix.select:1
+msgid "select matrix sub-block"
+msgstr ""
+
+#: 1526f591f7af42a594811c4584a32e8a of
+#: proteindf_bridge.matrix.SymmetricMatrix.eig:1
+msgid "return the eigenvalues and eigenvectors."
+msgstr ""
+

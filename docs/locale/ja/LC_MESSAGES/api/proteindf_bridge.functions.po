@@ -1,0 +1,52 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2014, The ProteinDF development team
+# This file is distributed under the same license as the ProteinDF_bridge
+# package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../api/proteindf_bridge.functions.rst:2 e9887e84843d4922819d19c71a016819
+msgid "proteindf\\_bridge.functions module"
+msgstr ""
+
+#: e658768a0a4c49dcab15c37ff4c1a646 of
+#: proteindf_bridge.functions.load_atomgroup:1
+msgid "load bridge file (msgpack format)"
+msgstr ""
+
+#: 4903f62adaba4941be2256afa7c8713a of
+#: proteindf_bridge.functions.load_msgpack:1
+msgid "load message pack file and return python data"
+msgstr ""
+
+#: 6db680b63eec4dd7aec89138ee860c7d of proteindf_bridge.functions.locate:1
+msgid ""
+"return tuple of (file, function, line number) cf.) "
+"https://qiita.com/ymko/items/b46d32b98f013f06d805"
+msgstr ""
+
+#: 22e65e42294f45a2a3c64cdc5aef2d06 of
+#: proteindf_bridge.functions.save_atomgroup:1
+msgid "save bridge file (msgpack format)"
+msgstr ""
+
+#: 7df294a1234940988d4c5ea3b3fb2135 of
+#: proteindf_bridge.functions.save_msgpack:1
+msgid "save python data to msgpack file"
+msgstr ""
+

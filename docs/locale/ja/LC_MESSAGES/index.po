@@ -1,0 +1,71 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2014, The ProteinDF development team
+# This file is distributed under the same license as the ProteinDF_bridge
+# package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"PO-Revision-Date: 2026-08-25 12:23+0900\n"
+"Last-Translator: Toshiyuki HIRANO <hiracchi@gmail.com>\n"
+"Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../index.md:12
+msgid "Contents"
+msgstr "目次"
+
+#: ../../index.md:1 9443937cb85f423fb38669872d739ff3
+msgid "ProteinDF_bridge"
+msgstr "ProteinDF_bridge"
+
+#: ../../index.md:3 b5d809a31c7c4085bb6bb2ab445581bf
+msgid ""
+"`ProteinDF_bridge` is a Python library and set of command-line tools that"
+" bridge the [ProteinDF](https://proteindf.github.io/) quantum chemistry "
+"engine with common molecular structure formats and other data/packages."
+msgstr ""
+"`ProteinDF_bridge` は、量子化学計算エンジン "
+"[ProteinDF](https://proteindf.github.io/) と一般的な分子構造フォーマット・"
+"他のデータ/パッケージとを橋渡しする Python ライブラリおよびコマンドライン"
+"ツール群です。"
+
+#: ../../index.md:7 47eb264073e147a2837a20ac8018f1de
+msgid ""
+"It centers on an in-memory molecular representation (`AtomGroup`, `Atom`,"
+" `Bond`) that can be serialized to/from a compact binary format (msgpack,"
+" referred to as \"brd\") or YAML, and converted to and from external "
+"formats such as PDB, Amber `prmtop`, GROMACS `.gro`, MOL2, mmCIF, and "
+"XYZ."
+msgstr ""
+"中心となるのはメモリ上の分子表現(`AtomGroup`, `Atom`, `Bond`)で、これを"
+"コンパクトなバイナリ形式(msgpack、通称 \"brd\")または YAML "
+"との間でシリアライズできるほか、PDB, Amber `prmtop`, GROMACS `.gro`, "
+"MOL2, mmCIF, XYZ といった外部フォーマットとの相互変換が可能です。"
+
+#: ../../index.md:21 efb22faa24b749a4ad3e681754645741
+msgid "Indices and tables"
+msgstr "索引と表"
+
+#: ../../index.md:23 79209e21028040ae9d8f8a237d0b9406
+#, python-brace-format
+msgid "{ref}`genindex`"
+msgstr "{ref}`genindex`"
+
+#: ../../index.md:24 1cebf6b7de2a408b8ee27d9b4e9acbf2
+#, python-brace-format
+msgid "{ref}`modindex`"
+msgstr "{ref}`modindex`"
+
+#: ../../index.md:25 23f5a8f114fc43279de1457be651f49a
+#, python-brace-format
+msgid "{ref}`search`"
+msgstr "{ref}`search`"

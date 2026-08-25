@@ -1,0 +1,89 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2014, The ProteinDF development team
+# This file is distributed under the same license as the ProteinDF_bridge
+# package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../api/proteindf_bridge.select.rst:2 09de6f5ba12045728f67efe58ea9c808
+msgid "proteindf\\_bridge.select module"
+msgstr ""
+
+#: 59137cafeacd4822beac5dc5619b9713 of proteindf_bridge.select.Select:1
+msgid "Selecterインターフェースクラス"
+msgstr ""
+
+#: 2876de5634f44b0a8038194741dacfc0 47b06f82184c4d0aa72dfb3dd0633184
+#: 4d1d5fd353f7478e900186bbd3401fbe 5c092af2cff846bb8e1d8fb977255ee8
+#: 737eec3c7a7e496bb9a3324a85e86c30 94ccf3e75027457282929c7e2fb20497
+#: c26cfc55f48e47c9aefa124388556c72 eaedce1d65764703b1b1c997425ad21d
+#: ef484542b2544296a03f10c4e365335f fda04d53e8134c89814ef918801669da of
+#: proteindf_bridge.select.Select.is_match:1
+#: proteindf_bridge.select.Select_Atom.is_match:1
+#: proteindf_bridge.select.Select_AtomGroup.is_match:1
+#: proteindf_bridge.select.Select_Name.is_match:1
+#: proteindf_bridge.select.Select_Path.is_match:1
+#: proteindf_bridge.select.Select_PathRegex.is_match:1
+#: proteindf_bridge.select.Select_Path_simple.is_match:1
+#: proteindf_bridge.select.Select_Path_wildcard.is_match:1
+#: proteindf_bridge.select.Select_Range.is_match:1
+#: proteindf_bridge.select.Select_Symbol.is_match:1
+msgid "条件に適合した場合、Trueを返す"
+msgstr ""
+
+#: 16c1696fd61848b6878270433a47debe 27eea011a3aa455b9765a2130fbada2a
+#: 2e48c6910a6f487fbf10a4733f36de79 52c32005854b49648785db691364d25c
+#: 7e08148497ca48cfa1b9afc3d3f0a8e0 7f0fff629409469e87da50094d26bb8e
+#: 9b92b3fd2f9d4d148fe755de7d9a560d aaa88c92b8164f638740c7877a616511
+#: d712bffe7973444d9849b81904b8577b f9aeb34859984a7ea354978d532d96d8 of
+#: proteindf_bridge.select.Select.is_match:3
+#: proteindf_bridge.select.Select_Atom.is_match:3
+#: proteindf_bridge.select.Select_AtomGroup.is_match:3
+#: proteindf_bridge.select.Select_Name.is_match:3
+#: proteindf_bridge.select.Select_Path.is_match:3
+#: proteindf_bridge.select.Select_PathRegex.is_match:3
+#: proteindf_bridge.select.Select_Path_simple.is_match:3
+#: proteindf_bridge.select.Select_Path_wildcard.is_match:3
+#: proteindf_bridge.select.Select_Range.is_match:3
+#: proteindf_bridge.select.Select_Symbol.is_match:3
+msgid "サブクラスはこのメソッドを実装すること"
+msgstr ""
+
+#: 90f2e3ddf2cc4060b03fcf2fa564dba6 of
+#: proteindf_bridge.select.Select_AtomGroup:1
+msgid "reference atomgroupと同じ原子が存在しているものを返す"
+msgstr ""
+
+#: dcab0716eae34de69dc35c71fc2e84f8 of
+#: proteindf_bridge.select.Select_PathRegex:1
+msgid "pathに対する正規表現で選択する"
+msgstr ""
+
+#: 07f479d5e94747b99bd3adffcf6da039 of
+#: proteindf_bridge.select.Select_Path_wildcard:1
+msgid "selector using path with wildcard"
+msgstr ""
+
+#: 448212c80b034fa29112ac4a0a7389ea of proteindf_bridge.select.Select_Range:1
+msgid "半径で選択する"
+msgstr ""
+
+#: f5dbd8dc7a084559bc5d686662cee6fa of proteindf_bridge.select.Select_Symbol:1
+msgid "原子記号で選択する"
+msgstr ""
+

@@ -1,0 +1,119 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2014, The ProteinDF development team
+# This file is distributed under the same license as the ProteinDF_bridge
+# package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../api/proteindf_bridge.dbmanager.rst:2 10ff0892255d451fbb645f439b424807
+msgid "proteindf\\_bridge.dbmanager module"
+msgstr ""
+
+#: e8e8adab3d564c79a2f54a126a0d7775 of
+#: proteindf_bridge.dbmanager.DbManager.create_table:1
+msgid "TABLEを作成する"
+msgstr ""
+
+#: bdb39d3165244104b615ae343a486e0e of
+#: proteindf_bridge.dbmanager.DbManager.create_table:3
+#, python-brace-format
+msgid ""
+"table_name: テーブル名 field_names: フィールド(カラム)名 型を指定しない場合は、field_namesをリストにする。"
+" 型を指定する場合は、field_namesは{名前:型}の辞書型にする。"
+msgstr ""
+
+#: 9e9aa9dc852844b0bdf66b6146b3b514 of
+#: proteindf_bridge.dbmanager.DbManager.delete:1
+msgid "データレコードを削除"
+msgstr ""
+
+#: c210c03c887a4b3197008f6795adc3a9 of
+#: proteindf_bridge.dbmanager.DbManager.execute:1
+msgid "SQLを実行する"
+msgstr ""
+
+#: e1a8dcf451bf46f1964dda433c01ce36 of
+#: proteindf_bridge.dbmanager.DbManager.get_field_names:1
+msgid "指定されたTABLE内のフィールドをリストで返す"
+msgstr ""
+
+#: d05eab6374f446b1895f749a109bad61 of
+#: proteindf_bridge.dbmanager.DbManager.get_primary_keys:1
+msgid "primary key制約のフィールド名のリストを返す"
+msgstr ""
+
+#: cc6684fb3f224bbfb82b2717c5fb308c of
+#: proteindf_bridge.dbmanager.DbManager.get_results:1
+msgid "SQLを実行し、結果をリストで返す"
+msgstr ""
+
+#: 2aa3b03cad74463bbfa6a4112ce0d66d of
+#: proteindf_bridge.dbmanager.DbManager.get_table_names:1
+msgid "TABLEの名前をリストで返す"
+msgstr ""
+
+#: 8b04fa69ca86454bbc14d8e55d9d39bd of
+#: proteindf_bridge.dbmanager.DbManager.get_user_version:1
+msgid "ユーザーバージョンを返す"
+msgstr ""
+
+#: 1fce8d8a1a0f46ee90a8455ffaeb7f05 of
+#: proteindf_bridge.dbmanager.DbManager.has_table:1
+msgid "指定されたTABLEを保持しているかどうかを返す"
+msgstr ""
+
+#: 56738274a91249e1a3345a155f768ae5 of
+#: proteindf_bridge.dbmanager.DbManager.insert:1
+msgid "データレコードを追加"
+msgstr ""
+
+#: 58ae374bcb23458aad8d7c56303c65f4 of
+#: proteindf_bridge.dbmanager.DbManager.insert:3
+msgid "contentsは、filedをキーとした辞書型"
+msgstr ""
+
+#: 51c52d3292a44f9b91b4e4acc210848c of
+#: proteindf_bridge.dbmanager.DbManager.pp:1
+msgid "pretty print for cursor data"
+msgstr ""
+
+#: 67f388b8c59b41efba28aff4507a7bbe of
+#: proteindf_bridge.dbmanager.DbManager.pp_table:1
+msgid "pretty print for table"
+msgstr ""
+
+#: 01fe6f5556bd4ebd8049d76cab4fb4df of
+#: proteindf_bridge.dbmanager.DbManager.select:1
+msgid "データを取得する where句はANDのみサポート"
+msgstr ""
+
+#: b07c2df826a94da7a4b8156b5e82d36c of
+#: proteindf_bridge.dbmanager.DbManager.set_user_version:1
+msgid "ユーザーバージョンを設定する"
+msgstr ""
+
+#: 91117aaee75c4d6e8ea080cebe5d9c81 of
+#: proteindf_bridge.dbmanager.DbManager.update:1
+msgid "データレコードを更新"
+msgstr ""
+
+#: 165fc5bb10604cb880c39247eaa9c86b of
+#: proteindf_bridge.dbmanager.DbManager.update:3
+msgid "contents、whereは、filedをキーとした辞書型"
+msgstr ""
+

@@ -1,0 +1,63 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2014, The ProteinDF development team
+# This file is distributed under the same license as the ProteinDF_bridge
+# package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../api/proteindf_bridge.biopdb.rst:2 44e2c71eb027488491f1ffadfaf3d641
+msgid "proteindf\\_bridge.biopdb module"
+msgstr ""
+
+#: 324fa40e15b34a81940f85e01baebb79 of
+#: proteindf_bridge.biopdb.Pdb.get_atomgroup:1
+msgid "return AtomGroup object"
+msgstr ""
+
+#: ad9532e6c0bb422ab58a4e6e904564b8 of
+#: proteindf_bridge.biopdb.Pdb.get_modpdb_atomgroup:1
+msgid "Change the name of a residue or atom."
+msgstr ""
+
+#: 4c68f3fd9d004d3eb95c96003be3c982 of
+#: proteindf_bridge.biopdb.Pdb.get_modpdb_atomgroup:2
+msgid "Called by 'set_by_atomgroup()'"
+msgstr ""
+
+#: ../../api/proteindf_bridge.biopdb.rst ef5b8b1656ed41d29af49cea4714bd6b
+msgid "Parameters"
+msgstr ""
+
+#: 2aa04cdd84594b5290f7028803255d9b of
+#: proteindf_bridge.biopdb.Pdb.get_modpdb_atomgroup:5
+msgid "AtomGroup object of protein"
+msgstr ""
+
+#: ../../api/proteindf_bridge.biopdb.rst 6fd34a448b4e4c5cae141a9bc2aa117c
+msgid "Returns"
+msgstr ""
+
+#: 16c9a92f43b74fbe8888af9ceb936976 of
+#: proteindf_bridge.biopdb.Pdb.get_modpdb_atomgroup:8
+msgid "renamed object"
+msgstr ""
+
+#: ../../api/proteindf_bridge.biopdb.rst 8e47ce80269c4312b845bc58dc7fcdf3
+msgid "Return type"
+msgstr ""
+

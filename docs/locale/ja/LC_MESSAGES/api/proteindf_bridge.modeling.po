@@ -1,0 +1,76 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2014, The ProteinDF development team
+# This file is distributed under the same license as the ProteinDF_bridge
+# package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../api/proteindf_bridge.modeling.rst:2 e2ab77118bb643f392e2909ebe1bba75
+msgid "proteindf\\_bridge.modeling module"
+msgstr ""
+
+#: 133b79d9135f4bba96778a66cd157a58 of
+#: proteindf_bridge.modeling.Modeling.add_methyl:1
+msgid "-CH3の水素を付加"
+msgstr ""
+
+#: 77cb4faac8ca44aab288e6d55958d079 of
+#: proteindf_bridge.modeling.Modeling.add_methyl:3
+msgid "C1に水素を付加"
+msgstr ""
+
+#: ab472b009ef84a4b90df8ad46928a521 of
+#: proteindf_bridge.modeling.Modeling.arbitary_rotate_matrix:1
+msgid "ベクトルaをbへ合わせる回転行列(3x3)を返す"
+msgstr ""
+
+#: 805d423b95954d85b254a5a59294c4fc ac0fbd5d8bcb489aa34e7e50aa66ad64 of
+#: proteindf_bridge.modeling.Modeling.get_ACE:1
+#: proteindf_bridge.modeling.Modeling.get_NME:1
+msgid ""
+"template (ACE-ALA-NME) format: HH3[1-3]-CH3-C -  N-CA(HA)-C-    "
+"N-CH3-HH3[1-3]"
+msgstr ""
+
+#: 6067ea4599d24e2db9103f3df5ed0b3e c072f3af3965419191b03875c796ca5d of
+#: proteindf_bridge.modeling.Modeling.get_ACE:3
+#: proteindf_bridge.modeling.Modeling.get_NME:3
+msgid "||   | |      ||    | O    H CB     O     H"
+msgstr ""
+
+#: 73fa586a99114ba0a4ba7b15724adc47 bc3a61c6313c4849b8d47e0e2bca6613 of
+#: proteindf_bridge.modeling.Modeling.get_ACE_simple:1
+#: proteindf_bridge.modeling.Modeling.get_NME_simple:1
+msgid "隣のC-alphaの位置をメチル基にする。"
+msgstr ""
+
+#: 51f82b1ae70348cf818d2a2c70860bce of
+#: proteindf_bridge.modeling.Modeling.neutralize_ARG:1
+msgid "case: 0; 中央 case: 1; NH1側 case: 2; NH2側"
+msgstr ""
+
+#: 9882d634257e486ba1be1479e3b1eef7 of
+#: proteindf_bridge.modeling.Modeling.neutralize_Cterm:1
+msgid "C末端側を中性化するためにNa+(AtomGroup)を返す"
+msgstr ""
+
+#: 1360fca6e11a4a8c97808bbcb1e304b8 of
+#: proteindf_bridge.modeling.Modeling.select_residues:1
+msgid "連続したアミノ酸残基を返す"
+msgstr ""
+
