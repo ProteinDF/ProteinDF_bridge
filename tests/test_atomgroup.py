@@ -438,6 +438,17 @@ class AtomGroupTests(unittest.TestCase):
         formula = group1.get_formula()
         self.assertEqual(formula, "H2C1")
 
+    def test_ixor_operator(self):
+        ag1 = AtomGroup()
+        ag1.set_atom("C1", Atom(symbol="C"))
+        ag2 = AtomGroup()
+        ag2.set_atom("N1", Atom(symbol="N"))
+
+        ag1 ^= ag2
+        self.assertEqual(ag1.get_number_of_all_atoms(), 2)
+        self.assertTrue(ag1.has_atom("C1"))
+        self.assertTrue(ag1.has_atom("N1"))
+
 
 def load_tests(loader, tests, ignore):
     from proteindf_bridge import atomgroup
