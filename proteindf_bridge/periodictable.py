@@ -114,23 +114,21 @@ class PeriodicTable(object):
     def vdw(atom):
         if isinstance(atom, str):
             atom = PeriodicTable.get_atomic_number(atom)
-        answer = 0.0
         try:
-            answer = PeriodicTable.__vdw[atom]
-        except:
+            return PeriodicTable.__vdw[atom]
+        except (IndexError, KeyError):
+            logger.error("PeriodicTable.vdw(): no VDW radius for atom %s", atom)
             raise
-        return answer
 
     @staticmethod
     def atomic_weight(atom):
         if isinstance(atom, str):
             atom = PeriodicTable.get_atomic_number(atom)
-        answer = 0.0
         try:
-            answer = PeriodicTable.__atomic_weights[atom]
-        except:
+            return PeriodicTable.__atomic_weights[atom]
+        except (IndexError, KeyError):
+            logger.error("PeriodicTable.atomic_weight(): no atomic weight for atom %s", atom)
             raise
-        return answer
     
     
 if __name__ == "__main__":
