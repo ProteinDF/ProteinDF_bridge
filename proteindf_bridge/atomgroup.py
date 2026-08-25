@@ -602,7 +602,7 @@ class AtomGroup(object):
         対応する原子団を返します
         """
         assert isinstance(selector, Select)
-        # self._update_path()
+        self._update_path(force=True)
 
         answer = None
         if selector.is_match(self):
@@ -685,7 +685,7 @@ class AtomGroup(object):
         """
         タプル('atom1のpath', 'atom2のpath', 結合次数)のリストを返す
         """
-        # self._update_path()
+        self._update_path(force=True)
 
         if bond_list is None:
             bond_list = []
@@ -996,11 +996,10 @@ class AtomGroup(object):
         if "sort_groups" in data:
             self.sort_groups = data["sort_groups"]
 
-        # self._update_path()
+        self._update_path(force=True)
         return self
 
     def get_raw_data(self):
-        # self._update_path()
         data = {}
         if len(self._groups) > 0:
             groups = {}
@@ -1025,7 +1024,6 @@ class AtomGroup(object):
         return data
 
     def __str__(self):
-        # self._update_path()
         return self._get_str()
 
     def _get_str(self, key="", indent_level=0):
