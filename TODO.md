@@ -55,9 +55,9 @@
       CLIスクリプト節の記載漏れ(`relax_protein.py`)や誤り(`brd-select.py`と
       `brd-select-path.py`を同一視、`load_atomgroup`/`save_atomgroup`を「一貫して使用」
       としていた記述)も修正した。
-- [ ] `mail.py`: `smtp_password` が設定ファイルに平文保存される点を、
-      運用ドキュメント([[pdf-dev-proteindf-bridge]])に注意書きとして残すか、
-      keyring 等への移行を検討する。
+- [x] `mail.py`: `smtp_password` が設定ファイルに平文保存される点について、
+      keyring等への移行は行わず、クラスdocstringと `save_config()` 内のコメントに
+      注意書きを追加するに留めた(設定ファイルのパーミッション管理は呼び出し側の責任)。
 
 ## 環境関連
 
