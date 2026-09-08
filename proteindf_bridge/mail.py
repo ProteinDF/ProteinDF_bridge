@@ -28,6 +28,13 @@ from email.utils import formatdate
 import configparser
 
 class Mail(object):
+    """
+    NOTE: `smtp_password` is stored in plaintext by `save_config()`/
+    `load_config()` (a plain INI file). Restrict the config file's
+    permissions (e.g. `chmod 600`) yourself; this class performs no
+    encryption or permission management on the password.
+    """
+
     def __init__(self):
         self.smtp_server = "localhost"
         self.smtp_port = None
@@ -62,7 +69,7 @@ class Mail(object):
         ini.set('mail', 'smtp_port', str(self.smtp_port))
         ini.set('mail', 'use_SSL', str(self.use_SSL))
         ini.set('mail', 'smtp_account', self.smtp_account)
-        ini.set('mail', 'smtp_password', self.smtp_password)
+        ini.set('mail', 'smtp_password', self.smtp_password)  # NOTE: stored in plaintext, see class docstring
         ini.set('mail', 'from_address', self.from_address)
 
         with open(path, 'w') as f:
