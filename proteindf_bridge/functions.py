@@ -64,7 +64,7 @@ def save_yaml(data: Any, yaml_path: str) -> None:
         raise TypeError(f"Expected str, got {type(yaml_path).__name__}")
 
     yaml_str = get_yaml(data)
-    with open(yaml_path, "wb") as f:
+    with open(yaml_path, "w") as f:
         f.write(yaml_str)
 
 

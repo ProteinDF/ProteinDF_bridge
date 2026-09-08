@@ -19,12 +19,10 @@
 
 ## 優先度: 高(実行時に確実に例外で落ちる)
 
-- [ ] `functions.py:62-68` `save_yaml()`: `get_yaml()` が返す `str` を
+- [x] `functions.py:62-68` `save_yaml()`: `get_yaml()` が返す `str` を
       `open(yaml_path, "wb")`(バイナリモード)へ書き込んでおり、呼び出すと必ず
-      `TypeError: a bytes-like object is required, not 'str'` になる。
-      `open(path, "w")` にするか、書き込み前に `yaml_str.encode("utf-8")` する。
-      (2026-09-08 の `SPEC.md` 監査で新たに発見。`mpac2yml.py` など `save_yaml()` を
-      呼ぶスクリプトは現状すべてこの経路で失敗する)
+      `TypeError: a bytes-like object is required, not 'str'` になっていた。
+      `open(path, "w")` に修正し、回帰テスト(`tests/test_functions.py`)を追加した。
 - [x] `superposer_quaternion.py`: `Superposer_quaternion` に `superimpose()` を実装した。
       `scripts/superposer.py FILE1 FILE2 -q` が正常に動作するようになった。
 - [x] `superposer_quaternion.py:143-163`: `calc()` メソッドを修正し、
