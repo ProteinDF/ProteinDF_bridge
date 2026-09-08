@@ -124,10 +124,11 @@ class Modeling:
     # -----------------------------------------------------------------
     def get_ACE(self, res, next_aa=None):
         """
-        template (ACE-ALA-NME) format:
-        HH3[1-3]-CH3-C -  N-CA(HA)-C-    N-CH3-HH3[1-3]
-                     ||   | |      ||    |
-                     O    H CB     O     H
+        template (ACE-ALA-NME) format::
+
+            HH3[1-3]-CH3-C -  N-CA(HA)-C-    N-CH3-HH3[1-3]
+                         ||   | |      ||    |
+                         O    H CB     O     H
         """
         AAN = None
         rmsd_min = 1000.0
@@ -174,10 +175,11 @@ class Modeling:
 
     def get_NME(self, res, next_aa=None):
         """
-        template (ACE-ALA-NME) format:
-        HH3[1-3]-CH3-C -  N-CA(HA)-C-    N-CH3-HH3[1-3]
-                     ||   | |      ||    |
-                     O    H CB     O     H
+        template (ACE-ALA-NME) format::
+
+            HH3[1-3]-CH3-C -  N-CA(HA)-C-    N-CH3-HH3[1-3]
+                         ||   | |      ||    |
+                         O    H CB     O     H
         """
         AAN = None
         rmsd_min = 1000.0
