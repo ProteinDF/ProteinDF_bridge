@@ -9,18 +9,33 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"POT-Creation-Date: 2026-09-08 11:58+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language: ja\n"
 "Language-Team: ja <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: ../../api/proteindf_bridge.atom.rst:2 892309c8365043d7ae885b472107b30d
+#: ../../api/proteindf_bridge.atom.rst:2 4d2fa57d29e24b5b869555814ce80c09
 msgid "proteindf\\_bridge.atom module"
-msgstr ""
+msgstr "proteindf\\_bridge.atom モジュール"
 
+#: ../../api/proteindf_bridge.atom.rst aed88bf10f6549368ae7c5c228d4d031
+#: ba74471dd02d49179f3dfb75f50e756f c9457b12de0a42c09f235ddeee8d12ec
+msgid "Return type"
+msgstr "戻り値の型"
+
+#: 8e741559231c4e5381aca9b78b4a73c8 f5b1fdf9e9ab4f94aa92467138f5af9f of
+#: proteindf_bridge.atom.Atom.move_to:1 proteindf_bridge.atom.Atom.shift_by:1
+msgid ""
+":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.atom.Atom\\``"
+msgstr ""
+":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.atom.Atom\\``"
+
+#: 619d6db8272b4ea5ba49df24ac485f14 of proteindf_bridge.atom.Atom.rotate:1
+msgid ":sphinx_autodoc_typehints_type:`\\:py\\:obj\\:\\`None\\``"
+msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:obj\\:\\`None\\``"

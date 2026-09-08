@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../api/proteindf_bridge.dbmanager.rst:2 5ff598884f5d45dfa0731b89044c7039
 msgid "proteindf\\_bridge.dbmanager module"
-msgstr ""
+msgstr "proteindf\\_bridge.dbmanager モジュール"
 
 #: 2c19d04c08e047c187a4a60906429168 of
 #: proteindf_bridge.dbmanager.DbManager.create_table:1
@@ -92,12 +92,12 @@ msgstr "contentsは、filedをキーとした辞書型"
 #: dd670b3e578e4f9ea16b9e4290d921e3 of
 #: proteindf_bridge.dbmanager.DbManager.pp:1
 msgid "pretty print for cursor data"
-msgstr ""
+msgstr "カーソルデータの整形表示"
 
 #: 70da9f38d4f94e559023c18ca3753df0 of
 #: proteindf_bridge.dbmanager.DbManager.pp_table:1
 msgid "pretty print for table"
-msgstr ""
+msgstr "テーブルの整形表示"
 
 #: 3630710f1273493abb12b6be26a75464 of
 #: proteindf_bridge.dbmanager.DbManager.select:1

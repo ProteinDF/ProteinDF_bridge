@@ -12,19 +12,18 @@ msgstr ""
 "POT-Creation-Date: 2026-08-25 12:23+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language: ja\n"
 "Language-Team: ja <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../api/proteindf_bridge.rst:2 df21fb282a9c40a69bae79a75ac36cad
 msgid "proteindf\\_bridge package"
-msgstr ""
+msgstr "proteindf\\_bridge パッケージ"
 
 #: ../../api/proteindf_bridge.rst:10 4b28ccd9952547f9b60c0094f98f7234
 msgid "Submodules"
-msgstr ""
-
+msgstr "サブモジュール"

@@ -12,59 +12,58 @@ msgstr ""
 "POT-Creation-Date: 2026-08-25 12:23+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language: ja\n"
 "Language-Team: ja <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../api/proteindf_bridge.utils.rst:2 5e15b3f1c3bf435fb3a54eba0843408c
 msgid "proteindf\\_bridge.utils module"
-msgstr ""
+msgstr "proteindf\\_bridge.utils モジュール"
 
 #: c343aea607db4e2f836132e9743788ad of
 #: proteindf_bridge.utils.Utils.get_sequential_residue_id:1
 msgid "Returns the amino acid residue number of the entire sequence."
-msgstr ""
+msgstr "配列全体を通したアミノ酸残基の通し番号を返す。"
 
 #: ../../api/proteindf_bridge.utils.rst b14d42a1baa342aa80bcc24ffbc53b97
 msgid "Parameters"
-msgstr ""
+msgstr "パラメータ"
 
 #: 29f9ddc8455e496e8ba2b6b18244c3c4 of
 #: proteindf_bridge.utils.Utils.get_sequential_residue_id:4
 msgid "AtomGroup representing a protein"
-msgstr ""
+msgstr "タンパク質を表すAtomGroup"
 
 #: 40fcfcc84711467795b0893172772304 of
 #: proteindf_bridge.utils.Utils.get_sequential_residue_id:7
 msgid "chain id"
-msgstr ""
+msgstr "チェインID"
 
 #: 424f13297d1448afa3f62d1f188776d9 of
 #: proteindf_bridge.utils.Utils.get_sequential_residue_id:10
 msgid "residue id"
-msgstr ""
+msgstr "残基ID"
 
 #: ../../api/proteindf_bridge.utils.rst e2f9823188944949833904a15978acbe
 msgid "Returns"
-msgstr ""
+msgstr "戻り値"
 
 #: 6192949fb5d84d4fac34855ddb4b9b21 of
 #: proteindf_bridge.utils.Utils.get_sequential_residue_id:13
 msgid ""
-"Return serial number of the amino acid residue. If it does not apply, 0 "
-"is returned."
-msgstr ""
+"Return serial number of the amino acid residue. If it does not apply, 0 is "
+"returned."
+msgstr "アミノ酸残基の通し番号を返す。該当しない場合は0を返す。"
 
 #: ../../api/proteindf_bridge.utils.rst 6c0b1683a5ac4e5785ae213c86a5ffbc
 msgid "Return type"
-msgstr ""
+msgstr "戻り値の型"
 
 #: ab1ec48eafc744ed9dfeb5dfd77c8be9 of
 #: proteindf_bridge.utils.Utils.remove_WAT:1
 msgid "remove water(WAT or HOH) residues"
-msgstr ""
-
+msgstr "水分子(WATまたはHOH)残基を除去する"

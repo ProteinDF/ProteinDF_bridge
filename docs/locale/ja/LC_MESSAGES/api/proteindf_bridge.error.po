@@ -12,27 +12,26 @@ msgstr ""
 "POT-Creation-Date: 2026-08-25 12:23+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language: ja\n"
 "Language-Team: ja <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../api/proteindf_bridge.error.rst:2 2b70da5f6c13401fb2fd909d67fa6116
 msgid "proteindf\\_bridge.error module"
-msgstr ""
+msgstr "proteindf\\_bridge.error モジュール"
 
 #: 97a05f757e674d77b3dea53de351c9f6 of proteindf_bridge.error.BrError:1
 msgid "Base class for this Bridge module"
-msgstr ""
+msgstr "このBridgeモジュールの基底クラス"
 
 #: cd8a9669bb8c4eb2be621d7b2bb1aa26 of proteindf_bridge.error.BrInputError:1
 msgid "Exception raised for errors in the input."
-msgstr ""
+msgstr "入力値のエラーに対して送出される例外。"
 
 #: 330d3073cc074dbea00ed321cb5be834 of proteindf_bridge.error.BrValueError:1
 msgid "Exception raised for errors in the value."
-msgstr ""
-
+msgstr "値のエラーに対して送出される例外。"

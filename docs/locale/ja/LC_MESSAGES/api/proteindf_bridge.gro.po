@@ -9,40 +9,40 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"POT-Creation-Date: 2026-09-08 11:58+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language: ja\n"
 "Language-Team: ja <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: ../../api/proteindf_bridge.gro.rst:2 a7165a3a8caf48109eb9d4fda078bb8a
+#: ../../api/proteindf_bridge.gro.rst:2 5715637e6cd74f0583bcf7a1f44608e0
 msgid "proteindf\\_bridge.gro module"
-msgstr ""
+msgstr "proteindf\\_bridge.gro モジュール"
 
-#: 4186e5c2ad354ef9af197bf0b36c9ee2 of proteindf_bridge.gro.SimpleGro:1
+#: 0be9c1b97564487cacd1cdcf6383411c of proteindf_bridge.gro.SimpleGro:1
 msgid "Simple .gro file"
-msgstr ""
+msgstr "シンプルな.groファイル"
 
-#: b7f975c8d9ce4f91b2af72d6f3cdbb8f of proteindf_bridge.gro.SimpleGro:3
-msgid "sample: MD of 2 waters, t= 0.0"
-msgstr ""
+#: 688f456da70c48639272bdcae92ab22e of proteindf_bridge.gro.SimpleGro:3
+msgid "sample::"
+msgstr "サンプル::"
 
-#: f2566f3e5d1346b9bac1cebb17a57419 of proteindf_bridge.gro.SimpleGro:5
-msgid ""
-"6 1WATER  OW1    1   0.126   1.624   1.679  0.1227 -0.0580  0.0434 1WATER"
-"  HW2    2   0.190   1.661   1.747  0.8085  0.3191 -0.7791 1WATER  HW3"
-"    3   0.177   1.568   1.613 -0.9045 -2.6469  1.3180 2WATER  OW1    4   "
-"1.275   0.053   0.622  0.2519  0.3140 -0.1734 2WATER  HW2    5   1.337   "
-"0.002   0.680 -1.0641 -1.1349  0.0257 2WATER  HW3    6   1.326   0.120   "
-"0.568  1.9427 -0.8216 -0.0244"
-msgstr ""
+#~ msgid "sample: MD of 2 waters, t= 0.0"
+#~ msgstr ""
 
-#: 0ce8a53508aa46be8926f6e4a2d41278 of proteindf_bridge.gro.SimpleGro:12
-msgid "1.82060   1.82060   1.82060"
-msgstr ""
+#~ msgid ""
+#~ "6 1WATER  OW1    1   0.126   1.624   1.679  0.1227 -0.0580  0.0434 1WATER  "
+#~ "HW2    2   0.190   1.661   1.747  0.8085  0.3191 -0.7791 1WATER  HW3    3   "
+#~ "0.177   1.568   1.613 -0.9045 -2.6469  1.3180 2WATER  OW1    4   1.275   "
+#~ "0.053   0.622  0.2519  0.3140 -0.1734 2WATER  HW2    5   1.337   0.002   "
+#~ "0.680 -1.0641 -1.1349  0.0257 2WATER  HW3    6   1.326   0.120   0.568  "
+#~ "1.9427 -0.8216 -0.0244"
+#~ msgstr ""
 
+#~ msgid "1.82060   1.82060   1.82060"
+#~ msgstr ""

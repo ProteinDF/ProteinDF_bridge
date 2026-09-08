@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../api/proteindf_bridge.select.rst:2 64b727b13ca246f18fc432b23726f5f0
 msgid "proteindf\\_bridge.select module"
-msgstr ""
+msgstr "proteindf\\_bridge.select モジュール"
 
 #: d46ad2f7a2d24a7cbf17f18971527d5f of proteindf_bridge.select.Select:1
 msgid "Selecter interface class."
@@ -71,7 +71,7 @@ msgstr "reference atomgroupと同じ原子が存在しているものを返す"
 #: b530f5667f3648b7a36416934146f021 of proteindf_bridge.select.Select_Path:1
 msgid ""
 ":class:`Select_Path_wildcard` instead. Will be removed in a future version."
-msgstr ""
+msgstr "代わりに :class:`Select_Path_wildcard` を使用してください。将来のバージョンで削除されます。"
 
 #: af6dc9c270b1425987d1bc1714305af0 of
 #: proteindf_bridge.select.Select_PathRegex:1
@@ -81,7 +81,7 @@ msgstr "pathに対する正規表現で選択する"
 #: 48fa19dc24154137b118207c97ecd131 of
 #: proteindf_bridge.select.Select_Path_wildcard:1
 msgid "selector using path with wildcard"
-msgstr ""
+msgstr "ワイルドカード付きパスによるセレクタ"
 
 #: d39b470b0efc4d18b0cf2f18644b9bc1 of proteindf_bridge.select.Select_Range:1
 msgid "Select by radius."

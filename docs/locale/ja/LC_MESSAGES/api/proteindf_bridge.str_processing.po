@@ -22,7 +22,7 @@ msgstr ""
 #: ../../api/proteindf_bridge.str_processing.rst:2
 #: d12bd5aa59b04befa7dff38437abbb0b
 msgid "proteindf\\_bridge.str\\_processing module"
-msgstr ""
+msgstr "proteindf\\_bridge.str\\_processing モジュール"
 
 #: a969498cad0e4bd1a129e11999eaae1f of
 #: proteindf_bridge.str_processing.StrUtils.add_spaces:1
@@ -46,11 +46,13 @@ msgid ""
 "http://www.codinghorror.com/blog/2007/12/sorting-for-humans-natural-sort-"
 "order.html"
 msgstr ""
+"人間の直感に合う順序でリストをソートする。 ref: http://www.codinghorror.com/blog/2007/12/sorting-"
+"for-humans-natural-sort-order.html"
 
 #: 17312e33ee8b41eaa6be3c8a4ef36463 of
 #: proteindf_bridge.str_processing.StrUtils.to_bytes:1
 msgid "Convert str to bytes (utf-8)."
-msgstr ""
+msgstr "strをbytes(utf-8)に変換する。"
 
 #: 051de2b3418a4f5582de927897d0068e of
 #: proteindf_bridge.str_processing.StrUtils.to_unicode:1

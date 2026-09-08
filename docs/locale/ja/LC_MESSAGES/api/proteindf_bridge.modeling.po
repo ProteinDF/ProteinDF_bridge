@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-25 15:08+0900\n"
+"POT-Creation-Date: 2026-09-08 12:02+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: ja <LL@li.org>\n"
@@ -19,56 +19,57 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: ../../api/proteindf_bridge.modeling.rst:2 20fd70800f1e45de90e028ca6fdd1c96
+#: ../../api/proteindf_bridge.modeling.rst:2 640b43e99985449f9a3983ae7b5d9b06
 msgid "proteindf\\_bridge.modeling module"
-msgstr ""
+msgstr "proteindf\\_bridge.modeling モジュール"
 
-#: 1e8ffa42dc4441abae5442dad4d62e65 of
+#: 5982e7a33d45493288c031443523f76b of
 #: proteindf_bridge.modeling.Modeling.add_methyl:1
 msgid "Add the hydrogens of -CH3."
 msgstr "-CH3の水素を付加"
 
-#: c2352ce5dd844380afcdf07bf283af78 of
+#: 399b1213fb094b35ba8040eb82685da5 of
 #: proteindf_bridge.modeling.Modeling.add_methyl:3
 msgid "Add a hydrogen to C1."
 msgstr "C1に水素を付加"
 
-#: d0459f101a354ab59f46fce309ca8f25 of
+#: a252d867b28643fdac02c15b8cc1b157 of
 #: proteindf_bridge.modeling.Modeling.arbitary_rotate_matrix:1
 msgid "Return the rotation matrix (3x3) that aligns vector a with b."
 msgstr "ベクトルaをbへ合わせる回転行列(3x3)を返す"
 
-#: 45f9c815f00e4ab5a2e0cb41692120cb 84cf918121124a3b84a38f4e064226a0 of
+#: 5ef8c02c1beb40daa780c2c50327a1f3 of
 #: proteindf_bridge.modeling.Modeling.get_ACE:1
 #: proteindf_bridge.modeling.Modeling.get_NME:1
-msgid ""
-"template (ACE-ALA-NME) format: HH3[1-3]-CH3-C -  N-CA(HA)-C-    "
-"N-CH3-HH3[1-3]"
-msgstr ""
+msgid "template (ACE-ALA-NME) format::"
+msgstr "テンプレート(ACE-ALA-NME)フォーマット::"
 
-#: 0ee49b4f6ee84675961f536c76f9b2a2 d3de91f2b4e7477ab97a2f244bcac1a1 of
-#: proteindf_bridge.modeling.Modeling.get_ACE:3
-#: proteindf_bridge.modeling.Modeling.get_NME:3
-msgid "||   | |      ||    | O    H CB     O     H"
-msgstr ""
-
-#: a973f126655e40dfb294dd0adf28f386 eed2fb9652c14dfcad0b45603a48d049 of
+#: 0ff58fb105e3461abdf5a29f6f56b21b of
 #: proteindf_bridge.modeling.Modeling.get_ACE_simple:1
 #: proteindf_bridge.modeling.Modeling.get_NME_simple:1
 msgid "Turn the neighboring C-alpha position into a methyl group."
 msgstr "隣のC-alphaの位置をメチル基にする。"
 
-#: 0e78f955961740799fd1c015646c9ae9 of
+#: 22c6b049bc4e4a25886bd465490c279a of
 #: proteindf_bridge.modeling.Modeling.neutralize_ARG:1
 msgid "case: 0; center case: 1; NH1 side case: 2; NH2 side"
 msgstr "case: 0; 中央 case: 1; NH1側 case: 2; NH2側"
 
-#: acb676ad5a8f4110a7efd3f359dd2b40 of
+#: 5ab88a57a62b4263b0fc1f9724d68871 of
 #: proteindf_bridge.modeling.Modeling.neutralize_Cterm:1
 msgid "Return a Na+ (AtomGroup) to neutralize the C-terminal side."
 msgstr "C末端側を中性化するためにNa+(AtomGroup)を返す"
 
-#: 490c5212b1fd4efeb7024d157efcb0fe of
+#: 243ec194a09e4aa1845558937dbe08f2 of
 #: proteindf_bridge.modeling.Modeling.select_residues:1
 msgid "Return consecutive amino acid residues."
 msgstr "連続したアミノ酸残基を返す"
+
+#~ msgid ""
+#~ "template (ACE-ALA-NME) format: HH3[1-3]-CH3-C -  N-CA(HA)-C-    "
+#~ "N-CH3-HH3[1-3]"
+#~ msgstr ""
+#~ "テンプレート(ACE-ALA-NME)フォーマット: HH3[1-3]-CH3-C -  N-CA(HA)-C-    N-CH3-HH3[1-3]"
+
+#~ msgid "||   | |      ||    | O    H CB     O     H"
+#~ msgstr "||   | |      ||    | O    H CB     O     H"

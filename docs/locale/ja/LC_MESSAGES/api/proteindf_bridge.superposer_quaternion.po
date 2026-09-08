@@ -22,7 +22,7 @@ msgstr ""
 #: ../../api/proteindf_bridge.superposer_quaternion.rst:2
 #: 80e8acaf121646408d16a5e659ab9090
 msgid "proteindf\\_bridge.superposer\\_quaternion module"
-msgstr ""
+msgstr "proteindf\\_bridge.superposer\\_quaternion モジュール"
 
 #: 2147873ac47747fa972f3ffef9327c0b of
 #: proteindf_bridge.superposer_quaternion.Superposer_quaternion.calc:1

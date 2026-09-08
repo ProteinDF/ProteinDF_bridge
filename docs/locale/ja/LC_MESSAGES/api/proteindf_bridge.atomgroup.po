@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../api/proteindf_bridge.atomgroup.rst:2 2b9577cffbae41c096d6227bb2fd6483
 msgid "proteindf\\_bridge.atomgroup module"
-msgstr ""
+msgstr "proteindf\\_bridge.atomgroup モジュール"
 
 #: 826ad16ff1804b67829047b3d23e325a of
 #: proteindf_bridge.atomgroup.AtomGroup.add_bond:1
@@ -41,7 +41,7 @@ msgstr "原子のリストを返す"
 #: c264b7c5a8f449e385e6b067c0e163d0 e1ef904243cf41c884097c6b5faae67c
 #: e5d6ae7648024fb3824da0b796fffe35 f1cebc6eee7f4741897902b8d49cfa4d
 msgid "Return type"
-msgstr ""
+msgstr "戻り値の型"
 
 #: 7be40cf883134d73be11d2e59943dafc of
 #: proteindf_bridge.atomgroup.AtomGroup.atoms:3
@@ -51,33 +51,37 @@ msgid ""
 "\\\\\\[\\:py\\:class\\:\\`str\\`\\, "
 "\\:py\\:class\\:\\`\\~proteindf\\_bridge.atom.Atom\\`\\]\\]`"
 msgstr ""
+":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~typing.Iterator\\`\\\\"
+" \\\\\\[\\:py\\:data\\:\\`\\~typing.Tuple\\`\\\\ "
+"\\\\\\[\\:py\\:class\\:\\`str\\`\\, "
+"\\:py\\:class\\:\\`\\~proteindf\\_bridge.atom.Atom\\`\\]\\]`"
 
 #: e160f5f18e944fb4a068e073fd332814 of
 #: proteindf_bridge.atomgroup.AtomGroup.center:1
 msgid "return Position value of the center"
-msgstr ""
+msgstr "中心のPosition値を返す"
 
 #: 0078e4a09a974ebb88662eb9c1aa7b94 abe5ab0c1ca04fefa1002585ec45ec22 of
 #: proteindf_bridge.atomgroup.AtomGroup.erase_atom:1
 #: proteindf_bridge.atomgroup.AtomGroup.remove_atom:1
 msgid "remove atom"
-msgstr ""
+msgstr "原子を削除する"
 
 #: 631252e46c554398a0f05c9bfb00e49c of
 #: proteindf_bridge.atomgroup.AtomGroup.erase_atom:3
 msgid ":meth:`remove_atom` instead."
-msgstr ""
+msgstr "代わりに :meth:`remove_atom` を使用してください。"
 
 #: 04e2b53d86684140b26fda2c499e9bca fe4539770b00447f91639d0961596e2f of
 #: proteindf_bridge.atomgroup.AtomGroup.erase_group:1
 #: proteindf_bridge.atomgroup.AtomGroup.remove_group:1
 msgid "remove group"
-msgstr ""
+msgstr "グループを削除する"
 
 #: 56b6309b83084d579aa13ecf3b69d04a of
 #: proteindf_bridge.atomgroup.AtomGroup.erase_group:3
 msgid ":meth:`remove_group` instead."
-msgstr ""
+msgstr "代わりに :meth:`remove_group` を使用してください。"
 
 #: 6ae35cd823924806827b39158063a8a8 a2f73b01b93f40fab303ae1f4156ca22
 #: d484d9ab4e454a9aabbb02ef1047c98e ebc6aa8608804528924fe74d500c4b30 of
@@ -86,7 +90,7 @@ msgstr ""
 #: proteindf_bridge.atomgroup.AtomGroup.set_atom:1
 #: proteindf_bridge.atomgroup.AtomGroup.set_group:1
 msgid ":sphinx_autodoc_typehints_type:`\\:py\\:obj\\:\\`None\\``"
-msgstr ""
+msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:obj\\:\\`None\\``"
 
 #: f28eec05ad1a4738b183315a4ef7e668 of
 #: proteindf_bridge.atomgroup.AtomGroup.get_atom:1
@@ -101,6 +105,8 @@ msgid ""
 ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.atom.Atom\\`"
 " \\| \\:py\\:obj\\:\\`None\\``"
 msgstr ""
+":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.atom.Atom\\`"
+" \\| \\:py\\:obj\\:\\`None\\``"
 
 #: 738c4fdc83544ff2b9a2ad6a5ff0c113 fed8f50e9ee94262a05afe13fa2d1752 of
 #: proteindf_bridge.atomgroup.AtomGroup.get_atom_keys:1
@@ -109,6 +115,8 @@ msgid ""
 ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~typing.List\\`\\\\ "
 "\\\\\\[\\:py\\:class\\:\\`str\\`\\]`"
 msgstr ""
+":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~typing.List\\`\\\\ "
+"\\\\\\[\\:py\\:class\\:\\`str\\`\\]`"
 
 #: 95885bb708084508b247a09d02820b74 of
 #: proteindf_bridge.atomgroup.AtomGroup.get_atom_kinds:1
@@ -148,6 +156,8 @@ msgid ""
 ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.atomgroup.AtomGroup\\`"
 " \\| \\:py\\:obj\\:\\`None\\``"
 msgstr ""
+":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.atomgroup.AtomGroup\\`"
+" \\| \\:py\\:obj\\:\\`None\\``"
 
 #: d12b4fff1ea64bc3aad21cbcd87f7090 of
 #: proteindf_bridge.atomgroup.AtomGroup.get_path_list:1
@@ -172,6 +182,10 @@ msgid ""
 "\\\\\\[\\:py\\:class\\:\\`str\\`\\, "
 "\\:py\\:class\\:\\`\\~proteindf\\_bridge.atomgroup.AtomGroup\\`\\]\\]`"
 msgstr ""
+":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~typing.Iterator\\`\\\\"
+" \\\\\\[\\:py\\:data\\:\\`\\~typing.Tuple\\`\\\\ "
+"\\\\\\[\\:py\\:class\\:\\`str\\`\\, "
+"\\:py\\:class\\:\\`\\~proteindf\\_bridge.atomgroup.AtomGroup\\`\\]\\]`"
 
 #: 4cc11c35fa204eec845041b187765bda of
 #: proteindf_bridge.atomgroup.AtomGroup.has_atom:1
@@ -207,7 +221,7 @@ msgstr "入力されたkeyもしくは名前のグループが含まれている
 #: proteindf_bridge.atomgroup.AtomGroup.has_groupkey:4
 #: proteindf_bridge.atomgroup.AtomGroup.has_groupname:4
 msgid ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`bool\\``"
-msgstr ""
+msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`bool\\``"
 
 #: 71af9f30910f4fe1b683405d75ca697f of
 #: proteindf_bridge.atomgroup.AtomGroup.has_groupkey:1

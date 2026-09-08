@@ -12,19 +12,18 @@ msgstr ""
 "POT-Creation-Date: 2026-08-25 12:23+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language: ja\n"
 "Language-Team: ja <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../api/proteindf_bridge.vector.rst:2 a8cfcbd678d54c22a7aa023f6e1ac170
 msgid "proteindf\\_bridge.vector module"
-msgstr ""
+msgstr "proteindf\\_bridge.vector モジュール"
 
 #: d91132cd27aa46f8b9e8d5efd0d1d738 of proteindf_bridge.vector.Vector.data:1
 msgid "return numpy array"
-msgstr ""
-
+msgstr "numpy配列を返す"
