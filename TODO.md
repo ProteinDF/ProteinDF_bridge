@@ -69,12 +69,12 @@
 
 ## 新規発見(2026-09-08、テスト実行時に判明。SPEC.md §9とは無関係)
 
-- [ ] `position.py` のdoctest(35-91行付近)が2件失敗する:
-      - `p.norm()` の期待出力が「何も無し」だが実際には `Position` オブジェクトの
-        `repr` が出力される(doctest側の期待値が誤り、または `norm()` の戻り値を
-        捨てる書き方に直す必要がある)。
-      - `a.dot(b)` の期待値が `20.0` だが、numpy 2.x では `np.float64(20.0)` と
-        表示される(numpyのスカラー表示形式の変更によるdoctestの陳腐化)。
+- [x] `position.py` のdoctest(35-91行付近)が2件失敗していたのを修正した:
+      - `p.norm()`(戻り値 `self`)を docstring 側で `>>> _ = p.norm()` と受けて
+        `repr` が表示されないようにした。
+      - `dot()` が `numpy.dot()` の戻り値(`numpy.float64`)をそのまま返しており
+        numpy 2.x の repr 変更で doctest が壊れていたため、`vector.py` の同種
+        メソッドに合わせて `float(...)` で包んで plain `float` を返すようにした。
 - [ ] `ssbond.py` のdoctest(13-20行付近)が失敗する: `Pdb('./data/1hls.pdb')` が
       テスト実行時のカレントディレクトリに依存しており、`FileNotFoundError` になる
       (doctestが相対パスに依存していて自己完結していない)。

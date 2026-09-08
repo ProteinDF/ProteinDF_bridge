@@ -51,7 +51,7 @@ class Position(object):
     >>> abs(abs(p) - 2.23606) < 1.0E-5
     True
 
-    >>> p.norm()
+    >>> _ = p.norm()
     >>> p == Position([0, 1/math.sqrt(5), 2/math.sqrt(5)])
     True
 
@@ -202,7 +202,7 @@ class Position(object):
         """
         Compute the dot product.
         """
-        return numpy.dot(self._position, rhs._position)
+        return float(numpy.dot(self._position, rhs._position))
 
     def cross(self, rhs):
         """
