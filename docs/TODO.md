@@ -1,7 +1,9 @@
 # Documentation TODO
 
-- [ ] Enable GitHub Pages for this repo (Settings → Pages → Source: GitHub Actions)
-      so the `docs` workflow can deploy.
+- [x] Enable GitHub Pages for this repo (Settings → Pages → Source: GitHub Actions)
+      so the `docs` workflow can deploy. (Verified 2026-09-08: already enabled —
+      `build_type: "workflow"`, live at http://proteindf.github.io/ProteinDF_bridge/,
+      last successful `docs` workflow run 2026-08-25. This item was stale.)
 - [ ] Translate the API reference into Japanese
       (`docs/locale/ja/LC_MESSAGES/api/*.po`) — currently untranslated and
       falls back to English.
