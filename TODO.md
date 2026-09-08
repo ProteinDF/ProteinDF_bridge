@@ -75,9 +75,10 @@
       - `dot()` が `numpy.dot()` の戻り値(`numpy.float64`)をそのまま返しており
         numpy 2.x の repr 変更で doctest が壊れていたため、`vector.py` の同種
         メソッドに合わせて `float(...)` で包んで plain `float` を返すようにした。
-- [ ] `ssbond.py` のdoctest(13-20行付近)が失敗する: `Pdb('./data/1hls.pdb')` が
-      テスト実行時のカレントディレクトリに依存しており、`FileNotFoundError` になる
-      (doctestが相対パスに依存していて自己完結していない)。
+- [x] `ssbond.py` のdoctest(13-20行付近)が失敗していたのを修正した:
+      `Pdb('./data/1hls.pdb')` がテスト実行時のカレントディレクトリに依存し
+      `FileNotFoundError` になっていたため、`os.path.dirname(__file__)` を
+      使った絶対パス解決に直し、CWDに依存しないようにした。
 
 ## ドキュメント関連(`docs/TODO.md` から再掲・関連)
 
