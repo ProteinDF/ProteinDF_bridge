@@ -7,8 +7,11 @@
 - [ ] Translate the API reference into Japanese
       (`docs/locale/ja/LC_MESSAGES/api/*.po`) — currently untranslated and
       falls back to English.
-- [ ] Fix the docstring formatting warning in `proteindf_bridge/gro.py`
+- [x] Fix the docstring formatting warning in `proteindf_bridge/gro.py`
       (`SimpleGro` docstring: block quote ends without a blank line).
+      Turned the inconsistently-indented sample into a proper reST
+      literal block (`sample::`); verified the warning is gone via
+      `sphinx-build -b html -D language=en docs /tmp/docsbuild_check`.
 - [ ] Install a local TeX distribution to build PDFs
       (`brew install --cask mactex-no-gui`, or `texlive-lang-japanese` on
       Linux for the Japanese PDF) and verify `make latexpdf` /
