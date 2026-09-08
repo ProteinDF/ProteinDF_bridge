@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 class SSBond(object):
     """ find disulfide bonds in protein models
 
-    >>> tmp_pdb = Pdb('./data/1hls.pdb')
+    >>> import os
+    >>> tmp_pdb = Pdb(os.path.join(os.path.dirname(__file__), 'data', '1hls.pdb'))
     >>> models = tmp_pdb.get_atomgroup()
     >>> model = models.get_group('model_1')
     >>> ssb = SSBond(model)
