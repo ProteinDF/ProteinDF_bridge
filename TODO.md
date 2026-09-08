@@ -1,10 +1,30 @@
 # TODO
 
-`SPEC.md` の解析(§9 既知の不具合一覧)から起票した対応事項。優先度は影響範囲の見立てで、
-実行テストによる再現確認はまだ行っていない。
+`SPEC.md` の解析(§9 既知の不具合一覧)から起票した対応事項。
+
+**2026-09-08 追記**: `SPEC.md` を実ソースと再照合する監査を行い、下記の「優先度:
+高・中・低」の項目(mail.py の注記を除く)はすべて実装側で修正済みであることを
+ソースコード読解で確認した。あわせて `SPEC.md` 側にもこれらの修正が反映されていない
+記述(既に直った不具合が「既知の不具合」として残っていた)が見つかったため、
+`SPEC.md` を実装に合わせて修正した。その過程で新たに1件、未修正の実バグ
+(`functions.py` `save_yaml()`)を発見したので下に追加した。
+
+その後、壊れていた `.venv`(`pyyaml`/`msgpack`/`numpy`/`pip` すら未導入)を
+`uv pip install --python .venv/bin/python -e .` で復旧し、
+`python -m unittest discover -s tests -v` を実際に実行して確認した:
+86件中84件がpass。上記「優先度:高・中・低」の修正済み項目に対応するテストは
+すべてpassし、実行レベルでも修正が有効であることを確認できた。残る2件は
+今回のSPEC.md監査とは無関係な、以前から存在していたdoctestの不具合
+(下記「新規発見」参照)。
 
 ## 優先度: 高(実行時に確実に例外で落ちる)
 
+- [ ] `functions.py:62-68` `save_yaml()`: `get_yaml()` が返す `str` を
+      `open(yaml_path, "wb")`(バイナリモード)へ書き込んでおり、呼び出すと必ず
+      `TypeError: a bytes-like object is required, not 'str'` になる。
+      `open(path, "w")` にするか、書き込み前に `yaml_str.encode("utf-8")` する。
+      (2026-09-08 の `SPEC.md` 監査で新たに発見。`mpac2yml.py` など `save_yaml()` を
+      呼ぶスクリプトは現状すべてこの経路で失敗する)
 - [x] `superposer_quaternion.py`: `Superposer_quaternion` に `superimpose()` を実装した。
       `scripts/superposer.py FILE1 FILE2 -q` が正常に動作するようになった。
 - [x] `superposer_quaternion.py:143-163`: `calc()` メソッドを修正し、
@@ -31,9 +51,35 @@
   - `superposer_quaternion.py`
 - [x] `neutralize.py` `_exempt_list()`: `model` を引数で受け取り `IonPair(model)` を呼ぶように修正。
 - [x] `setup.cfg` と `proteindf_bridge/_version.py` のバージョン表記を `2026.8.0` に一致させた。
+- [x] `SPEC.md`: 上記の修正が反映されず「既知の不具合」として残っていた10件の記述
+      (matrix/bond/xyz/atomgroup/amber_prmtop/neutralize/superposer/superposer_quaternion×2/
+      dbmanager×2/バージョン乖離)を実装と付き合わせて修正・削除した。あわせて
+      CLIスクリプト節の記載漏れ(`relax_protein.py`)や誤り(`brd-select.py`と
+      `brd-select-path.py`を同一視、`load_atomgroup`/`save_atomgroup`を「一貫して使用」
+      としていた記述)も修正した。
 - [ ] `mail.py`: `smtp_password` が設定ファイルに平文保存される点を、
       運用ドキュメント([[pdf-dev-proteindf-bridge]])に注意書きとして残すか、
       keyring 等への移行を検討する。
+
+## 環境関連
+
+- [x] `.venv` に `pyyaml`/`msgpack`/`numpy` 等の依存パッケージ(`pip`自体も)が
+      インストールされておらず、`proteindf_bridge` の import 自体ができない状態
+      だった。`uv pip install --python .venv/bin/python -e .`(`setup.cfg` の
+      `install_requires` を使用)で復旧し、`python -m unittest discover -s tests`
+      が実行できる状態にした。
+
+## 新規発見(2026-09-08、テスト実行時に判明。SPEC.md §9とは無関係)
+
+- [ ] `position.py` のdoctest(35-91行付近)が2件失敗する:
+      - `p.norm()` の期待出力が「何も無し」だが実際には `Position` オブジェクトの
+        `repr` が出力される(doctest側の期待値が誤り、または `norm()` の戻り値を
+        捨てる書き方に直す必要がある)。
+      - `a.dot(b)` の期待値が `20.0` だが、numpy 2.x では `np.float64(20.0)` と
+        表示される(numpyのスカラー表示形式の変更によるdoctestの陳腐化)。
+- [ ] `ssbond.py` のdoctest(13-20行付近)が失敗する: `Pdb('./data/1hls.pdb')` が
+      テスト実行時のカレントディレクトリに依存しており、`FileNotFoundError` になる
+      (doctestが相対パスに依存していて自己完結していない)。
 
 ## ドキュメント関連(`docs/TODO.md` から再掲・関連)
 

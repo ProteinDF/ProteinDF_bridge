@@ -24,9 +24,9 @@ PDB / GROMACS / MOL2 / mmCIF / Amber prmtop / XYZ といった一般的な分子
 または YAML との間でシリアライズできる。ライブラリ本体に加えて、`scripts/` 配下に
 30 個超の単機能 CLI ツール (`brd-*`, `*2brd`, `brd2*` など) が提供される。
 
-パッケージ名: `proteindf_bridge` / バージョン: `2024.3.0`
-(`proteindf_bridge/_version.py` の `__version__` は `2022.2.5` のままで、`setup.cfg` の
-`version = 2024.3.0` と乖離している — 要確認)
+パッケージ名: `proteindf_bridge` / バージョン: `2026.8.0`
+(`proteindf_bridge/_version.py` の `__version__` と `setup.cfg` の `version` は
+いずれも `2026.8.0` で一致している)
 
 ## 2. 全体アーキテクチャ
 
@@ -118,6 +118,12 @@ Python 2/3 両対応(`unicode`/`str`/`bytes` の互換定義)を主目的とし�
 `.brd` ファイルは実体として **msgpack でシリアライズされた `AtomGroup` の内部データ構造**
 であり、`load_atomgroup`/`save_atomgroup` がその読み書きの正式な入り口となる。
 
+> **既知の不具合**: `save_yaml()`(functions.py:62-68)は `get_yaml()` が返す `str` を
+> `open(yaml_path, "wb")`(バイナリ書き込みモード)へ `f.write()` しており、
+> **呼び出すと必ず `TypeError: a bytes-like object is required, not 'str'` になる**。
+> `save_yaml()` は現状のコードでは実行不可能(`open(path, "w")` にするか、
+> `yaml_str.encode("utf-8")` してから書き込む必要がある)。
+
 ### 3.6 `utils.py` — AtomGroup 操作ユーティリティ (`Utils`)
 
 | メソッド | 説明 |
@@ -200,11 +206,6 @@ Python 2/3 両対応(`unicode`/`str`/`bytes` の互換定義)を主目的とし�
 
 `identity_matrix(dim)` はモジュールレベル関数で、`dim×dim` の単位行列 (`SymmetricMatrix`) を返す。
 
-> **既知の不具合**: `SymmetricMatrix.get_raw_data()`(matrix.py:534)は
-> `range(dim * (dim + 1) / 2)` を呼んでいるが、Python 3 では `/` が真division となり
-> `float` を `range()` に渡すことになるため **`TypeError` で例外になる**(`//` にすべき)。
-> `.brd`/msgpack への保存経路で対称行列を直接シリアライズする場合に影響する可能性がある。
-
 ### 4.4 `position.py` — `Position`
 
 3次元座標 (x, y, z) を表すクラス。`list`/`tuple`/`numpy.ndarray`/`"x, y, z"` 形式の文字列/
@@ -247,11 +248,8 @@ Python 2/3 両対応(`unicode`/`str`/`bytes` の互換定義)を主目的とし�
 | `_make_distance_matrix()` | 原子間距離の `SymmetricMatrix` を作成 |
 | `_make_bond_matrix()` | `distance <= vdw(p) + vdw(q) + 0.4` なら結合ありとする `SymmetricMatrix` (0/1) を作成 |
 
-> **既知の不具合**: `bond.py` は `SymmetricMatrix` と `AtomGroup` を使用しているが、
-> ファイル冒頭で **どちらも import していない**。`proteindf_bridge/__init__.py` で
-> `from .matrix import ...` や `from .atomgroup import ...` が先に実行され、それらの名前が
-> たまたま同一プロセスのグローバル名前空間に存在する場合のみ動作してしまう可能性があり、
-> `bond.py` を単体で `import` した場合は `NameError` になる。
+`bond.py` は冒頭で `from .matrix import SymmetricMatrix` / `from .atomgroup import AtomGroup`
+を明示的に import しており、単体 `import` でも問題なく動作する。
 
 ### 4.7 `atomgroup.py` — `AtomGroup`
 
@@ -297,9 +295,6 @@ Python 2/3 両対応(`unicode`/`str`/`bytes` の互換定義)を主目的とし�
 グループを探し、そこに結合情報を格納する)。そのため `get_bond_list()` は再帰的に
 子孫の相対パスを自分の絶対パスと連結して展開する。
 
-> **既知の不具合**: `assign_charges()`(atomgroup.py:551)内に `print(index, len(charges))`
-> というデバッグ出力がそのまま残っている。
-
 ## 5. フォーマット変換
 
 ### 5.1 `format.py` — `Format`
@@ -329,11 +324,8 @@ XYZ形式(1行目:原子数、2行目:コメント、以降:`記号 x y z`)の�
 | `get_atom_group()` | 読み込んだ内容から `AtomGroup` を構築(フラットな1階層) |
 | `set_by_atomgroup(atomgroup)` | `AtomGroup`(モデル階層を再帰的に辿る)からXYZ内部データへ変換 |
 
-> **既知の不具合**: コンストラクタ `Xyz(file_path_str)` (xyz.py:47-48) は
-> `self.load(file_path)` を呼んでいるが、実際の引数は `rhs` に束縛されており
-> `file_path` という変数は定義されていない。**`Xyz("path/to/file.xyz")` の形で
-> 文字列を渡すコンストラクタ経由の読み込みは `NameError` になる**
-> (`Xyz().load(path)` のように明示的に呼べば問題なく動作する)。
+コンストラクタ `Xyz(rhs)` は `rhs` が文字列であれば `self.load(rhs)` を呼ぶため、
+`Xyz("path/to/file.xyz")` の形で直接ファイルパスを渡しても問題なく読み込める。
 
 ### 5.3 `gro.py` — `SimpleGro`
 
@@ -385,10 +377,6 @@ Amber の `prmtop`(トポロジ)+`inpcrd`(座標)ペアを読み込み、`AtomGr
 電荷は Amber 内部単位から電荷素量(e)単位へ `charge_amber / 18.2223` で変換される
 (Amberのprmtop格納値は電荷を18.2223倍したスケール)。
 
-> **実装メモ**: `_check_data()`, `_read_atom_name()`, `_read_charges()`,
-> `_read_atomic_number()` にデバッグ用 `print()` がそのまま残っており、
-> `AmberPrmtop(...)` を呼ぶだけで標準出力に件数やパース中の行が出力される。
-
 ### 5.7 `biopdb.py` — `Pdb`
 
 PDBフォーマットの読み書きを担当する、本パッケージで最も作り込まれたフォーマットI/O
@@ -423,7 +411,7 @@ PDBファイルを読み込んでパース結果をそのまま標準出力に�
 | --- | --- |
 | `Select_Symbol(symbol)` | 元素記号が一致する原子 |
 | `Select_Name(name)` | `name`属性(前後空白を除去)が完全一致 |
-| `Select_Path(query, use_wildcard=True)` | パス文字列で選択。**非推奨** — `use_wildcard=True`(既定)だと `Select_Path_wildcard` 相当、`False` だと完全一致のみ。`use_wildcard=True` 使用時に `logger.warning` で非推奨警告 |
+| `Select_Path(query, use_wildcard=True)` | パス文字列で選択。**非推奨** — `use_wildcard=True`(既定)だと `Select_Path_wildcard` 相当、`False` だと完全一致のみ。インスタンス化時に `use_wildcard` の値によらず必ず `warnings.warn(..., DeprecationWarning)` で非推奨警告(`logger.warning` ではない) |
 | `Select_Path_simple(path)` | パスの完全一致のみ |
 | `Select_Path_wildcard(pattern)` | `*`→`.*`, `?`→`?` に変換した正規表現でパスにマッチ(`Select_Path`の後継、ワイルドカード専用) |
 | `Select_PathRegex(regex)` | パスに対する任意の正規表現 (`re.search`) |
@@ -490,13 +478,11 @@ PDBファイルを読み込んでパース結果をそのまま標準出力に�
 `Modeling` クラス(6.6節)の `neutralize_*` 系メソッド(座標計算)を呼び出し、
 `_add_ions()` で命名衝突を避けながら `AtomGroup` に対イオンを追加する。
 
-> **既知の不具合(未使用コード)**: `_exempt_list()`(neutralize.py:20)は
-> `self._model` を参照しているが、このクラスのどこにも `self._model` を設定する
-> コードがない(`__init__` は `self._neutral_obj` のみ設定)。ただし
-> `_neutralize()` 内でこのメソッドへの呼び出しはコメントアウトされている
-> (`exempt_list = []  # self._exempt_list()`)ため、現状は実行されず影響はない
-> (=イオン対による「既に中和済みなので対イオンを追加しない」除外ロジックは
-> 実質的に無効化されている)。
+> **実装メモ(未使用コード)**: `_exempt_list(self, model)`(neutralize.py:20)自体は
+> `model` を引数として受け取り正しく動作するが、`_neutralize()` 内での呼び出しが
+> コメントアウトされている(`exempt_list = []  # self._exempt_list()`)ため、
+> 現状は常に空リストが使われ実行されない(=イオン対による「既に中和済みなので
+> 対イオンを追加しない」除外ロジックは実質的に無効化されている)。
 
 ### 6.6 `modeling.py` — `Modeling`
 
@@ -542,37 +528,18 @@ PDBファイルを読み込んでパース結果をそのまま標準出力に�
 `Superposer.__init__` にはコメントアウトされた `_calc()` 呼び出しが残っており、
 実際には各プロパティへの初回アクセス時に遅延計算される設計になっている。
 
-> **実装メモ**: `_get_rotation_matrix()` 内に多数の `print()` デバッグ出力
-> (`eigval`, `eigvec`, `eigvec2`, `make right handled`, `b` 等)が残っており、
-> `Superposer` を使うたびに標準出力へ大量のログが出力される。
-
 ### 6.8 `superposer_quaternion.py` — `Superposer_quaternion`(四元数法、実験的)
 
 `Superposer`(Kabsch法)とは別に、剛体変換の最適化を**四元数**で行う代替実装。
 プロパティ経由の遅延評価チェーン(`center1/2` → `r_A/r_B`(重心补正後座標) →
 `va/vb`(補助ベクトル) → `matB`(4x4対称行列) → `eigval`(最小/最大固有ベクトル
 =最適四元数) → `matR`(四元数から回転行列) → `rmsd`)という設計は `Superposer` と
-同様だが、`__init__` に対応する `superimpose()` 相当のメソッドは実装されていない
-(回転行列 `matR` を取得した後の座標変換は呼び出し側の責務、または未実装のまま)。
+同様。`superimpose(atomgroup)` も実装されており(`center1`/`matR`/`center2` を
+用いて平行移動・回転・平行移動を行う)、`Superposer` と同じ要領で呼び出せる。
 
-> **既知の不具合**: `calc()` メソッド(superposer_quaternion.py:143-163)は
-> `atom_group1`, `atom_group2`, `position1`, `position2` など**未定義の変数**を
-> 参照しており、また `self.match_positions`/`self.calc_center`/`self.make_B`/
-> `self.make_R` のように(実際の実装は `_match_positions` 等アンダースコア始まり
-> の別名)**存在しないメソッド名**を呼び出している。呼び出せば確実に
-> `NameError`/`AttributeError` になる、事実上の**壊れたデッドコード**。
-> このクラスを使う場合は `calc()` を呼ばず、`rmsd`/`matR` 等のプロパティに
-> 直接アクセスする必要がある。
->
-> また `_shift_positions()`, `_make_va()`, `_make_vb()`, `_make_B()`,
-> `_get_r_A()`/`_get_r_B()` などほぼ全メソッドに `print()` デバッグ出力が残る。
->
-> `scripts/superposer.py` は `-q`/`--quaternion` オプションで `Superposer_quaternion`
-> を選択できるが、`Superposer_quaternion` には `superimpose()` メソッドが
-> **存在しない**。`scripts/superposer.py` は `-q` 指定の有無によらず必ず
-> `sp.superimpose(atomgroup1)` を呼び出す(§8.6参照)ため、**`superposer.py -q`
-> を実行すると `rmsd` の計算・表示までは成功するが、その後 `AttributeError` で
-> 必ず異常終了する**。
+`calc()` メソッド(superposer_quaternion.py:156-161)は `return self.rmsd` という
+単純な実装で、`rmsd` プロパティの遅延評価チェーンをトリガーするためのラッパーに
+すぎない。
 
 ## 7. その他インフラ
 
@@ -594,21 +561,10 @@ PDBファイルを読み込んでパース結果をそのまま標準出力に�
 | `pp_table(table)` / `pp(data)` | 結果をテーブル状に整形して文字列化するデバッグ用プリティプリント |
 | `__getitem__(key)` | `db[table_name]` で `DbTable` オブジェクトを取得(存在しなければ `None`) |
 
-> **既知の不具合**: `create_table()`(dbmanager.py:90-93)で `field_names` に
-> 辞書(型指定あり)を渡した場合、`for k, v in field_names:` は辞書を素のまま
-> イテレートしてしまうため(`.items()`の呼び忘れ)キー文字列を分解しようとして
-> 失敗し、さらに続く `'{name} {type}'.format(k, v)` も名前付きプレースホルダに
-> 対して位置引数を渡しているため `KeyError: 'name'` になる。**型指定付きの
-> `create_table()` は事実上動作しない**(型指定なしのリスト渡しのみ動作する)。
->
-> **既知の不具合**: `get_results()`(dbmanager.py:304-323)は、複数行分の
-> `row_items` を組み立てるループの外側で1回だけ `answer.append(row_items)`
-> しているため(インデントの誤り)、**クエリ結果が2行以上あっても最後の1行しか
-> 返らない**。さらに `data` が0行の場合は `row_items` が未定義のまま参照され
-> `NameError` になる。`get_user_version()` は常に1行しか返らない
-> `PRAGMA user_version` にしか使っていないため、この不具合は表面化していない。
-> (同種の集計処理である `select()` メソッドは `answer = [{}] * len(data)` で
-> 事前確保する実装になっており、こちらにはこの不具合はない)
+`create_table()` は `field_names` が辞書(型指定あり)の場合 `.items()` で正しく
+`"name type"` 形式の文字列群に変換してからテーブルを作成する。`get_results()` も
+`for row in data:` ループの内側で `answer.append(row_items)` しており、複数行の
+クエリ結果を過不足なく返す。
 
 ### 7.2 `mail.py` — `Mail`
 
@@ -629,8 +585,16 @@ PDBファイルを読み込んでパース結果をそのまま標準出力に�
 全スクリプトは `import proteindf_bridge as bridge` した上で `argparse` を用いて
 CLI引数を処理する薄いラッパーであり、内部で本体モジュール(§2〜7)のクラス/関数を
 1〜数回呼び出すだけの構成になっている。共通して `-v`/`--verbose` を持つものが多い。
-`.brd` ファイルの読み書きには一貫して `bridge.load_atomgroup()` /
-`bridge.save_atomgroup()`(=`functions.py`、msgpack)が使われる。
+`.brd` ファイルの読み書きには2通りの流儀が混在している: `brd-divide.py`,
+`brd-divide-mainchain.py`, `brd-restructure.py`, `brd-renumber-resid.py`,
+`crystallize.py`, `neutralize.py`, `reorder.py`, `remove_wat.py`, `superposer.py`,
+`relax_protein.py` は `bridge.load_atomgroup()`/`bridge.save_atomgroup()`
+(=`functions.py`、msgpack)を使う一方、`brd-select.py`, `brd-select-path.py`,
+`brd-setup-bond.py`, `brd-show-bonds.py`, `brd-show-res.py`, `brd2gro.py`,
+`brd2pdb.py`, `brd2txt.py`, `brd2xyz.py`, `gro2brd.py`, `pdb2brd.py`, `xyz2brd.py`,
+`brd-box.py`, `brd-density.py`, `brd-formula.py`, `mmcif2mol2.py` などは
+`bridge.load_msgpack()`/`bridge.save_msgpack()` を使い、`AtomGroup` へは
+`bridge.AtomGroup(data)` や `atomgroup.get_raw_data()` を介して手動で変換している。
 
 ### 8.1 フォーマット変換系
 
@@ -655,19 +619,20 @@ CLI引数を処理する薄いラッパーであり、内部で本体モジュ�
 
 | スクリプト | 位置引数 | 主なオプション | 処理内容 |
 | --- | --- | --- | --- |
-| `brd-select.py` / `brd-select-path.py` | `FILE`(.brd) | `-q/--query`(既定`"*"`), `-o/--output` | `Select_Path_wildcard`等で `AtomGroup.select()` を実行 |
+| `brd-select.py` | `FILE`(.brd) | `-q/--query`(既定`"*"`), `-o/--output` | `Select_Path_wildcard`(ワイルドカード一致)で `AtomGroup.select()` を実行 |
+| `brd-select-path.py` | `FILE`(.brd) | `-q/--query`(既定`"*"`), `-o/--output` | `Select_Path_simple`(完全一致のみ)で `AtomGroup.select()` を実行。`brd-select.py` とは選択セマンティクスが異なる |
 | `brd-divide.py` | `brd_path` | `-o/--output` | 構造をサブグループ単位に分割出力 |
 | `brd-divide-mainchain.py` | `brd_path` | `-o/--output` | 主鎖/側鎖単位での分割出力 |
 | `brd-restructure.py` | `target_brd_path`, `ref_brd_path` | `-o/--output_path`, `-r/--range` | `AtomGroup.restructure()` の呼び出し(§4.7参照) |
 | `brd-renumber-resid.py` | `FILE`, `increment` | `-o/--output`, `-q/--query` | 指定クエリに一致する残基番号を `increment` だけシフト |
-| `brd-setup-bond.py` | `FILE` | `-o/--output` | `Bond().setup(atomgroup)` で距離ベースの結合を自動推定(§4.6の不具合の影響を受けうる) |
+| `brd-setup-bond.py` | `FILE` | `-o/--output` | `Bond().setup(atomgroup)` で距離ベースの結合を自動推定 |
 | `brd-show-bonds.py` | `FILE` | `-o/--output` | `AtomGroup.get_bond_list()` を整形表示 |
 | `brd-show-res.py` | `FILE` | — | 残基一覧を表示 |
 | `remove_wat.py` | `FILE` | `-o/--output` | `Utils.remove_WAT()` の呼び出し |
 | `reorder.py` | `INPUT_FILE`, `OUTPUT_FILE` | `-d/--debug` | 原子順の並べ替え |
 | `neutralize.py` | `INPUT_FILE`, `OUTPUT_FILE` | `-d/--debug` | `Neutralize` の呼び出し(§6.5) |
 | `crystallize.py` | `INPUT_BRD_PATH`, `OUTPUT_BRD_PATH` | `--num_x`, `--num_y`, `--num_z` | 単位格子を指定数だけ複製して結晶構造を生成 |
-| `brd-setup-bond.py` 以外の未収載スクリプト(`superposer.py`) | 下記8.6参照 | | |
+| `relax_protein.py` | `FILE`(.brd), `step`(整数 1/2/3) | `-v/--verbose` | `tleap`/`sander` 等の外部コマンドを `subprocess` 経由で呼び出し、AmberToolsによる構造緩和(前処理/MD step1/step2相当)を行う `Relax` クラスのラッパー |
 
 ### 8.3 解析系
 
@@ -693,13 +658,10 @@ CLI引数を処理する薄いラッパーであり、内部で本体モジュ�
 
 `FILE1`, `FILE2`(いずれも `.brd`)を読み込み、`Superposer`(既定)または
 `-q/--quaternion` 指定時は `Superposer_quaternion` で重ね合わせ、RMSDと
-重ね合わせ後の構造(`FILE1`側)を標準出力に表示する。
-
-> **既知の不具合(実行時エラー)**: `main()`(superposer.py:63-76)は
-> `use_quaternion` の値によらず必ず `sp.superimpose(atomgroup1)` を呼ぶが、
-> `Superposer_quaternion` (§6.8) には `superimpose()` が実装されていない。
-> **`superposer.py FILE1 FILE2 -q` を実行すると、RMSD値の表示までは成功するが
-> 直後に `AttributeError` で異常終了する。** `-q` オプションは事実上使用不可。
+重ね合わせ後の構造(`FILE1`側)を標準出力に表示する。`main()`(superposer.py:35-80)
+は `use_quaternion` の値によらず必ず `sp.superimpose(atomgroup1)` を呼ぶが、
+`Superposer_quaternion` (§6.8) にも `superimpose()` が実装されているため、
+`-q` オプションも問題なく動作する。
 
 ## 9. 既知の不具合一覧(まとめ)
 
@@ -707,20 +669,14 @@ CLI引数を処理する薄いラッパーであり、内部で本体モジュ�
 
 | # | 箇所 | 症状 | 深刻度目安 |
 | --- | --- | --- | --- |
-| 1 | `matrix.py:534` `SymmetricMatrix.get_raw_data()` | `range(dim*(dim+1)/2)` がPython3では`float`を渡すことになり`TypeError` | 中(対称行列を直接brd/msgpack保存する経路でのみ発現) |
-| 2 | `bond.py`(全体) | `SymmetricMatrix`/`AtomGroup` の import 漏れ。単体importで`NameError`の恐れ | 低〜中(パッケージ経由の間接import次第で発現しない場合あり) |
-| 3 | `xyz.py:47-48` `Xyz.__init__` | `Xyz("path")`のような文字列引数コンストラクタが`NameError`(`file_path`が未定義) | 中(`Xyz().load(path)`なら回避可) |
-| 4 | `atomgroup.py:551` `assign_charges()` | デバッグ用`print()`の消し忘れ | 低(実害なし、ログ出力ノイズ) |
-| 5 | `amber_prmtop.py` 各`_read_*`/`_check_data` | デバッグ用`print()`の消し忘れが多数 | 低(実害なし、標準出力ノイズ) |
-| 6 | `neutralize.py:20` `_exempt_list()` | 未設定の`self._model`を参照(ただし呼び出し自体がコメントアウトされ未使用) | 低(現状デッドコード、ただし将来有効化すると壊れる) |
-| 7 | `superposer.py` `_get_rotation_matrix()`ほか | デバッグ用`print()`が多数残り、呼ぶたびに標準出力を汚染 | 低〜中(ライブラリとして呼ばれた際の副作用) |
-| 8 | `superposer_quaternion.py:143-163` `calc()` | 未定義変数・存在しないメソッド名を参照。呼び出せば必ず例外 | 高(ただし`calc()`自体は他から呼ばれていないデッドコード) |
-| 9 | `superposer_quaternion.py`(全体) | `superimpose()`が未実装 | 高(`scripts/superposer.py -q`が実行時に必ず`AttributeError`で落ちる。§8.6) |
-| 10 | `dbmanager.py:90-93` `create_table()` | 型指定辞書渡し時、`.items()`呼び忘れ+フォーマット文字列の名前/位置引数不一致で`KeyError` | 中(型指定なしのリスト渡しでは問題なし) |
-| 11 | `dbmanager.py:304-323` `get_results()` | インデント誤りで複数行結果のうち最後の1行しか返らない、0行時は`NameError` | 中(`get_user_version()`は常に1行なので表面化しない) |
-| 12 | `mail.py` `smtp_password` | 設定ファイルに平文で保存される | 低(運用上の注意点、バグではない) |
-| 13 | `setup.cfg` vs `_version.py` | `version = 2024.3.0` (setup.cfg) と `__version__ = "2022.2.5"` (`_version.py`) が乖離 | 低(表示上の不整合) |
+| 1 | `functions.py:62-68` `save_yaml()` | `get_yaml()` が返す `str` を `open(path, "wb")`(バイナリモード)へ書き込んでおり、呼び出すと必ず `TypeError` | 高(`save_yaml()` は現状のコードでは実行不可能) |
+| 2 | `neutralize.py:20` `_exempt_list()` | メソッド自体は正しく実装されているが、`_neutralize()` 内での呼び出しがコメントアウトされたまま(未使用のデッドコード) | 低(現状は単に無効化されているだけで実害なし) |
+| 3 | `mail.py` `smtp_password` | 設定ファイルに平文で保存される | 低(運用上の注意点、バグではない) |
 
-いずれも本仕様書作成のための静的解析(コードリーディング)で発見したもので、
-実行テストによる再現確認は行っていない項目を含む。修正の要否・優先度は
-別途プロジェクト側で判断されたい。
+初版作成時の静的解析では上記以外にも複数の「既知の不具合」を記載していたが
+(`matrix.py` の対称行列シリアライズ、`bond.py` の import 漏れ、`xyz.py` の
+コンストラクタ、`amber_prmtop.py`/`superposer.py` の `print()` 残留、
+`superposer_quaternion.py` の `calc()`/`superimpose()`、`dbmanager.py` の
+`create_table()`/`get_results()`、`setup.cfg` と `_version.py` のバージョン
+乖離)、実装を再確認した結果いずれも現在のソースコードには該当する不具合が
+存在しないことが確認できたため削除した(該当節も修正済み)。
