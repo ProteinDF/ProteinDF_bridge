@@ -9,44 +9,96 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"POT-Creation-Date: 2026-09-08 11:58+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language: ja\n"
 "Language-Team: ja <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: ../../api/proteindf_bridge.functions.rst:2 e9887e84843d4922819d19c71a016819
+#: ../../api/proteindf_bridge.functions.rst:2 351b9031423f46be809e0a4ba25ece45
 msgid "proteindf\\_bridge.functions module"
-msgstr ""
+msgstr "proteindf\\_bridge.functions モジュール"
 
-#: e658768a0a4c49dcab15c37ff4c1a646 of
+#: ../../api/proteindf_bridge.functions.rst 1609d1b93ec74244a4de80b27a5a18bb
+#: 47d54ea3aee4464e986ecd2148311b96 6b058e7f5aa84b448ff12866af62dab8
+#: 723fff61fb3444cea732346f44e31e72 755043cab9d74217816318e8785ed906
+#: 7595a47fbcae43f68a99199b6bd81531 8d299c26122f40bdae34cb073306bd0d
+#: 94de986bfa254df4991b78434c887707 e98d733bea6449d59ace6dc47695a776
+msgid "Return type"
+msgstr "戻り値の型"
+
+#: 34f18114c5d64434b075d82d4b0ce927 of proteindf_bridge.functions.get_yaml:1
+msgid ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`str\\``"
+msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`str\\``"
+
+#: 3c51a3b3aa4344c0be7b2ba4beabbc37 of
 #: proteindf_bridge.functions.load_atomgroup:1
 msgid "load bridge file (msgpack format)"
-msgstr ""
+msgstr "bridgeファイル(msgpack形式)を読み込む"
 
-#: 4903f62adaba4941be2256afa7c8713a of
+#: 5dab189113cf4eb9bea065c265354908 of
+#: proteindf_bridge.functions.load_atomgroup:4
+msgid ""
+":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.atomgroup.AtomGroup\\``"
+msgstr ""
+":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.atomgroup.AtomGroup\\``"
+
+#: bac3b83d5fa24f2e8911894e0515abd9 of
 #: proteindf_bridge.functions.load_msgpack:1
 msgid "load message pack file and return python data"
-msgstr ""
+msgstr "msgpackファイルを読み込みPythonデータを返す"
 
-#: 6db680b63eec4dd7aec89138ee860c7d of proteindf_bridge.functions.locate:1
+#: 29bee9f2952d4428af8ee58516f65b92 691b1ae3343349a28fe8d24da0900075 of
+#: proteindf_bridge.functions.load_msgpack:4
+#: proteindf_bridge.functions.load_yaml:1
+msgid ":sphinx_autodoc_typehints_type:`\\:py\\:data\\:\\`\\~typing.Any\\``"
+msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:data\\:\\`\\~typing.Any\\``"
+
+#: fbc3d1d9e3ee4d248a7cc45fb11ce1c7 of proteindf_bridge.functions.locate:1
 msgid ""
 "return tuple of (file, function, line number) cf.) "
 "https://qiita.com/ymko/items/b46d32b98f013f06d805"
 msgstr ""
+"(ファイル名, 関数名, 行番号)のタプルを返す cf.) "
+"https://qiita.com/ymko/items/b46d32b98f013f06d805"
 
-#: 22e65e42294f45a2a3c64cdc5aef2d06 of
+#: a3044d5ba596474fb2a26e7ad4f49cd1 of proteindf_bridge.functions.locate:4
+msgid ""
+":sphinx_autodoc_typehints_type:`\\:py\\:data\\:\\`\\~typing.Tuple\\`\\\\ "
+"\\\\\\[\\:py\\:class\\:\\`str\\`\\, \\:py\\:class\\:\\`str\\`\\, "
+"\\:py\\:class\\:\\`int\\`\\]`"
+msgstr ""
+":sphinx_autodoc_typehints_type:`\\:py\\:data\\:\\`\\~typing.Tuple\\`\\\\ "
+"\\\\\\[\\:py\\:class\\:\\`str\\`\\, \\:py\\:class\\:\\`str\\`\\, "
+"\\:py\\:class\\:\\`int\\`\\]`"
+
+#: 49169129925e4302a68c7c49eebaa58f of proteindf_bridge.functions.parse_yaml:1
+msgid ""
+":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~typing.List\\`\\\\ "
+"\\\\\\[\\:py\\:data\\:\\`\\~typing.Any\\`\\]`"
+msgstr ""
+":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~typing.List\\`\\\\ "
+"\\\\\\[\\:py\\:data\\:\\`\\~typing.Any\\`\\]`"
+
+#: ade1a0b577344224aa958a5e75d6d4f4 of
 #: proteindf_bridge.functions.save_atomgroup:1
 msgid "save bridge file (msgpack format)"
-msgstr ""
+msgstr "bridgeファイル(msgpack形式)を保存する"
 
-#: 7df294a1234940988d4c5ea3b3fb2135 of
+#: 04df535d97334ecba32016b803dbe4a3 a6961b4841dc47d2a84cdb5afec4bf2f
+#: b620a1799f274b64a052a4fb94f3b4a5 of
+#: proteindf_bridge.functions.save_atomgroup:4
+#: proteindf_bridge.functions.save_msgpack:4
+#: proteindf_bridge.functions.save_yaml:1
+msgid ":sphinx_autodoc_typehints_type:`\\:py\\:obj\\:\\`None\\``"
+msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:obj\\:\\`None\\``"
+
+#: 10d342ca46da4f809c97f95aa069e051 of
 #: proteindf_bridge.functions.save_msgpack:1
 msgid "save python data to msgpack file"
-msgstr ""
-
+msgstr "Pythonデータをmsgpackファイルに保存する"

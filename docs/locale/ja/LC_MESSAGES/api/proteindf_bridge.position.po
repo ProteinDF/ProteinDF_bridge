@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../api/proteindf_bridge.position.rst:2 17d75163b55b433188b4b0d6dc8260b8
 msgid "proteindf\\_bridge.position module"
-msgstr ""
+msgstr "proteindf\\_bridge.position モジュール"
 
 #: 558774c4fdbe468a895c0c3b90fe1074 of
 #: proteindf_bridge.position.Position.cross:1
@@ -33,13 +33,13 @@ msgstr "外積を求める"
 #: c90479bd72944d98a589f36ff6bbe23f cb41b0e1d11047028a40d1537e942f43
 #: d5eb0da3de4849fbbd956469c5992f5c
 msgid "Return type"
-msgstr ""
+msgstr "戻り値の型"
 
 #: 269943b3bb4c49d3a100c466da38918f 6374d8fb27464b2db23d90cfa02a2c9e of
 #: proteindf_bridge.position.Position.distance_from:1
 #: proteindf_bridge.position.Position.square_distance_from:1
 msgid ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`float\\``"
-msgstr ""
+msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`float\\``"
 
 #: 96ec838c32774866a2ac24187eba84c8 of
 #: proteindf_bridge.position.Position.dot:1
@@ -52,15 +52,18 @@ msgid ""
 ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~typing.List\\`\\\\ "
 "\\\\\\[\\:py\\:class\\:\\`float\\`\\]`"
 msgstr ""
+":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~typing.List\\`\\\\ "
+"\\\\\\[\\:py\\:class\\:\\`float\\`\\]`"
 
 #: 766c3502080b4c068039cc2b44800f0c a1b8a6734397432bbd85b10e724f7605 of
 #: proteindf_bridge.position.Position.move_to:1
 #: proteindf_bridge.position.Position.rotate:1
 msgid ":sphinx_autodoc_typehints_type:`\\:py\\:obj\\:\\`None\\``"
-msgstr ""
+msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:obj\\:\\`None\\``"
 
 #: 1251517a73984a29bf99cdcea65f8ba6 of
 #: proteindf_bridge.position.Position.norm:1
 msgid ""
 ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.position.Position\\``"
 msgstr ""
+":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.position.Position\\``"
