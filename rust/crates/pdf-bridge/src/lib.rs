@@ -17,7 +17,13 @@
 // along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
 pub mod error;
+pub mod matrix;
 pub mod periodic_table;
+pub mod position;
+pub mod vector;
 
 pub use error::{BridgeError, Result};
+pub use matrix::{identity_matrix, Matrix, SymmetricMatrix};
 pub use periodic_table::PeriodicTable;
+pub use position::Position;
+pub use vector::Vector;
