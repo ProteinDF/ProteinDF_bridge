@@ -130,3 +130,33 @@ Phase 1は完了(全11件の是正事項を含め、Claudeレビュー通過。2
 - mmCIFには触れない(上記参照)。
 - Phase 2の範囲外(構造操作・§3新規機能・§4バインディング)には手を出さない。
 - **ブランチ運用ルール(上記「運用ルール」節のMUST項目)を厳守すること**: `feature/phase2-prM` ブランチで作業し、`rust-port`へは自分でマージせず、レビュー承認を待つ。Phase 1で一度違反があったため、Phase 2では特に徹底すること。
+
+## PR#4(format + xyz + gro)レビュー結果(2026-09-14、要修正)
+
+ブランチ運用ルールは今回遵守されていた(`feature/phase2-pr4`、`rust-port`への自己マージなし)。`cargo test`(56 passed)/`clippy`/`fmt`も報告通りクリーンで確認済み。一方、コードレビューで複数の実バグが見つかった。**`rust-port`へマージする前に、機能ブランチ上で以下を修正すること。**
+
+### 実バグ(要修正)
+
+1. **`AtomGroup::box()`がPhase 1で未移植**(`atomgroup.py`の`box()`メソッド自体がPhase 1で漏れていた)。このため`gro.rs`の`set_by_atomgroup`が`box_vectors`を常に`[0.0, 0.0, 0.0]`にハードコードしており(`gro.rs`の該当箇所)、GRO書き出し時に実際のボックスサイズが失われる。Python版は`atomgroup.box()`(bounding box)から計算する。`AtomGroup::box()`を`atom_group.rs`に追加してから`gro.rs`側を修正すること。
+2. **`format/mod.rs`の`is_residue`/`is_chain`/`is_protein`の真偽条件がPython版と食い違う。** Python版は「直下に原子がない」ことと「サブグループがあるなら全て次階層の条件を満たす」ことだけを見ており、**サブグループが0個であること自体は失格条件ではない**(else節はloggerのみ)。`is_residue`も同様に「原子数」は真偽値に無関係(loggerのみ)。Rust版は`is_chain`/`is_protein`で`groups()==0`の場合に`false`を返しており、`is_residue`で`atoms()>0`を要求しており、いずれもPython版と異なる。空のresidue/chain/modelで判定が食い違う。`is_models`は正しく実装されているので、それを参考に3つとも修正すること。
+3. **`xyz.rs`: 宣言原子数より実際の行数が少ない場合にエラーにならない。** `lines.take(num_of_atoms)`は単に反復を打ち切るだけで、行が足りなくても`Ok(())`を返し、`atoms.len() < num_of_atoms`のまま黙って抜ける。Python版は`fin.readline()`がEOFで空文字列を返し`words[0]`で`IndexError`になるため、少なくとも「エラーになる」点は一致させること。
+4. **`gro.rs`: `residue_number`/`atom_number`のパース失敗時に`.unwrap_or(0)`で握りつぶしている。** Python版は`int(line[0:5])`が`ValueError`で例外を投げる。不正な列(例: GROMACSのオーバーフロー表示`*****`)が原子0番・残基0番として黙って読み込まれ、既存の原子と誤って同一グループに混入する。エラーを伝播させること。
+5. **`gro.rs`: バイト単位スライス(`line[0..5]`等)が非ASCII文字を含む行で`panic`しうる。** Rustの`&str`インデックスはバイト境界でしか切れない。Python版は文字単位のスライス(`line[0:5]`)なのでpanicしない。`.chars()`ベースの切り出しに変更すること(残基名・原子名に非ASCII文字が入るケースは実際にありうる)。
+6. **`gro.rs`の`get_text()`: 残基/原子番号のラップが`% 100000`(Python版は`% 10000`)。** フィールド幅(5桁)的にはRust版の方が自然だが、Python版と異なる出力になる。意図的差異として明記するか、`% 10000`に揃えるか判断すること(揃えることを推奨)。
+7. **`gro.rs`: box vectorの読み込みパディングが3要素まで(Python版は6要素)。** `for i in range(len(box_vectors), 6)`相当にすること。
+
+### PR#5のブロッカー(次PR着手前に対応必須)
+
+8. **`AtomGroup::get_number_of_bonds()` / `get_bond_list()`がPhase 1で未移植。** これらは`atomgroup.py`にある(box()と同様の見落とし)。次PR#5で移植する`mol2.py`はこの2メソッドに依存しており(`mol2.py:54,104`)、既存`test_mol2.py`の`str(mol2)`呼び出しがこれを経由するため、**このままではPR#5が動かない**。PR#4の是正と合わせて`atom_group.rs`に追加すること。
+
+### コード品質(必須ではないが推奨)
+
+9. GRO固定カラム幅(5/5/5/5/8/8/8/8/8/8)や`% 100000`等のマジックナンバーが複数箇所に散らばっている。名前付き定数にまとめることを推奨。
+10. nm↔Å変換で`Position`の`Mul<f64>`実装を使わず、x/y/zを手動展開している(2箇所)。`position * 10.0`のように書けるはず。
+11. `get_text()`内のresidue_name/atom_name切り詰めロジックが重複している。
+12. `xyz.rs`の座標パースが`Position::from_str`と同等のロジックを再実装している。再利用を検討。
+13. `GroAtom.velocity`が生の`[f64; 3]`。`Position`型(既にAdd/Mul/length/dot等を持つ)の再利用を検討。
+
+### 未確認の欠落メソッド(バックログ、都度対応)
+
+Phase 1の`atomgroup.py`移植で他にも漏れているメソッドがある: `formula`(`get_formula`とは別)、`get_atom_keys`、`get_family`、`get_xyz`、`pickup_atoms`、`restructure`、`assign_charges`。`get_raw_data`/`set_by_dict_data`はbrd往復フォーマット用として後続フェーズで対応する想定なので今は保留でよい。上記以外は、今後のPRで依存が発生した時点で都度`atom_group.rs`に追加すること(今まとめて移植する必要はない)。
