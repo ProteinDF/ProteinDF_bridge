@@ -18,6 +18,7 @@
 
 use std::path::PathBuf;
 
+use pdf_bridge::format::pdb::Pdb;
 use pdf_bridge::format::SimpleMmcif;
 
 #[test]
@@ -185,4 +186,292 @@ fn test_error_handling() {
     let cif = SimpleMmcif::new();
     let result = cif.get_atomgroup("non_existent");
     assert!(result.is_err());
+}
+
+#[test]
+fn test_1hls_cif_matches_pdb() {
+    let data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data");
+    let cif_path = data_dir.join("1HLS.cif");
+    let pdb_path = data_dir.join("1hls.pdb");
+
+    let cif = SimpleMmcif::from_file(&cif_path).expect("failed to load 1HLS.cif");
+    let pdb = Pdb::from_file(&pdb_path, None).expect("failed to load 1hls.pdb");
+
+    // Select model 1 from both
+    let cif_ag = cif
+        .get_structure_atomgroup(Some(1), None)
+        .expect("failed to get cif atomgroup");
+    let pdb_ag = pdb
+        .get_atomgroup(Some(1), None)
+        .expect("failed to get pdb atomgroup");
+
+    // Check model 1 exists in both
+    let cif_m1 = cif_ag.get_group("model_1").expect("cif model_1 not found");
+    let pdb_m1 = pdb_ag.get_group("model_1").expect("pdb model_1 not found");
+
+    // Chains: both should have chain A and B
+    assert_eq!(cif_m1.get_group_list(), pdb_m1.get_group_list());
+
+    let cif_chain_a = cif_m1.get_group("A").unwrap();
+    let pdb_chain_a = pdb_m1.get_group("A").unwrap();
+    let cif_chain_b = cif_m1.get_group("B").unwrap();
+    let pdb_chain_b = pdb_m1.get_group("B").unwrap();
+
+    // Residue counts: A has 21 residues, B has 30 residues
+    assert_eq!(cif_chain_a.get_number_of_groups(), 21);
+    assert_eq!(pdb_chain_a.get_number_of_groups(), 21);
+    assert_eq!(cif_chain_b.get_number_of_groups(), 30);
+    assert_eq!(pdb_chain_b.get_number_of_groups(), 30);
+
+    // Atom counts per chain: A has 312 atoms, B has 470 atoms
+    assert_eq!(cif_chain_a.get_atom_list().len(), 312);
+    assert_eq!(pdb_chain_a.get_atom_list().len(), 312);
+    assert_eq!(cif_chain_b.get_atom_list().len(), 470);
+    assert_eq!(pdb_chain_b.get_atom_list().len(), 470);
+
+    // Total atoms: 782
+    let cif_atoms = cif_ag.get_atom_list();
+    let pdb_atoms = pdb_ag.get_atom_list();
+    assert_eq!(cif_atoms.len(), 782);
+    assert_eq!(pdb_atoms.len(), 782);
+
+    // Verify first atom properties
+    let cif_first = &cif_atoms[0];
+    let pdb_first = &pdb_atoms[0];
+    assert_eq!(cif_first.name, "N");
+    assert_eq!(cif_first.symbol().unwrap(), "N");
+    assert_eq!(cif_first.charge, 0.0);
+    assert_eq!(pdb_first.name, "N");
+    assert_eq!(pdb_first.symbol().unwrap(), "N");
+    assert_eq!(pdb_first.charge, 0.0);
+
+    // Coordinate agreement across all atoms (tolerance 1e-3)
+    for (i, (c_atom, p_atom)) in cif_atoms.iter().zip(pdb_atoms.iter()).enumerate() {
+        assert_eq!(
+            c_atom.name, p_atom.name,
+            "atom {i} name mismatch: cif={} pdb={}",
+            c_atom.name, p_atom.name
+        );
+        assert_eq!(
+            c_atom.atomic_number(),
+            p_atom.atomic_number(),
+            "atom {i} atomic number mismatch"
+        );
+        assert!(
+            (c_atom.xyz.x - p_atom.xyz.x).abs() < 1e-3,
+            "atom {i} x mismatch: cif={} pdb={}",
+            c_atom.xyz.x,
+            p_atom.xyz.x
+        );
+        assert!(
+            (c_atom.xyz.y - p_atom.xyz.y).abs() < 1e-3,
+            "atom {i} y mismatch: cif={} pdb={}",
+            c_atom.xyz.y,
+            p_atom.xyz.y
+        );
+        assert!(
+            (c_atom.xyz.z - p_atom.xyz.z).abs() < 1e-3,
+            "atom {i} z mismatch: cif={} pdb={}",
+            c_atom.xyz.z,
+            p_atom.xyz.z
+        );
+    }
+
+    // Also test that cif.get_atomgroup("data_1HLS") dispatches to structure parser (loads all 20 models)
+    let dispatched = cif.get_atomgroup("data_1HLS").expect("dispatch failed");
+    assert_eq!(dispatched.get_number_of_groups(), 20);
+    assert_eq!(dispatched.get_atom_list().len(), 15640);
+    let disp_m1 = dispatched.get_group("model_1").expect("model_1 not found");
+    assert_eq!(disp_m1.get_atom_list().len(), 782);
+}
+
+#[test]
+fn test_2mgo_cif_matches_pdb() {
+    let data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data");
+    let cif_path = data_dir.join("2MGO.cif");
+    let pdb_path = data_dir.join("2MGO.pdb");
+
+    let cif = SimpleMmcif::from_file(&cif_path).expect("failed to load 2MGO.cif");
+    let pdb = Pdb::from_file(&pdb_path, None).expect("failed to load 2MGO.pdb");
+
+    // Compare all 20 models
+    let mut cif_ag = cif
+        .get_structure_atomgroup(None, None)
+        .expect("failed to get cif atomgroup");
+    let mut pdb_ag = pdb
+        .get_atomgroup(None, None)
+        .expect("failed to get pdb atomgroup");
+
+    assert_eq!(cif_ag.get_number_of_groups(), 20);
+    assert_eq!(pdb_ag.get_number_of_groups(), 20);
+
+    // Check model 1 structure
+    let cif_m1 = cif_ag.get_group("model_1").expect("cif model_1 not found");
+    let pdb_m1 = pdb_ag.get_group("model_1").expect("pdb model_1 not found");
+
+    assert_eq!(cif_m1.get_number_of_groups(), 1); // chain A
+    assert_eq!(pdb_m1.get_number_of_groups(), 1);
+
+    let cif_chain_a = cif_m1.get_group("A").unwrap();
+    let pdb_chain_a = pdb_m1.get_group("A").unwrap();
+    assert_eq!(cif_chain_a.get_number_of_groups(), 9); // 9 residues
+    assert_eq!(pdb_chain_a.get_number_of_groups(), 9);
+
+    let res_checks = [
+        ("1", "CYS", 12),
+        ("2", "TYR", 21),
+        ("3", "ILE", 19),
+        ("4", "GLN", 17),
+        ("5", "ASN", 14),
+        ("6", "CYS", 10),
+        ("7", "PRO", 14),
+        ("8", "LEU", 19),
+        ("9", "GLY", 8),
+    ];
+
+    for (seq, expected_name, expected_atom_count) in res_checks {
+        let c_res = cif_chain_a
+            .get_group(seq)
+            .unwrap_or_else(|| panic!("cif residue {seq} not found"));
+        let p_res = pdb_chain_a
+            .get_group(seq)
+            .unwrap_or_else(|| panic!("pdb residue {seq} not found"));
+
+        assert_eq!(c_res.name, expected_name);
+        assert_eq!(p_res.name, expected_name);
+        assert_eq!(c_res.get_number_of_atoms(), expected_atom_count);
+        assert_eq!(p_res.get_number_of_atoms(), expected_atom_count);
+    }
+
+    // Check total atoms across all 20 models (20 * 134 = 2680)
+    assert_eq!(cif_ag.get_atom_list().len(), 2680);
+    assert_eq!(pdb_ag.get_atom_list().len(), 2680);
+
+    // Verify SSBOND disulfide bond linking from _struct_conn matches pdb ssbonds
+    let cif_bonds = cif_ag.get_bond_list();
+    let pdb_bonds = pdb_ag.get_bond_list();
+    assert_eq!(cif_bonds.len(), 20);
+    assert_eq!(pdb_bonds.len(), 20);
+
+    // In model 1, atom serials match PDB exactly (6 and 89)
+    let m1_found = cif_bonds.iter().any(|b| {
+        (b.atom1_path == "/model_1/A/1/6_SG" && b.atom2_path == "/model_1/A/6/89_SG")
+            || (b.atom1_path == "/model_1/A/6/89_SG" && b.atom2_path == "/model_1/A/1/6_SG")
+    });
+    assert!(m1_found, "model_1 SSBOND exact path mismatch");
+
+    // Across all 20 models, each model has a disulfide bond between CYS1 SG and CYS6 SG
+    // (Note: In mmCIF, atom id is globally sequential across models, avoiding PDB's 99,999 limit)
+    for i in 1..=20 {
+        let prefix1 = format!("/model_{i}/A/1/");
+        let prefix2 = format!("/model_{i}/A/6/");
+        let found = cif_bonds.iter().any(|b| {
+            let matches_forward = b.atom1_path.starts_with(&prefix1)
+                && b.atom1_path.ends_with("_SG")
+                && b.atom2_path.starts_with(&prefix2)
+                && b.atom2_path.ends_with("_SG");
+            let matches_backward = b.atom2_path.starts_with(&prefix1)
+                && b.atom2_path.ends_with("_SG")
+                && b.atom1_path.starts_with(&prefix2)
+                && b.atom1_path.ends_with("_SG");
+            matches_forward || matches_backward
+        });
+        assert!(
+            found,
+            "cif SSBOND for model_{i} between CYS1 SG and CYS6 SG not found"
+        );
+    }
+}
+
+#[test]
+fn test_3i3z_cif_hierarchy_and_altloc() {
+    let data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data");
+    let cif_path = data_dir.join("3I3Z.cif");
+    let cif = SimpleMmcif::from_file(&cif_path).expect("failed to load 3I3Z.cif");
+
+    let block = cif.get_data_block("data_3I3Z").unwrap();
+    let all_records = block.get_atom_site_records().expect("records error");
+    assert_eq!(
+        all_records.len(),
+        480,
+        "total raw atom_site records in 3I3Z.cif"
+    );
+
+    // Count altlocs in raw records
+    let count_alt_a = all_records.iter().filter(|r| r.label_alt_id == "A").count();
+    let count_alt_b = all_records.iter().filter(|r| r.label_alt_id == "B").count();
+    assert_eq!(count_alt_a, 20, "expected 20 altloc A records");
+    assert_eq!(count_alt_b, 20, "expected 20 altloc B records");
+
+    // Parse with default altloc ("A" / blank retained, "B" filtered out)
+    let ag = cif
+        .get_structure_atomgroup(None, None)
+        .expect("failed to parse 3I3Z.cif with default altloc");
+
+    assert_eq!(ag.get_number_of_groups(), 1); // 1 model: model_1
+    let m1 = ag.get_group("model_1").expect("model_1 missing");
+
+    // 2 chains: A and B (auth_asym_id merges water molecules into A and B; C/D do not exist)
+    assert_eq!(m1.get_number_of_groups(), 2);
+    let chain_a = m1.get_group("A").expect("chain A missing");
+    let chain_b = m1.get_group("B").expect("chain B missing");
+
+    // Residue counts with auth_seq_id:
+    // Chain A: 21 polymer residues + 23 water residues = 44 residues
+    // Chain B: 30 polymer residues + 34 water residues = 64 residues
+    assert_eq!(chain_a.get_number_of_groups(), 44, "chain A residue count");
+    assert_eq!(chain_b.get_number_of_groups(), 64, "chain B residue count");
+
+    // Atom counts with default altloc (20 altloc B atoms excluded: 18 from B polymer, 2 from B water)
+    // Chain A: 186 atoms (163 polymer + 23 water, no altloc B)
+    // Chain B: 274 atoms (258 - 18 = 240 polymer + 36 - 2 = 34 water)
+    assert_eq!(chain_a.get_atom_list().len(), 186, "chain A atom count");
+    assert_eq!(
+        chain_b.get_atom_list().len(),
+        274,
+        "chain B atom count with altloc A"
+    );
+
+    // Total atoms: 480 - 20 = 460
+    assert_eq!(ag.get_atom_list().len(), 460);
+
+    // Verify insertion code is captured in AtomSiteRecord
+    // (All insertion codes in 3I3Z are absent/empty as documented in known gaps)
+    for rec in &all_records {
+        assert!(
+            rec.pdbx_pdb_ins_code.is_empty(),
+            "expected empty insertion code in 3I3Z.cif"
+        );
+    }
+}
+
+#[test]
+fn test_mmcif_invalid_coordinate_error() {
+    let invalid_cif = r#"data_invalid
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+ATOM 1 N N . GLY A not_a_number 8.071 6.020
+"#;
+
+    let cif = SimpleMmcif::from_str(invalid_cif).expect("failed to tokenize/parse mmcif structure");
+    let result = cif.get_structure_atomgroup(None, None);
+    assert!(
+        result.is_err(),
+        "expected error on invalid coordinate string 'not_a_number'"
+    );
+
+    let err_str = result.err().unwrap().to_string();
+    assert!(
+        err_str.contains("Cartn_x") && err_str.contains("invalid float"),
+        "error message should mention Cartn_x and invalid float: {err_str}"
+    );
 }
