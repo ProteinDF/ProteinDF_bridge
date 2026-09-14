@@ -218,3 +218,55 @@ PR#7(select)・PR#8(aminoacid)・PR#9(ssbond)・PR#10(ionpair)・PR#11(superpose
 - `modeling.py`/`neutralize.py`には触れない(上記参照)。
 - Phase 3の範囲外(mmCIF・§3新規機能・§4バインディング)には手を出さない。
 - **ブランチ運用ルール(MUST項目)を厳守**: `feature/phase3-prM` ブランチで作業し、`rust-port`へは自分でマージせず、レビュー承認を待つ。
+
+## Phase 4: mmCIFサポート(今回のスコープ、2026-09-14 受け入れ基準確定)
+
+### 背景: スコープの再定義
+
+`proteindf_bridge/mmcif.py`(`SimpleMmcif`)を精読した結果、既存の`get_atomgroup()`は**PDB Chemical Component Dictionary(CCD)形式**(`_chem_comp`/`_chem_comp_atom`/`_chem_comp_bond`カテゴリ、個々のリガンド/残基テンプレート定義1件を表す)にしか対応しておらず、通常のタンパク質全体構造で使われる**`_atom_site`カテゴリには一切対応していない**ことが判明した。実際の利用スクリプト(`scripts/mmcif2mol2.py`)も「複数の化学成分定義を個別のmol2ファイルに変換する」用途で、CCD形式の前提と一致する。
+
+`RUST_PORT_SPEC.md` §3.1が目指す「PDBx/mmCIFをRust版の主力フォーマットとし、100万原子規模の構造を扱う」には、`_atom_site`ベースの全構造パーサが必要だが、これはPython版に存在しない**新規実装**である。そのため本Phaseは2つのPRに分割する。
+
+### フィクスチャ(RCSB PDBから取得・検証済み、`proteindf_bridge/data/`と`rust/crates/pdf-bridge/tests/data/`に配置済み)
+
+| ファイル | 内容 | 検証済みの値 |
+| --- | --- | --- |
+| `ALA.cif` | CCD形式(アラニン単体定義) | 既存Python`SimpleMmcif`で実際に読み込み確認済み: 13原子、12結合(C=Oのみbond order 2、他は1)。座標は`pdbx_model_Cartn_*_ideal`列由来。 |
+| `1HLS.cif` | `_atom_site`形式、20モデルNMRアンサンブル(インスリン) | model 1: 782原子、チェインA/B。既存`1hls.pdb`フィクスチャ(PR#6で検証済み)の値と完全一致。altloc/insertion codeなし。 |
+| `2MGO.cif` | `_atom_site`形式、20モデルNMR(オキシトシン) | model 1: 134原子、チェインA、9残基。既存`2MGO.pdb`フィクスチャと完全一致。 |
+| `3I3Z.cif` | `_atom_site`形式、X線構造・単一モデル・4チェイン | チェインA: 163原子/21残基、B: 258原子/30残基、C: 23原子/1残基(HETATM)、D: 36原子/1残基(HETATM、HOH)。**altloc "A"/"B"が20箇所ずつ存在**(`label_alt_id`列)。insertion codeは全て"?"(該当データなし、既知のギャップとして許容)。 |
+
+### PR#12: 既存`SimpleMmcif`の1:1移植(CCD形式、`format/mmcif.rs`)
+
+移植対象: `load`/`_get_line`(セミコロンブロック・引用符付き値・`#`コメントを含む汎用CIFトークナイザ)、`_load_data_block`/`_load_loop_block`(`loop_`テーブルの読み込み)、`get_atomgroup`(CCD形式: `_chem_comp.id`/`_chem_comp_atom.*`/`_chem_comp_bond.*`)。
+
+**完了の定義**:
+1. 既存`tests/test_mmcif.py`(薄い)を移植すること。
+2. `ALA.cif`フィクスチャで実データ検証テストを追加すること。期待値: 13原子(座標は上記の通りPython版で実際に確認済み)、12結合(`C-O`のみbond order 2)。
+3. `get_coordinates`相当のロジック(`pdbx_model_Cartn_*_ideal`を優先し、なければ`model_Cartn_*`にフォールバック)を1:1で再現すること。
+4. `type_symbol`が`"D"`(重水素)の場合`"H"`に置き換える処理を再現すること。
+5. `cargo clippy`/`cargo fmt`を通すこと。
+
+### PR#13: `_atom_site`形式の新規実装(本来の「堅牢化」目標、`format/mmcif.rs`に追加)
+
+**新規機能**なので、PR#12のような「Python版との1:1」ではなく、以下の受け入れ基準を満たすこと。階層構造・API設計は`biopdb.py`/`pdb.rs`(`Pdb::get_atomgroup`)と同じ規約(`model_<N>` → `<chain_id>` → `<res_seq>` → `<serial>_<name>`)に揃え、`select_model`/`select_altloc`パラメータも`Pdb::get_atomgroup`と同じ形にすること(フォーマットが違ってもダウンストリーム(ssbond.rs/ion_pair.rs等)が同じように扱えるようにするため)。
+
+**カラムマッピングの方針**: `auth_asym_id`/`auth_seq_id`(レガシーPDB互換の著者番号付け)を`pdb.rs`の`chain_id`/`res_seq`相当として使うこと(`label_asym_id`/`label_seq_id`は内部番号付けでPDBの慣習と異なる場合があるため)。`pdbx_PDB_model_num`をモデル番号として使うこと。`label_alt_id`をaltlocとして使うこと(`.`または`?`は「altlocなし」として扱う)。
+
+**完了の定義**:
+1. `1HLS.cif`・`2MGO.cif`のmodel 1を解析した結果が、既存の`Pdb::get_atomgroup`(PDB形式、PR#6で検証済み)が`1hls.pdb`/`2MGO.pdb`から生成する結果と**完全一致**すること(原子数・チェイン/残基構造・最初の原子のsymbol/座標)。フォーマットが違っても同じ構造からは同じ結果が得られることを保証する強力な検証。
+2. `3I3Z.cif`で、チェインごとの原子数・残基数(表の値)が一致すること。altlocのデフォルト選択(`"A"`または空欄)で、20件の`"B"`altloc原子が除外されることを検証すること。
+3. カラム固定幅を使わないmmCIFの性質上、レガシーPDBの99,999原子上限は原理的に存在しないことをコードレビューで確認する(巨大原子数の実ベンチマークは本PRの必須要件ではなく、別タスクとする)。
+4. `insertion code`(`pdbx_PDB_ins_code`)は値を保持・パースすること(専用フィクスチャがないため、実データでのテストは今回のスコープ外。既知のギャップとして`docs/rust-port-handoff.md`に残す)。
+5. `cargo clippy`/`cargo fmt`を通すこと。
+
+### スコープ外
+
+- §3の他の新規機能(二次構造推定・InteractionSet・QC結果I/O・CUBEパーサ)、§4の多言語バインディング。
+- insertion codeの実データ検証(専用フィクスチャ未確保、既知のギャップ)。
+- 100万原子規模での性能ベンチマーク(別タスク)。
+
+### やってはいけないこと
+
+- 既存Pythonコード(`proteindf_bridge/`)は変更しない。
+- **ブランチ運用ルール(MUST項目)を厳守**: `feature/phase4-prM` ブランチで作業し、`rust-port`へは自分でマージせず、レビュー承認を待つ。PR#12を先に、PR#13をその後に。
