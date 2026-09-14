@@ -63,11 +63,14 @@ pub struct AtomSiteRecord {
 
 impl AtomSiteRecord {
     /// Parses an `AtomSiteRecord` from an `_atom_site` table row.
-    pub fn from_row(row: &IndexMap<String, String>, default_id: usize) -> Option<Self> {
-        let group_pdb = row.get("_atom_site.group_PDB")?.clone();
+    pub fn from_row(row: &IndexMap<String, String>, default_id: usize) -> Result<Option<Self>> {
+        let Some(group_pdb) = row.get("_atom_site.group_PDB") else {
+            return Ok(None);
+        };
         if group_pdb != "ATOM" && group_pdb != "HETATM" {
-            return None;
+            return Ok(None);
         }
+        let group_pdb = group_pdb.clone();
 
         let id = row
             .get("_atom_site.id")
@@ -118,16 +121,31 @@ impl AtomSiteRecord {
 
         let cartn_x = row
             .get("_atom_site.Cartn_x")
-            .and_then(|s| s.parse::<f64>().ok())
-            .unwrap_or(0.0);
+            .ok_or_else(|| {
+                BridgeError::input_error("_atom_site.Cartn_x", "missing Cartn_x coordinate")
+            })?
+            .parse::<f64>()
+            .map_err(|e| {
+                BridgeError::input_error("_atom_site.Cartn_x", format!("invalid float: {e}"))
+            })?;
         let cartn_y = row
             .get("_atom_site.Cartn_y")
-            .and_then(|s| s.parse::<f64>().ok())
-            .unwrap_or(0.0);
+            .ok_or_else(|| {
+                BridgeError::input_error("_atom_site.Cartn_y", "missing Cartn_y coordinate")
+            })?
+            .parse::<f64>()
+            .map_err(|e| {
+                BridgeError::input_error("_atom_site.Cartn_y", format!("invalid float: {e}"))
+            })?;
         let cartn_z = row
             .get("_atom_site.Cartn_z")
-            .and_then(|s| s.parse::<f64>().ok())
-            .unwrap_or(0.0);
+            .ok_or_else(|| {
+                BridgeError::input_error("_atom_site.Cartn_z", "missing Cartn_z coordinate")
+            })?
+            .parse::<f64>()
+            .map_err(|e| {
+                BridgeError::input_error("_atom_site.Cartn_z", format!("invalid float: {e}"))
+            })?;
 
         let occupancy = row
             .get("_atom_site.occupancy")
@@ -172,7 +190,7 @@ impl AtomSiteRecord {
             .and_then(|s| s.parse::<usize>().ok())
             .unwrap_or(1);
 
-        Some(Self {
+        Ok(Some(Self {
             group_pdb,
             id,
             type_symbol,
@@ -194,7 +212,7 @@ impl AtomSiteRecord {
             auth_asym_id,
             auth_atom_id,
             pdbx_pdb_model_num,
-        })
+        }))
     }
 }
 
@@ -203,12 +221,12 @@ impl AtomSiteRecord {
 pub struct StructConnRecord {
     pub id: String,
     pub conn_type_id: String,
-    pub ptnr1_label_asym_id: String,
-    pub ptnr1_label_seq_id: Option<i32>,
-    pub ptnr1_label_atom_id: String,
-    pub ptnr2_label_asym_id: String,
-    pub ptnr2_label_seq_id: Option<i32>,
-    pub ptnr2_label_atom_id: String,
+    pub ptnr1_asym_id: String,
+    pub ptnr1_seq_id: Option<i32>,
+    pub ptnr1_atom_id: String,
+    pub ptnr2_asym_id: String,
+    pub ptnr2_seq_id: Option<i32>,
+    pub ptnr2_atom_id: String,
 }
 
 impl StructConnRecord {
@@ -216,25 +234,45 @@ impl StructConnRecord {
     pub fn from_row(row: &IndexMap<String, String>) -> Option<Self> {
         let conn_type_id = row.get("_struct_conn.conn_type_id")?.clone();
         let id = row.get("_struct_conn.id").cloned().unwrap_or_default();
-        let ptnr1_label_asym_id = row
-            .get("_struct_conn.ptnr1_label_asym_id")
+
+        let ptnr1_asym_id = row
+            .get("_struct_conn.ptnr1_auth_asym_id")
+            .filter(|s| *s != "." && *s != "?")
+            .or_else(|| {
+                row.get("_struct_conn.ptnr1_label_asym_id")
+                    .filter(|s| *s != "." && *s != "?")
+            })
             .cloned()
             .unwrap_or_default();
-        let ptnr1_label_seq_id = row
-            .get("_struct_conn.ptnr1_label_seq_id")
-            .and_then(|s| s.parse::<i32>().ok());
-        let ptnr1_label_atom_id = row
+        let ptnr1_seq_id = row
+            .get("_struct_conn.ptnr1_auth_seq_id")
+            .and_then(|s| s.parse::<i32>().ok())
+            .or_else(|| {
+                row.get("_struct_conn.ptnr1_label_seq_id")
+                    .and_then(|s| s.parse::<i32>().ok())
+            });
+        let ptnr1_atom_id = row
             .get("_struct_conn.ptnr1_label_atom_id")
             .cloned()
             .unwrap_or_default();
-        let ptnr2_label_asym_id = row
-            .get("_struct_conn.ptnr2_label_asym_id")
+
+        let ptnr2_asym_id = row
+            .get("_struct_conn.ptnr2_auth_asym_id")
+            .filter(|s| *s != "." && *s != "?")
+            .or_else(|| {
+                row.get("_struct_conn.ptnr2_label_asym_id")
+                    .filter(|s| *s != "." && *s != "?")
+            })
             .cloned()
             .unwrap_or_default();
-        let ptnr2_label_seq_id = row
-            .get("_struct_conn.ptnr2_label_seq_id")
-            .and_then(|s| s.parse::<i32>().ok());
-        let ptnr2_label_atom_id = row
+        let ptnr2_seq_id = row
+            .get("_struct_conn.ptnr2_auth_seq_id")
+            .and_then(|s| s.parse::<i32>().ok())
+            .or_else(|| {
+                row.get("_struct_conn.ptnr2_label_seq_id")
+                    .and_then(|s| s.parse::<i32>().ok())
+            });
+        let ptnr2_atom_id = row
             .get("_struct_conn.ptnr2_label_atom_id")
             .cloned()
             .unwrap_or_default();
@@ -242,12 +280,12 @@ impl StructConnRecord {
         Some(Self {
             id,
             conn_type_id,
-            ptnr1_label_asym_id,
-            ptnr1_label_seq_id,
-            ptnr1_label_atom_id,
-            ptnr2_label_asym_id,
-            ptnr2_label_seq_id,
-            ptnr2_label_atom_id,
+            ptnr1_asym_id,
+            ptnr1_seq_id,
+            ptnr1_atom_id,
+            ptnr2_asym_id,
+            ptnr2_seq_id,
+            ptnr2_atom_id,
         })
     }
 }
@@ -264,10 +302,10 @@ impl MmcifDataBlock {
     }
 
     /// Extracts all `AtomSiteRecord` entries from the `_atom_site` table or key-values.
-    pub fn get_atom_site_records(&self) -> Vec<AtomSiteRecord> {
+    pub fn get_atom_site_records(&self) -> Result<Vec<AtomSiteRecord>> {
         let mut records = Vec::new();
         if self.key_values.keys().any(|k| k.starts_with("_atom_site.")) {
-            if let Some(rec) = AtomSiteRecord::from_row(&self.key_values, 1) {
+            if let Some(rec) = AtomSiteRecord::from_row(&self.key_values, 1)? {
                 records.push(rec);
             }
         }
@@ -275,14 +313,14 @@ impl MmcifDataBlock {
             if let Some(first_row) = table.first() {
                 if first_row.keys().any(|k| k.starts_with("_atom_site.")) {
                     for (idx, row) in table.iter().enumerate() {
-                        if let Some(rec) = AtomSiteRecord::from_row(row, idx + 1) {
+                        if let Some(rec) = AtomSiteRecord::from_row(row, idx + 1)? {
                             records.push(rec);
                         }
                     }
                 }
             }
         }
-        records
+        Ok(records)
     }
 
     /// Extracts all `StructConnRecord` entries from the `_struct_conn` table or key-values.
@@ -455,7 +493,7 @@ impl SimpleMmcif {
             BridgeError::input_error(block_name, format!("Data block '{block_name}' not found"))
         })?;
 
-        let records = block.get_atom_site_records();
+        let records = block.get_atom_site_records()?;
         if records.is_empty() {
             return Err(BridgeError::input_error(
                 block_name,
@@ -494,8 +532,11 @@ impl SimpleMmcif {
                     continue;
                 }
 
-                // Determine chain ID (label_asym_id prioritized, default to "_")
-                let mut chain_id = item.label_asym_id.trim().to_string();
+                // Determine chain ID (auth_asym_id prioritized, fallback to label_asym_id, default to "_")
+                let mut chain_id = item.auth_asym_id.trim().to_string();
+                if chain_id.is_empty() || chain_id == "_" {
+                    chain_id = item.label_asym_id.trim().to_string();
+                }
                 if chain_id.is_empty() || chain_id == " " {
                     chain_id = "_".to_string();
                 }
@@ -507,15 +548,8 @@ impl SimpleMmcif {
                 }
 
                 // Determine residue sequence key:
-                // Use label_seq_id if available; fallback to auth_seq_id for polymer,
-                // or 1 for non-polymers (e.g. HOH water clusters)
-                let res_seq = if let Some(seq) = item.label_seq_id {
-                    seq
-                } else if item.group_pdb == "ATOM" {
-                    item.auth_seq_id.unwrap_or(1)
-                } else {
-                    1
-                };
+                // Prioritize auth_seq_id for both ATOM and HETATM, fallback to label_seq_id, default to 1
+                let res_seq = item.auth_seq_id.or(item.label_seq_id).unwrap_or(1);
                 let res_key = format!("{res_seq}");
 
                 let mut res_name = item.auth_comp_id.clone();
@@ -555,22 +589,20 @@ impl SimpleMmcif {
             // Link disulfide bonds from _struct_conn
             for conn in &conns {
                 if conn.conn_type_id == "disulf" {
-                    if let (Some(seq1), Some(seq2)) =
-                        (conn.ptnr1_label_seq_id, conn.ptnr2_label_seq_id)
-                    {
+                    if let (Some(seq1), Some(seq2)) = (conn.ptnr1_seq_id, conn.ptnr2_seq_id) {
                         let res_key1 = format!("{seq1}");
                         let res_key2 = format!("{seq2}");
 
                         let sg1_opt = model
-                            .get_group(&conn.ptnr1_label_asym_id)
+                            .get_group(&conn.ptnr1_asym_id)
                             .and_then(|c| c.get_group(&res_key1))
-                            .and_then(|r| r.get_atom(&conn.ptnr1_label_atom_id))
+                            .and_then(|r| r.get_atom(&conn.ptnr1_atom_id))
                             .cloned();
 
                         let sg2_opt = model
-                            .get_group(&conn.ptnr2_label_asym_id)
+                            .get_group(&conn.ptnr2_asym_id)
                             .and_then(|c| c.get_group(&res_key2))
-                            .and_then(|r| r.get_atom(&conn.ptnr2_label_atom_id))
+                            .and_then(|r| r.get_atom(&conn.ptnr2_atom_id))
                             .cloned();
 
                         if let (Some(sg1), Some(sg2)) = (sg1_opt, sg2_opt) {
