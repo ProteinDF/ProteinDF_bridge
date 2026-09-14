@@ -81,9 +81,12 @@ Phase 1(PR#1〜3)はブランチ運用ルール違反に加え、以下のテス
 9. `BitXor`実装が`HashSet<String>`でキーを集めてから処理しているため、結果の子要素の順序が実行ごとに非決定的になる。このファイルの他の演算は`IndexMap`で順序を保証しているので、`BitXor`も同様にkeyの出現順を保つこと。
 10. `SymmetricMatrix::eig()`のn=0分岐が形状不整合(空の`Vector`と1x1の`Matrix`のペアを返す)。#3の修正で0次元が到達可能になるため、あわせて修正すること。
 
-### スコープ逸脱(要確認)
+### スコープ逸脱(2026-09-14 方針決定)
 
-11. `SelectRange`/`Selector`が`atom_group.rs`に実装されている。確認したところ、`select_range`相当の機能はPython版では`atomgroup.py`ではなく`select.py`の`Select_Range`クラスにあり、Phase 1の対象外(§2の`select.py`→`selector.rs`は次フェーズ)。将来`selector.rs`を実装する際に重複・不整合を生むため、このPRでの位置づけ(Phase 1に残すか、`selector.rs`実装時まで一旦削除するか)を確認してから進めること。
+11. `SelectRange`/`Selector`が`atom_group.rs`に`pub`で実装されている件。方針:
+    - `pub trait Selector`(`atom_group.rs:40`)は残してよい。`AtomGroup::select()`(Phase 1スコープの`atomgroup.py`が持つメソッド)のシグネチャに必要な最小限の抽象化のため。
+    - `pub struct SelectRange`(`atom_group.rs:49`)は**`pub`から外し、`#[cfg(test)]`のテストモジュール内に移動**すること。これはPython版`select.py`の`Select_Range`クラスの機能そのものであり、Phase 1スコープ外(`select.py`→`selector.rs`は次フェーズ)。`test_select_range`を通すためだけに存在するので、本番APIとして公開する必要はない。
+    - 次フェーズで`selector.rs`に正式な`Select_Range`(Python版と1:1)を実装する際、このテスト専用の暫定`SelectRange`は削除してよい(非公開なので削除は非破壊的)。
 
 ## Phase 1完了後の流れ
 
