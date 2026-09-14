@@ -52,6 +52,16 @@ class TestSymmetricMatrix(unittest.TestCase):
         self.assertAlmostEqual(sm.get(1, 0), 2.5)
         self.assertAlmostEqual(sm.get(0, 1), 2.5)
 
+    def test_symmetric_add(self):
+        sm = SymmetricMatrix(3)
+        sm.add(0, 1, 3.5)
+        self.assertAlmostEqual(sm.get(1, 0), 3.5)
+        self.assertAlmostEqual(sm.get(0, 1), 3.5)
+        # さらに加算
+        sm.add(1, 0, 1.5)
+        self.assertAlmostEqual(sm.get(1, 0), 5.0)
+        self.assertAlmostEqual(sm.get(0, 1), 5.0)
+
     def test_get_raw_data(self):
         sm = SymmetricMatrix(3)
         sm.set(0, 0, 1.0)
