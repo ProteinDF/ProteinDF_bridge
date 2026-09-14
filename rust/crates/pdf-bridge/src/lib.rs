@@ -24,6 +24,7 @@ pub mod format;
 pub mod matrix;
 pub mod periodic_table;
 pub mod position;
+pub mod selector;
 pub mod vector;
 
 pub use atom::Atom;
@@ -34,4 +35,10 @@ pub use format::{AmberPrmtop, Format, Pdb, SimpleGro, SimpleMol2, Xyz};
 pub use matrix::{identity_matrix, Matrix, SymmetricMatrix};
 pub use periodic_table::PeriodicTable;
 pub use position::Position;
+pub use selector::{
+    SelectAtom, SelectAtomGroup, SelectName, SelectPath, SelectPathRegex, SelectPathSimple,
+    SelectPathWildcard, SelectRange, SelectSymbol, Select_Atom, Select_AtomGroup, Select_Name,
+    Select_Path, Select_PathRegex, Select_Path_simple, Select_Path_wildcard, Select_Range,
+    Select_Symbol,
+};
 pub use vector::Vector;

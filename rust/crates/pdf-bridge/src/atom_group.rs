@@ -860,23 +860,7 @@ impl fmt::Display for AtomGroup {
 mod tests {
     use super::*;
 
-    /// Test-only helper selector matching atoms within a Euclidean sphere.
-    struct SelectRange {
-        center: Position,
-        radius: f64,
-    }
-
-    impl SelectRange {
-        fn new(center: Position, radius: f64) -> Self {
-            Self { center, radius }
-        }
-    }
-
-    impl Selector for SelectRange {
-        fn is_match_atom(&self, atom: &Atom) -> bool {
-            atom.xyz.distance_from(&self.center) <= self.radius
-        }
-    }
+    use crate::selector::SelectRange;
 
     // Ported from tests/test_atomgroup.py
     #[test]
