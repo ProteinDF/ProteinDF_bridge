@@ -6,8 +6,25 @@
 
 - **正本**: 仕様は `RUST_PORT_SPEC.md`。移植元の正解データは `proteindf_bridge/*.py` と `tests/test_*.py`。
 - **作業ブランチ**: 統合ブランチ `rust-port` を `docs/rust-port-spec`(本ドキュメントとRUST_PORT_SPEC.mdを含む)から作成し、そこにPRを積み上げる。Phaseが完了し、Claudeのレビューを通過した時点でまとめて `main` へマージする。Phase途中の未完成状態が `main` に混ざらないようにするため。
+- **PRごとの機能ブランチ**: `rust-port` へ直接コミットせず、`feature/phase1-pr1` のようなPR単位の機能ブランチを `rust-port` から切って作業し、レビュー後に `rust-port` へマージする。
 - **PR粒度**: モジュール単位、または関連の強い2〜3モジュールをまとめた単位で小さく切る。
 - **各PR説明に記載する項目**: (1) 対応するPythonモジュール、(2) 移植したテスト数/件数、(3) 意図的な差分があれば理由。
+
+### Cargo workspace構成(2026-09-14 決定)
+
+```
+rust/
+├── Cargo.toml            # workspace定義
+└── crates/
+    └── pdf-bridge/        # コアライブラリ(Phase 1の対象)
+        ├── Cargo.toml
+        └── src/
+            ├── lib.rs
+            ├── error.rs
+            └── periodic_table.rs
+```
+
+単一クレート直下構成ではなく `crates/` 配下にコアクレートを置く構成を採用する。理由: §4のバインディング方針(C ABI用cdylib、PyO3用Pythonモジュール)は将来的にコアクレートとは別クレート(`crates/pdf-bridge-capi/`、`crates/pdf-bridge-py/` 等)として追加する想定のため、最初から `crates/` 構成にしておく。
 
 ## Phase 1: 基盤・データモデルの1:1移植(今回のスコープ)
 
