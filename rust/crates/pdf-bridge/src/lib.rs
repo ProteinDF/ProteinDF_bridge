@@ -37,7 +37,7 @@ pub use atom::Atom;
 pub use atom_group::{AtomGroup, BondRecord, Selector};
 pub use bond::Bond;
 pub use error::{BridgeError, Result};
-pub use format::{AmberPrmtop, Format, Pdb, SimpleGro, SimpleMol2, Xyz};
+pub use format::{AmberPrmtop, Format, Pdb, SimpleGro, SimpleMmcif, SimpleMol2, Xyz};
 pub use ion_pair::{IonPair, IonPairRecord};
 pub use matrix::{identity_matrix, Matrix, SymmetricMatrix};
 pub use periodic_table::PeriodicTable;
