@@ -100,7 +100,10 @@ impl Xyz {
         self.comment = lines.next().unwrap_or("").trim().to_string();
         self.atoms.clear();
 
-        for (i, line) in lines.take(num_of_atoms).enumerate() {
+        for i in 0..num_of_atoms {
+            let line = lines.next().ok_or_else(|| {
+                BridgeError::input_error("XYZ", format!("unexpected EOF at atom {}", i + 1))
+            })?;
             let words: Vec<&str> = line.split_whitespace().collect();
             if words.len() < 4 {
                 return Err(BridgeError::input_error(
@@ -251,5 +254,13 @@ mod tests {
 
         let ag = xyz.get_atom_group().unwrap();
         assert_eq!(ag.get_number_of_all_atoms(), 22);
+    }
+
+    #[test]
+    fn test_truncated_xyz_error() {
+        let content = "3\ntest comment\nC 0.0 0.0 0.0\n";
+        let mut xyz = Xyz::new();
+        let result = xyz.parse_str(content);
+        assert!(result.is_err());
     }
 }
