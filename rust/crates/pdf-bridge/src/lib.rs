@@ -28,6 +28,8 @@ pub mod periodic_table;
 pub mod position;
 pub mod selector;
 pub mod ssbond;
+pub mod superposer;
+pub mod superposer_quaternion;
 pub mod vector;
 
 pub use amino_acid::AminoAcid;
@@ -47,4 +49,8 @@ pub use selector::{
     Select_Symbol,
 };
 pub use ssbond::SSBond;
+pub use superposer::Superposer;
+pub use superposer_quaternion::{
+    SuperposerQuaternion, SuperposerQuaternion as Superposer_quaternion,
+};
 pub use vector::Vector;
