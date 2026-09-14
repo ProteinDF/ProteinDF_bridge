@@ -172,3 +172,43 @@ PR#4是正で`get_number_of_bonds`/`get_bond_list`を追加した際に判明。
 一方Rust版の`add_bond`(Phase 1由来)は共通祖先へのルーティングを行わず、呼び出された`self`にそのまま**絶対パス**(`atom.path`そのまま)で格納する。今回追加した`get_bond_list`は絶対パスかどうかを`starts_with('/')`で判定して連結をスキップする実装になっており、現状(結合がフラットな構造の最上位グループに追加されるケースのみ)ではPython版と同じ結果になるが、根本的な格納方式が異なる。
 
 ネストした階層(model/chain/residue)の異なる枝にまたがる結合(例: ジスルフィド結合、PDBのCONECTレコードで表現される遠い残基間の結合)を扱うPR#6(biopdb)やPhase 3(ssbond.rs)着手前に、この差異がPython版と異なる結果を生まないか検証すること。必要であれば`add_bond`に共通祖先ルーティングを追加する。
+
+## Phase 3: 構造操作の1:1移植(今回のスコープ)
+
+`RUST_PORT_SPEC.md` §2の対応表のうち以下を移植する。**`modeling.py`/`neutralize.py`はこのPhaseに含めない**(下記「除外する理由」参照)。
+
+| Python | Rust | 推奨PR分割 |
+| --- | --- | --- |
+| `select.py`(`Select`/`Select_Symbol`/`Select_Name`/`Select_Path`系/`Select_Range`/`Select_Atom`/`Select_AtomGroup`) | `selector.rs` | PR#7 |
+| `aminoacid.py` | `amino_acid.rs` | PR#8 |
+| `ssbond.py`(`SSBond`) | `ssbond.rs` | PR#9 |
+| `ionpair.py`(`IonPair`、`aminoacid.py`に依存) | `ion_pair.rs` | PR#10(PR#8の後) |
+| `superposer.py` + `superposer_quaternion.py` | `superposer.rs` + `superposer_quaternion.rs` | PR#11 |
+
+**スコープ外(今回は着手しない)**: `modeling.py`/`neutralize.py`(下記参照)、mmCIF(Phase 2から継続除外)、§3の新規機能、§4の多言語バインディング。
+
+### `modeling.py`/`neutralize.py`を除外する理由
+
+`modeling.py`(720行、ACE/NME末端キャッピング・中性化テンプレート等)には**専用テストファイルが存在せず、doctestも0件**——既存Pythonテストスイートでの検証が一切ない状態。`neutralize.py`は`from .modeling import Modeling`で直接依存しているため、`modeling.py`なしには移植できない。mmCIFと同じ理由(「既存テストの1:1移植」では正しさを担保できない)でPhase 3の対象外とし、受け入れ基準・テストフィクスチャ(例: 既知のアミノ酸構造に対する末端キャッピング結果の幾何学的検証)を別途整備してから独立したPhaseとして着手する。
+
+### PR#7(select.py)の注意点
+
+`atom_group.rs`には既にPhase 1由来の`pub trait Selector`と、`test_select_range`用の非公開(`#[cfg(test)]`内)の暫定`SelectRange`がある(`docs/rust-port-handoff.md`の「スコープ逸脱」節参照)。PR#7では`selector.rs`に正式な`Select_Range`(Python版と1:1)を実装し、`atom_group.rs`内の暫定実装は削除して`selector.rs`のものに置き換えること。`Selector`トレイト自体は`atom_group.rs`に残ったままでよい(`AtomGroup::select()`のシグネチャに必要なため)。
+
+### PR#9(ssbond.py)の注意点
+
+`tests/test_ssbond.py`の実質的なテストメソッドはコメントアウトされており(`# def test_check(self):`)、有効なのはdoctestのみ。このdoctestは`data/1hls.pdb`を使った実データ検証で、期待値`[('/model_1/A/6/', '/model_1/A/11/'), ('/model_1/A/7/', '/model_1/B/7/'), ('/model_1/A/20/', '/model_1/B/19/')]`(距離ベース、SG-SG距離 < 2.31Å)が明記されている。PR#6と同様、このdoctestをRust側でも実データ照合テストとして再現すること(空のテストメソッドの移植だけでは不十分)。
+
+### 完了の定義(Definition of Done)
+
+1. 対応する `tests/test_*.py`(および上記doctest)を同粒度で `#[cfg(test)]` として移植し、全てpassすること。
+2. `superposer.rs`/`superposer_quaternion.rs`(Kabschアルゴリズム・四元数法)は数値計算系なので、Phase 1の`vector`/`matrix`/`position`と同様、Python版と同一入力で同一出力(RMSD・回転行列)になることをテストで担保すること。
+3. `cargo clippy` / `cargo fmt` を通すこと。
+4. 内部実装の最適化は行わず、まず動作一致を優先すること。
+
+### やってはいけないこと
+
+- 既存Pythonコード(`proteindf_bridge/`)は変更しない。
+- `modeling.py`/`neutralize.py`には触れない(上記参照)。
+- Phase 3の範囲外(mmCIF・§3新規機能・§4バインディング)には手を出さない。
+- **ブランチ運用ルール(MUST項目)を厳守**: `feature/phase3-prM` ブランチで作業し、`rust-port`へは自分でマージせず、レビュー承認を待つ。
