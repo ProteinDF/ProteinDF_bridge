@@ -57,7 +57,7 @@ impl SimpleMol2 {
     /// Saves the Mol2 representation to a file.
     pub fn save(&self, file_path: impl AsRef<Path>) -> Result<()> {
         let path = file_path.as_ref();
-        let contents = self.get_text();
+        let contents = self.get_text()?;
         fs::write(path, contents).map_err(|e| {
             BridgeError::input_error(
                 path.display().to_string(),
@@ -81,6 +81,8 @@ impl SimpleMol2 {
     }
 
     /// Returns the `@<TRIPOS>ATOM` section string.
+    /// Note: if direct atoms are present, uses them; otherwise falls back to all atoms (get_atom_list),
+    /// which allows Mol2 generation from hierarchical AtomGroups as an intentional enhancement over Python.
     fn get_contents_atom(&self) -> String {
         let mut output = String::from("@<TRIPOS>ATOM\n");
         let atoms = if self.atomgroup.get_number_of_atoms() > 0 {
@@ -110,7 +112,7 @@ impl SimpleMol2 {
     }
 
     /// Returns the `@<TRIPOS>BOND` section string.
-    fn get_contents_bond(&self) -> String {
+    fn get_contents_bond(&self) -> Result<String> {
         let mut output = String::from("@<TRIPOS>BOND\n");
         let mut ag_clone = self.atomgroup.clone();
         let bond_list = ag_clone.get_bond_list();
@@ -138,13 +140,23 @@ impl SimpleMol2 {
                 .atom_index_table
                 .iter()
                 .position(|n| n == a1_name)
-                .unwrap_or(0)
+                .ok_or_else(|| {
+                    BridgeError::input_error(
+                        a1_name,
+                        format!("atom '{}' in bond not found in atom index table", a1_name),
+                    )
+                })?
                 + 1;
             let atom_id2 = self
                 .atom_index_table
                 .iter()
                 .position(|n| n == a2_name)
-                .unwrap_or(0)
+                .ok_or_else(|| {
+                    BridgeError::input_error(
+                        a2_name,
+                        format!("atom '{}' in bond not found in atom index table", a2_name),
+                    )
+                })?
                 + 1;
             let bond_type = bond.order;
 
@@ -155,22 +167,25 @@ impl SimpleMol2 {
         }
         output.push('\n');
 
-        output
+        Ok(output)
     }
 
     /// Generates the complete Tripos Mol2 format string representation.
-    pub fn get_text(&self) -> String {
+    pub fn get_text(&self) -> Result<String> {
         let mut output = String::new();
         output.push_str(&self.get_contents_molecule());
         output.push_str(&self.get_contents_atom());
-        output.push_str(&self.get_contents_bond());
-        output
+        output.push_str(&self.get_contents_bond()?);
+        Ok(output)
     }
 }
 
 impl fmt::Display for SimpleMol2 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.get_text())
+        match self.get_text() {
+            Ok(text) => write!(f, "{}", text),
+            Err(e) => write!(f, "{}", e),
+        }
     }
 }
 
@@ -203,7 +218,7 @@ mod tests {
         ag.set_atom("3", a3);
 
         let mol2 = SimpleMol2::from_atomgroup(&ag);
-        let text = mol2.get_text();
+        let text = mol2.get_text().unwrap();
 
         assert!(text.contains("@<TRIPOS>MOLECULE"));
         assert!(text.contains("water"));
@@ -237,10 +252,27 @@ mod tests {
         ag.add_bond(&a1, &a2, 1);
 
         let mol2 = SimpleMol2::from_atomgroup(&ag);
-        let text = mol2.get_text();
+        let text = mol2.get_text().unwrap();
 
         assert!(text.contains("ethane"));
         assert!(text.contains("2 1\n")); // 2 atoms, 1 bond
         assert!(text.contains("@<TRIPOS>BOND\n1     1     2     1\n"));
+    }
+
+    #[test]
+    fn test_mol2_bond_atom_not_found_error() {
+        let mut ag = AtomGroup::with_name("incomplete");
+        let mut a1 = Atom::new_with_pos("C", Position::new(0.0, 0.0, 0.0)).unwrap();
+        a1.name = "C1".to_string();
+        let mut a2 = Atom::new_with_pos("C", Position::new(1.5, 0.0, 0.0)).unwrap();
+        a2.name = "C2".to_string();
+
+        // Only register a1, but add bond to non-existent a2
+        ag.set_atom("1", a1.clone());
+        ag.add_bond(&a1, &a2, 1);
+
+        let mol2 = SimpleMol2::from_atomgroup(&ag);
+        let res = mol2.get_text();
+        assert!(res.is_err());
     }
 }
