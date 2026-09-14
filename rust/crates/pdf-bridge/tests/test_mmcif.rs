@@ -390,7 +390,7 @@ fn test_3i3z_cif_hierarchy_and_altloc() {
     let cif = SimpleMmcif::from_file(&cif_path).expect("failed to load 3I3Z.cif");
 
     let block = cif.get_data_block("data_3I3Z").unwrap();
-    let all_records = block.get_atom_site_records();
+    let all_records = block.get_atom_site_records().expect("records error");
     assert_eq!(
         all_records.len(),
         480,
@@ -411,43 +411,25 @@ fn test_3i3z_cif_hierarchy_and_altloc() {
     assert_eq!(ag.get_number_of_groups(), 1); // 1 model: model_1
     let m1 = ag.get_group("model_1").expect("model_1 missing");
 
-    // 4 chains: A, B, C, D
-    assert_eq!(m1.get_number_of_groups(), 4);
+    // 2 chains: A and B (auth_asym_id merges water molecules into A and B; C/D do not exist)
+    assert_eq!(m1.get_number_of_groups(), 2);
     let chain_a = m1.get_group("A").expect("chain A missing");
     let chain_b = m1.get_group("B").expect("chain B missing");
-    let chain_c = m1.get_group("C").expect("chain C missing");
-    let chain_d = m1.get_group("D").expect("chain D missing");
 
-    // Residue counts
-    assert_eq!(chain_a.get_number_of_groups(), 21, "chain A residue count");
-    assert_eq!(chain_b.get_number_of_groups(), 30, "chain B residue count");
-    assert_eq!(
-        chain_c.get_number_of_groups(),
-        1,
-        "chain C (water HETATM) residue count"
-    );
-    assert_eq!(
-        chain_d.get_number_of_groups(),
-        1,
-        "chain D (water HETATM) residue count"
-    );
+    // Residue counts with auth_seq_id:
+    // Chain A: 21 polymer residues + 23 water residues = 44 residues
+    // Chain B: 30 polymer residues + 34 water residues = 64 residues
+    assert_eq!(chain_a.get_number_of_groups(), 44, "chain A residue count");
+    assert_eq!(chain_b.get_number_of_groups(), 64, "chain B residue count");
 
-    // Atom counts with default altloc (20 altloc B atoms excluded: 18 from B, 2 from D)
-    // Chain A: 163 atoms
-    // Chain B: 258 - 18 = 240 atoms
-    // Chain C: 23 atoms
-    // Chain D: 36 - 2 = 34 atoms
-    assert_eq!(chain_a.get_atom_list().len(), 163, "chain A atom count");
+    // Atom counts with default altloc (20 altloc B atoms excluded: 18 from B polymer, 2 from B water)
+    // Chain A: 186 atoms (163 polymer + 23 water, no altloc B)
+    // Chain B: 274 atoms (258 - 18 = 240 polymer + 36 - 2 = 34 water)
+    assert_eq!(chain_a.get_atom_list().len(), 186, "chain A atom count");
     assert_eq!(
         chain_b.get_atom_list().len(),
-        240,
+        274,
         "chain B atom count with altloc A"
-    );
-    assert_eq!(chain_c.get_atom_list().len(), 23, "chain C atom count");
-    assert_eq!(
-        chain_d.get_atom_list().len(),
-        34,
-        "chain D atom count with altloc A"
     );
 
     // Total atoms: 480 - 20 = 460
@@ -461,4 +443,35 @@ fn test_3i3z_cif_hierarchy_and_altloc() {
             "expected empty insertion code in 3I3Z.cif"
         );
     }
+}
+
+#[test]
+fn test_mmcif_invalid_coordinate_error() {
+    let invalid_cif = r#"data_invalid
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+ATOM 1 N N . GLY A not_a_number 8.071 6.020
+"#;
+
+    let cif = SimpleMmcif::from_str(invalid_cif).expect("failed to tokenize/parse mmcif structure");
+    let result = cif.get_structure_atomgroup(None, None);
+    assert!(
+        result.is_err(),
+        "expected error on invalid coordinate string 'not_a_number'"
+    );
+
+    let err_str = result.err().unwrap().to_string();
+    assert!(
+        err_str.contains("Cartn_x") && err_str.contains("invalid float"),
+        "error message should mention Cartn_x and invalid float: {err_str}"
+    );
 }
