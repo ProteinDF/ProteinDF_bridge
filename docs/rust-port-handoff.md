@@ -92,7 +92,9 @@ Phase 1(PR#1〜3)はブランチ運用ルール違反に加え、以下のテス
 
 Phase 1は完了(全11件の是正事項を含め、Claudeレビュー通過。2026-09-14)。**ただし `main` へはまだマージしない** — Phase 2以降も完了するまで `rust-port` に積み上げていく方針とする(ユーザー判断、2026-09-14)。
 
-## Phase 2: フォーマットI/Oの1:1移植(今回のスコープ)
+## Phase 2: フォーマットI/Oの1:1移植(完了 2026-09-14)
+
+PR#4(format/xyz/gro)・PR#5(mol2/amber_prmtop)・PR#6(biopdb)、全てClaudeレビュー通過・`rust-port`へマージ済み。PR#6は実PDBファイル3種(`1hls.pdb`/`2MGO.pdb`/`3i3zH.pdb`)をPython版で実行した結果とRust版のテスト期待値を直接突き合わせ、完全一致を確認済み(原子数・階層構造・SSBOND結合パスまで)。途中で発覚した`add_bond`/`get_bond_list`の設計差異(共通祖先ルーティング欠如)も`feature/phase2-atomgroup-bond-fix`で修正し、実データで検証済み。mmCIFは計画通りこのPhaseに含めていない(次項参照)。`main`へはまだマージしない(Phase 1と同じ方針)。
 
 `RUST_PORT_SPEC.md` §2の対応表のうち以下を移植する。**mmCIFはこのPhaseに含めない**(下記「mmCIFを除外する理由」参照)。
 
