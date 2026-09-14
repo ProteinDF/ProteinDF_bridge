@@ -26,6 +26,7 @@ pub mod matrix;
 pub mod periodic_table;
 pub mod position;
 pub mod selector;
+pub mod ssbond;
 pub mod vector;
 
 pub use amino_acid::AminoAcid;
@@ -43,4 +44,5 @@ pub use selector::{
     Select_Path, Select_PathRegex, Select_Path_simple, Select_Path_wildcard, Select_Range,
     Select_Symbol,
 };
+pub use ssbond::SSBond;
 pub use vector::Vector;
