@@ -401,6 +401,38 @@ impl AtomGroup {
         sum
     }
 
+    /// Returns the bounding box `(box_min, box_max)` of the atom group.
+    pub fn r#box(&self) -> (Position, Position) {
+        let mut box_min = self.center();
+        let mut box_max = box_min;
+
+        for group in self.groups.values() {
+            let (grp_min, grp_max) = group.r#box();
+            box_min.x = box_min.x.min(grp_min.x);
+            box_min.y = box_min.y.min(grp_min.y);
+            box_min.z = box_min.z.min(grp_min.z);
+            box_max.x = box_max.x.max(grp_max.x);
+            box_max.y = box_max.y.max(grp_max.y);
+            box_max.z = box_max.z.max(grp_max.z);
+        }
+
+        for atom in self.atoms.values() {
+            box_min.x = box_min.x.min(atom.xyz.x);
+            box_min.y = box_min.y.min(atom.xyz.y);
+            box_min.z = box_min.z.min(atom.xyz.z);
+            box_max.x = box_max.x.max(atom.xyz.x);
+            box_max.y = box_max.y.max(atom.xyz.y);
+            box_max.z = box_max.z.max(atom.xyz.z);
+        }
+
+        (box_min, box_max)
+    }
+
+    /// Alias for `r#box()` for Rust idiom.
+    pub fn get_box(&self) -> (Position, Position) {
+        self.r#box()
+    }
+
     /// Selects matching atoms and groups into a new `AtomGroup`.
     pub fn select<S: Selector>(&self, selector: &S) -> Self {
         if selector.is_match_group(self) {
@@ -434,9 +466,45 @@ impl AtomGroup {
         });
     }
 
-    /// Returns the list of bonds.
+    /// Returns the number of bonds in this group.
+    pub fn get_number_of_bonds(&self) -> usize {
+        self.bonds.len()
+    }
+
+    /// Returns the list of bonds directly defined in this group.
     pub fn bonds(&self) -> &[BondRecord] {
         &self.bonds
+    }
+
+    /// Recursively returns the list of all bonds in this group and its subgroups.
+    pub fn get_bond_list(&mut self) -> Vec<BondRecord> {
+        self.update_paths();
+        let mut bond_list = Vec::new();
+        self.collect_bond_list(&mut bond_list);
+        bond_list
+    }
+
+    fn collect_bond_list(&self, bond_list: &mut Vec<BondRecord>) {
+        for group in self.groups.values() {
+            group.collect_bond_list(bond_list);
+        }
+        for b in &self.bonds {
+            let path1 = if b.atom1_path.starts_with('/') {
+                b.atom1_path.clone()
+            } else {
+                format!("{}{}", self.path, b.atom1_path)
+            };
+            let path2 = if b.atom2_path.starts_with('/') {
+                b.atom2_path.clone()
+            } else {
+                format!("{}{}", self.path, b.atom2_path)
+            };
+            bond_list.push(BondRecord {
+                atom1_path: path1,
+                atom2_path: path2,
+                order: b.order,
+            });
+        }
     }
 
     /// Splits a path string into components, removing empty parts.
@@ -1050,5 +1118,41 @@ mod tests {
         assert_eq!(ag1.get_number_of_all_atoms(), 2);
         assert!(ag1.has_atom("C1"));
         assert!(ag1.has_atom("N1"));
+    }
+
+    #[test]
+    fn test_box() {
+        let mut ag = AtomGroup::new();
+        let a1 = Atom::new_with_pos("C", Position::new(-1.0, 2.0, 0.0)).unwrap();
+        let a2 = Atom::new_with_pos("C", Position::new(3.0, -4.0, 5.0)).unwrap();
+        ag.set_atom("1", a1);
+        ag.set_atom("2", a2);
+
+        let (bmin, bmax) = ag.r#box();
+        assert_eq!(bmin.x, -1.0);
+        assert_eq!(bmin.y, -4.0);
+        assert_eq!(bmin.z, 0.0);
+        assert_eq!(bmax.x, 3.0);
+        assert_eq!(bmax.y, 2.0);
+        assert_eq!(bmax.z, 5.0);
+    }
+
+    #[test]
+    fn test_bonds_and_bond_list() {
+        let mut ag = AtomGroup::with_name("mol");
+        let mut sub = AtomGroup::with_name("sub");
+        let mut a1 = Atom::from_symbol("C").unwrap();
+        a1.name = "C1".to_string();
+        let mut a2 = Atom::from_symbol("C").unwrap();
+        a2.name = "C2".to_string();
+        sub.set_atom("1", a1.clone());
+        sub.set_atom("2", a2.clone());
+        sub.add_bond(&a1, &a2, 2);
+        assert_eq!(sub.get_number_of_bonds(), 1);
+
+        ag.set_group("grp", sub);
+        let bond_list = ag.get_bond_list();
+        assert_eq!(bond_list.len(), 1);
+        assert_eq!(bond_list[0].order, 2);
     }
 }
