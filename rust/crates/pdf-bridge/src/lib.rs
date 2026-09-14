@@ -26,7 +26,7 @@ pub mod position;
 pub mod vector;
 
 pub use atom::Atom;
-pub use atom_group::{AtomGroup, BondRecord, SelectRange, Selector};
+pub use atom_group::{AtomGroup, BondRecord, Selector};
 pub use bond::Bond;
 pub use error::{BridgeError, Result};
 pub use matrix::{identity_matrix, Matrix, SymmetricMatrix};

@@ -44,25 +44,6 @@ pub trait Selector {
     fn is_match_atom(&self, atom: &Atom) -> bool;
 }
 
-/// Selector matching atoms within a Euclidean sphere of `radius` centered at `center`.
-#[derive(Debug, Clone)]
-pub struct SelectRange {
-    pub center: Position,
-    pub radius: f64,
-}
-
-impl SelectRange {
-    pub fn new(center: Position, radius: f64) -> Self {
-        Self { center, radius }
-    }
-}
-
-impl Selector for SelectRange {
-    fn is_match_atom(&self, atom: &Atom) -> bool {
-        atom.xyz.distance_from(&self.center) <= self.radius
-    }
-}
-
 /// Hierarchical atom group corresponding to `proteindf_bridge.atomgroup.AtomGroup`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AtomGroup {
@@ -666,6 +647,24 @@ impl fmt::Display for AtomGroup {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Test-only helper selector matching atoms within a Euclidean sphere.
+    struct SelectRange {
+        center: Position,
+        radius: f64,
+    }
+
+    impl SelectRange {
+        fn new(center: Position, radius: f64) -> Self {
+            Self { center, radius }
+        }
+    }
+
+    impl Selector for SelectRange {
+        fn is_match_atom(&self, atom: &Atom) -> bool {
+            atom.xyz.distance_from(&self.center) <= self.radius
+        }
+    }
 
     // Ported from tests/test_atomgroup.py
     #[test]
