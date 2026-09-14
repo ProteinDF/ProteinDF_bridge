@@ -33,7 +33,6 @@ pub struct Matrix {
 impl Matrix {
     /// Creates a new matrix of size `rows` x `cols`, initialized to 0.0.
     pub fn new(rows: usize, cols: usize) -> Self {
-        assert!(rows > 0 && cols > 0, "Matrix dimensions must be positive");
         Self {
             rows,
             cols,
@@ -614,7 +613,7 @@ impl SymmetricMatrix {
     pub fn eig(&self) -> Result<(Vector, Matrix)> {
         let n = self.dim;
         if n == 0 {
-            return Ok((Vector::new(0), Matrix::new(1, 1)));
+            return Ok((Vector::new(0), Matrix::new(0, 0)));
         }
         if n == 1 {
             let val = self.get(0, 0)?;

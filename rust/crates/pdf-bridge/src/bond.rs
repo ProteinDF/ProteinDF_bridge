@@ -18,6 +18,7 @@
 
 use crate::atom::Atom;
 use crate::atom_group::AtomGroup;
+use crate::error::Result;
 use crate::matrix::SymmetricMatrix;
 
 /// Bond detector based on VDW radii, corresponding to `proteindf_bridge.bond.Bond`.
@@ -35,10 +36,10 @@ impl Bond {
     }
 
     /// Sets up bonds for the given `AtomGroup`.
-    pub fn setup(&mut self, mol: &mut AtomGroup) {
+    pub fn setup(&mut self, mol: &mut AtomGroup) -> Result<()> {
         self.atoms = mol.get_atom_list();
         self.make_distance_matrix();
-        self.make_bond_matrix();
+        self.make_bond_matrix()?;
 
         let num_of_atoms = self.atoms.len();
         if let Some(ref bondmat) = self.bondmat {
@@ -51,6 +52,7 @@ impl Bond {
                 }
             }
         }
+        Ok(())
     }
 
     fn make_distance_matrix(&mut self) {
@@ -65,7 +67,7 @@ impl Bond {
         self.distmat = Some(distmat);
     }
 
-    fn make_bond_matrix(&mut self) {
+    fn make_bond_matrix(&mut self) -> Result<()> {
         let n = self.atoms.len();
         let mut bondmat = SymmetricMatrix::new(n);
         let distmat = self
@@ -74,9 +76,9 @@ impl Bond {
             .expect("Distance matrix must be computed first");
 
         for p in 0..n {
-            let vdw_p = self.atoms[p].vdw().unwrap_or(0.0);
+            let vdw_p = self.atoms[p].vdw()?;
             for q in 0..p {
-                let vdw_q = self.atoms[q].vdw().unwrap_or(0.0);
+                let vdw_q = self.atoms[q].vdw()?;
                 let r = distmat.get(p, q).unwrap_or(f64::INFINITY);
                 if r <= (vdw_p + vdw_q) + 0.4 {
                     bondmat.set(p, q, 1.0);
@@ -86,6 +88,7 @@ impl Bond {
             }
         }
         self.bondmat = Some(bondmat);
+        Ok(())
     }
 }
 
@@ -109,7 +112,7 @@ mod tests {
         ag.set_atom("3", c3);
 
         let mut bond = Bond::new();
-        bond.setup(&mut ag);
+        bond.setup(&mut ag).unwrap();
 
         assert!(bond.distmat.is_some());
         assert!(bond.bondmat.is_some());
@@ -127,5 +130,17 @@ mod tests {
 
         // Verify that bonds were added to ag
         assert_eq!(ag.bonds().len(), 1);
+    }
+
+    #[test]
+    fn test_bond_setup_empty() {
+        let mut ag = AtomGroup::with_name("empty");
+        let mut bond = Bond::new();
+        bond.setup(&mut ag).unwrap();
+
+        assert!(bond.distmat.is_some());
+        assert!(bond.bondmat.is_some());
+        assert_eq!(bond.atoms.len(), 0);
+        assert_eq!(ag.bonds().len(), 0);
     }
 }

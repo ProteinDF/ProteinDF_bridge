@@ -240,9 +240,7 @@ impl AtomGroup {
         if let Some(a) = self.atoms.get(key_or_name) {
             return Some(a);
         }
-        self.atoms
-            .values()
-            .find(|a| a.name.trim() == key_or_name.trim())
+        self.atoms.values().find(|a| a.name == key_or_name)
     }
 
     /// Retrieves a mutable child atom by key or name.
@@ -250,9 +248,7 @@ impl AtomGroup {
         if self.atoms.contains_key(key_or_name) {
             return self.atoms.get_mut(key_or_name);
         }
-        self.atoms
-            .values_mut()
-            .find(|a| a.name.trim() == key_or_name.trim())
+        self.atoms.values_mut().find(|a| a.name == key_or_name)
     }
 
     /// Sets an atom directly under `key`.
@@ -362,12 +358,23 @@ impl AtomGroup {
         for (key, group) in other.groups() {
             if let Some(existing) = self.groups.get_mut(key) {
                 existing.merge(group);
+            } else if let Some(existing) = self
+                .groups
+                .values_mut()
+                .find(|g| !g.name.is_empty() && g.name == group.name)
+            {
+                existing.merge(group);
             } else {
                 self.set_group(key, group.clone());
             }
         }
         for (key, atom) in other.atoms() {
             self.set_atom_direct(key, atom.clone());
+        }
+        for bond in &other.bonds {
+            if !self.bonds.contains(bond) {
+                self.bonds.push(bond.clone());
+            }
         }
     }
 
@@ -491,6 +498,12 @@ impl BitAnd for &AtomGroup {
             }
         }
 
+        for bond in &self.bonds {
+            if rhs.bonds.contains(bond) && !result.bonds.contains(bond) {
+                result.bonds.push(bond.clone());
+            }
+        }
+
         result
     }
 }
@@ -550,9 +563,13 @@ impl BitXor for &AtomGroup {
         let mut result = AtomGroup::new();
         result.path = self.path.clone();
 
-        // Subgroups
-        let mut all_group_keys: HashSet<String> = self.groups.keys().cloned().collect();
-        all_group_keys.extend(rhs.groups.keys().cloned());
+        // Subgroups (preserve order: self first, then rhs)
+        let mut all_group_keys: Vec<String> = self.groups.keys().cloned().collect();
+        for k in rhs.groups.keys() {
+            if !all_group_keys.contains(k) {
+                all_group_keys.push(k.clone());
+            }
+        }
 
         for key in all_group_keys {
             let in_self = self.get_group(&key);
@@ -575,9 +592,13 @@ impl BitXor for &AtomGroup {
             }
         }
 
-        // Atoms
-        let mut all_atom_keys: HashSet<String> = self.atoms.keys().cloned().collect();
-        all_atom_keys.extend(rhs.atoms.keys().cloned());
+        // Atoms (preserve order: self first, then rhs)
+        let mut all_atom_keys: Vec<String> = self.atoms.keys().cloned().collect();
+        for k in rhs.atoms.keys() {
+            if !all_atom_keys.contains(k) {
+                all_atom_keys.push(k.clone());
+            }
+        }
 
         for key in all_atom_keys {
             let in_self = self.get_atom(&key);
@@ -591,6 +612,18 @@ impl BitXor for &AtomGroup {
                     result.set_atom_direct(&key, a2.clone());
                 }
                 _ => {} // present in both -> omitted
+            }
+        }
+
+        // Bonds
+        for bond in &self.bonds {
+            if !rhs.bonds.contains(bond) && !result.bonds.contains(bond) {
+                result.bonds.push(bond.clone());
+            }
+        }
+        for bond in &rhs.bonds {
+            if !self.bonds.contains(bond) && !result.bonds.contains(bond) {
+                result.bonds.push(bond.clone());
             }
         }
 
@@ -751,6 +784,37 @@ mod tests {
     }
 
     #[test]
+    fn test_op_ior() {
+        let c1 = Atom::from_symbol("C").unwrap();
+        let h1 = Atom::from_symbol("H").unwrap();
+        let n1 = Atom::from_symbol("N").unwrap();
+
+        let mut group1 = AtomGroup::new();
+        let mut subgrp1 = AtomGroup::new();
+        subgrp1.set_atom("C1", c1.clone());
+        subgrp1.set_atom("H1", h1.clone());
+        subgrp1.set_atom("N1", n1);
+        group1.set_group("grp", subgrp1);
+
+        let mut group2 = AtomGroup::new();
+        let mut subgrp2 = AtomGroup::new();
+        subgrp2.set_atom("C1", c1);
+        subgrp2.set_atom("H1", h1);
+        group2.set_group("grp", subgrp2);
+
+        group1 |= &group2;
+
+        assert_eq!(group1.get_number_of_all_atoms(), 3);
+        assert_eq!(group1.get_number_of_atoms(), 0);
+        assert!(group1.has_groupkey("grp"));
+        assert_eq!(group1["grp"].get_number_of_all_atoms(), 3);
+        assert_eq!(group1["grp"].get_number_of_atoms(), 3);
+        assert!(group1["grp"].has_atom("C1"));
+        assert!(group1["grp"].has_atom("H1"));
+        assert!(group1["grp"].has_atom("N1"));
+    }
+
+    #[test]
     fn test_op_xor() {
         let c1 = Atom::from_symbol("C").unwrap();
         let h1 = Atom::from_symbol("H").unwrap();
@@ -780,6 +844,38 @@ mod tests {
         assert_eq!(group3["grp"].get_number_of_atoms(), 2);
         assert!(group3["grp"].has_atom("N1"));
         assert!(group3["grp"].has_atom("O1"));
+    }
+
+    #[test]
+    fn test_op_ixor() {
+        let c1 = Atom::from_symbol("C").unwrap();
+        let h1 = Atom::from_symbol("H").unwrap();
+        let n1 = Atom::from_symbol("N").unwrap();
+        let o1 = Atom::from_symbol("O").unwrap();
+
+        let mut group1 = AtomGroup::new();
+        let mut subgrp1 = AtomGroup::new();
+        subgrp1.set_atom("C1", c1.clone());
+        subgrp1.set_atom("H1", h1.clone());
+        subgrp1.set_atom("N1", n1);
+        group1.set_group("grp", subgrp1);
+
+        let mut group2 = AtomGroup::new();
+        let mut subgrp2 = AtomGroup::new();
+        subgrp2.set_atom("C1", c1);
+        subgrp2.set_atom("H1", h1);
+        subgrp2.set_atom("O1", o1);
+        group2.set_group("grp", subgrp2);
+
+        group1 ^= &group2;
+
+        assert_eq!(group1.get_number_of_all_atoms(), 2);
+        assert_eq!(group1.get_number_of_atoms(), 0);
+        assert!(group1.has_groupkey("grp"));
+        assert_eq!(group1["grp"].get_number_of_all_atoms(), 2);
+        assert_eq!(group1["grp"].get_number_of_atoms(), 2);
+        assert!(group1["grp"].has_atom("N1"));
+        assert!(group1["grp"].has_atom("O1"));
     }
 
     #[test]
@@ -840,6 +936,26 @@ mod tests {
             atomgroup3["grp3"]["Me"].get_atom("H3").unwrap().path,
             "/grp3/Me/H3"
         );
+    }
+
+    #[test]
+    fn test_path_copy() {
+        let atom10 = Atom::from_symbol("C").unwrap();
+        let mut atomgroup1 = AtomGroup::new();
+        atomgroup1.set_atom("C", atom10);
+
+        assert_eq!(atomgroup1.path(), "/");
+        assert_eq!(atomgroup1.get_atom("C").unwrap().path, "/C");
+
+        let grp_cp = atomgroup1.clone();
+        assert_eq!(grp_cp.path(), "/");
+        assert_eq!(grp_cp.get_atom("C").unwrap().path, "/C");
+
+        let mut atomgroup2 = AtomGroup::new();
+        atomgroup2.set_group("Me", atomgroup1);
+        let grp_cp2 = atomgroup2.clone();
+        assert_eq!(grp_cp2.path(), "/");
+        assert_eq!(grp_cp2["Me"].get_atom("C").unwrap().path, "/Me/C");
     }
 
     #[test]
@@ -922,5 +1038,18 @@ mod tests {
 
         let formula = group1.get_formula();
         assert_eq!(formula, "H2C1");
+    }
+
+    #[test]
+    fn test_ixor_operator() {
+        let mut ag1 = AtomGroup::new();
+        ag1.set_atom("C1", Atom::from_symbol("C").unwrap());
+        let mut ag2 = AtomGroup::new();
+        ag2.set_atom("N1", Atom::from_symbol("N").unwrap());
+
+        ag1 ^= &ag2;
+        assert_eq!(ag1.get_number_of_all_atoms(), 2);
+        assert!(ag1.has_atom("C1"));
+        assert!(ag1.has_atom("N1"));
     }
 }
