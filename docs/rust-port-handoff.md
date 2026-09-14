@@ -1,4 +1,4 @@
-# pdf-bridge Rust移植 — antigravity向け作業指示(Phase 1)
+# pdf-bridge Rust移植 — antigravity向け作業指示
 
 本ドキュメントは、`RUST_PORT_SPEC.md` に基づくRust移植作業を実装担当(antigravity)に委任するにあたっての、フェーズ単位の作業指示を記録する。Claude(このリポジトリでのレビュー担当)は各PRを本ドキュメント・`RUST_PORT_SPEC.md`・`SPEC.md` と突き合わせて仕様適合チェックを行う。
 
@@ -28,7 +28,7 @@ rust/
 
 単一クレート直下構成ではなく `crates/` 配下にコアクレートを置く構成を採用する。理由: §4のバインディング方針(C ABI用cdylib、PyO3用Pythonモジュール)は将来的にコアクレートとは別クレート(`crates/pdf-bridge-capi/`、`crates/pdf-bridge-py/` 等)として追加する想定のため、最初から `crates/` 構成にしておく。
 
-## Phase 1: 基盤・データモデルの1:1移植(今回のスコープ)
+## Phase 1: 基盤・データモデルの1:1移植(完了 2026-09-14)
 
 `rust/` に Cargo workspace を新設し、`RUST_PORT_SPEC.md` §2の対応表のうち以下のみを移植する。
 
@@ -90,4 +90,43 @@ Phase 1(PR#1〜3)はブランチ運用ルール違反に加え、以下のテス
 
 ## Phase 1完了後の流れ
 
-Phase 1の全PRがマージされ `rust-port` ブランチ上でビルド・テストが通った時点で、Claudeが `RUST_PORT_SPEC.md` §2対応表との突き合わせレビューを行う。問題なければ `rust-port` → `main` へのマージを提案し、Phase 2(フォーマットI/O)の指示を別途作成する。
+Phase 1は完了(全11件の是正事項を含め、Claudeレビュー通過。2026-09-14)。**ただし `main` へはまだマージしない** — Phase 2以降も完了するまで `rust-port` に積み上げていく方針とする(ユーザー判断、2026-09-14)。
+
+## Phase 2: フォーマットI/Oの1:1移植(今回のスコープ)
+
+`RUST_PORT_SPEC.md` §2の対応表のうち以下を移植する。**mmCIFはこのPhaseに含めない**(下記「mmCIFを除外する理由」参照)。
+
+| Python | Rust | 推奨PR分割 |
+| --- | --- | --- |
+| `format.py`(`Format`: `is_residue`/`is_chain`等の階層判定ヘルパー) | `format/mod.rs` | PR#4 |
+| `xyz.py` | `format/xyz.rs` | PR#4 |
+| `gro.py`(`SimpleGro`) | `format/gro.rs` | PR#4 |
+| `mol2.py`(`SimpleMol2`) | `format/mol2.rs` | PR#5 |
+| `amber_prmtop.py` | `format/amber_prmtop.rs` | PR#5 |
+| `biopdb.py`(`Pdb`) | `format/pdb.rs` | PR#6(613行と大きいので単独PR、必要なら内部で複数コミットに分けてよい) |
+
+`format.py`は`RUST_PORT_SPEC.md` §2の対応表に記載漏れがあるが、`xyz`/`gro`/`mol2`/`biopdb`等の実装が`Format.is_residue`/`is_chain`等の階層判定ヘルパーに依存しているため、Phase 2の対象に含める。
+
+**スコープ外(今回は着手しない)**: mmCIF(下記参照)、構造操作(select/aminoacid/ssbond/ionpair/neutralize/modeling/superposer系)、§3の新規機能、§4の多言語バインディング。
+
+### mmCIFを除外する理由
+
+現行 `tests/test_mmcif.py` は合成データ1件が生のキー・バリュー辞書(`_data`)にパースできることしか検証しておらず、`AtomGroup`への変換・複数モデル・altloc・insertion code・100万原子規模の往復保証など、`RUST_PORT_SPEC.md` §3.1が要求する堅牢化の受け入れ基準を検証できるテストになっていない。「既存テストを1:1移植」するだけでは§3.1の目的を満たさないため、mmCIFは受け入れ基準とテストフィクスチャを先に整備してから独立したPhaseとして着手する。antigravityはこのPhaseでmmCIFに触れないこと。
+
+### テストフィクスチャの扱い
+
+`proteindf_bridge/data/`(`1hls.pdb`, `2MGO.pdb`, `3i3zH.pdb`, `ACE_ALA_NME.xyz`, `sample.gro`)を参照する既存Pythonテストがある。Rust側でも同じフィクスチャファイルを使うこと(`rust/crates/pdf-bridge/tests/data/`等にコピーし、`env!("CARGO_MANIFEST_DIR")`基点の絶対パスで参照する。CWD依存にしないこと — Python版で過去にCWD依存のテストが壊れた実例があるため)。
+
+### 完了の定義(Definition of Done)
+
+1. 対応する `tests/test_*.py` を同粒度で `#[cfg(test)]` として移植し、全てpassすること。
+2. `biopdb.py`(613行)はテストが3件と実装規模に対して薄いため、テスト移植に加えて、上記フィクスチャ3種のPDBファイルをPython版・Rust版の両方でパースし、原子数・座標・チェインID構成が一致することを確認するテストを追加すること(既存テストの1:1移植だけでは不十分と判断)。
+3. `cargo clippy` / `cargo fmt` を通すこと。
+4. Phase 1と同様、内部実装の最適化は行わず、まず動作一致を優先すること。
+
+### やってはいけないこと
+
+- 既存Pythonコード(`proteindf_bridge/`)は変更しない。
+- mmCIFには触れない(上記参照)。
+- Phase 2の範囲外(構造操作・§3新規機能・§4バインディング)には手を出さない。
+- **ブランチ運用ルール(上記「運用ルール」節のMUST項目)を厳守すること**: `feature/phase2-prM` ブランチで作業し、`rust-port`へは自分でマージせず、レビュー承認を待つ。Phase 1で一度違反があったため、Phase 2では特に徹底すること。
