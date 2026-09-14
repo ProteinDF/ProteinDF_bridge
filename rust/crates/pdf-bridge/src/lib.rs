@@ -16,12 +16,18 @@
 // You should have received a copy of the GNU General Public License
 // along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
+pub mod atom;
+pub mod atom_group;
+pub mod bond;
 pub mod error;
 pub mod matrix;
 pub mod periodic_table;
 pub mod position;
 pub mod vector;
 
+pub use atom::Atom;
+pub use atom_group::{AtomGroup, BondRecord, SelectRange, Selector};
+pub use bond::Bond;
 pub use error::{BridgeError, Result};
 pub use matrix::{identity_matrix, Matrix, SymmetricMatrix};
 pub use periodic_table::PeriodicTable;

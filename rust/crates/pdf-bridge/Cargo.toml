@@ -8,3 +8,4 @@ description = "Core library for ProteinDF bridge in Rust"
 
 [dependencies]
 thiserror = "2.0"
+indexmap = "2.7"
