@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "crates/pdf-bridge",
+]
+resolver = "2"
