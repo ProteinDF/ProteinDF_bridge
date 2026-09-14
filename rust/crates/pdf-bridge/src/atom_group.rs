@@ -232,6 +232,21 @@ impl AtomGroup {
         self.atoms.values_mut().find(|a| a.name == key_or_name)
     }
 
+    /// Retrieves an atom by hierarchical path (e.g. "/group_A/group_B/C3" or "C1").
+    pub fn get_atom_by_path(&self, path: &str) -> Option<&Atom> {
+        let trimmed = path.trim_start_matches('/');
+        let parts: Vec<&str> = trimmed.splitn(2, '/').collect();
+        if parts.len() == 1 {
+            self.get_atom(parts[0])
+        } else {
+            let grp_key = parts[0];
+            let rest = parts[1];
+            self.groups
+                .get(grp_key)
+                .and_then(|g| g.get_atom_by_path(rest))
+        }
+    }
+
     /// Sets an atom directly under `key`.
     fn set_atom_direct(&mut self, key: &str, mut atom: Atom) {
         atom.path = format!("{}{}", self.path, key);
@@ -459,9 +474,27 @@ impl AtomGroup {
 
     /// Adds a bond between two atoms.
     pub fn add_bond(&mut self, atom1: &Atom, atom2: &Atom, order: usize) {
+        let p1 = if atom1.path.is_empty() {
+            self.atoms
+                .iter()
+                .find(|(_, a)| a.name == atom1.name)
+                .map(|(k, _)| format!("{}{}", self.path, k))
+                .unwrap_or_else(|| atom1.name.clone())
+        } else {
+            atom1.path.clone()
+        };
+        let p2 = if atom2.path.is_empty() {
+            self.atoms
+                .iter()
+                .find(|(_, a)| a.name == atom2.name)
+                .map(|(k, _)| format!("{}{}", self.path, k))
+                .unwrap_or_else(|| atom2.name.clone())
+        } else {
+            atom2.path.clone()
+        };
         self.bonds.push(BondRecord {
-            atom1_path: atom1.path.clone(),
-            atom2_path: atom2.path.clone(),
+            atom1_path: p1,
+            atom2_path: p2,
             order,
         });
     }

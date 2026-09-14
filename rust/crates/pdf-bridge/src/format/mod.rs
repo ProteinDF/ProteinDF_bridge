@@ -16,10 +16,14 @@
 // You should have received a copy of the GNU General Public License
 // along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
+pub mod amber_prmtop;
 pub mod gro;
+pub mod mol2;
 pub mod xyz;
 
+pub use amber_prmtop::{AmberPrmtop, AMBER_CHARGE_FACTOR};
 pub use gro::SimpleGro;
+pub use mol2::SimpleMol2;
 pub use xyz::Xyz;
 
 use crate::atom_group::AtomGroup;
