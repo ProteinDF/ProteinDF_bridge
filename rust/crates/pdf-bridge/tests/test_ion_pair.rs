@@ -216,3 +216,61 @@ fn test_distance_threshold_boundary() {
     assert_eq!(pairs[0].anion_path, "/A/2/");
     assert_eq!(pairs[0].cation_path, "/A/1/");
 }
+
+#[test]
+fn test_missing_atom_safe_skip() {
+    // Unlike Python which raises KeyError on incomplete residues,
+    // Rust safely skips incomplete residues without crashing the whole analysis.
+    let mut protein = AtomGroup::new();
+    let mut chain_a = AtomGroup::new();
+
+    // 1. Incomplete GLU: missing OE2 (only has CD and OE1)
+    let mut incomplete_glu = AtomGroup::new();
+    incomplete_glu.name = "GLU".to_string();
+    incomplete_glu.set_atom(
+        "CD",
+        Atom::new_with_pos("C", Position::new(0.0, 0.0, 0.0)).unwrap(),
+    );
+    incomplete_glu.set_atom(
+        "OE1",
+        Atom::new_with_pos("O", Position::new(1.0, 0.0, 0.0)).unwrap(),
+    );
+    // Note: OE2 is deliberately missing
+    chain_a.set_group("1", incomplete_glu);
+
+    // 2. Complete ASP: CG, OD1, OD2
+    let mut asp = AtomGroup::new();
+    asp.name = "ASP".to_string();
+    asp.set_atom(
+        "CG",
+        Atom::new_with_pos("C", Position::new(0.0, 0.0, 0.0)).unwrap(),
+    );
+    asp.set_atom(
+        "OD1",
+        Atom::new_with_pos("O", Position::new(1.0, 0.0, 0.0)).unwrap(),
+    );
+    asp.set_atom(
+        "OD2",
+        Atom::new_with_pos("O", Position::new(0.0, 1.0, 0.0)).unwrap(),
+    );
+    chain_a.set_group("2", asp);
+
+    // 3. Complete LYS: NZ
+    let mut lys = AtomGroup::new();
+    lys.name = "LYS".to_string();
+    lys.set_atom(
+        "NZ",
+        Atom::new_with_pos("N", Position::new(0.5, 0.5, 0.0)).unwrap(),
+    );
+    chain_a.set_group("3", lys);
+
+    protein.set_group("A", chain_a);
+
+    // Should not crash, and should detect the valid ASP-LYS pair while skipping incomplete GLU
+    let pairs = IonPair::find_ion_pairs(&protein);
+    assert_eq!(pairs.len(), 1);
+    assert_eq!(pairs[0].anion_path, "/A/2/");
+    assert_eq!(pairs[0].anion_type, "ASP");
+    assert_eq!(pairs[0].cation_path, "/A/3/");
+    assert_eq!(pairs[0].cation_type, "LYS");
+}

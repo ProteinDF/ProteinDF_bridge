@@ -106,6 +106,16 @@ impl IonPair {
         detector.get_ion_pairs()
     }
 
+    /// Extracts anion and cation interaction sites from the structure.
+    ///
+    /// NOTE on divergence from Python:
+    /// In the original Python implementation (`ionpair.py`), missing expected atoms
+    /// (e.g., missing `OE2` in GLU or `CZ` in ARG) raises a `KeyError` during dictionary
+    /// lookup, which crashes the entire ion-pair analysis.
+    /// In this Rust implementation, `get_center_*` functions return `Option<Position>`.
+    /// When any required atom is missing, the incomplete residue site is safely skipped
+    /// (`None`), allowing the analysis of other intact residues in the model to proceed
+    /// without crashing.
     fn get_ion_list(&self) -> (ResidueSites, ResidueSites) {
         let mut anion_list: ResidueSites = Vec::new();
         let mut cation_list: ResidueSites = Vec::new();
@@ -174,10 +184,12 @@ impl IonPair {
         (anion_list, cation_list)
     }
 
+    /// Returns the position of N if present; returns None if missing.
     fn get_center_nterm(res: &AtomGroup) -> Option<Position> {
         res.get_atom("N").map(|a| a.xyz)
     }
 
+    /// Computes the geometric center of C, O, OXT. Returns None if any atom is missing.
     fn get_center_cterm(res: &AtomGroup) -> Option<Position> {
         let c = res.get_atom("C")?;
         let o = res.get_atom("O")?;
@@ -185,6 +197,7 @@ impl IonPair {
         Some((c.xyz + o.xyz + oxt.xyz) / 3.0)
     }
 
+    /// Computes the geometric center of CD, OE1, OE2. Returns None if any atom is missing.
     fn get_center_glu(res: &AtomGroup) -> Option<Position> {
         let cd = res.get_atom("CD")?;
         let oe1 = res.get_atom("OE1")?;
@@ -192,6 +205,7 @@ impl IonPair {
         Some((cd.xyz + oe1.xyz + oe2.xyz) / 3.0)
     }
 
+    /// Computes the geometric center of CG, OD1, OD2. Returns None if any atom is missing.
     fn get_center_asp(res: &AtomGroup) -> Option<Position> {
         let cg = res.get_atom("CG")?;
         let od1 = res.get_atom("OD1")?;
@@ -199,10 +213,13 @@ impl IonPair {
         Some((cg.xyz + od1.xyz + od2.xyz) / 3.0)
     }
 
+    /// Returns the position of NZ if present; returns None if missing.
     fn get_center_lys(res: &AtomGroup) -> Option<Position> {
         res.get_atom("NZ").map(|a| a.xyz)
     }
 
+    /// Computes ARG site position (case 0: center of NH1, NH2, CZ; case 1: NH1; case 2: NH2).
+    /// Returns None if any required atom is missing.
     fn get_center_arg(res: &AtomGroup, case: usize) -> Option<Position> {
         match case {
             0 => {
