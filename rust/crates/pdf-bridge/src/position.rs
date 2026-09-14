@@ -156,24 +156,21 @@ impl FromStr for Position {
     type Err = BridgeError;
 
     /// Parses a string of numbers (space- or comma-separated, e.g. "1.0 2.0 -3.0" or "1.0, 2.0, -3.0").
+    /// Missing coordinates default to 0.0 matching Python behavior.
     fn from_str(s: &str) -> Result<Self> {
         let cleaned = s.replace(',', " ");
         let tokens: Vec<&str> = cleaned.split_whitespace().collect();
-        if tokens.len() < 3 {
-            return Err(BridgeError::input_error(
-                s,
-                "expected at least 3 coordinates",
-            ));
-        }
-        let x = tokens[0].parse::<f64>().map_err(|_| {
-            BridgeError::input_error(tokens[0], "failed to parse coordinate as f64")
-        })?;
-        let y = tokens[1].parse::<f64>().map_err(|_| {
-            BridgeError::input_error(tokens[1], "failed to parse coordinate as f64")
-        })?;
-        let z = tokens[2].parse::<f64>().map_err(|_| {
-            BridgeError::input_error(tokens[2], "failed to parse coordinate as f64")
-        })?;
+        let parse_coord = |opt: Option<&&str>| -> Result<f64> {
+            match opt {
+                Some(tok) => tok.parse::<f64>().map_err(|_| {
+                    BridgeError::input_error(*tok, "failed to parse coordinate as f64")
+                }),
+                None => Ok(0.0),
+            }
+        };
+        let x = parse_coord(tokens.first())?;
+        let y = parse_coord(tokens.get(1))?;
+        let z = parse_coord(tokens.get(2))?;
 
         Ok(Position::new(x, y, z))
     }
@@ -379,6 +376,11 @@ mod tests {
         assert!((pos2.x - 1.0).abs() < 1e-10);
         assert!((pos2.y - 2.0).abs() < 1e-10);
         assert!((pos2.z - (-3.0)).abs() < 1e-10);
+
+        let pos3: Position = "1.0 2.0".parse().unwrap();
+        assert!((pos3.x - 1.0).abs() < 1e-10);
+        assert!((pos3.y - 2.0).abs() < 1e-10);
+        assert!((pos3.z - 0.0).abs() < 1e-10);
     }
 
     #[test]
