@@ -161,7 +161,9 @@ Phase 1は完了(全11件の是正事項を含め、Claudeレビュー通過。2
 
 Phase 1の`atomgroup.py`移植で他にも漏れているメソッドがある: `formula`(`get_formula`とは別)、`get_atom_keys`、`get_family`、`get_xyz`、`pickup_atoms`、`restructure`、`assign_charges`。`get_raw_data`/`set_by_dict_data`はbrd往復フォーマット用として後続フェーズで対応する想定なので今は保留でよい。上記以外は、今後のPRで依存が発生した時点で都度`atom_group.rs`に追加すること(今まとめて移植する必要はない)。
 
-### `add_bond`/`get_bond_list`の設計差異(2026-09-14、要検証・PR#6前)
+### `add_bond`/`get_bond_list`の設計差異(2026-09-14、修正完了)
+
+**対応済み。** biopdb移植(PR#6)の事前検証でPython版と異なる結果を生む実シナリオ(SSBOND処理: `model.add_bond`後に`root.set_group`で再配置すると結合パスが古いまま取り残される)が実際に確認されたため、`get_common_path`/`get_family`(下方探索のみ、Rustの所有権木に親への逆参照がないための意図的な範囲限定)を追加し、`add_bond`が共通祖先グループへ相対パスでルーティングするよう修正した。実際のバグシナリオを再現する回帰テストで検証済み。
 
 PR#4是正で`get_number_of_bonds`/`get_bond_list`を追加した際に判明。Python版`AtomGroup.add_bond`(`_add_bond_normalize`)は、2原子の**共通祖先グループ**(`get_family(common_path)`)を探し、そこに**相対パス**(`self.path`からの差分)で結合情報を格納する。`get_bond_list()`はこの相対パスに`self.path`を連結して絶対パスを復元する再帰処理になっている。
 
