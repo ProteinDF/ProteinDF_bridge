@@ -484,6 +484,13 @@ class SymmetricMatrix(Matrix):
             row, col = col, row
         Matrix.set(self, row, col, value)
 
+    def add(self, row, col, value):
+        row = int(row)
+        col = int(col)
+        if row < col:
+            row, col = col, row
+        Matrix.add(self, row, col, value)
+
     def eig(self):
         """
         return the eigenvalues and eigenvectors.
