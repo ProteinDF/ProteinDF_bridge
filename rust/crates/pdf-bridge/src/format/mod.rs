@@ -28,17 +28,14 @@ use crate::atom_group::AtomGroup;
 pub struct Format;
 
 impl Format {
-    /// Checks whether an AtomGroup represents a residue (no subgroups, >= 1 atom).
+    /// Checks whether an AtomGroup represents a residue (no subgroups; atom count does not affect validity in Python).
     pub fn is_residue(res: &AtomGroup) -> bool {
-        res.get_number_of_groups() == 0 && res.get_number_of_atoms() > 0
+        res.get_number_of_groups() == 0
     }
 
     /// Checks whether an AtomGroup represents a chain (no direct atoms, all subgroups are residues).
     pub fn is_chain(chain: &AtomGroup) -> bool {
         if chain.get_number_of_atoms() != 0 {
-            return false;
-        }
-        if chain.get_number_of_groups() == 0 {
             return false;
         }
         chain.groups().all(|(_, res)| Self::is_residue(res))
@@ -49,9 +46,6 @@ impl Format {
         if model.get_number_of_atoms() != 0 {
             return false;
         }
-        if model.get_number_of_groups() == 0 {
-            return false;
-        }
         model.groups().all(|(_, chain)| Self::is_chain(chain))
     }
 
@@ -59,9 +53,6 @@ impl Format {
     pub fn is_models(models: &AtomGroup) -> bool {
         if models.get_number_of_atoms() != 0 {
             return false;
-        }
-        if models.get_number_of_groups() == 0 {
-            return true;
         }
         models.groups().all(|(_, model)| Self::is_protein(model))
     }
@@ -71,6 +62,16 @@ impl Format {
 mod tests {
     use super::*;
     use crate::atom::Atom;
+
+    #[test]
+    fn test_format_empty() {
+        let empty = AtomGroup::new();
+        // Empty group has no subgroups and no atoms -> matches residue, chain, protein, and models in Python
+        assert!(Format::is_residue(&empty));
+        assert!(Format::is_chain(&empty));
+        assert!(Format::is_protein(&empty));
+        assert!(Format::is_models(&empty));
+    }
 
     #[test]
     fn test_format_hierarchy() {

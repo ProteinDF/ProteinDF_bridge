@@ -26,6 +26,10 @@ use crate::error::{BridgeError, Result};
 use crate::periodic_table::PeriodicTable;
 use crate::position::Position;
 
+pub const MIN_RECORD_LEN: usize = 44;
+pub const NUMBER_WRAP: usize = 10000;
+pub const BOX_VECTORS_PAD_LEN: usize = 6;
+
 /// A single atom record in GROMACS .gro format.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GroAtom {
@@ -99,31 +103,38 @@ impl SimpleGro {
                 BridgeError::input_error("GRO", format!("unexpected EOF at atom {}", i + 1))
             })?;
 
-            if line.len() < 44 {
+            let chars: Vec<char> = line.chars().collect();
+            if chars.len() < MIN_RECORD_LEN {
                 return Err(BridgeError::input_error(
                     line,
                     format!("line {} too short for GRO record", i + 3),
                 ));
             }
 
-            let res_num = line[0..5.min(line.len())]
-                .trim()
-                .parse::<usize>()
-                .unwrap_or(0);
-            let res_name = line[5..10.min(line.len())].trim().to_string();
-            let atom_name = line[10..15.min(line.len())].trim().to_string();
-            let atom_num = line[15..20.min(line.len())]
-                .trim()
-                .parse::<usize>()
-                .unwrap_or(0);
+            let res_num_str = get_char_slice(&chars, 0, 5);
+            let res_num = res_num_str.trim().parse::<usize>().map_err(|_| {
+                BridgeError::input_error(
+                    &res_num_str,
+                    format!("invalid residue number at line {}", i + 3),
+                )
+            })?;
+            let res_name = get_char_slice(&chars, 5, 10).trim().to_string();
+            let atom_name = get_char_slice(&chars, 10, 15).trim().to_string();
+            let atom_num_str = get_char_slice(&chars, 15, 20);
+            let atom_num = atom_num_str.trim().parse::<usize>().map_err(|_| {
+                BridgeError::input_error(
+                    &atom_num_str,
+                    format!("invalid atom number at line {}", i + 3),
+                )
+            })?;
 
-            let px = parse_fixed_float(line, 20, 28)?;
-            let py = parse_fixed_float(line, 28, 36)?;
-            let pz = parse_fixed_float(line, 36, 44)?;
+            let px = parse_fixed_float(&chars, 20, 28)?;
+            let py = parse_fixed_float(&chars, 28, 36)?;
+            let pz = parse_fixed_float(&chars, 36, 44)?;
 
-            let vx = parse_fixed_float(line, 44, 52).unwrap_or(0.0);
-            let vy = parse_fixed_float(line, 52, 60).unwrap_or(0.0);
-            let vz = parse_fixed_float(line, 60, 68).unwrap_or(0.0);
+            let vx = parse_fixed_float(&chars, 44, 52).unwrap_or(0.0);
+            let vy = parse_fixed_float(&chars, 52, 60).unwrap_or(0.0);
+            let vz = parse_fixed_float(&chars, 60, 68).unwrap_or(0.0);
 
             self.atoms.push(GroAtom {
                 residue_number: res_num,
@@ -141,12 +152,12 @@ impl SimpleGro {
                 .split_whitespace()
                 .filter_map(|w| w.parse::<f64>().ok())
                 .collect();
-            while vectors.len() < 3 {
+            while vectors.len() < BOX_VECTORS_PAD_LEN {
                 vectors.push(0.0);
             }
             self.box_vectors = vectors;
         } else {
-            self.box_vectors = vec![0.0, 0.0, 0.0];
+            self.box_vectors = vec![0.0; BOX_VECTORS_PAD_LEN];
         }
 
         Ok(())
@@ -184,11 +195,7 @@ impl SimpleGro {
             atom.set_symbol(&symbol)?;
 
             // Convert nm to Angstroms (x 10.0)
-            atom.xyz = Position::new(
-                atom_data.position.x * 10.0,
-                atom_data.position.y * 10.0,
-                atom_data.position.z * 10.0,
-            );
+            atom.xyz = atom_data.position * 10.0;
 
             if let Some(ref mut ag) = current_ag {
                 ag.set_atom(&atom_data.atom_number.to_string(), atom);
@@ -226,16 +233,14 @@ impl SimpleGro {
                         serial += 1;
 
                         // Angstroms -> nm (x 0.1)
-                        let px = atom.xyz.x * 0.1;
-                        let py = atom.xyz.y * 0.1;
-                        let pz = atom.xyz.z * 0.1;
+                        let gro_pos = atom.xyz * 0.1;
 
                         self.atoms.push(GroAtom {
                             residue_number,
                             residue_name: residue_name.clone(),
                             atom_name,
                             atom_number,
-                            position: Position::new(px, py, pz),
+                            position: gro_pos,
                             velocity: [0.0, 0.0, 0.0],
                         });
                     }
@@ -244,25 +249,22 @@ impl SimpleGro {
         }
 
         self.num_of_atoms = self.atoms.len();
-        self.box_vectors = vec![0.0, 0.0, 0.0];
+        let (pos1, pos2) = atomgroup.r#box();
+        self.box_vectors = vec![
+            (pos2.x - pos1.x).abs(),
+            (pos2.y - pos1.y).abs(),
+            (pos2.z - pos1.z).abs(),
+        ];
     }
 
     /// Generates the GRO format string representation.
     pub fn get_text(&self) -> String {
         let mut output = format!("{}\n{:>5}\n", self.title, self.atoms.len());
         for atom in &self.atoms {
-            let res_num = atom.residue_number % 100000;
-            let atom_num = atom.atom_number % 100000;
-            let res_name = if atom.residue_name.len() > 5 {
-                &atom.residue_name[0..5]
-            } else {
-                &atom.residue_name
-            };
-            let atom_name = if atom.atom_name.len() > 5 {
-                &atom.atom_name[0..5]
-            } else {
-                &atom.atom_name
-            };
+            let res_num = atom.residue_number % NUMBER_WRAP;
+            let atom_num = atom.atom_number % NUMBER_WRAP;
+            let res_name = truncate_chars(&atom.residue_name, 5);
+            let atom_name = truncate_chars(&atom.atom_name, 5);
 
             output.push_str(&format!(
                 "{:>5}{:<5}{:>5}{:>5}{:8.3}{:8.3}{:8.3}{:8.4}{:8.4}{:8.4}\n",
@@ -299,17 +301,30 @@ impl fmt::Display for SimpleGro {
     }
 }
 
-fn parse_fixed_float(line: &str, start: usize, end: usize) -> Result<f64> {
-    if start >= line.len() {
+fn get_char_slice(chars: &[char], start: usize, end: usize) -> String {
+    if start >= chars.len() {
+        return String::new();
+    }
+    let actual_end = end.min(chars.len());
+    chars[start..actual_end].iter().collect()
+}
+
+fn truncate_chars(s: &str, max_len: usize) -> String {
+    s.chars().take(max_len).collect()
+}
+
+fn parse_fixed_float(chars: &[char], start: usize, end: usize) -> Result<f64> {
+    if start >= chars.len() {
         return Ok(0.0);
     }
-    let actual_end = end.min(line.len());
-    let slice = line[start..actual_end].trim();
-    if slice.is_empty() {
+    let actual_end = end.min(chars.len());
+    let slice: String = chars[start..actual_end].iter().collect();
+    let trimmed = slice.trim();
+    if trimmed.is_empty() {
         return Ok(0.0);
     }
-    slice.parse::<f64>().map_err(|_| {
-        BridgeError::input_error(slice, "failed to parse coordinate/velocity in GRO line")
+    trimmed.parse::<f64>().map_err(|_| {
+        BridgeError::input_error(trimmed, "failed to parse coordinate/velocity in GRO line")
     })
 }
 
@@ -366,5 +381,76 @@ mod tests {
         assert!((ow1.xyz.x - 1.26).abs() < 1e-4);
         assert!((ow1.xyz.y - 16.24).abs() < 1e-4);
         assert!((ow1.xyz.z - 16.79).abs() < 1e-4);
+
+        // Verify box vectors padded to 6 elements
+        assert_eq!(gro.box_vectors.len(), 6);
+        assert!((gro.box_vectors[0] - 1.82060).abs() < 1e-5);
+        assert!((gro.box_vectors[1] - 1.82060).abs() < 1e-5);
+        assert!((gro.box_vectors[2] - 1.82060).abs() < 1e-5);
+        assert_eq!(gro.box_vectors[3], 0.0);
+        assert_eq!(gro.box_vectors[4], 0.0);
+        assert_eq!(gro.box_vectors[5], 0.0);
+    }
+
+    #[test]
+    fn test_gro_non_ascii() {
+        // Non-ASCII characters in residue/atom names must not panic
+        let gro_text = format!(
+            "{}\n{:>5}\n{:>5}{:<5}{:>5}{:>5}{:8.3}{:8.3}{:8.3}\n 1.0 1.0 1.0\n",
+            "Title with 日本語", 1, 1, "水分子", "酸素1", 1, 0.1, 0.2, 0.3
+        );
+        let mut gro = SimpleGro::new();
+        let res = gro.parse_str(&gro_text);
+        assert!(res.is_ok(), "parse failed: {:?}", res.err());
+        assert_eq!(gro.atoms.len(), 1);
+        assert_eq!(gro.atoms[0].residue_name, "水分子");
+        assert_eq!(gro.atoms[0].atom_name, "酸素1");
+    }
+
+    #[test]
+    fn test_gro_invalid_number_error() {
+        let gro_text = "\
+Test
+    1
+*****WATER  OW1    1   0.126   1.624   1.679
+   1.0 1.0 1.0
+";
+        let mut gro = SimpleGro::new();
+        let res = gro.parse_str(gro_text);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_gro_number_wrap_and_box() {
+        let mut ag = AtomGroup::with_name("test_wrap");
+        let mut model = AtomGroup::new();
+        let mut chain = AtomGroup::new();
+        let mut res = AtomGroup::with_name("ALA");
+        res.set_atom(
+            "1",
+            Atom::new_with_pos("C", Position::new(0.0, 0.0, 0.0)).unwrap(),
+        );
+        res.set_atom(
+            "2",
+            Atom::new_with_pos("C", Position::new(10.0, 20.0, 30.0)).unwrap(),
+        );
+        chain.set_group("1", res);
+        model.set_group("A", chain);
+        ag.set_group("1", model);
+
+        let mut gro = SimpleGro::new();
+        gro.set_by_atomgroup(&ag);
+
+        assert_eq!(gro.box_vectors.len(), 3);
+        assert!((gro.box_vectors[0] - 10.0).abs() < 1e-5);
+        assert!((gro.box_vectors[1] - 20.0).abs() < 1e-5);
+        assert!((gro.box_vectors[2] - 30.0).abs() < 1e-5);
+
+        // Check number wrapping at 10000
+        gro.atoms[0].residue_number = 10005;
+        gro.atoms[0].atom_number = 20003;
+        let text = gro.get_text();
+        assert!(text.contains("    5"));
+        assert!(text.contains("    3"));
     }
 }
