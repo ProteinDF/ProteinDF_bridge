@@ -472,7 +472,76 @@ impl AtomGroup {
         answer
     }
 
-    /// Adds a bond between two atoms.
+    /// Computes the longest common directory path ending with '/' between two paths.
+    pub fn get_common_path(path1: &str, path2: &str) -> String {
+        let common_prefix: String = path1
+            .chars()
+            .zip(path2.chars())
+            .take_while(|(c1, c2)| c1 == c2)
+            .map(|(c, _)| c)
+            .collect();
+
+        let mut common = if common_prefix.ends_with('/') {
+            common_prefix
+        } else if let Some(last_slash) = common_prefix.rfind('/') {
+            common_prefix[..=last_slash].to_string()
+        } else {
+            String::from("/")
+        };
+
+        if !common.starts_with('/') {
+            common.insert(0, '/');
+        }
+        if !common.ends_with('/') {
+            common.push('/');
+        }
+        common
+    }
+
+    /// Returns a reference to the descendant group matching `query_path`.
+    ///
+    /// Note: Unlike Python's `get_family` which traverses upwards via `self.parent`,
+    /// this Rust implementation only searches downwards within `self`'s subtree
+    /// because Rust's tree is ownership-based without parent back-references.
+    pub fn get_family(&self, query_path: &str) -> Option<&AtomGroup> {
+        let q = if !query_path.ends_with('/') {
+            format!("{}/", query_path)
+        } else {
+            query_path.to_string()
+        };
+        if self.path == q {
+            return Some(self);
+        }
+        for group in self.groups.values() {
+            if let Some(found) = group.get_family(&q) {
+                return Some(found);
+            }
+        }
+        None
+    }
+
+    /// Returns a mutable reference to the descendant group matching `query_path`.
+    ///
+    /// Note: Downward search only, matching `get_family`.
+    pub fn get_family_mut(&mut self, query_path: &str) -> Option<&mut AtomGroup> {
+        let q = if !query_path.ends_with('/') {
+            format!("{}/", query_path)
+        } else {
+            query_path.to_string()
+        };
+        if self.path == q {
+            return Some(self);
+        }
+        for group in self.groups.values_mut() {
+            if let Some(found) = group.get_family_mut(&q) {
+                return Some(found);
+            }
+        }
+        None
+    }
+
+    /// Adds a bond between two atoms, delegating storage to the nearest common ancestor group.
+    /// Bonds are stored with relative paths with respect to the common ancestor group.
     pub fn add_bond(&mut self, atom1: &Atom, atom2: &Atom, order: usize) {
         let p1 = if atom1.path.is_empty() {
             self.atoms
@@ -492,9 +561,51 @@ impl AtomGroup {
         } else {
             atom2.path.clone()
         };
+
+        let common_path = Self::get_common_path(&p1, &p2);
+
+        if self.path == common_path {
+            self.add_bond_direct(&p1, &p2, order);
+            return;
+        }
+
+        let mut found = false;
+        for group in self.groups.values_mut() {
+            if let Some(family) = group.get_family_mut(&common_path) {
+                family.add_bond_direct(&p1, &p2, order);
+                found = true;
+                break;
+            }
+        }
+
+        if !found {
+            self.add_bond_direct(&p1, &p2, order);
+        }
+    }
+
+    /// Directly records a bond with relative paths stripped of `self.path` prefix.
+    fn add_bond_direct(&mut self, p1: &str, p2: &str, order: usize) {
+        let common1 = Self::get_common_path(&self.path, p1);
+        let rel_p1 = if p1.starts_with(&common1) {
+            &p1[common1.len()..]
+        } else if p1.starts_with(&self.path) {
+            &p1[self.path.len()..]
+        } else {
+            p1.trim_start_matches('/')
+        };
+
+        let common2 = Self::get_common_path(&self.path, p2);
+        let rel_p2 = if p2.starts_with(&common2) {
+            &p2[common2.len()..]
+        } else if p2.starts_with(&self.path) {
+            &p2[self.path.len()..]
+        } else {
+            p2.trim_start_matches('/')
+        };
+
         self.bonds.push(BondRecord {
-            atom1_path: p1,
-            atom2_path: p2,
+            atom1_path: rel_p1.to_string(),
+            atom2_path: rel_p2.to_string(),
             order,
         });
     }
@@ -1187,5 +1298,115 @@ mod tests {
         let bond_list = ag.get_bond_list();
         assert_eq!(bond_list.len(), 1);
         assert_eq!(bond_list[0].order, 2);
+    }
+
+    #[test]
+    fn test_get_common_path() {
+        assert_eq!(AtomGroup::get_common_path("/A/1/1_SG", "/A/6/6_SG"), "/A/");
+        assert_eq!(AtomGroup::get_common_path("/A/1/1_SG", "/B/2/2_SG"), "/");
+        assert_eq!(
+            AtomGroup::get_common_path("/model_1/A/1/1_SG", "/model_1/A/6/6_SG"),
+            "/model_1/A/"
+        );
+        assert_eq!(
+            AtomGroup::get_common_path("/model_1/A/1/1_SG", "/model_1/B/2/2_SG"),
+            "/model_1/"
+        );
+    }
+
+    #[test]
+    fn test_hierarchical_bond_routing_and_reparent() {
+        // Setup model with chain A and two residues (1 and 6)
+        let mut model = AtomGroup::new();
+        let mut chain_a = AtomGroup::new();
+        let mut res1 = AtomGroup::new();
+        let mut res6 = AtomGroup::new();
+
+        let mut sg1 = Atom::from_symbol("S").unwrap();
+        sg1.name = "SG".to_string();
+        res1.set_atom("1_SG", sg1);
+
+        let mut sg2 = Atom::from_symbol("S").unwrap();
+        sg2.name = "SG".to_string();
+        res6.set_atom("6_SG", sg2);
+
+        chain_a.set_group("1", res1);
+        chain_a.set_group("6", res6);
+        model.set_group("A", chain_a);
+
+        // Retrieve atoms through model to get current paths (/A/1/1_SG and /A/6/6_SG)
+        let sg1_ref = model.get_atom_by_path("/A/1/1_SG").unwrap().clone();
+        let sg2_ref = model.get_atom_by_path("/A/6/6_SG").unwrap().clone();
+
+        // Add bond at model level (should route to chain A as nearest common ancestor)
+        model.add_bond(&sg1_ref, &sg2_ref, 1);
+
+        // Check that bond was routed into chain A
+        let chain_a_grp = model.get_group("A").unwrap();
+        assert_eq!(chain_a_grp.get_number_of_bonds(), 1);
+        assert_eq!(model.get_number_of_bonds(), 0);
+
+        // Now reparent model into root (root.set_group("model_1", model))
+        let mut root = AtomGroup::new();
+        root.set_group("model_1", model);
+
+        // Collect bond list from root
+        let bonds = root.get_bond_list();
+        assert_eq!(bonds.len(), 1);
+        assert_eq!(bonds[0].atom1_path, "/model_1/A/1/1_SG");
+        assert_eq!(bonds[0].atom2_path, "/model_1/A/6/6_SG");
+        assert_eq!(bonds[0].order, 1);
+
+        // Verify that root can resolve both bonded atoms by their paths
+        let resolved_sg1 = root.get_atom_by_path(&bonds[0].atom1_path);
+        let resolved_sg2 = root.get_atom_by_path(&bonds[0].atom2_path);
+        assert!(resolved_sg1.is_some());
+        assert!(resolved_sg2.is_some());
+        assert_eq!(resolved_sg1.unwrap().name, "SG");
+        assert_eq!(resolved_sg2.unwrap().name, "SG");
+    }
+
+    #[test]
+    fn test_inter_chain_bond_routing_and_reparent() {
+        // Setup model with chain A and chain B
+        let mut model = AtomGroup::new();
+        let mut chain_a = AtomGroup::new();
+        let mut chain_b = AtomGroup::new();
+        let mut res_a = AtomGroup::new();
+        let mut res_b = AtomGroup::new();
+
+        let mut sg_a = Atom::from_symbol("S").unwrap();
+        sg_a.name = "SG".to_string();
+        res_a.set_atom("1_SG", sg_a);
+
+        let mut sg_b = Atom::from_symbol("S").unwrap();
+        sg_b.name = "SG".to_string();
+        res_b.set_atom("2_SG", sg_b);
+
+        chain_a.set_group("1", res_a);
+        chain_b.set_group("2", res_b);
+        model.set_group("A", chain_a);
+        model.set_group("B", chain_b);
+
+        let sg_a_ref = model.get_atom_by_path("/A/1/1_SG").unwrap().clone();
+        let sg_b_ref = model.get_atom_by_path("/B/2/2_SG").unwrap().clone();
+
+        // Add inter-chain bond at model level (nearest common ancestor is model itself)
+        model.add_bond(&sg_a_ref, &sg_b_ref, 1);
+        assert_eq!(model.get_number_of_bonds(), 1);
+
+        // Reparent into root
+        let mut root = AtomGroup::new();
+        root.set_group("model_1", model);
+
+        let bonds = root.get_bond_list();
+        assert_eq!(bonds.len(), 1);
+        assert_eq!(bonds[0].atom1_path, "/model_1/A/1/1_SG");
+        assert_eq!(bonds[0].atom2_path, "/model_1/B/2/2_SG");
+
+        let resolved_a = root.get_atom_by_path(&bonds[0].atom1_path);
+        let resolved_b = root.get_atom_by_path(&bonds[0].atom2_path);
+        assert!(resolved_a.is_some());
+        assert!(resolved_b.is_some());
     }
 }
