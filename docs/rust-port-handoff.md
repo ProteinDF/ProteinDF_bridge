@@ -219,7 +219,16 @@ PR#7(select)・PR#8(aminoacid)・PR#9(ssbond)・PR#10(ionpair)・PR#11(superpose
 - Phase 3の範囲外(mmCIF・§3新規機能・§4バインディング)には手を出さない。
 - **ブランチ運用ルール(MUST項目)を厳守**: `feature/phase3-prM` ブランチで作業し、`rust-port`へは自分でマージせず、レビュー承認を待つ。
 
-## Phase 4: mmCIFサポート(今回のスコープ、2026-09-14 受け入れ基準確定)
+## Phase 4: mmCIFサポート(完了 2026-09-15)
+
+PR#12(CCD形式1:1移植)・PR#13(`_atom_site`形式新規実装)、ともにClaudeレビュー通過・`rust-port`へマージ済み(累計120テスト)。PR#13は`chain_id`/残基キーに`label_asym_id`/`label_seq_id`ではなく指示通り`auth_asym_id`/`auth_seq_id`を使うよう是正し(初版では水分子の残基が全て1つに潰れる実バグがあった)、`3I3Z.cif`で独立計算した正解値(chain A: 186原子/44残基、chain B: 274原子/64残基)と一致することを確認済み。1HLS.cif/2MGO.cifは既存のPDB形式パーサ(`pdb.rs`)の結果と原子単位で完全一致することも検証済み(座標含む782原子全件)。`_struct_conn`によるSSBOND検出も実装され、PDB SSBOND記録との整合を確認済み。
+
+### 残された既知のギャップ
+
+- insertion code(`pdbx_PDB_ins_code`)は値の保持のみ確認済みで、実データでの検証は未実施(適切なフィクスチャが見つかっていないため)。
+- 100万原子規模での性能ベンチマークは未実施(別タスク)。
+
+## (旧)Phase 4: mmCIFサポート(元のスコープ記述)
 
 ### 背景: スコープの再定義
 
