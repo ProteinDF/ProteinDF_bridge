@@ -258,14 +258,18 @@ impl Pdb {
                 let occupancy = if occ_str.trim().is_empty() {
                     1.0
                 } else {
-                    occ_str.trim().parse::<f64>().unwrap_or(1.0)
+                    occ_str.trim().parse::<f64>().map_err(|e| {
+                        BridgeError::input_error("ATOM occupancy", format!("invalid float: {e}"))
+                    })?
                 };
 
                 let temp_str = slice_chars(&padded_chars, 60, 66);
                 let temp_factor = if temp_str.trim().is_empty() {
                     0.0
                 } else {
-                    temp_str.trim().parse::<f64>().unwrap_or(0.0)
+                    temp_str.trim().parse::<f64>().map_err(|e| {
+                        BridgeError::input_error("ATOM temp_factor", format!("invalid float: {e}"))
+                    })?
                 };
 
                 let element_col = slice_chars(&padded_chars, 76, 78);

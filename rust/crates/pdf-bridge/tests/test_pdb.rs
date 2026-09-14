@@ -268,3 +268,41 @@ fn test_error_handling() {
     let res2 = pdb_err.parse_str(invalid_content);
     assert!(res2.is_err());
 }
+
+#[test]
+fn test_occupancy_temp_factor_invalid_error() {
+    // Valid 80-column line for reference:
+    // "ATOM      1  N   CYS A   1       4.874   2.855   0.366  1.00  0.00           N  "
+    // Column 55-60 (0-indexed 54..60): occupancy "  1.00"
+    // Column 61-66 (0-indexed 60..66): temp_factor "  0.00"
+
+    // 1. Invalid occupancy (non-empty, non-numeric) should propagate error
+    let invalid_occ =
+        "ATOM      1  N   CYS A   1       4.874   2.855   0.366  XXXX  0.00           N  ";
+    let mut pdb = Pdb::new(None);
+    let err = pdb.parse_str(invalid_occ).unwrap_err();
+    assert!(
+        err.to_string().contains("ATOM occupancy"),
+        "error should mention ATOM occupancy: {err}"
+    );
+
+    // 2. Invalid temp_factor (non-empty, non-numeric) should propagate error
+    let invalid_temp =
+        "ATOM      1  N   CYS A   1       4.874   2.855   0.366  1.00  YYYY           N  ";
+    let mut pdb = Pdb::new(None);
+    let err = pdb.parse_str(invalid_temp).unwrap_err();
+    assert!(
+        err.to_string().contains("ATOM temp_factor"),
+        "error should mention ATOM temp_factor: {err}"
+    );
+
+    // 3. Blank occupancy and temp_factor should use default values (1.0, 0.0) without error
+    let blank_occ_temp =
+        "ATOM      1  N   CYS A   1       4.874   2.855   0.366                      N  ";
+    let mut pdb = Pdb::new(None);
+    pdb.parse_str(blank_occ_temp)
+        .expect("blank occupancy and temp_factor should be valid");
+    let records = pdb.data().get(&1).unwrap();
+    assert_eq!(records[0].occupancy, 1.0);
+    assert_eq!(records[0].temp_factor, 0.0);
+}
