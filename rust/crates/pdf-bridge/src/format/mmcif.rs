@@ -18,6 +18,7 @@
 
 use std::fs;
 use std::path::Path;
+use std::str::FromStr;
 
 use indexmap::IndexMap;
 
@@ -34,9 +35,287 @@ pub struct MmcifDataBlock {
     pub tables: Vec<Vec<IndexMap<String, String>>>,
 }
 
+/// Represents an atom record from the `_atom_site` category.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AtomSiteRecord {
+    pub group_pdb: String,
+    pub id: usize,
+    pub type_symbol: String,
+    pub label_atom_id: String,
+    pub label_alt_id: String,
+    pub label_comp_id: String,
+    pub label_asym_id: String,
+    pub label_entity_id: String,
+    pub label_seq_id: Option<i32>,
+    pub pdbx_pdb_ins_code: String,
+    pub cartn_x: f64,
+    pub cartn_y: f64,
+    pub cartn_z: f64,
+    pub occupancy: f64,
+    pub b_iso_or_equiv: f64,
+    pub pdbx_formal_charge: f64,
+    pub auth_seq_id: Option<i32>,
+    pub auth_comp_id: String,
+    pub auth_asym_id: String,
+    pub auth_atom_id: String,
+    pub pdbx_pdb_model_num: usize,
+}
+
+impl AtomSiteRecord {
+    /// Parses an `AtomSiteRecord` from an `_atom_site` table row.
+    pub fn from_row(row: &IndexMap<String, String>, default_id: usize) -> Option<Self> {
+        let group_pdb = row.get("_atom_site.group_PDB")?.clone();
+        if group_pdb != "ATOM" && group_pdb != "HETATM" {
+            return None;
+        }
+
+        let id = row
+            .get("_atom_site.id")
+            .and_then(|s| s.parse::<usize>().ok())
+            .unwrap_or(default_id);
+
+        let type_symbol = row
+            .get("_atom_site.type_symbol")
+            .cloned()
+            .unwrap_or_else(|| "X".to_string());
+
+        let label_atom_id = row
+            .get("_atom_site.label_atom_id")
+            .cloned()
+            .unwrap_or_else(|| "X".to_string());
+
+        let label_alt_id = row
+            .get("_atom_site.label_alt_id")
+            .map(|s| if s == "." || s == "?" { "" } else { s.as_str() })
+            .unwrap_or("")
+            .to_string();
+
+        let label_comp_id = row
+            .get("_atom_site.label_comp_id")
+            .cloned()
+            .unwrap_or_else(|| "UNK".to_string());
+
+        let label_asym_id = row
+            .get("_atom_site.label_asym_id")
+            .filter(|s| *s != "." && *s != "?")
+            .cloned()
+            .unwrap_or_else(|| "_".to_string());
+
+        let label_entity_id = row
+            .get("_atom_site.label_entity_id")
+            .cloned()
+            .unwrap_or_default();
+
+        let label_seq_id = row
+            .get("_atom_site.label_seq_id")
+            .and_then(|s| s.parse::<i32>().ok());
+
+        let pdbx_pdb_ins_code = row
+            .get("_atom_site.pdbx_PDB_ins_code")
+            .filter(|s| *s != "." && *s != "?")
+            .cloned()
+            .unwrap_or_default();
+
+        let cartn_x = row
+            .get("_atom_site.Cartn_x")
+            .and_then(|s| s.parse::<f64>().ok())
+            .unwrap_or(0.0);
+        let cartn_y = row
+            .get("_atom_site.Cartn_y")
+            .and_then(|s| s.parse::<f64>().ok())
+            .unwrap_or(0.0);
+        let cartn_z = row
+            .get("_atom_site.Cartn_z")
+            .and_then(|s| s.parse::<f64>().ok())
+            .unwrap_or(0.0);
+
+        let occupancy = row
+            .get("_atom_site.occupancy")
+            .and_then(|s| s.parse::<f64>().ok())
+            .unwrap_or(1.0);
+
+        let b_iso_or_equiv = row
+            .get("_atom_site.B_iso_or_equiv")
+            .and_then(|s| s.parse::<f64>().ok())
+            .unwrap_or(0.0);
+
+        let pdbx_formal_charge = row
+            .get("_atom_site.pdbx_formal_charge")
+            .filter(|s| *s != "." && *s != "?")
+            .and_then(|s| s.parse::<f64>().ok())
+            .unwrap_or(0.0);
+
+        let auth_seq_id = row
+            .get("_atom_site.auth_seq_id")
+            .and_then(|s| s.parse::<i32>().ok());
+
+        let auth_comp_id = row
+            .get("_atom_site.auth_comp_id")
+            .filter(|s| *s != "." && *s != "?")
+            .cloned()
+            .unwrap_or_else(|| label_comp_id.clone());
+
+        let auth_asym_id = row
+            .get("_atom_site.auth_asym_id")
+            .filter(|s| *s != "." && *s != "?")
+            .cloned()
+            .unwrap_or_else(|| label_asym_id.clone());
+
+        let auth_atom_id = row
+            .get("_atom_site.auth_atom_id")
+            .filter(|s| *s != "." && *s != "?")
+            .cloned()
+            .unwrap_or_else(|| label_atom_id.clone());
+
+        let pdbx_pdb_model_num = row
+            .get("_atom_site.pdbx_PDB_model_num")
+            .and_then(|s| s.parse::<usize>().ok())
+            .unwrap_or(1);
+
+        Some(Self {
+            group_pdb,
+            id,
+            type_symbol,
+            label_atom_id,
+            label_alt_id,
+            label_comp_id,
+            label_asym_id,
+            label_entity_id,
+            label_seq_id,
+            pdbx_pdb_ins_code,
+            cartn_x,
+            cartn_y,
+            cartn_z,
+            occupancy,
+            b_iso_or_equiv,
+            pdbx_formal_charge,
+            auth_seq_id,
+            auth_comp_id,
+            auth_asym_id,
+            auth_atom_id,
+            pdbx_pdb_model_num,
+        })
+    }
+}
+
+/// Represents a connection record from `_struct_conn` (e.g. disulfide bonds).
+#[derive(Debug, Clone, PartialEq)]
+pub struct StructConnRecord {
+    pub id: String,
+    pub conn_type_id: String,
+    pub ptnr1_label_asym_id: String,
+    pub ptnr1_label_seq_id: Option<i32>,
+    pub ptnr1_label_atom_id: String,
+    pub ptnr2_label_asym_id: String,
+    pub ptnr2_label_seq_id: Option<i32>,
+    pub ptnr2_label_atom_id: String,
+}
+
+impl StructConnRecord {
+    /// Parses a `StructConnRecord` from a `_struct_conn` table row.
+    pub fn from_row(row: &IndexMap<String, String>) -> Option<Self> {
+        let conn_type_id = row.get("_struct_conn.conn_type_id")?.clone();
+        let id = row.get("_struct_conn.id").cloned().unwrap_or_default();
+        let ptnr1_label_asym_id = row
+            .get("_struct_conn.ptnr1_label_asym_id")
+            .cloned()
+            .unwrap_or_default();
+        let ptnr1_label_seq_id = row
+            .get("_struct_conn.ptnr1_label_seq_id")
+            .and_then(|s| s.parse::<i32>().ok());
+        let ptnr1_label_atom_id = row
+            .get("_struct_conn.ptnr1_label_atom_id")
+            .cloned()
+            .unwrap_or_default();
+        let ptnr2_label_asym_id = row
+            .get("_struct_conn.ptnr2_label_asym_id")
+            .cloned()
+            .unwrap_or_default();
+        let ptnr2_label_seq_id = row
+            .get("_struct_conn.ptnr2_label_seq_id")
+            .and_then(|s| s.parse::<i32>().ok());
+        let ptnr2_label_atom_id = row
+            .get("_struct_conn.ptnr2_label_atom_id")
+            .cloned()
+            .unwrap_or_default();
+
+        Some(Self {
+            id,
+            conn_type_id,
+            ptnr1_label_asym_id,
+            ptnr1_label_seq_id,
+            ptnr1_label_atom_id,
+            ptnr2_label_asym_id,
+            ptnr2_label_seq_id,
+            ptnr2_label_atom_id,
+        })
+    }
+}
+
+impl MmcifDataBlock {
+    /// Checks if this data block contains an `_atom_site` table or key-values.
+    pub fn has_atom_site(&self) -> bool {
+        self.key_values.keys().any(|k| k.starts_with("_atom_site."))
+            || self.tables.iter().any(|table| {
+                table
+                    .first()
+                    .is_some_and(|row| row.keys().any(|k| k.starts_with("_atom_site.")))
+            })
+    }
+
+    /// Extracts all `AtomSiteRecord` entries from the `_atom_site` table or key-values.
+    pub fn get_atom_site_records(&self) -> Vec<AtomSiteRecord> {
+        let mut records = Vec::new();
+        if self.key_values.keys().any(|k| k.starts_with("_atom_site.")) {
+            if let Some(rec) = AtomSiteRecord::from_row(&self.key_values, 1) {
+                records.push(rec);
+            }
+        }
+        for table in &self.tables {
+            if let Some(first_row) = table.first() {
+                if first_row.keys().any(|k| k.starts_with("_atom_site.")) {
+                    for (idx, row) in table.iter().enumerate() {
+                        if let Some(rec) = AtomSiteRecord::from_row(row, idx + 1) {
+                            records.push(rec);
+                        }
+                    }
+                }
+            }
+        }
+        records
+    }
+
+    /// Extracts all `StructConnRecord` entries from the `_struct_conn` table or key-values.
+    pub fn get_struct_conn_records(&self) -> Vec<StructConnRecord> {
+        let mut records = Vec::new();
+        if self
+            .key_values
+            .keys()
+            .any(|k| k.starts_with("_struct_conn."))
+        {
+            if let Some(rec) = StructConnRecord::from_row(&self.key_values) {
+                records.push(rec);
+            }
+        }
+        for table in &self.tables {
+            if let Some(first_row) = table.first() {
+                if first_row.keys().any(|k| k.starts_with("_struct_conn.")) {
+                    for row in table {
+                        if let Some(rec) = StructConnRecord::from_row(row) {
+                            records.push(rec);
+                        }
+                    }
+                }
+            }
+        }
+        records
+    }
+}
+
 /// Parser for Crystallographic Information Files (CIF/mmCIF).
 ///
-/// Ports `proteindf_bridge.mmcif.SimpleMmcif` for Chemical Component Dictionary (CCD) entries.
+/// Ports `proteindf_bridge.mmcif.SimpleMmcif` for Chemical Component Dictionary (CCD) entries
+/// and provides full-structure parsing via the `_atom_site` category.
 #[derive(Debug, Clone, Default)]
 pub struct SimpleMmcif {
     data: IndexMap<String, MmcifDataBlock>,
@@ -61,6 +340,12 @@ impl SimpleMmcif {
         let mut mmcif = Self::new();
         mmcif.load(path)?;
         Ok(mmcif)
+    }
+
+    /// Parses mmCIF data from a string.
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_str(s: &str) -> Result<Self> {
+        <Self as FromStr>::from_str(s)
     }
 
     /// Loads an mmCIF file from the given path into this instance.
@@ -92,11 +377,18 @@ impl SimpleMmcif {
         self.data.get(name)
     }
 
-    /// Constructs an `AtomGroup` from the Chemical Component Dictionary (CCD) data of the given molecule name.
+    /// Constructs an `AtomGroup` from the given data block name.
+    ///
+    /// If the block contains `_atom_site` data, parses full structure coordinates.
+    /// Otherwise, parses as Chemical Component Dictionary (CCD) data.
     pub fn get_atomgroup(&self, name: &str) -> Result<AtomGroup> {
         let block = self.data.get(name).ok_or_else(|| {
             BridgeError::input_error(name, format!("Invalid mmcif data: name={}", name))
         })?;
+
+        if block.has_atom_site() {
+            return self.get_structure_atomgroup_for_block(name, None, None);
+        }
 
         let mut ag = AtomGroup::new();
 
@@ -144,6 +436,168 @@ impl SimpleMmcif {
         }
 
         Ok(ag)
+    }
+
+    /// Builds an `AtomGroup` hierarchy representing the mmCIF structure for the specified data block.
+    ///
+    /// The resulting hierarchy matches `Pdb::get_atomgroup`:
+    /// `root -> model_<serial> -> <chain_id> -> <res_seq> -> <serial>_<name>`
+    ///
+    /// If `select_model` is `None`, all models are included.
+    /// Alternate location atoms matching `select_altloc` (default: "A") or blank are retained.
+    pub fn get_structure_atomgroup_for_block(
+        &self,
+        block_name: &str,
+        select_model: Option<usize>,
+        select_altloc: Option<&str>,
+    ) -> Result<AtomGroup> {
+        let block = self.data.get(block_name).ok_or_else(|| {
+            BridgeError::input_error(block_name, format!("Data block '{block_name}' not found"))
+        })?;
+
+        let records = block.get_atom_site_records();
+        if records.is_empty() {
+            return Err(BridgeError::input_error(
+                block_name,
+                format!("No _atom_site records found in block '{block_name}'"),
+            ));
+        }
+
+        let conns = block.get_struct_conn_records();
+        let altloc_filter = select_altloc.unwrap_or("A");
+
+        // Group records by model_num preserving order
+        let mut models_map: IndexMap<usize, Vec<&AtomSiteRecord>> = IndexMap::new();
+        for rec in &records {
+            if let Some(target) = select_model {
+                if target != rec.pdbx_pdb_model_num {
+                    continue;
+                }
+            }
+            models_map
+                .entry(rec.pdbx_pdb_model_num)
+                .or_default()
+                .push(rec);
+        }
+
+        let mut root = AtomGroup::new();
+
+        for (&model_serial, model_records) in &models_map {
+            let model_name = format!("model_{model_serial}");
+            let mut model = AtomGroup::new();
+            model.name = model_name.clone();
+
+            for item in model_records {
+                // Check altloc filter: retain matching altloc or empty
+                let alt_loc = item.label_alt_id.trim();
+                if !alt_loc.is_empty() && alt_loc != altloc_filter {
+                    continue;
+                }
+
+                // Determine chain ID (label_asym_id prioritized, default to "_")
+                let mut chain_id = item.label_asym_id.trim().to_string();
+                if chain_id.is_empty() || chain_id == " " {
+                    chain_id = "_".to_string();
+                }
+
+                if !model.has_group(&chain_id) {
+                    let mut chain = AtomGroup::new();
+                    chain.name = chain_id.clone();
+                    model.set_group(&chain_id, chain);
+                }
+
+                // Determine residue sequence key:
+                // Use label_seq_id if available; fallback to auth_seq_id for polymer,
+                // or 1 for non-polymers (e.g. HOH water clusters)
+                let res_seq = if let Some(seq) = item.label_seq_id {
+                    seq
+                } else if item.group_pdb == "ATOM" {
+                    item.auth_seq_id.unwrap_or(1)
+                } else {
+                    1
+                };
+                let res_key = format!("{res_seq}");
+
+                let mut res_name = item.auth_comp_id.clone();
+                if matches!(res_name.as_str(), "HID" | "HIE" | "HIP") {
+                    res_name = "HIS".to_string();
+                }
+
+                if let Some(chain) = model.get_group_mut(&chain_id) {
+                    if !chain.has_group(&res_key) {
+                        let mut residue = AtomGroup::new();
+                        residue.name = res_name;
+                        chain.set_group(&res_key, residue);
+                    }
+                }
+
+                let mut element = item.type_symbol.clone();
+                if element == "D" {
+                    element = "H".to_string();
+                }
+
+                let mut atom = Atom::new();
+                if let Ok(num) = PeriodicTable::get_atomic_number(&element) {
+                    atom.set_atomic_number(num);
+                }
+                atom.xyz = Position::new(item.cartn_x, item.cartn_y, item.cartn_z);
+                atom.name = item.auth_atom_id.clone();
+                atom.charge = item.pdbx_formal_charge;
+
+                let atom_key = format!("{}_{}", item.id, item.auth_atom_id);
+                if let Some(chain) = model.get_group_mut(&chain_id) {
+                    if let Some(residue) = chain.get_group_mut(&res_key) {
+                        residue.set_atom(&atom_key, atom);
+                    }
+                }
+            }
+
+            // Link disulfide bonds from _struct_conn
+            for conn in &conns {
+                if conn.conn_type_id == "disulf" {
+                    if let (Some(seq1), Some(seq2)) =
+                        (conn.ptnr1_label_seq_id, conn.ptnr2_label_seq_id)
+                    {
+                        let res_key1 = format!("{seq1}");
+                        let res_key2 = format!("{seq2}");
+
+                        let sg1_opt = model
+                            .get_group(&conn.ptnr1_label_asym_id)
+                            .and_then(|c| c.get_group(&res_key1))
+                            .and_then(|r| r.get_atom(&conn.ptnr1_label_atom_id))
+                            .cloned();
+
+                        let sg2_opt = model
+                            .get_group(&conn.ptnr2_label_asym_id)
+                            .and_then(|c| c.get_group(&res_key2))
+                            .and_then(|r| r.get_atom(&conn.ptnr2_label_atom_id))
+                            .cloned();
+
+                        if let (Some(sg1), Some(sg2)) = (sg1_opt, sg2_opt) {
+                            model.add_bond(&sg1, &sg2, 1);
+                        }
+                    }
+                }
+            }
+
+            root.set_group(&model_name, model);
+        }
+
+        Ok(root)
+    }
+
+    /// Builds an `AtomGroup` hierarchy representing the mmCIF structure from the first data block.
+    pub fn get_structure_atomgroup(
+        &self,
+        select_model: Option<usize>,
+        select_altloc: Option<&str>,
+    ) -> Result<AtomGroup> {
+        let first_block = self
+            .data
+            .keys()
+            .next()
+            .ok_or_else(|| BridgeError::input_error("mmCIF", "No data blocks found in file"))?;
+        self.get_structure_atomgroup_for_block(first_block, select_model, select_altloc)
     }
 
     fn extract_atoms_and_name(dict: &IndexMap<String, String>, ag: &mut AtomGroup) {
@@ -384,5 +838,15 @@ impl SimpleMmcif {
         }
 
         tokens
+    }
+}
+
+impl FromStr for SimpleMmcif {
+    type Err = BridgeError;
+
+    fn from_str(s: &str) -> Result<Self> {
+        let mut mmcif = Self::new();
+        mmcif.load_from_str(s)?;
+        Ok(mmcif)
     }
 }
