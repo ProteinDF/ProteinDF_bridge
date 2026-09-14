@@ -173,7 +173,13 @@ PR#4是正で`get_number_of_bonds`/`get_bond_list`を追加した際に判明。
 
 ネストした階層(model/chain/residue)の異なる枝にまたがる結合(例: ジスルフィド結合、PDBのCONECTレコードで表現される遠い残基間の結合)を扱うPR#6(biopdb)やPhase 3(ssbond.rs)着手前に、この差異がPython版と異なる結果を生まないか検証すること。必要であれば`add_bond`に共通祖先ルーティングを追加する。
 
-## Phase 3: 構造操作の1:1移植(今回のスコープ)
+## Phase 3: 構造操作の1:1移植(完了 2026-09-14)
+
+PR#7(select)・PR#8(aminoacid)・PR#9(ssbond)・PR#10(ionpair)・PR#11(superposer/superposer_quaternion)、全てClaudeレビュー通過・`rust-port`へマージ済み(累計112テスト)。`modeling.py`/`neutralize.py`は計画通り除外(次項参照)。
+
+**重要な発見(PR#11)**: `proteindf_bridge/superposer_quaternion.py`(現行Python版、`2026.8.0`)には実バグがある。`SymmetricMatrix.add()`が`get`/`set`と異なり下三角に正規化されておらず、`eig()`の`numpy.linalg.eigh(self._data, "L")`が下三角しか読まないため、四元数法の対称行列の非対角成分が実質無視される。実際にPythonを実行して確認(任意回転でKabsch法RMSD≈6e-16に対し四元数法RMSD≈0.549)。Rust版の`SymmetricMatrix::add`(Phase 1由来)は元々対称に書き込むため、`superposer_quaternion.rs`はこの影響を受けない(同一シナリオでRMSD≈3e-16、Kabsch法と一致することを確認済み)。§2で「実験的」と明記されたモジュールであるため、Python版の壊れた挙動を忠実に再現するのではなく正しい実装を優先した。**このバグはPython版`ProteinDF_bridge`本体にも存在するため、別途Python側での修正を検討する価値がある**(本Rust移植プロジェクトのスコープ外)。
+
+## (旧)Phase 3: 構造操作の1:1移植(元のスコープ記述)
 
 `RUST_PORT_SPEC.md` §2の対応表のうち以下を移植する。**`modeling.py`/`neutralize.py`はこのPhaseに含めない**(下記「除外する理由」参照)。
 
