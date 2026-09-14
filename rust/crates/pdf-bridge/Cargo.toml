@@ -1,0 +1,12 @@
+[package]
+name = "pdf-bridge"
+version = "0.1.0"
+edition = "2021"
+authors = ["The ProteinDF development team"]
+license = "GPL-3.0-or-later"
+description = "Core library for ProteinDF bridge in Rust"
+
+[dependencies]
+thiserror = "2.0"
+indexmap = "2.7"
+regex = "1.11"
