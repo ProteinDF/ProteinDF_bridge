@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
+pub mod amino_acid;
 pub mod atom;
 pub mod atom_group;
 pub mod bond;
@@ -27,6 +28,7 @@ pub mod position;
 pub mod selector;
 pub mod vector;
 
+pub use amino_acid::AminoAcid;
 pub use atom::Atom;
 pub use atom_group::{AtomGroup, BondRecord, Selector};
 pub use bond::Bond;
