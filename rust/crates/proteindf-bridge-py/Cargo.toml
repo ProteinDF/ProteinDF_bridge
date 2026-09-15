@@ -1,0 +1,12 @@
+[package]
+name = "proteindf-bridge-py"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "proteindf_bridge_rs"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pyo3 = { version = "0.23", features = ["extension-module", "abi3-py39"] }
+proteindf-bridge = { path = "../proteindf-bridge" }
