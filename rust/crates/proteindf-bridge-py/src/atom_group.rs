@@ -268,37 +268,76 @@ impl PyAtomGroup {
         }
 
         if selector.hasattr("is_match")? {
-            struct PySelector<'a>(&'a Bound<'a, PyAny>);
+            struct PySelector<'a> {
+                obj: &'a Bound<'a, PyAny>,
+                err: std::cell::RefCell<Option<PyErr>>,
+            }
+
             impl<'a> Selector for PySelector<'a> {
                 fn is_match_group(&self, group: &CoreAtomGroup) -> bool {
-                    let py = self.0.py();
+                    if self.err.borrow().is_some() {
+                        return false;
+                    }
+                    let py = self.obj.py();
                     let py_group = PyAtomGroup::from_core(group.clone());
-                    if let Ok(py_obj) = py_group.into_pyobject(py) {
-                        self.0
-                            .call_method1("is_match", (py_obj,))
-                            .and_then(|r| r.extract::<bool>())
-                            .unwrap_or(false)
-                    } else {
-                        false
+                    match py_group.into_pyobject(py) {
+                        Ok(py_obj) => match self.obj.call_method1("is_match", (py_obj,)) {
+                            Ok(res) => match res.extract::<bool>() {
+                                Ok(b) => b,
+                                Err(e) => {
+                                    *self.err.borrow_mut() = Some(e);
+                                    false
+                                }
+                            },
+                            Err(e) => {
+                                *self.err.borrow_mut() = Some(e);
+                                false
+                            }
+                        },
+                        Err(e) => {
+                            *self.err.borrow_mut() = Some(e);
+                            false
+                        }
                     }
                 }
 
                 fn is_match_atom(&self, atom: &proteindf_bridge::atom::Atom) -> bool {
-                    let py = self.0.py();
+                    if self.err.borrow().is_some() {
+                        return false;
+                    }
+                    let py = self.obj.py();
                     let py_atom = PyAtom::from_core(atom.clone());
-                    if let Ok(py_obj) = py_atom.into_pyobject(py) {
-                        self.0
-                            .call_method1("is_match", (py_obj,))
-                            .and_then(|r| r.extract::<bool>())
-                            .unwrap_or(false)
-                    } else {
-                        false
+                    match py_atom.into_pyobject(py) {
+                        Ok(py_obj) => match self.obj.call_method1("is_match", (py_obj,)) {
+                            Ok(res) => match res.extract::<bool>() {
+                                Ok(b) => b,
+                                Err(e) => {
+                                    *self.err.borrow_mut() = Some(e);
+                                    false
+                                }
+                            },
+                            Err(e) => {
+                                *self.err.borrow_mut() = Some(e);
+                                false
+                            }
+                        },
+                        Err(e) => {
+                            *self.err.borrow_mut() = Some(e);
+                            false
+                        }
                     }
                 }
             }
 
-            let adapter = PySelector(selector);
-            return Ok(PyAtomGroup::from_core(self.inner.select(&adapter)));
+            let adapter = PySelector {
+                obj: selector,
+                err: std::cell::RefCell::new(None),
+            };
+            let result = self.inner.select(&adapter);
+            if let Some(err) = adapter.err.into_inner() {
+                return Err(err);
+            }
+            return Ok(PyAtomGroup::from_core(result));
         }
 
         Err(PyTypeError::new_err(format!(
