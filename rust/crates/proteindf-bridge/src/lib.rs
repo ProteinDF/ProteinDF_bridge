@@ -14,6 +14,7 @@ pub mod modeling;
 pub mod neutralize;
 pub mod periodic_table;
 pub mod position;
+pub mod ramachandran;
 pub mod selector;
 pub mod ssbond;
 pub mod superposer;
@@ -34,7 +35,8 @@ pub use matrix::{identity_matrix, Matrix, SymmetricMatrix};
 pub use modeling::Modeling;
 pub use neutralize::Neutralize;
 pub use periodic_table::PeriodicTable;
-pub use position::Position;
+pub use position::{dihedral_angle, Position};
+pub use ramachandran::{calc_phi_psi, RamachandranAngle};
 pub use selector::{
     SelectAtom, SelectAtomGroup, SelectName, SelectPath, SelectPathRegex, SelectPathSimple,
     SelectPathWildcard, SelectRange, SelectSymbol, Select_Atom, Select_AtomGroup, Select_Name,
