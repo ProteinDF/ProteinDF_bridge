@@ -111,6 +111,24 @@ impl Atom {
     pub fn rotate(&mut self, rotmat: &Matrix) -> Result<()> {
         self.xyz.rotate(rotmat)
     }
+
+    /// Returns the raw MessagePack Value representation of this atom.
+    pub fn get_raw_data(&self) -> rmpv::Value {
+        crate::brd::atom_get_raw_data(self)
+    }
+
+    /// Sets this atom's properties from a raw MessagePack dictionary Value.
+    pub fn set_by_raw_data(&mut self, data: &rmpv::Value) -> Result<&mut Self> {
+        crate::brd::atom_set_by_raw_data(self, data)?;
+        Ok(self)
+    }
+
+    /// Creates an atom from a raw MessagePack dictionary Value.
+    pub fn from_raw_data(data: &rmpv::Value) -> Result<Self> {
+        let mut atom = Atom::new();
+        atom.set_by_raw_data(data)?;
+        Ok(atom)
+    }
 }
 
 // Equality matching Python's `Atom.__eq__`:
