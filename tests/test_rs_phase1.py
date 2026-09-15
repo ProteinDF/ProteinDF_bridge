@@ -423,10 +423,42 @@ class TestRsPhase1(unittest.TestCase):
         self.assertEqual(group_entries[0][0], "chainA")
         self.assertEqual(group_entries[0][1].name, "A")
 
-        # index access root["chainA"]
+        # Polymorphic index access: group by key, atom by key, group by name, atom by name
+        # 1. Group by key
+        self.assertIsInstance(root["chainA"], rs_br.AtomGroup)
         self.assertEqual(root["chainA"].name, "A")
+
+        # 2. Atom by key
+        self.assertIsInstance(chain["CA"], rs_br.Atom)
+        self.assertEqual(chain["CA"].name, "CA")
+
+        # 3. Group by name (e.g. key is "grp_key", name is "A")
+        sub_group = rs_br.AtomGroup(name="RES_NAME")
+        root.set_group("res_key_1", sub_group)
+        self.assertEqual(root["res_key_1"].name, "RES_NAME")
+        self.assertEqual(root["RES_NAME"].name, "RES_NAME")
+
+        # 4. Atom by name (e.g. key is "atm_1", name is "CB")
+        cb_atom = rs_br.Atom(symbol="C", name="CB", xyz=[2.0, 3.0, 4.0])
+        sub_group.set_atom("atm_1", cb_atom)
+        self.assertEqual(sub_group["atm_1"].name, "CB")
+        self.assertEqual(sub_group["CB"].name, "CB")
+
+        # 5. Non-existent key raises KeyError
         with self.assertRaises(KeyError):
             _ = root["nonexistent"]
+        with self.assertRaises(KeyError):
+            _ = sub_group["nonexistent"]
+
+        # 6. __setitem__ for both Atom and AtomGroup
+        test_grp = rs_br.AtomGroup(name="test")
+        test_grp["new_atom"] = rs_br.Atom(symbol="O", name="O1")
+        self.assertTrue(test_grp.has_atom("new_atom"))
+        self.assertIsInstance(test_grp["new_atom"], rs_br.Atom)
+
+        test_grp["new_sub"] = rs_br.AtomGroup(name="sub")
+        self.assertTrue(test_grp.has_group("new_sub"))
+        self.assertIsInstance(test_grp["new_sub"], rs_br.AtomGroup)
 
         # del_atom / del_group
         removed_atom = chain.del_atom("CA")
