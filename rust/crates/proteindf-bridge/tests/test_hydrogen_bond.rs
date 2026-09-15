@@ -253,3 +253,58 @@ fn test_missing_atoms_safe_skip() {
         .iter()
         .any(|hb| hb.donor_residue_key == "2" || hb.acceptor_residue_key == "2"));
 }
+
+#[test]
+fn test_missing_residues_gap_adjacent_exclusion() {
+    let path = test_data_dir().join("1hls.pdb");
+    let pdb = Pdb::from_file(&path, None).expect("failed to load 1hls.pdb");
+    let ag = pdb.get_atomgroup(None, None).expect("failed to get ag");
+
+    let model_1 = ag.get_group("model_1").expect("model_1 not found");
+    let chain_a = model_1.get_group("A").expect("chain A not found");
+
+    // Construct a chain with residues 1, 2, 3, 4, 5, 6
+    // where residues 3 and 4 have missing backbone atoms (empty AtomGroup).
+    // Residue 1: complete (orig_idx = 0)
+    // Residue 2: complete (orig_idx = 1) -> Acceptor
+    // Residue 3: missing backbone atoms (orig_idx = 2) -> skipped
+    // Residue 4: missing backbone atoms (orig_idx = 3) -> skipped
+    // Residue 5: complete (orig_idx = 4) -> provides C(5) for pseudo-H of residue 6
+    // Residue 6: complete (orig_idx = 5) -> Donor
+    //
+    // In filtered residues array:
+    // [0] = residue 1 (orig_idx = 0)
+    // [1] = residue 2 (orig_idx = 1)
+    // [2] = residue 5 (orig_idx = 4)
+    // [3] = residue 6 (orig_idx = 5)
+    //
+    // Filtered array index distance between donor 6 (idx 3) and acceptor 2 (idx 1):
+    // |3 - 1| = 2 <= 2 (mistakenly excluded if using filtered index!)
+    // Original index distance:
+    // |orig_idx(6) - orig_idx(2)| = |5 - 1| = 4 > 2 (correctly preserved!)
+    let mut gapped_chain = AtomGroup::with_name("A");
+    for k in &["1", "2", "5", "6"] {
+        let res = chain_a.get_group(k).unwrap();
+        gapped_chain.set_group(k, res.clone());
+    }
+    // Add residues 3 and 4 with missing atoms
+    gapped_chain.set_group("3", AtomGroup::with_name("3"));
+    gapped_chain.set_group("4", AtomGroup::with_name("4"));
+
+    let hbonds = calc_backbone_hbonds(&gapped_chain);
+
+    // Verify that the hbond (6 -> 2) is successfully detected
+    let hbond_6_2 = hbonds
+        .iter()
+        .find(|hb| hb.donor_residue_key == "6" && hb.acceptor_residue_key == "2");
+    assert!(
+        hbond_6_2.is_some(),
+        "Hydrogen bond 6 -> 2 must be detected despite 2-residue gap (3, 4)"
+    );
+    let hb = hbond_6_2.unwrap();
+    assert!(
+        (hb.energy - (-1.6882)).abs() < 1e-3,
+        "Energy mismatch for (6 -> 2): expected -1.6882, got {}",
+        hb.energy
+    );
+}
