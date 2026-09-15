@@ -555,7 +555,9 @@ impl Modeling {
 
         let pos = self.get_neutralize_pos_nh3_type(&ag)?;
         let mut answer = AtomGroup::new();
-        answer.set_atom("Cl", Atom::new_with_pos("Cl", pos)?);
+        let mut cl = Atom::new_with_pos("Cl", pos)?;
+        cl.name = "Cl".to_string();
+        answer.set_atom("Cl", cl);
         Ok(answer)
     }
 
@@ -580,7 +582,9 @@ impl Modeling {
 
         let pos = self.get_neutralize_pos_nh2_type(&ag)?;
         let mut answer = AtomGroup::new();
-        answer.set_atom("Cl", Atom::new_with_pos("Cl", pos)?);
+        let mut cl = Atom::new_with_pos("Cl", pos)?;
+        cl.name = "Cl".to_string();
+        answer.set_atom("Cl", cl);
         Ok(answer)
     }
 
@@ -602,7 +606,9 @@ impl Modeling {
 
         let pos = self.get_neutralize_pos_coo_type(&ag)?;
         let mut answer = AtomGroup::new();
-        answer.set_atom("Na", Atom::new_with_pos("Na", pos)?);
+        let mut na = Atom::new_with_pos("Na", pos)?;
+        na.name = "Na".to_string();
+        answer.set_atom("Na", na);
         Ok(answer)
     }
 
@@ -625,7 +631,9 @@ impl Modeling {
         let pos = self.get_neutralize_pos_coo_type(&ag)?;
         let mut answer = AtomGroup::new();
         let key = self.get_last_index(res);
-        answer.set_atom(&format!("{}_Na", key + 1), Atom::new_with_pos("Na", pos)?);
+        let mut na = Atom::new_with_pos("Na", pos)?;
+        na.name = "Na".to_string();
+        answer.set_atom(&format!("{}_Na", key + 1), na);
         Ok(answer)
     }
 
@@ -648,7 +656,9 @@ impl Modeling {
         let pos = self.get_neutralize_pos_coo_type(&ag)?;
         let mut answer = AtomGroup::new();
         let key = self.get_last_index(res);
-        answer.set_atom(&format!("{}_Na", key + 1), Atom::new_with_pos("Na", pos)?);
+        let mut na = Atom::new_with_pos("Na", pos)?;
+        na.name = "Na".to_string();
+        answer.set_atom(&format!("{}_Na", key + 1), na);
         Ok(answer)
     }
 
@@ -675,7 +685,9 @@ impl Modeling {
         let pos = self.get_neutralize_pos_nh3_type(&ag)?;
         let mut answer = AtomGroup::new();
         let key = self.get_last_index(res);
-        answer.set_atom(&format!("{}_Cl", key + 1), Atom::new_with_pos("Cl", pos)?);
+        let mut cl = Atom::new_with_pos("Cl", pos)?;
+        cl.name = "Cl".to_string();
+        answer.set_atom(&format!("{}_Cl", key + 1), cl);
         Ok(answer)
     }
 
@@ -753,7 +765,9 @@ impl Modeling {
 
         let mut answer = AtomGroup::new();
         let key = self.get_last_index(res);
-        answer.set_atom(&format!("{}_Cl", key + 1), Atom::new_with_pos("Cl", pos)?);
+        let mut cl = Atom::new_with_pos("Cl", pos)?;
+        cl.name = "Cl".to_string();
+        answer.set_atom(&format!("{}_Cl", key + 1), cl);
         Ok(answer)
     }
 
@@ -791,7 +805,8 @@ impl Modeling {
         }
 
         let na1_pos = self.get_neutralize_pos_poo_type(&poo1)?;
-        let na1 = Atom::new_with_pos("Na", na1_pos)?;
+        let mut na1 = Atom::new_with_pos("Na", na1_pos)?;
+        na1.name = "Na".to_string();
 
         let mut poo2 = AtomGroup::new();
         let pa = ag
@@ -808,7 +823,8 @@ impl Modeling {
         poo2.set_atom("O2", o2a.clone());
 
         let na2_pos = self.get_neutralize_pos_poo_type(&poo2)?;
-        let na2 = Atom::new_with_pos("Na", na2_pos)?;
+        let mut na2 = Atom::new_with_pos("Na", na2_pos)?;
+        na2.name = "Na".to_string();
 
         let key = self.get_last_index(ag);
         let mut answer = AtomGroup::new();

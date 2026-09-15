@@ -11,6 +11,7 @@ pub mod format;
 pub mod ion_pair;
 pub mod matrix;
 pub mod modeling;
+pub mod neutralize;
 pub mod periodic_table;
 pub mod position;
 pub mod selector;
@@ -31,6 +32,7 @@ pub use format::{AmberPrmtop, Format, Pdb, SimpleGro, SimpleMmcif, SimpleMol2, X
 pub use ion_pair::{IonPair, IonPairRecord};
 pub use matrix::{identity_matrix, Matrix, SymmetricMatrix};
 pub use modeling::Modeling;
+pub use neutralize::Neutralize;
 pub use periodic_table::PeriodicTable;
 pub use position::Position;
 pub use selector::{
