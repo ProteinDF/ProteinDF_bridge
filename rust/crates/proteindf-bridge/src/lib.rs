@@ -8,6 +8,7 @@ pub mod bond;
 pub mod brd;
 pub mod error;
 pub mod format;
+pub mod hydrogen_bond;
 pub mod ion_pair;
 pub mod matrix;
 pub mod modeling;
@@ -30,6 +31,9 @@ pub use brd::{
 };
 pub use error::{BridgeError, Result};
 pub use format::{AmberPrmtop, Format, Pdb, SimpleGro, SimpleMmcif, SimpleMol2, Xyz};
+pub use hydrogen_bond::{
+    calc_backbone_hbonds, calc_kabsch_sander_energy, calc_pseudo_hydrogen, HydrogenBond,
+};
 pub use ion_pair::{IonPair, IonPairRecord};
 pub use matrix::{identity_matrix, Matrix, SymmetricMatrix};
 pub use modeling::Modeling;
