@@ -151,9 +151,9 @@ pub fn calc_backbone_hbonds(chain: &AtomGroup) -> Vec<HydrogenBond> {
         };
 
         // Iterate over all acceptor residues
-        for (a_idx, a_res) in residues.iter().enumerate() {
+        for a_res in &residues {
             // Condition 2: |d - a| > 2 (exclude trivial local interactions |d - a| <= 2)
-            if (d_idx as isize - a_idx as isize).abs() <= 2 {
+            if (d_res.orig_idx as isize - a_res.orig_idx as isize).abs() <= 2 {
                 continue;
             }
 
