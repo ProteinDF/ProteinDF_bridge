@@ -5,8 +5,14 @@ edition = "2021"
 
 [lib]
 name = "proteindf_bridge_rs"
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
+test = false
+doctest = false
+
+[features]
+default = []
+extension-module = ["pyo3/extension-module"]
 
 [dependencies]
-pyo3 = { version = "0.23", features = ["extension-module", "abi3-py39"] }
+pyo3 = { version = "0.23", features = ["abi3-py39"] }
 proteindf-bridge = { path = "../proteindf-bridge" }

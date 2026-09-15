@@ -250,9 +250,51 @@ impl PyAtomGroup {
         self.inner.sum_of_atomic_number()
     }
 
-    pub fn __getitem__(&self, key: &str) -> PyResult<PyAtomGroup> {
-        self.get_group(key)
-            .ok_or_else(|| PyKeyError::new_err(format!("Group key not found: {}", key)))
+    pub fn __getitem__<'py>(&self, py: Python<'py>, key: &str) -> PyResult<Bound<'py, PyAny>> {
+        // 1. Child group by key
+        if self.inner.has_groupkey(key) {
+            if let Some(grp) = self.inner.get_group(key) {
+                let py_grp = PyAtomGroup::from_core(grp.clone());
+                return py_grp.into_pyobject(py).map(|b| b.into_any());
+            }
+        }
+        // 2. Child atom by key
+        if self.inner.has_atomkey(key) {
+            if let Some(atom) = self.inner.get_atom(key) {
+                let py_atom = PyAtom::from_core(atom.clone());
+                return py_atom.into_pyobject(py).map(|b| b.into_any());
+            }
+        }
+        // 3. Search child groups by name
+        for (_, grp) in self.inner.groups() {
+            if grp.name == key {
+                let py_grp = PyAtomGroup::from_core(grp.clone());
+                return py_grp.into_pyobject(py).map(|b| b.into_any());
+            }
+        }
+        // 4. Search child atoms by name
+        for (_, atom) in self.inner.atoms() {
+            if atom.name == key {
+                let py_atom = PyAtom::from_core(atom.clone());
+                return py_atom.into_pyobject(py).map(|b| b.into_any());
+            }
+        }
+        Err(PyKeyError::new_err(key.to_string()))
+    }
+
+    pub fn __setitem__(&mut self, key: &str, value: &Bound<'_, PyAny>) -> PyResult<()> {
+        if let Ok(grp) = value.extract::<PyRef<PyAtomGroup>>() {
+            self.inner.set_group(key, grp.inner.clone());
+            Ok(())
+        } else if let Ok(atom) = value.extract::<PyRef<PyAtom>>() {
+            self.inner.set_atom(key, atom.inner.clone());
+            Ok(())
+        } else {
+            Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Expected AtomGroup or Atom, got {}",
+                value.get_type()
+            )))
+        }
     }
 
     pub fn __and__(&self, other: &PyAtomGroup) -> Self {
