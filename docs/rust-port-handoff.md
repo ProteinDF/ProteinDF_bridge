@@ -535,6 +535,11 @@ PR#22(`hydrogen_bond.rs`)・PR#23(`secondary_structure.rs`)、全てClaudeレビ
 
 Phase 7と同様、**Python版に対応する実装が一切存在しない新規機能**のため、「Python版との1:1比較」という受け入れ基準は使えない。代わりに、Kabsch & Sander (1983)のオリジナルDSSPアルゴリズムを1983年の原論文の定義通りに再実装したオープンソース参照実装([PyDSSP](https://github.com/ShintaroMinami/PyDSSP)、MITライセンス、PyTorch/NumPy実装)を独立に動かし、実PDBフィクスチャ(`1hls.pdb`)に対する基準値(残基ごとのH-bondエネルギー・二次構造ラベル)を算出した。**この参照実装のコードそのものを移植するのではなく、以下に記述するアルゴリズム定義(Kabsch-Sander 1983の一次情報に基づく)に従って独立に実装し、算出された基準値と一致することをテストで検証すること。**
 
+### 参考文献
+
+- Kabsch W, Sander C. "Dictionary of protein secondary structure: pattern recognition of hydrogen-bonded and geometrical features." *Biopolymers*, 1983, 22(12):2577-637. doi:10.1002/bip.360221211 — オリジナルDSSPの原論文。静電H-bondエネルギー式(`E = q1·q2·(1/r(ON) + 1/r(CH) - 1/r(OH) - 1/r(CN))·332`、閾値`-0.5 kcal/mol`)、n-turn/ヘリックス/ブリッジ/ラダーの定義の出典。この式自体は本ドキュメント作成前から`RUST_PORT_SPEC.md` §3.2に記載されていたもの。
+- [PyDSSP](https://github.com/ShintaroMinami/PyDSSP)(Minami S.、MITライセンス) — 上記アルゴリズムのオープンソース再実装(PyTorch/NumPy)。原論文そのものは本Phaseの作業では直接参照しておらず、仕様書記載の式とこの実装を独立に動かして得た数値を突き合わせることでground truthを作成・検証した。
+
 ### アルゴリズム定義
 
 #### 1. 主鎖アミドH原子の疑似座標(PDBに水素原子がない場合)
@@ -718,6 +723,15 @@ E(d, a) = q1*q2 * (1/r(O_a,N_d) + 1/r(C_a,H_d) - 1/r(O_a,H_d) - 1/r(C_a,N_d)) * 
 `RUST_PORT_SPEC.md` §3.3は`InteractionSet`(非共有結合相互作用のリスト、MessagePack/YAMLで往復可能)を構成する要素として、ジスルフィド結合(`ssbond.rs`、移植済み)・塩橋(`ion_pair.rs`、移植済み)に加え、**側鎖水素結合**(新規、`hydrogen_bond.rs`の拡張)と**CH-π相互作用**(新規、`ch_pi.rs`)を求めている。Phase 8で実装した主鎖水素結合検出(`calc_backbone_hbonds`)はDSSP/二次構造推定専用のロジック(隣接除外・疑似H座標)であり、本Phaseの側鎖水素結合検出はこれとは別の(しかし同じ`hydrogen_bond.rs`モジュール内に置く)独立した関数として実装する。最後に、これら4種の相互作用を統一的に格納・往復できる`InteractionSet`集約型を実装する(PR#26)。
 
 Phase 7・8と同様、Python版に対応実装がないため、実データ(`1hls.pdb`)を幾何学的に独立計算した基準値、および合成データによる境界値テストで検証する。
+
+### 参考文献
+
+- McDonald IK, Thornton JM. "Satisfying hydrogen bonding potential in proteins." *J Mol Biol*, 1994, 238(5):777-93. doi:10.1006/jmbi.1994.1334 — HBPLUSアルゴリズム。タンパク質側鎖のドナー/アクセプター原子タイプ表、距離・角度による水素結合判定基準(`D...A < 3.5Å`・`D-H...A > 120°`系)の代表的な出典。
+- Baker EN, Hubbard RE. "Hydrogen bonding in globular proteins." *Prog Biophys Mol Biol*, 1984, 44(2):97-179. doi:10.1016/0079-6107(84)90007-5 — 同様の基礎文献。
+- Brandl M, Weiss MS, Jabs A, Sühnel J, Hilgenfeld R. "C-H...π-interactions in proteins." *J Mol Biol*, 2001, 307(1):357-77. doi:10.1006/jmbi.2000.4473 — タンパク質中のCH-π相互作用を統計的に調べ、距離・角度基準を定義した論文。「距離4.5Å以内・角度40°以内」という既定値はこの系統の基準に準じる。
+- Nishio M, Umezawa Y, Fantini J, Weiss MS, Chakrabarti P. "CH-π hydrogen bonds in biological macromolecules." *Phys Chem Chem Phys*, 2014, 16(25):12648-83. doi:10.1039/c4cp00099d — より新しいレビュー。
+
+(注記: 上記の数値閾値は本ドキュメント作成前から`RUST_PORT_SPEC.md` §3.3に既定値として記載されていたものを踏襲している。これらの論文は一般的な構造生物学の慣習値の出典として付記するものであり、本Phaseの作業でこれらの論文を直接読んで数値を再導出したわけではない。厳密な学術的裏付けが必要な場合は、原論文を取得して数値を再確認すること。)
 
 ### PR#24: 側鎖水素結合判定(`hydrogen_bond.rs`拡張)
 
