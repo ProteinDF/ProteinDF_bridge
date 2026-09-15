@@ -192,11 +192,6 @@ fn collect_leaf_residues<'a>(group: &'a AtomGroup, out: &mut Vec<&'a AtomGroup>)
 
 fn is_carbon_atom(atom: &Atom) -> bool {
     atom.atomic_number() == 6
-        || atom
-            .symbol()
-            .map(|s| s.eq_ignore_ascii_case("C"))
-            .unwrap_or(false)
-        || atom.name.starts_with('C')
 }
 
 /// Detects CH-pi interactions using default thresholds (distance <= 4.5 Å, angle <= 40.0°).

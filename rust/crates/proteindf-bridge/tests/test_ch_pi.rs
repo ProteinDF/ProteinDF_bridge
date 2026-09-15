@@ -206,3 +206,41 @@ fn test_same_residue_exclusion() {
         "Intra-residue carbons must not form CH-pi interactions with own ring"
     );
 }
+
+#[test]
+fn test_non_carbon_c_named_atom_exclusion() {
+    // Regression test: non-carbon atoms whose names start with 'C' (e.g. CL, CA)
+    // positioned at ideal CH-pi geometry (dist ~3.0 Å, angle 0°) must NOT be detected as CH-pi.
+    let mut model = AtomGroup::with_name("model");
+    let mut chain = AtomGroup::with_name("A");
+
+    // Residue 1: PHE ring in xy-plane (normal = (0, 0, 1), centroid ~ (1.0, 3.5, 0.0))
+    let mut phe = AtomGroup::with_name("PHE");
+    phe.set_atom("CG", make_atom("CG", "C", Position::new(1.0, 2.5, 0.0)));
+    phe.set_atom("CD1", make_atom("CD1", "C", Position::new(0.0, 3.0, 0.0)));
+    phe.set_atom("CD2", make_atom("CD2", "C", Position::new(2.0, 3.0, 0.0)));
+    phe.set_atom("CE1", make_atom("CE1", "C", Position::new(0.0, 4.0, 0.0)));
+    phe.set_atom("CE2", make_atom("CE2", "C", Position::new(2.0, 4.0, 0.0)));
+    phe.set_atom("CZ", make_atom("CZ", "C", Position::new(1.0, 4.5, 0.0)));
+    chain.set_group("1", phe);
+
+    // Residue 2: Chloride ion (name "CL", symbol "Cl", atomic_number 17)
+    // placed at (1.0, 3.5, 3.0) -> dist = 3.0 Å, angle = 0.0°
+    let mut cl_res = AtomGroup::with_name("CL");
+    cl_res.set_atom("CL", make_atom("CL", "Cl", Position::new(1.0, 3.5, 3.0)));
+    chain.set_group("2", cl_res);
+
+    // Residue 3: Calcium ion (name "CA", symbol "Ca", atomic_number 20)
+    // placed at (1.0, 3.5, -3.0) -> dist = 3.0 Å, angle = 0.0°
+    let mut ca_res = AtomGroup::with_name("CA");
+    ca_res.set_atom("CA", make_atom("CA", "Ca", Position::new(1.0, 3.5, -3.0)));
+    chain.set_group("3", ca_res);
+
+    model.set_group("A", chain);
+
+    let interactions = calc_ch_pi_interactions(&model);
+    assert!(
+        interactions.is_empty(),
+        "Non-carbon atoms (CL, CA) must not be detected as CH-pi interaction partners despite C-starting names"
+    );
+}
