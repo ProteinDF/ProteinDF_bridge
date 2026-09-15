@@ -380,7 +380,11 @@ Pythonパッケージ名は`proteindf_bridge_rs`とし、既存の純Python版`p
 
 `CONTRIBUTING.md`を参照。**Phase 6以降の機能ブランチは`main`ではなく`develop`から切り、`develop`へマージすること。** PRごとの機能ブランチ・マージ前レビューゲート等の既存MUST項目は変更なし。
 
-## Phase 6: `modeling.py`/`neutralize.py`(今回のスコープ、2026-09-15 受け入れ基準確定)
+## Phase 6: `modeling.py`/`neutralize.py`(完了 2026-09-15)
+
+PR#17(`brd.rs`)・PR#18(`modeling.rs`)・PR#19(`neutralize.rs`)、全てClaudeレビュー通過・`develop`へマージ済み(累計140テスト)。`get_ACE`/`get_NME`は実フィクスチャでPython版と座標が完全一致することを、`neutralize`は実PDBフィクスチャ(1hls.pdb、10件のイオン追加)でPython版と完全一致することを、それぞれ実際にPythonを再実行して確認済み。`_exempt_list`のデッドコード挙動(Python版で実質機能していない)も忠実に再現されている。
+
+**これで`RUST_PORT_SPEC.md` §2の1:1移植対応表(全モジュール)が完了した。**
 
 ### 背景: 隠れた前提条件の発見
 
