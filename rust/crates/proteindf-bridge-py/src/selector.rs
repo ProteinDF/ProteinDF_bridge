@@ -1,7 +1,5 @@
-// Copyright (C) 2014 The ProteinDF development team.
-// see also AUTHORS and README if provided.
-//
-// This file is a part of the ProteinDF software package.
+// SPDX-FileCopyrightText: The ProteinDF development team
+// SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::atom::PyAtom;
 use crate::atom_group::PyAtomGroup;
