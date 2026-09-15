@@ -63,3 +63,6 @@ pub use superposer_quaternion::{
     SuperposerQuaternion, SuperposerQuaternion as Superposer_quaternion,
 };
 pub use vector::Vector;
+
+pub mod interaction_set;
+pub use interaction_set::{Interaction, InteractionKind, InteractionSet};
