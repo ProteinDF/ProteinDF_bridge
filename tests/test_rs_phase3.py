@@ -422,6 +422,34 @@ class TestRsPhase3(unittest.TestCase):
             p2 = ag2.get_atom(key).xyz
             self.assertAlmostEqual(p1.distance_from(p2), 0.0, places=4)
 
+    def test_custom_selector_exception_propagation(self):
+        class FaultySelector:
+            def is_match(self, obj):
+                raise ValueError("custom selector exception test")
+
+        ag = rs_br.AtomGroup("test")
+        ag.set_atom("C1", rs_br.Atom(name="C1", symbol="C", xyz=rs_br.Position(0.0, 0.0, 0.0)))
+
+        with self.assertRaises(ValueError) as ctx:
+            ag.select(FaultySelector())
+
+        self.assertIn("custom selector exception test", str(ctx.exception))
+
+    def test_custom_selector_success(self):
+        class CarbonSelector:
+            def is_match(self, obj):
+                if hasattr(obj, "symbol"):
+                    return obj.symbol == "C"
+                return False
+
+        ag = rs_br.AtomGroup("test")
+        ag.set_atom("C1", rs_br.Atom(name="C1", symbol="C", xyz=rs_br.Position(0.0, 0.0, 0.0)))
+        ag.set_atom("H1", rs_br.Atom(name="H1", symbol="H", xyz=rs_br.Position(1.0, 0.0, 0.0)))
+
+        selected = ag.select(CarbonSelector())
+        self.assertEqual(selected.get_number_of_atoms(), 1)
+        self.assertEqual(selected.get_atom("C1").symbol, "C")
+
 
 if __name__ == "__main__":
     unittest.main()
