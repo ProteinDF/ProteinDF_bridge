@@ -2,7 +2,9 @@
 
 本ドキュメントは、`RUST_PORT_SPEC.md` に基づくRust移植作業を実装担当(antigravity)に委任するにあたっての、フェーズ単位の作業指示を記録する。Claude(このリポジトリでのレビュー担当)は各PRを本ドキュメント・`RUST_PORT_SPEC.md`・`SPEC.md` と突き合わせて仕様適合チェックを行う。
 
-## 運用ルール
+> **現在の運用ルールは本ファイル末尾の「運用ルールの変更(2026-09-15、2026.9.0リリース後): GitFlow運用への移行」を参照。** 以下の「運用ルール」節は`rust-port`統合ブランチ時代(Phase 1〜4)の記録として残しているが、現在は無効。
+
+## 運用ルール(過去の記録、現在は無効)
 
 - **正本**: 仕様は `RUST_PORT_SPEC.md`。移植元の正解データは `proteindf_bridge/*.py` と `tests/test_*.py`。
 - **作業ブランチ**: 統合ブランチ `rust-port` を `docs/rust-port-spec`(本ドキュメントとRUST_PORT_SPEC.mdを含む)から作成し、そこにPRを積み上げる。Phaseが完了し、Claudeのレビューを通過した時点でまとめて `main` へマージする。Phase途中の未完成状態が `main` に混ざらないようにするため。
@@ -288,6 +290,19 @@ PR#12(CCD形式1:1移植)・PR#13(`_atom_site`形式新規実装)、ともにCla
 
 Phase 1〜4が`main`へマージされ(`superposer_quaternion.py`のPythonバグ修正も`main`へ直接マージ済み)、`rust-port`ブランチは`main`より遅れた状態になった。Phase 5以降は**`rust-port`を経由せず、`main`から直接機能ブランチを切り、レビュー承認後に`main`へ直接マージする**運用に切り替える。ブランチ命名・レビューゲート(MUST項目)等の他のルールは変更なし。
 
+## 運用ルールの変更(2026-09-15、2026.9.0リリース後): GitFlow運用への移行
+
+`2026.9.0`(Rust移植Phase 1〜5 + `superposer_quaternion.py`バグ修正 + SPDXヘッダー移行を含む)を`main`に直接コミット・タグ付けしてリリースした後、**今後はGitFlow的な運用に切り替える**(本プロジェクトが2024.03.0までは`develop`+`release/*`ブランチを使っていた慣習への回帰)。`main`から`develop`ブランチを作成済み。
+
+**新しいブランチ運用(2026.9.0以降のPRから適用、MUST)**:
+- `main`: 常にリリース済みの状態のみを反映する。直接コミットしない。バージョンタグ(例: `2026.9.0`、`v`プレフィックスなし)はここに打つ。
+- `develop`: 通常の開発の統合ブランチ。**Phase 6以降の機能ブランチはここから切り、ここへマージする**(`main`ではない)。
+- `feature/*`: `develop`から切り、レビュー承認後に`develop`へマージする(これまでの`feature/phaseN-prM`と同じ命名・レビューゲートのルールを維持)。
+- `release/X.Y.Z`: リリース準備時に`develop`から切る。バージョン番号の更新等の最終調整をここで行い、`main`(タグ付け)と`develop`の両方にマージする。
+- `hotfix/*`: リリース済みの`main`に対する緊急修正用。`main`から切り、`main`(タグ付け)と`develop`の両方にマージする。
+
+**PRごとの機能ブランチ・マージ前レビューゲート等の既存MUST項目は維持。ブランチの起点と合流先が`main`→`develop`に変わるだけ。**
+
 ## Phase 4.5: プロジェクト名変更(`pdf-bridge` → `proteindf-bridge`、Phase 5着手前に必須)
 
 「PDF」(Portable Document Format)との混同を避けるため、プロジェクト名を`pdf-bridge`から`proteindf-bridge`に変更する。Phase 1〜4で既にマージ済みの全ファイルに影響するため、専用PRとして先に対応すること。
@@ -360,3 +375,78 @@ Pythonパッケージ名は`proteindf_bridge_rs`とし、既存の純Python版`p
 
 - 既存Pythonコード(`proteindf_bridge/`)は変更しない。
 - **ブランチ運用ルール(MUST項目)を厳守**: `feature/phase5-prM` ブランチを`main`から切って作業し、`main`へは自分でマージせず、レビュー承認を待つ。PR#14から着手すること。
+
+## ブランチ運用(2026-09-15以降、GitFlow)
+
+`CONTRIBUTING.md`を参照。**Phase 6以降の機能ブランチは`main`ではなく`develop`から切り、`develop`へマージすること。** PRごとの機能ブランチ・マージ前レビューゲート等の既存MUST項目は変更なし。
+
+## Phase 6: `modeling.py`/`neutralize.py`(完了 2026-09-15)
+
+PR#17(`brd.rs`)・PR#18(`modeling.rs`)・PR#19(`neutralize.rs`)、全てClaudeレビュー通過・`develop`へマージ済み(累計140テスト)。`get_ACE`/`get_NME`は実フィクスチャでPython版と座標が完全一致することを、`neutralize`は実PDBフィクスチャ(1hls.pdb、10件のイオン追加)でPython版と完全一致することを、それぞれ実際にPythonを再実行して確認済み。`_exempt_list`のデッドコード挙動(Python版で実質機能していない)も忠実に再現されている。
+
+**これで`RUST_PORT_SPEC.md` §2の1:1移植対応表(全モジュール)が完了した。**
+
+### 背景: 隠れた前提条件の発見
+
+`modeling.py`を精読した結果、`Modeling.__init__`が**コンストラクタの時点で無条件に**4つの`.brd`(MessagePack)参照構造ファイル(`proteindf_bridge/data/ACE_ALA_NME_{trans1,trans2,cis1,cis2}.brd`)を読み込むことが判明した。これは`get_ACE`/`get_NME`だけでなく、`neutralize.py`が使う`neutralize_Nterm`等のメソッドを使うだけでも発生する(`Neutralize.__init__`が内部で`Modeling()`を生成するため)。
+
+つまり`functions.py`のMessagePack I/O(`load_msgpack`/`save_msgpack`)と、`AtomGroup`/`Atom`の`get_raw_data`/辞書コンストラクタ(`set_by_dict_data`/`set_by_raw_data`)が前提条件だが、これは`RUST_PORT_SPEC.md` §2の対応表に`functions.py` → `brd.rs`として元々計画されていたにもかかわらず、Phase 1〜5のどこでも着手されていなかった。
+
+さらに`RUST_PORT_SPEC.md` §1方針3は、Rust版のネイティブ`.brd`形式がYUI側の`MessagePack + zstd`ヘッダー設計(`[Magic: "YUI\0"(4B)] + [Version(1B)] + [Compression Flag(1B)] + [Payload]`)と相互運用できることを求めている。しかし実際に確認したところ、**既存のPython版`.brd`ファイル(このPhaseで使う参照構造フィクスチャ含む)はこのヘッダーを持たないプレーンなMessagePack**だった。したがって本Phaseは、mmCIFの時と同様に「1:1移植部分」と「新規実装部分」に分かれる。3つのPRに分割する。
+
+### フィクスチャ(検証済み、`proteindf_bridge/data/`に既存)
+
+| ファイル | 内容 | 検証済みの値 |
+| --- | --- | --- |
+| `ACE_ALA_NME_trans1.brd` / `_trans2.brd` / `_cis1.brd` / `_cis2.brd` | ACE-ALA-NMEの4種コンフォーマー参照構造(`Modeling.__init__`が読み込む本体) | 各22原子、3グループ(residue "1"=ACE, "2"=ALA, "3"=NME)。Python版で実際にロード確認済み。 |
+| `ACE_ALA_NME.brd` | 同上、未分類版 | 22原子、3グループ。 |
+| `NML.brd` / `NML_trans.brd` | 他の参照構造(`modeling.py`では未使用と思われるが存在確認) | 各12原子、0グループ(フラット構造)。 |
+
+**参考(Python版で実際に確認したget_ACEの出力例)**: `ACE_ALA_NME_trans1.brd`のresidue "2"(ALA)をresに、residue "3"(NME)をnext_aaに渡すと、`get_ACE`は6原子のAtomGroupを返す(CH3, 3×H, C, O相当)。Rust版でも同じ入力で同じ出力(座標を含む)になることを確認すること。
+
+### PR#17: `brd.rs`(MessagePack往復フォーマット、`functions.py`の一部 + 新規YUIヘッダー)
+
+**1:1移植部分**:
+- `functions.py`の`load_msgpack`/`save_msgpack`(プレーンMessagePack読み書き、ヘッダーなし)。
+- `Atom::get_raw_data()` / 辞書からの構築(Python版`Atom.set_by_raw_data`相当)。スキーマ: `{"Z": atomic_number(int), "name": str, "Q": charge(float), "xyz": [x,y,z], "force": [x,y,z]}`。
+- `Position::get_raw_data()`: `[x, y, z]`。
+- `AtomGroup::get_raw_data()` / 辞書からの構築(Python版`AtomGroup.set_by_dict_data`相当)。スキーマ: `{"name": str, "groups": {key: <AtomGroup再帰>, ...}, "atoms": {key: <Atom>, ...}, "bonds": [...]}`(`groups`/`atoms`は空なら省略)。
+- 未知のキーはPython版と同様、エラーにせずログ出力のみで無視すること(実際に検証したところ、既存`.brd`データの読み込み時に`AtomGroup::set_by_dict_data(): unknown key: Q=None`という警告がPython版でも出るが、クラッシュはしない。この寛容な挙動を1:1で再現すること)。
+
+**新規実装部分(RUST_PORT_SPEC.md §1.3)**:
+- YUI互換ヘッダー付き形式: `[Magic: "YUI\0"(4B)] + [Version(1B)] + [Compression Flag(1B)] + [Payload(MessagePack, オプションでzstd圧縮)]`の読み書き。既存のプレーンMessagePack形式とは別のAPI(例: `save_brd_yui`/`load_brd_yui`)として実装し、既存`.brd`ファイルの読み込みパス(1:1移植部分)を壊さないこと。zstd圧縮には適切なクレート(`zstd`クレート等)を使用すること。
+
+**完了の定義**:
+1. 上記フィクスチャ全て(`ACE_ALA_NME_{trans1,trans2,cis1,cis2}.brd`、`ACE_ALA_NME.brd`、`NML.brd`、`NML_trans.brd`)をRust版で読み込み、Python版(`load_msgpack`+`AtomGroup(data)`)と原子数・グループ数・パスリストが一致することをテストで検証すること。
+2. `AtomGroup`/`Atom`の`get_raw_data`→再構築のラウンドトリップ(構造が保持されること)をテストすること。
+3. YUI互換ヘッダー形式は、書き込み→読み込みの自己整合性(ヘッダーのマジックバイト・バージョン・圧縮フラグが正しく解釈されること)をテストすること(他言語実装との相互運用テストは本PRの範囲外、将来のC/C++バインディングやYUI側との統合時に別途検証)。
+4. `cargo clippy`/`cargo fmt`を通すこと。
+
+### PR#18: `modeling.py`本体(`modeling.rs`、PR#17完了後)
+
+対象: `get_ACE`/`get_NME`/`get_ACE_simple`/`get_NME_simple`/`_match_ACE`/`_match_NME`/`_match_residues`(ACE/NME末端キャッピング)、`add_methyl`/`get_NH3`/`arbitary_rotate_matrix`/`select_residues`/`get_last_index`(幾何ヘルパー)、`neutralize_Nterm`/`neutralize_Cterm`/`neutralize_GLU`/`neutralize_ASP`/`neutralize_LYS`/`neutralize_ARG`/`neutralize_FAD`/`_get_neutralize_pos_{NH3,NH2,COO,POO}_type`(中性化イオン位置計算)。
+
+**完了の定義**:
+1. `get_ACE`/`get_NME`は、上記フィクスチャを使い、Python版と同じ入力(residue "2"をres、residue "3"またはNoneをnext_aaに)で同じ出力(原子数・座標・RMSD)になることをテストすること。4種のコンフォーマー全てで検証すること。
+2. `neutralize_*`系は、期待する原子(例: `neutralize_Nterm`ならN/H1/H2/HXTまたはH3を持つ残基)を合成データで用意し、Python版と同じイオン位置(座標)になることをテストすること。
+3. `neutralize_FAD`のPython版は`OP1`/`O1P`のどちらの命名でも対応する分岐があるが、どちらも存在しない場合`raise`(引数なしの再送出、実質クラッシュ)する。この「該当なしならエラー」という挙動を1:1で再現すること(サイレントなフォールバックにしないこと — これまでのレビューで繰り返し指摘した`unwrap_or`パターンと同じ考え方)。
+4. `cargo clippy`/`cargo fmt`を通すこと。
+
+### PR#19: `neutralize.py`(`neutralize.rs`、PR#18完了後)
+
+対象: `Neutralize`クラス。`modeling.rs`(PR#18)と既存の`ion_pair.rs`(Phase 3で完了済み)に依存する。
+
+**注意**: Python版`_neutralize`メソッド内の`exempt_list = []  # self._exempt_list()`は、`_exempt_list()`の呼び出しがコメントアウトされており、**`_exempt_list`/`_divide_path`は実質デッドコードで、除外リストの仕組みは常に空リストとして動作する**(実際には機能していない)。これはPython版の実際の挙動なので、1:1移植方針に従いそのまま(常に空の除外リストとして)再現すること。「動いていない機能を直す」ことはスコープ外。
+
+**完了の定義**:
+1. 荷電残基(GLU/ASP/LYS/ARG、N末端/C末端)を含む合成データまたは既存PDBフィクスチャで、Python版と同じ数・位置のイオンが追加されることをテストすること。
+2. `cargo clippy`/`cargo fmt`を通すこと。
+
+### スコープ外
+
+- §3の新規機能(二次構造推定・InteractionSet)、§3.4-3.6のQC結果I/O、§4 C/C++バインディング。
+
+### やってはいけないこと
+
+- 既存Pythonコード(`proteindf_bridge/`)は変更しない。
+- **ブランチ運用ルール(MUST項目)を厳守**: `feature/phase6-prM`ブランチを**`develop`から**切って作業し(GitFlow運用、上記参照)、`develop`へは自分でマージせず、レビュー承認を待つ。PR#17→PR#18→PR#19の順に着手すること。
