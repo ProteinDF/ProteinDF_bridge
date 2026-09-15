@@ -42,6 +42,10 @@ pub enum BridgeError {
     #[error("MessagePack error: {0}")]
     MsgPack(String),
 
+    /// YAML serialization or deserialization error.
+    #[error("YAML error: {0}")]
+    Yaml(String),
+
     /// Zstd compression or decompression error.
     #[error("Zstd error: {0}")]
     Zstd(String),
