@@ -1,5 +1,9 @@
 [workspace]
 members = [
     "crates/proteindf-bridge",
+    "crates/proteindf-bridge-py",
+]
+default-members = [
+    "crates/proteindf-bridge",
 ]
 resolver = "2"
