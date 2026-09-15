@@ -18,8 +18,8 @@
 
 use std::path::PathBuf;
 
-use pdf_bridge::format::pdb::Pdb;
-use pdf_bridge::format::SimpleMmcif;
+use proteindf_bridge::format::pdb::Pdb;
+use proteindf_bridge::format::SimpleMmcif;
 
 #[test]
 fn test_load_mmcif_basic() {

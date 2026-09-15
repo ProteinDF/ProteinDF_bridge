@@ -40,21 +40,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
-name = "pdf-bridge"
-version = "0.1.0"
-dependencies = [
- "indexmap",
- "regex",
- "thiserror",
-]
-
-[[package]]
 name = "proc-macro2"
 version = "1.0.107"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "proteindf-bridge"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "regex",
+ "thiserror",
 ]
 
 [[package]]
