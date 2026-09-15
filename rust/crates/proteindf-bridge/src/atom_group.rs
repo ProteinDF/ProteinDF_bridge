@@ -232,6 +232,20 @@ impl AtomGroup {
         }
     }
 
+    /// Collects all atoms within this group and subgroups whose key or name matches.
+    pub fn pickup_atoms(&self, key_or_name: &str) -> Vec<Atom> {
+        let mut result = Vec::new();
+        for subgrp in self.groups.values() {
+            result.extend(subgrp.pickup_atoms(key_or_name));
+        }
+        for (atm_key, atm) in &self.atoms {
+            if atm_key == key_or_name || atm.name == key_or_name {
+                result.push(atm.clone());
+            }
+        }
+        result
+    }
+
     /// Sets an atom directly under `key`.
     fn set_atom_direct(&mut self, key: &str, mut atom: Atom) {
         atom.path = format!("{}{}", self.path, key);

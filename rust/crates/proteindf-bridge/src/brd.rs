@@ -404,6 +404,15 @@ pub fn load_atomgroup<P: AsRef<Path>>(path: P) -> Result<AtomGroup> {
     Ok(ag)
 }
 
+/// Loads a bridge (.brd) MessagePack byte slice directly into an `AtomGroup`.
+pub fn load_atomgroup_from_bytes(bytes: &[u8]) -> Result<AtomGroup> {
+    let val = rmpv::decode::read_value(&mut &bytes[..])
+        .map_err(|e| BridgeError::MsgPack(e.to_string()))?;
+    let mut ag = AtomGroup::new();
+    atomgroup_set_by_dict_data(&mut ag, &val)?;
+    Ok(ag)
+}
+
 /// Saves an `AtomGroup` into a plain bridge (.brd) MessagePack file.
 pub fn save_atomgroup<P: AsRef<Path>>(group: &AtomGroup, path: P) -> Result<()> {
     let val = atomgroup_get_raw_data(group);
