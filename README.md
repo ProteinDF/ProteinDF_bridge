@@ -51,6 +51,10 @@ print(f"Total atoms: {ag.get_number_of_all_atoms()}")
 pytest
 ```
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the branching model (GitFlow) and release process.
+
 ## License
 
 ProteinDF_bridge is licensed under the GNU General Public License v3.0 (GPLv3).
