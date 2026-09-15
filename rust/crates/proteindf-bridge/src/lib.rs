@@ -10,6 +10,7 @@ pub mod error;
 pub mod format;
 pub mod ion_pair;
 pub mod matrix;
+pub mod modeling;
 pub mod periodic_table;
 pub mod position;
 pub mod selector;
@@ -29,6 +30,7 @@ pub use error::{BridgeError, Result};
 pub use format::{AmberPrmtop, Format, Pdb, SimpleGro, SimpleMmcif, SimpleMol2, Xyz};
 pub use ion_pair::{IonPair, IonPairRecord};
 pub use matrix::{identity_matrix, Matrix, SymmetricMatrix};
+pub use modeling::Modeling;
 pub use periodic_table::PeriodicTable;
 pub use position::Position;
 pub use selector::{
