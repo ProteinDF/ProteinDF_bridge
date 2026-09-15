@@ -144,6 +144,42 @@ impl Position {
             data.get(2).copied().unwrap_or(0.0),
         )
     }
+
+    /// Computes the dihedral angle between `self`, `p2`, `p3`, and `p4` in degrees.
+    pub fn dihedral(&self, p2: &Position, p3: &Position, p4: &Position) -> f64 {
+        dihedral_angle(self, p2, p3, p4)
+    }
+}
+
+/// Computes the dihedral angle between four 3D points `p1, p2, p3, p4` in degrees using
+/// the IUPAC standard `atan2` method.
+///
+/// Returns an angle in degrees in the range `[-180.0, 180.0]`.
+/// Returns `0.0` if any bond vector length is zero or vectors are collinear.
+pub fn dihedral_angle(p1: &Position, p2: &Position, p3: &Position, p4: &Position) -> f64 {
+    let b1 = *p2 - *p1;
+    let b2 = *p3 - *p2;
+    let b3 = *p4 - *p3;
+
+    let b2_len = b2.length();
+    if b2_len < 1.0e-12 {
+        return 0.0;
+    }
+    let b2_u = b2 / b2_len;
+
+    let n1 = b1.cross(&b2);
+    let n2 = b2.cross(&b3);
+
+    let m1 = n1.cross(&b2_u);
+
+    let x = n1.dot(&n2);
+    let y = m1.dot(&n2);
+
+    if x.abs() < 1.0e-15 && y.abs() < 1.0e-15 {
+        return 0.0;
+    }
+
+    y.atan2(x).to_degrees()
 }
 
 impl FromStr for Position {
