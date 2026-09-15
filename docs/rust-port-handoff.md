@@ -450,3 +450,71 @@ PR#17(`brd.rs`)・PR#18(`modeling.rs`)・PR#19(`neutralize.rs`)、全てClaude�
 
 - 既存Pythonコード(`proteindf_bridge/`)は変更しない。
 - **ブランチ運用ルール(MUST項目)を厳守**: `feature/phase6-prM`ブランチを**`develop`から**切って作業し(GitFlow運用、上記参照)、`develop`へは自分でマージせず、レビュー承認を待つ。PR#17→PR#18→PR#19の順に着手すること。
+
+## Phase 7: バックボーン二面角(φ/ψ)計算 — Ramachandranプロット対応(今回のスコープ、2026-09-15 受け入れ基準確定)
+
+### 背景
+
+ユーザーからRamachandranプロット(タンパク質主鎖のφ/ψ二面角の散布図によるコンフォメーション評価)のサポート可否を問われた。調査の結果、**既存Python版・Rust版のどちらにも二面角計算のコードが一切存在しない**ことを確認した(`grep -rn "dihedral\|phi\|psi" proteindf_bridge/*.py`で該当なし)。これは`RUST_PORT_SPEC.md` §3.2(二次構造推定)とは別の、独立した新規機能である(§3.2のDSSP相当は主鎖水素結合ベースの判定で、φ/ψ角ベースの判定とは別のアプローチ)。プロット描画そのもの(可視化)は本ライブラリのスコープ外とする(構造I/Oライブラリであり、可視化はYUI側またはPython側の別スクリプトの役割)。
+
+**Python版の実装が存在しないため、他のPhaseと異なり「Python版との1:1比較」という受け入れ基準が使えない。** 代わりに以下の2段階で検証する: (1) 幾何学的に正解が既知の合成データでの符号・大きさの検証、(2) 実PDBフィクスチャに対して独立に計算した基準値との比較。
+
+### 二面角の定義(IUPAC標準、数値的に安定な`atan2`方式を使用)
+
+4点 `p1, p2, p3, p4` に対して:
+
+```
+b1 = p2 - p1
+b2 = p3 - p2
+b3 = p4 - p3
+n1 = b1 × b2
+n2 = b2 × b3
+m1 = n1 × (b2 / |b2|)
+x = n1 · n2
+y = m1 · n2
+angle = atan2(y, x)  (ラジアン、度に変換する場合は180/πを乗じる。範囲: -180°〜+180°)
+```
+
+φ(phi) = dihedral(前残基のC, 現残基のN, 現残基のCA, 現残基のC)
+ψ(psi) = dihedral(現残基のN, 現残基のCA, 現残基のC, 次残基のN)
+
+最初の残基はφが定義できず(前の残基のCがない)、最後の残基はψが定義できない(次の残基のNがない)ので、`Option<f64>`で表現すること。
+
+### 検証済みの基準値(独立計算、`proteindf_bridge/data/1hls.pdb`、model_1、chain A)
+
+上記の`atan2`方式の二面角計算をnumpyで独立実装し、実際に計算して得た値:
+
+| 残基番号 | φ(度) | ψ(度) |
+| --- | --- | --- |
+| 4 | 70.5993 | 3.3945 |
+| 5 | 121.6311 | 26.5618 |
+| 10 | 84.5507 | -99.6314 |
+
+Rust版でも同じ入力(同じPDBファイル、同じ残基)から同じ値(誤差1e-3度程度まで)が得られることを確認すること。
+
+### PR#20: `dihedral_angle`関数 + Ramachandran計算(`ramachandran.rs`、新規)
+
+**対象**:
+1. `Position`(または新規`geometry.rs`)に汎用の二面角計算関数を追加: `dihedral_angle(p1: &Position, p2: &Position, p3: &Position, p4: &Position) -> f64`(上記の`atan2`方式、度単位で返す)。
+2. `ramachandran.rs`(新規): チェイン(`AtomGroup`)を受け取り、連続する残基(整数キー、`get_group_list`等で自然順ソート済みのキーを使う)ごとにφ/ψを計算する関数。例: `calc_phi_psi(chain: &AtomGroup) -> Vec<RamachandranAngle>`、`RamachandranAngle { residue_key: String, residue_name: String, phi: Option<f64>, psi: Option<f64> }`。N/CA/C原子が欠けている残基は安全にスキップすること(エラーにしない。可視化目的のデータ収集なので、部分的に欠損した構造でも可能な範囲で結果を返す方が実用的)。
+
+**完了の定義**:
+1. 合成データによる幾何学的サニティテスト: 平面上に4点を配置し、角度が解析的に既知の値(0°, 90°, 180°, -90°等)になるケースを複数用意し、`dihedral_angle`の符号・大きさが正しいことを検証すること。
+2. 上記の基準値表(1hls.pdb、chain A、残基4/5/10)と一致することを検証する実データテストを追加すること。
+3. 最初の残基でφが`None`、最後の残基でψが`None`になることを検証すること。
+4. `cargo clippy`/`cargo fmt`を通すこと。
+
+### PR#21: Pythonバインディング(`proteindf-bridge-py`、PR#20完了後)
+
+`ramachandran.rs`をPyO3で公開する。Phase 5の既存パターン(クラス名・メソッド名をなるべく分かりやすく、エラーは`BrError`系にマッピング)を踏襲すること。pytestで、上記基準値表と同じ検証(1hls.pdbの残基4/5/10のφ/ψ)を行うこと。
+
+### スコープ外
+
+- プロット描画(matplotlib等での可視化)。
+- §3.2のDSSP相当(水素結合ベースの二次構造推定)は別Phaseとする。
+- C/C++バインディング。
+
+### やってはいけないこと
+
+- 既存Pythonコード(`proteindf_bridge/`)は変更しない(この機能はPython版に存在しないため、新規Pythonコードの追加も不要)。
+- **ブランチ運用ルール(MUST項目)を厳守**: `feature/phase7-prM`ブランチを`develop`から切って作業し、`develop`へは自分でマージせず、レビュー承認を待つ。PR#20を先に、PR#21をその後に。
