@@ -36,6 +36,7 @@ pub fn to_py_err(err: BridgeError) -> PyErr {
         )),
         BridgeError::Io(msg) => BrError::new_err(format!("I/O error: {}", msg)),
         BridgeError::MsgPack(msg) => BrValueError::new_err(format!("MessagePack error: {}", msg)),
+        BridgeError::Yaml(msg) => BrValueError::new_err(format!("YAML error: {}", msg)),
         BridgeError::Zstd(msg) => BrValueError::new_err(format!("Zstd error: {}", msg)),
     }
 }
