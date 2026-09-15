@@ -36,7 +36,8 @@ impl RamachandranAngle {
 /// - For the first residue in a contiguous segment, `phi` is `None` (no preceding `C` atom).
 /// - For the last residue in a contiguous segment, `psi` is `None` (no following `N` atom).
 pub fn calc_phi_psi(chain: &AtomGroup) -> Vec<RamachandranAngle> {
-    let res_keys = chain.get_group_list();
+    let mut res_keys = chain.get_group_list();
+    crate::brd::sort_nicely(&mut res_keys);
     let mut results = Vec::new();
 
     struct BackboneInfo {
