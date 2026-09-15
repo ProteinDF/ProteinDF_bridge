@@ -1,4 +1,4 @@
-# pdf-bridge Rust移植 — antigravity向け作業指示
+# proteindf-bridge Rust移植 — antigravity向け作業指示
 
 本ドキュメントは、`RUST_PORT_SPEC.md` に基づくRust移植作業を実装担当(antigravity)に委任するにあたっての、フェーズ単位の作業指示を記録する。Claude(このリポジトリでのレビュー担当)は各PRを本ドキュメント・`RUST_PORT_SPEC.md`・`SPEC.md` と突き合わせて仕様適合チェックを行う。
 
@@ -18,7 +18,7 @@
 rust/
 ├── Cargo.toml            # workspace定義
 └── crates/
-    └── pdf-bridge/        # コアライブラリ(Phase 1の対象)
+    └── proteindf-bridge/  # コアライブラリ(Phase 1の対象)
         ├── Cargo.toml
         └── src/
             ├── lib.rs
@@ -26,7 +26,11 @@ rust/
             └── periodic_table.rs
 ```
 
-単一クレート直下構成ではなく `crates/` 配下にコアクレートを置く構成を採用する。理由: §4のバインディング方針(C ABI用cdylib、PyO3用Pythonモジュール)は将来的にコアクレートとは別クレート(`crates/pdf-bridge-capi/`、`crates/pdf-bridge-py/` 等)として追加する想定のため、最初から `crates/` 構成にしておく。
+単一クレート直下構成ではなく `crates/` 配下にコアクレートを置く構成を採用する。理由: §4のバインディング方針(C ABI用cdylib、PyO3用Pythonモジュール)は将来的にコアクレートとは別クレート(`crates/proteindf-bridge-capi/`、`crates/proteindf-bridge-py/` 等)として追加する想定のため、最初から `crates/` 構成にしておく。
+
+### 命名変更(2026-09-15): `pdf-bridge` → `proteindf-bridge`
+
+当初 `pdf-bridge` という名称を使っていたが、「PDF」(Portable Document Format)との混同を避けるため `proteindf-bridge` に変更した。Rustクレート名・ディレクトリ名(`rust/crates/pdf-bridge/` → `rust/crates/proteindf-bridge/`)・`Cargo.toml`のpackage名・全テストファイルの`use pdf_bridge::...`を`use proteindf_bridge::...`に、専用PRで対応すること(詳細は「Phase 4.5: プロジェクト名変更」参照、Phase 5着手前に完了させる)。Pythonバインディングのパッケージ名も`pdf_bridge`ではなく`proteindf_bridge_rs`とする。
 
 ## Phase 1: 基盤・データモデルの1:1移植(完了 2026-09-14)
 
@@ -117,7 +121,7 @@ PR#4(format/xyz/gro)・PR#5(mol2/amber_prmtop)・PR#6(biopdb)、全てClaudeレ�
 
 ### テストフィクスチャの扱い
 
-`proteindf_bridge/data/`(`1hls.pdb`, `2MGO.pdb`, `3i3zH.pdb`, `ACE_ALA_NME.xyz`, `sample.gro`)を参照する既存Pythonテストがある。Rust側でも同じフィクスチャファイルを使うこと(`rust/crates/pdf-bridge/tests/data/`等にコピーし、`env!("CARGO_MANIFEST_DIR")`基点の絶対パスで参照する。CWD依存にしないこと — Python版で過去にCWD依存のテストが壊れた実例があるため)。
+`proteindf_bridge/data/`(`1hls.pdb`, `2MGO.pdb`, `3i3zH.pdb`, `ACE_ALA_NME.xyz`, `sample.gro`)を参照する既存Pythonテストがある。Rust側でも同じフィクスチャファイルを使うこと(`rust/crates/proteindf-bridge/tests/data/`等にコピーし、`env!("CARGO_MANIFEST_DIR")`基点の絶対パスで参照する。CWD依存にしないこと — Python版で過去にCWD依存のテストが壊れた実例があるため)。
 
 ### 完了の定義(Definition of Done)
 
@@ -236,7 +240,7 @@ PR#12(CCD形式1:1移植)・PR#13(`_atom_site`形式新規実装)、ともにCla
 
 `RUST_PORT_SPEC.md` §3.1が目指す「PDBx/mmCIFをRust版の主力フォーマットとし、100万原子規模の構造を扱う」には、`_atom_site`ベースの全構造パーサが必要だが、これはPython版に存在しない**新規実装**である。そのため本Phaseは2つのPRに分割する。
 
-### フィクスチャ(RCSB PDBから取得・検証済み、`proteindf_bridge/data/`と`rust/crates/pdf-bridge/tests/data/`に配置済み)
+### フィクスチャ(RCSB PDBから取得・検証済み、`proteindf_bridge/data/`と`rust/crates/proteindf-bridge/tests/data/`に配置済み)
 
 | ファイル | 内容 | 検証済みの値 |
 | --- | --- | --- |
@@ -284,6 +288,21 @@ PR#12(CCD形式1:1移植)・PR#13(`_atom_site`形式新規実装)、ともにCla
 
 Phase 1〜4が`main`へマージされ(`superposer_quaternion.py`のPythonバグ修正も`main`へ直接マージ済み)、`rust-port`ブランチは`main`より遅れた状態になった。Phase 5以降は**`rust-port`を経由せず、`main`から直接機能ブランチを切り、レビュー承認後に`main`へ直接マージする**運用に切り替える。ブランチ命名・レビューゲート(MUST項目)等の他のルールは変更なし。
 
+## Phase 4.5: プロジェクト名変更(`pdf-bridge` → `proteindf-bridge`、Phase 5着手前に必須)
+
+「PDF」(Portable Document Format)との混同を避けるため、プロジェクト名を`pdf-bridge`から`proteindf-bridge`に変更する。Phase 1〜4で既にマージ済みの全ファイルに影響するため、専用PRとして先に対応すること。
+
+**対象**:
+1. ディレクトリ: `rust/crates/pdf-bridge/` → `rust/crates/proteindf-bridge/`(`git mv`)
+2. `rust/Cargo.toml`: workspace memberパスを`crates/proteindf-bridge`に更新
+3. `rust/crates/proteindf-bridge/Cargo.toml`: `package.name`を`proteindf-bridge`に変更
+4. 全テストファイル(`tests/test_*.rs`、8ファイル)の`use pdf_bridge::...`を`use proteindf_bridge::...`に変更(Cargoは`-`を`_`に自動変換するため、Rustコード内の参照はこの形になる)
+5. `RUST_PORT_SPEC.md`・`docs/rust-port-handoff.md`は既にClaude側で`proteindf-bridge`表記に更新済み。追加の対応は不要。
+
+**完了の定義**: `cargo build --workspace`・`cargo test --workspace`(120件)・`cargo clippy`・`cargo fmt`が全て通ること。振る舞いの変更は一切ないので、既存テストが全てそのままpassすることを確認するだけでよい。
+
+**ブランチ**: `fix/rename-to-proteindf-bridge`を`main`から切り、レビュー承認後`main`へマージ。この対応が完了してからPhase 5(PR#14)に着手すること。
+
 ## Phase 5: Pythonバインディング(PyO3)
 
 ### 背景・目的
@@ -296,14 +315,14 @@ Phase 1〜4が`main`へマージされ(`superposer_quaternion.py`のPythonバグ
 rust/
 ├── Cargo.toml
 └── crates/
-    ├── pdf-bridge/        # コアライブラリ(既存)
-    └── pdf-bridge-py/     # 新規: PyO3バインディング
+    ├── proteindf-bridge/     # コアライブラリ(既存)
+    └── proteindf-bridge-py/  # 新規: PyO3バインディング
         ├── Cargo.toml     # crate-type = ["cdylib"], pyo3依存
         ├── pyproject.toml # maturin設定
         └── src/lib.rs
 ```
 
-Pythonパッケージ名は`pdf_bridge`(アンダースコア、Rustクレート名に合わせる)とし、既存`proteindf_bridge`パッケージと共存できるようにすること(名前が衝突しないため、移行期間中に両方インストールして比較検証できる)。
+Pythonパッケージ名は`proteindf_bridge_rs`とし、既存の純Python版`proteindf_bridge`パッケージと共存できるようにすること(名前が衝突しないため、移行期間中に両方インストールして比較検証できる)。
 
 ### エラー変換方針
 
@@ -311,7 +330,7 @@ Pythonパッケージ名は`pdf_bridge`(アンダースコア、Rustクレート
 
 ### 完了の定義(Definition of Done、全PR共通)
 
-1. `maturin develop`でビルドでき、Pythonから`import pdf_bridge`できること。
+1. `maturin develop`でビルドでき、Pythonから`import proteindf_bridge_rs`できること。
 2. pytestベースのテストを追加し、**既存`proteindf_bridge`の同等クラスと同じ操作をして結果を比較する**(例: 同じ分子構造を新旧両方のAPIで構築し、原子数・座標が一致することを確認)。単にバインディングが動くことだけでなく、既存Python版との挙動一致を検証すること(これまでのRust移植と同じ検証方針)。
 3. クラス名・メソッド名は既存Python API(`SPEC.md`参照)に合わせること。
 4. `cargo clippy`/`cargo fmt`に加え、Python側のテストも実行して報告すること。

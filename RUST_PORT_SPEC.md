@@ -1,6 +1,8 @@
-# pdf-bridge — Rust移植仕様書 (RUST_PORT_SPEC.md)
+# proteindf-bridge — Rust移植仕様書 (RUST_PORT_SPEC.md)
 
-本ドキュメントは、本リポジトリ（`ProteinDF_bridge`, Python, GPLv3）をRustに1:1移植した新プロジェクト **`pdf-bridge`** の仕様を定義する。既存の [`SPEC.md`](./SPEC.md) は現行Python実装の仕様書であり、本ドキュメントはそれを"正"としてRust版が満たすべき要件・拡張範囲・新規実装項目を規定する立場にある。
+本ドキュメントは、本リポジトリ（`ProteinDF_bridge`, Python, GPLv3）をRustに1:1移植した新プロジェクト **`proteindf-bridge`** の仕様を定義する。既存の [`SPEC.md`](./SPEC.md) は現行Python実装の仕様書であり、本ドキュメントはそれを"正"としてRust版が満たすべき要件・拡張範囲・新規実装項目を規定する立場にある。
+
+> **命名について(2026-09-15)**: 当初は `pdf-bridge` という名称を検討していたが、「PDF」(Portable Document Format)との混同を避けるため `proteindf-bridge` に変更した。Pythonバインディングのパッケージ名は既存の純Python版 `proteindf_bridge` と共存できるよう `proteindf_bridge_rs` とする(§4参照)。
 
 ## 0. 背景・目的
 
@@ -71,7 +73,7 @@
 
 ### 3.4 ProteinDF計算結果I/Oの統合（`ProteinDF_pytools`相当）
 
-構造データ（本リポジトリ由来）とは別に、ProteinDFの計算結果（`pdfparam.h5`: 基底関数系・MO係数行列・軌道エネルギー・Mulliken電荷等のポピュレーション解析）を扱う姉妹プロジェクト **`ProteinDF_pytools`**（`orbinfo.py`, `matrix.py`/`vector.py`, `basisset.py`/`basis2.py`, `pdfparam_hdf5.py`, `poputils.py` 等）も `pdf-bridge` に統合する。
+構造データ（本リポジトリ由来）とは別に、ProteinDFの計算結果（`pdfparam.h5`: 基底関数系・MO係数行列・軌道エネルギー・Mulliken電荷等のポピュレーション解析）を扱う姉妹プロジェクト **`ProteinDF_pytools`**（`orbinfo.py`, `matrix.py`/`vector.py`, `basisset.py`/`basis2.py`, `pdfparam_hdf5.py`, `poputils.py` 等）も `proteindf-bridge` に統合する。
 
 - HDF5読み込みは `hdf5-metno` クレート（オリジナルの `hdf5` crateは保守停止のため）を使用する。
 - モジュール: `qc_result/pdfparam_hdf5.rs`, `qc_result/basis_set.rs`, `qc_result/orbital_info.rs`, `qc_result/population.rs`。
@@ -92,7 +94,7 @@ ProteinDF本体のC++ツール（`pdf-mkfld-dens`/`pdf-mkfld-mo`/`pdf-mkfld-esp`
 
 - **Rust:** コアライブラリ本体。ネイティブクレートとしてYUIの `core`/`renderer-native` から直接利用する。
 - **C/C++:** `cdylib` + `cbindgen` によるヘッダー生成でC ABIを公開する。
-- **Python:** `PyO3` + `maturin` によるバインディングを提供し、既存 `ProteinDF_bridge`/`ProteinDF_pytools` ユーザーが最小コストで移行できるようにする（可能な限り既存Python APIの関数・クラス名を踏襲する）。
+- **Python:** `PyO3` + `maturin` によるバインディングを提供し、既存 `ProteinDF_bridge`/`ProteinDF_pytools` ユーザーが最小コストで移行できるようにする（可能な限り既存Python APIの関数・クラス名を踏襲する）。パッケージ名は `proteindf_bridge_rs` とし、既存の純Python版 `proteindf_bridge` と共存インストールできるようにする。
 
 ## 5. ライセンス
 
