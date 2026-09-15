@@ -33,7 +33,9 @@ pub use brd::{
 pub use error::{BridgeError, Result};
 pub use format::{AmberPrmtop, Format, Pdb, SimpleGro, SimpleMmcif, SimpleMol2, Xyz};
 pub use hydrogen_bond::{
-    calc_backbone_hbonds, calc_kabsch_sander_energy, calc_pseudo_hydrogen, HydrogenBond,
+    calc_backbone_hbonds, calc_kabsch_sander_energy, calc_pseudo_hydrogen, calc_sidechain_hbonds,
+    calc_sidechain_hbonds_with_options, HydrogenBond, SidechainAtomType, SidechainHydrogenBond,
+    SIDECHAIN_ATOM_TYPES,
 };
 pub use ion_pair::{IonPair, IonPairRecord};
 pub use matrix::{identity_matrix, Matrix, SymmetricMatrix};
