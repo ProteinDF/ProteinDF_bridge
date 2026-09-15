@@ -33,6 +33,24 @@ pub enum BridgeError {
     /// PeriodicTable error: atomic weight not found.
     #[error("PeriodicTable.atomic_weight(): no atomic weight for atom {0}")]
     AtomicWeightNotFound(usize),
+
+    /// I/O error during file operations.
+    #[error("I/O error: {0}")]
+    Io(String),
+
+    /// MessagePack serialization or deserialization error.
+    #[error("MessagePack error: {0}")]
+    MsgPack(String),
+
+    /// Zstd compression or decompression error.
+    #[error("Zstd error: {0}")]
+    Zstd(String),
+}
+
+impl From<std::io::Error> for BridgeError {
+    fn from(err: std::io::Error) -> Self {
+        BridgeError::Io(err.to_string())
+    }
 }
 
 impl BridgeError {

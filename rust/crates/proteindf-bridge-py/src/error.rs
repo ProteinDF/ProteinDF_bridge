@@ -34,5 +34,8 @@ pub fn to_py_err(err: BridgeError) -> PyErr {
             "PeriodicTable.atomic_weight(): no atomic weight for atom {}",
             n
         )),
+        BridgeError::Io(msg) => BrError::new_err(format!("I/O error: {}", msg)),
+        BridgeError::MsgPack(msg) => BrValueError::new_err(format!("MessagePack error: {}", msg)),
+        BridgeError::Zstd(msg) => BrValueError::new_err(format!("Zstd error: {}", msg)),
     }
 }
