@@ -207,3 +207,68 @@ fn test_ramachandran_missing_atoms_safe_skip() {
     assert!(angles[2].phi.is_some());
     assert!(angles[2].psi.is_none());
 }
+
+#[test]
+fn test_ramachandran_unsorted_chain_keys() {
+    let make_residue = |key: &str, name: &str, offset: f64| -> AtomGroup {
+        let mut res = AtomGroup::with_name(key);
+        res.name = name.to_string();
+        res.set_atom(
+            "N",
+            make_backbone_atom("N", Position::new(offset, 0.0, 0.0)),
+        );
+        res.set_atom(
+            "CA",
+            make_backbone_atom("CA", Position::new(offset + 1.0, 0.0, 0.0)),
+        );
+        res.set_atom(
+            "C",
+            make_backbone_atom("C", Position::new(offset + 1.5, 1.0, 0.0)),
+        );
+        res
+    };
+
+    // Build chain with standard sorted insertion
+    let mut chain_sorted = AtomGroup::with_name("A");
+    chain_sorted.set_group("1", make_residue("1", "ALA", 0.0));
+    chain_sorted.set_group("2", make_residue("2", "GLY", 3.0));
+    chain_sorted.set_group("3", make_residue("3", "VAL", 6.0));
+    chain_sorted.set_group("4", make_residue("4", "LEU", 9.0));
+    chain_sorted.set_group("10", make_residue("10", "ILE", 12.0));
+
+    // Build chain with deliberately scrambled insertion order: "3", "10", "1", "4", "2"
+    let mut chain_scrambled = AtomGroup::with_name("A");
+    chain_scrambled.set_group("3", make_residue("3", "VAL", 6.0));
+    chain_scrambled.set_group("10", make_residue("10", "ILE", 12.0));
+    chain_scrambled.set_group("1", make_residue("1", "ALA", 0.0));
+    chain_scrambled.set_group("4", make_residue("4", "LEU", 9.0));
+    chain_scrambled.set_group("2", make_residue("2", "GLY", 3.0));
+
+    let angles_sorted = calc_phi_psi(&chain_sorted);
+    let angles_scrambled = calc_phi_psi(&chain_scrambled);
+
+    assert_eq!(angles_sorted.len(), 5);
+    assert_eq!(angles_scrambled.len(), 5);
+
+    // Verify results match identically
+    for (s, sc) in angles_sorted.iter().zip(angles_scrambled.iter()) {
+        assert_eq!(s.residue_key, sc.residue_key);
+        assert_eq!(s.residue_name, sc.residue_name);
+        match (s.phi, sc.phi) {
+            (Some(v1), Some(v2)) => assert!((v1 - v2).abs() < 1e-10),
+            (None, None) => {}
+            _ => panic!(
+                "phi mismatch for residue {}: {:?} vs {:?}",
+                s.residue_key, s.phi, sc.phi
+            ),
+        }
+        match (s.psi, sc.psi) {
+            (Some(v1), Some(v2)) => assert!((v1 - v2).abs() < 1e-10),
+            (None, None) => {}
+            _ => panic!(
+                "psi mismatch for residue {}: {:?} vs {:?}",
+                s.residue_key, s.psi, sc.psi
+            ),
+        }
+    }
+}
