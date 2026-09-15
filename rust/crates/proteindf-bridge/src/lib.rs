@@ -6,6 +6,7 @@ pub mod atom;
 pub mod atom_group;
 pub mod bond;
 pub mod brd;
+pub mod ch_pi;
 pub mod error;
 pub mod format;
 pub mod hydrogen_bond;
@@ -29,6 +30,11 @@ pub use atom_group::{AtomGroup, BondRecord, Selector};
 pub use bond::Bond;
 pub use brd::{
     load_atomgroup, load_brd_yui, load_msgpack, save_atomgroup, save_brd_yui, save_msgpack,
+};
+pub use ch_pi::{
+    calc_ch_pi_interactions, calc_ch_pi_interactions_with_thresholds, calc_ring_center_and_normal,
+    calc_ring_geometry, AromaticRing, AromaticRingDef, ChPiInteraction, AROMATIC_RINGS,
+    DEFAULT_MAX_ANGLE_DEG, DEFAULT_MAX_DISTANCE,
 };
 pub use error::{BridgeError, Result};
 pub use format::{AmberPrmtop, Format, Pdb, SimpleGro, SimpleMmcif, SimpleMol2, Xyz};
