@@ -20,7 +20,7 @@ impl PyPosition {
     }
 }
 
-fn extract_position(arg: &Bound<'_, PyAny>) -> PyResult<CorePosition> {
+pub(crate) fn extract_position(arg: &Bound<'_, PyAny>) -> PyResult<CorePosition> {
     if let Ok(pos) = arg.extract::<PyRef<PyPosition>>() {
         Ok(pos.inner)
     } else if let Ok(s) = arg.extract::<String>() {
@@ -172,6 +172,18 @@ impl PyPosition {
 
     pub fn get_raw_data(&self) -> [f64; 3] {
         self.inner.get_raw_data()
+    }
+
+    pub fn dihedral(
+        &self,
+        p2: &Bound<'_, PyAny>,
+        p3: &Bound<'_, PyAny>,
+        p4: &Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let pos2 = extract_position(p2)?;
+        let pos3 = extract_position(p3)?;
+        let pos4 = extract_position(p4)?;
+        Ok(self.inner.dihedral(&pos2, &pos3, &pos4))
     }
 
     pub fn __getitem__(&self, index: isize) -> PyResult<f64> {
