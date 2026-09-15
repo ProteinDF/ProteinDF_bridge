@@ -451,7 +451,11 @@ PR#17(`brd.rs`)・PR#18(`modeling.rs`)・PR#19(`neutralize.rs`)、全てClaude�
 - 既存Pythonコード(`proteindf_bridge/`)は変更しない。
 - **ブランチ運用ルール(MUST項目)を厳守**: `feature/phase6-prM`ブランチを**`develop`から**切って作業し(GitFlow運用、上記参照)、`develop`へは自分でマージせず、レビュー承認を待つ。PR#17→PR#18→PR#19の順に着手すること。
 
-## Phase 7: バックボーン二面角(φ/ψ)計算 — Ramachandranプロット対応(今回のスコープ、2026-09-15 受け入れ基準確定)
+## Phase 7: バックボーン二面角(φ/ψ)計算 — Ramachandranプロット対応(完了 2026-09-15)
+
+PR#20(`dihedral_angle` + `ramachandran.rs`)・PR#21(Pythonバインディング)、全てClaudeレビュー通過・`develop`へマージ済み。基準値表(1hls.pdb、chain A、残基4/5/10のφ/ψ)はRust版・Pythonバインディング双方で誤差1e-3度以内の一致を確認済み。PR#20レビュー時に指摘した`IndexMap`挿入順依存の問題(`calc_phi_psi`が`sort_nicely`による明示ソートをせず、挿入順に依存していた)は、挿入順を意図的に崩したチェインでの回帰テストとともに修正済み。PR#21のPythonバインディングは例外を投げる経路がなく(`extract_position`の`?`伝播のみ)、`unwrap`/`unwrap_or`によるサイレントなフォールバックも無いことをコードレビューで確認した。pytest側でも幾何学的サニティ・実PDB基準値・欠損主鎖の安全スキップ・挿入順スクランブルの4ケースを検証し、既存の回帰テスト(46件)を含め全てパス。
+
+**これでRamachandranプロット対応(新規機能)が完了した。**
 
 ### 背景
 
