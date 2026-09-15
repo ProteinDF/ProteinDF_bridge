@@ -18,11 +18,11 @@
 
 use std::path::PathBuf;
 
-use pdf_bridge::atom::Atom;
-use pdf_bridge::atom_group::AtomGroup;
-use pdf_bridge::format::pdb::Pdb;
-use pdf_bridge::position::Position;
-use pdf_bridge::ssbond::SSBond;
+use proteindf_bridge::atom::Atom;
+use proteindf_bridge::atom_group::AtomGroup;
+use proteindf_bridge::format::pdb::Pdb;
+use proteindf_bridge::position::Position;
+use proteindf_bridge::ssbond::SSBond;
 
 fn test_data_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data")

@@ -1,5 +1,5 @@
 [workspace]
 members = [
-    "crates/pdf-bridge",
+    "crates/proteindf-bridge",
 ]
 resolver = "2"

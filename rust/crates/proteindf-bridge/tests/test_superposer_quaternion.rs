@@ -16,12 +16,12 @@
 // You should have received a copy of the GNU General Public License
 // along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
-use pdf_bridge::atom::Atom;
-use pdf_bridge::atom_group::AtomGroup;
-use pdf_bridge::format::Pdb;
-use pdf_bridge::matrix::Matrix;
-use pdf_bridge::position::Position;
-use pdf_bridge::superposer::Superposer;
+use proteindf_bridge::atom::Atom;
+use proteindf_bridge::atom_group::AtomGroup;
+use proteindf_bridge::format::Pdb;
+use proteindf_bridge::position::Position;
+use proteindf_bridge::superposer::Superposer;
+use proteindf_bridge::{SuperposerQuaternion, Superposer_quaternion};
 use std::path::PathBuf;
 
 fn make_atom(name: &str, xyz: Position) -> Atom {
@@ -50,34 +50,34 @@ fn create_test_atom_groups() -> (AtomGroup, AtomGroup) {
 }
 
 #[test]
-fn test_superposer_rmsd_and_centers() {
+fn test_quaternion_rmsd_and_calc() {
     let (ag1, ag2) = create_test_atom_groups();
-    let sp = Superposer::new(&ag1, &ag2).unwrap();
+    let sq = SuperposerQuaternion::new(&ag1, &ag2).unwrap();
 
-    assert_eq!(sp.num_of_positions(), 4);
-    assert!((sp.rmsd() - 0.0).abs() < 1e-5);
+    let rmsd = sq.rmsd();
+    assert!((rmsd - 0.0).abs() < 1e-5);
+    assert!((sq.calc() - rmsd).abs() < 1e-12);
+}
 
-    let c1 = sp.center1();
-    assert!((c1.x - 0.0).abs() < 1e-6);
-    assert!((c1.y - 0.0).abs() < 1e-6);
-    assert!((c1.z - 0.0).abs() < 1e-6);
+#[test]
+fn test_quaternion_rotation_mat() {
+    let (ag1, ag2) = create_test_atom_groups();
+    // Test alias Superposer_quaternion
+    let sq = Superposer_quaternion::new(&ag1, &ag2).unwrap();
 
-    let c2 = sp.center2();
-    assert!((c2.x - 1.0).abs() < 1e-6);
-    assert!((c2.y - 2.0).abs() < 1e-6);
-    assert!((c2.z - 3.0).abs() < 1e-6);
+    let rot_mat = sq.rotation_mat();
+    assert_eq!(rot_mat.rows(), 3);
+    assert_eq!(rot_mat.cols(), 3);
 
-    // Rotation matrix should be Identity (within numerical precision)
-    let rot = sp.rotation_mat();
     for r in 0..3 {
         for c in 0..3 {
             let expected = if r == c { 1.0 } else { 0.0 };
             assert!(
-                (rot.get(r, c).unwrap() - expected).abs() < 1e-6,
+                (rot_mat.get(r, c).unwrap() - expected).abs() < 1e-6,
                 "rot({}, {}) = {}, expected {}",
                 r,
                 c,
-                rot.get(r, c).unwrap(),
+                rot_mat.get(r, c).unwrap(),
                 expected
             );
         }
@@ -85,11 +85,11 @@ fn test_superposer_rmsd_and_centers() {
 }
 
 #[test]
-fn test_superposer_superimpose() {
+fn test_quaternion_superimpose() {
     let (ag1, ag2) = create_test_atom_groups();
-    let sp = Superposer::new(&ag1, &ag2).unwrap();
+    let sq = SuperposerQuaternion::new(&ag1, &ag2).unwrap();
 
-    let superimposed = sp.superimpose(&ag1).unwrap();
+    let superimposed = sq.superimpose(&ag1).unwrap();
     assert_eq!(superimposed.get_number_of_atoms(), 4);
 
     for key in &["A1", "A2", "A3", "A4"] {
@@ -101,112 +101,92 @@ fn test_superposer_superimpose() {
 }
 
 #[test]
-fn test_superposer_rotation() {
-    let (ag1, _) = create_test_atom_groups();
+fn test_quaternion_with_rotation_and_agreement_with_kabsch() {
+    // Non-symmetric positions with 90-degree rotation around X + translation
+    let mut ag1 = AtomGroup::new();
+    ag1.set_atom("A1", make_atom("A1", Position::new(1.2, 2.3, 3.4)));
+    ag1.set_atom("A2", make_atom("A2", Position::new(4.5, 1.1, 0.2)));
+    ag1.set_atom("A3", make_atom("A3", Position::new(0.1, 5.6, 2.7)));
+    ag1.set_atom("A4", make_atom("A4", Position::new(3.3, 0.4, 6.1)));
 
-    // Rotate ag1 90 degrees around Z: (x, y, z) -> (-y, x, z) + (5.0, 2.0, -3.0)
+    // Rotate 90 deg around X: (x, y, z) -> (x, -z, y) + (2.0, 3.0, 4.0)
     let mut ag2 = AtomGroup::new();
-    ag2.name = "mol2".to_string();
     ag2.set_atom(
         "A1",
-        make_atom("A1", Position::new(-1.0 + 5.0, 1.0 + 2.0, 1.0 - 3.0)),
+        make_atom("A1", Position::new(1.2 + 2.0, -3.4 + 3.0, 2.3 + 4.0)),
     );
     ag2.set_atom(
         "A2",
-        make_atom("A2", Position::new(1.0 + 5.0, 1.0 + 2.0, -1.0 - 3.0)),
+        make_atom("A2", Position::new(4.5 + 2.0, -0.2 + 3.0, 1.1 + 4.0)),
     );
     ag2.set_atom(
         "A3",
-        make_atom("A3", Position::new(-1.0 + 5.0, -1.0 + 2.0, -1.0 - 3.0)),
+        make_atom("A3", Position::new(0.1 + 2.0, -2.7 + 3.0, 5.6 + 4.0)),
     );
     ag2.set_atom(
         "A4",
-        make_atom("A4", Position::new(1.0 + 5.0, -1.0 + 2.0, 1.0 - 3.0)),
+        make_atom("A4", Position::new(3.3 + 2.0, -6.1 + 3.0, 0.4 + 4.0)),
     );
 
+    let sq = SuperposerQuaternion::new(&ag1, &ag2).unwrap();
     let sp = Superposer::new(&ag1, &ag2).unwrap();
-    assert!(sp.rmsd() < 1e-10);
 
-    // Rotation matrix should be:
-    // [ 0 -1  0]
-    // [ 1  0  0]
-    // [ 0  0  1]
-    let rot = sp.rotation_mat();
-    let expected = [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]];
-    for (r, row) in expected.iter().enumerate() {
-        for (c, &exp_val) in row.iter().enumerate() {
+    // Both methods should achieve RMSD near 0.0
+    assert!(sq.rmsd() < 1e-10, "sq.rmsd was {}", sq.rmsd());
+    assert!(sp.rmsd() < 1e-10, "sp.rmsd was {}", sp.rmsd());
+    assert!(
+        (sq.rmsd() - sp.rmsd()).abs() < 1e-10,
+        "RMSD difference between quaternion and Kabsch: {}",
+        (sq.rmsd() - sp.rmsd()).abs()
+    );
+
+    // Rotation matrices should agree
+    let rot_q = sq.rotation_mat();
+    let rot_k = sp.rotation_mat();
+    for r in 0..3 {
+        for c in 0..3 {
             assert!(
-                (rot.get(r, c).unwrap() - exp_val).abs() < 1e-6,
-                "rot({}, {}) = {}, expected {}",
+                (rot_q.get(r, c).unwrap() - rot_k.get(r, c).unwrap()).abs() < 1e-6,
+                "Rotation matrix mismatch at ({}, {}): quaternion={}, kabsch={}",
                 r,
                 c,
-                rot.get(r, c).unwrap(),
-                exp_val
+                rot_q.get(r, c).unwrap(),
+                rot_k.get(r, c).unwrap()
             );
         }
-    }
-
-    let superimposed = sp.superimpose(&ag1).unwrap();
-    for key in &["A1", "A2", "A3", "A4"] {
-        let p1 = superimposed.get_atom(key).unwrap().xyz;
-        let p2 = ag2.get_atom(key).unwrap().xyz;
-        assert!(p1.distance_from(&p2) < 1e-4);
     }
 }
 
 #[test]
-fn test_superposer_with_real_pdb_1hls() {
+fn test_quaternion_with_real_pdb_1hls() {
     let pdb_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/1hls.pdb");
     let pdb = Pdb::from_file(&pdb_path, None).unwrap();
     let ag1 = pdb.get_atomgroup(None, None).unwrap();
 
-    // 1. Translation test: shift by (10.0, -5.0, 3.0)
     let mut ag2 = ag1.clone();
     ag2.shift_by(Position::new(10.0, -5.0, 3.0));
 
-    let sp = Superposer::new(&ag1, &ag2).unwrap();
-    assert_eq!(sp.num_of_positions(), 782);
-    assert!(sp.rmsd() < 1e-10);
+    let sq = SuperposerQuaternion::new(&ag1, &ag2).unwrap();
+    assert_eq!(sq.num_of_positions(), 782);
+    assert!(sq.rmsd() < 1e-10);
 
-    let rot = sp.rotation_mat();
+    let rot = sq.rotation_mat();
     for r in 0..3 {
         for c in 0..3 {
             let expected = if r == c { 1.0 } else { 0.0 };
             assert!((rot.get(r, c).unwrap() - expected).abs() < 1e-6);
         }
     }
-
-    // 2. Rotation test: rotate by 90 degrees around Z and shift
-    let mut rot_z = Matrix::new(3, 3);
-    rot_z.set(0, 1, -1.0);
-    rot_z.set(1, 0, 1.0);
-    rot_z.set(2, 2, 1.0);
-
-    let mut ag3 = ag1.clone();
-    ag3.rotate(&rot_z).unwrap();
-    ag3.shift_by(Position::new(5.0, -3.0, 2.0));
-
-    let sp_rot = Superposer::new(&ag1, &ag3).unwrap();
-    assert_eq!(sp_rot.num_of_positions(), 782);
-    assert!(sp_rot.rmsd() < 1e-10);
-
-    let rot3 = sp_rot.rotation_mat();
-    let expected = [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]];
-    for (r, row) in expected.iter().enumerate() {
-        for (c, &exp_val) in row.iter().enumerate() {
-            assert!((rot3.get(r, c).unwrap() - exp_val).abs() < 1e-6);
-        }
-    }
 }
 
 #[test]
-fn test_superposer_no_common_atoms_error() {
+fn test_quaternion_no_common_atoms_error() {
     let mut ag1 = AtomGroup::new();
     ag1.set_atom("A1", make_atom("A1", Position::new(1.0, 1.0, 1.0)));
 
     let mut ag2 = AtomGroup::new();
     ag2.set_atom("B1", make_atom("B1", Position::new(2.0, 2.0, 2.0)));
 
-    let result = Superposer::new(&ag1, &ag2);
+    let result = SuperposerQuaternion::new(&ag1, &ag2);
     assert!(result.is_err());
 }

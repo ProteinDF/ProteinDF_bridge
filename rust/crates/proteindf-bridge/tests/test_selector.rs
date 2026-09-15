@@ -16,10 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
-use pdf_bridge::atom::Atom;
-use pdf_bridge::atom_group::AtomGroup;
-use pdf_bridge::position::Position;
-use pdf_bridge::selector::*;
+use proteindf_bridge::atom::Atom;
+use proteindf_bridge::atom_group::AtomGroup;
+use proteindf_bridge::position::Position;
+use proteindf_bridge::selector::*;
 
 fn build_fixture_group1() -> AtomGroup {
     let mut group1 = AtomGroup::new();

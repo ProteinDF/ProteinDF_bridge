@@ -18,8 +18,8 @@
 
 use std::path::PathBuf;
 
-use pdf_bridge::atom_group::AtomGroup;
-use pdf_bridge::format::pdb::Pdb;
+use proteindf_bridge::atom_group::AtomGroup;
+use proteindf_bridge::format::pdb::Pdb;
 
 fn test_data_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data")
@@ -224,7 +224,7 @@ fn test_amber_mode_modpdb() {
     res_his.name = "HIS".to_string();
 
     for name in &["HD1", "HD2", "HE1", "HE2"] {
-        let mut atm = pdf_bridge::atom::Atom::new();
+        let mut atm = proteindf_bridge::atom::Atom::new();
         atm.name = (*name).to_string();
         res_his.set_atom(name, atm);
     }

@@ -16,8 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
-use pdf_bridge::amino_acid::AminoAcid;
-use pdf_bridge::atom_group::AtomGroup;
+use proteindf_bridge::amino_acid::AminoAcid;
+use proteindf_bridge::atom_group::AtomGroup;
 
 #[test]
 fn test_is_aminoacid() {
