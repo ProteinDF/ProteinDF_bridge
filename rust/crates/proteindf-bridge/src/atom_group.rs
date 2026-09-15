@@ -605,6 +605,29 @@ impl AtomGroup {
         &self.bonds
     }
 
+    /// Sets the list of bonds directly defined in this group.
+    pub fn set_bonds(&mut self, bonds: Vec<BondRecord>) {
+        self.bonds = bonds;
+    }
+
+    /// Returns the raw MessagePack Value representation of this AtomGroup.
+    pub fn get_raw_data(&self) -> rmpv::Value {
+        crate::brd::atomgroup_get_raw_data(self)
+    }
+
+    /// Populates this AtomGroup from a raw MessagePack dictionary Value.
+    pub fn set_by_dict_data(&mut self, data: &rmpv::Value) -> Result<&mut Self> {
+        crate::brd::atomgroup_set_by_dict_data(self, data)?;
+        Ok(self)
+    }
+
+    /// Creates an AtomGroup from a raw MessagePack dictionary Value.
+    pub fn from_dict_data(data: &rmpv::Value) -> Result<Self> {
+        let mut group = AtomGroup::new();
+        group.set_by_dict_data(data)?;
+        Ok(group)
+    }
+
     /// Recursively returns the list of all bonds in this group and its subgroups.
     pub fn get_bond_list(&mut self) -> Vec<BondRecord> {
         self.update_paths();
