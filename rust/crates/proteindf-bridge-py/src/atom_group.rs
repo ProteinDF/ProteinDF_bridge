@@ -7,7 +7,7 @@ use crate::atom::PyAtom;
 use crate::error::to_py_err;
 use crate::matrix::PyMatrix;
 use crate::position::PyPosition;
-use proteindf_bridge::atom_group::AtomGroup as CoreAtomGroup;
+use proteindf_bridge::atom_group::{AtomGroup as CoreAtomGroup, Selector};
 use proteindf_bridge::position::Position;
 use pyo3::exceptions::{PyKeyError, PyTypeError};
 use pyo3::prelude::*;
@@ -236,6 +236,75 @@ impl PyAtomGroup {
 
     pub fn merge(&mut self, other: &PyAtomGroup) {
         self.inner.merge(&other.inner);
+    }
+
+    pub fn select(&self, selector: &Bound<'_, PyAny>) -> PyResult<PyAtomGroup> {
+        if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectSymbol>>() {
+            return Ok(PyAtomGroup::from_core(self.inner.select(&s.inner)));
+        }
+        if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectName>>() {
+            return Ok(PyAtomGroup::from_core(self.inner.select(&s.inner)));
+        }
+        if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectPathSimple>>() {
+            return Ok(PyAtomGroup::from_core(self.inner.select(&s.inner)));
+        }
+        if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectPathWildcard>>() {
+            return Ok(PyAtomGroup::from_core(self.inner.select(&s.inner)));
+        }
+        if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectPathRegex>>() {
+            return Ok(PyAtomGroup::from_core(self.inner.select(&s.inner)));
+        }
+        if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectPath>>() {
+            return Ok(PyAtomGroup::from_core(self.inner.select(&s.inner)));
+        }
+        if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectRange>>() {
+            return Ok(PyAtomGroup::from_core(self.inner.select(&s.inner)));
+        }
+        if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectAtom>>() {
+            return Ok(PyAtomGroup::from_core(self.inner.select(&s.inner)));
+        }
+        if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectAtomGroup>>() {
+            return Ok(PyAtomGroup::from_core(self.inner.select(&s.inner)));
+        }
+
+        if selector.hasattr("is_match")? {
+            struct PySelector<'a>(&'a Bound<'a, PyAny>);
+            impl<'a> Selector for PySelector<'a> {
+                fn is_match_group(&self, group: &CoreAtomGroup) -> bool {
+                    let py = self.0.py();
+                    let py_group = PyAtomGroup::from_core(group.clone());
+                    if let Ok(py_obj) = py_group.into_pyobject(py) {
+                        self.0
+                            .call_method1("is_match", (py_obj,))
+                            .and_then(|r| r.extract::<bool>())
+                            .unwrap_or(false)
+                    } else {
+                        false
+                    }
+                }
+
+                fn is_match_atom(&self, atom: &proteindf_bridge::atom::Atom) -> bool {
+                    let py = self.0.py();
+                    let py_atom = PyAtom::from_core(atom.clone());
+                    if let Ok(py_obj) = py_atom.into_pyobject(py) {
+                        self.0
+                            .call_method1("is_match", (py_obj,))
+                            .and_then(|r| r.extract::<bool>())
+                            .unwrap_or(false)
+                    } else {
+                        false
+                    }
+                }
+            }
+
+            let adapter = PySelector(selector);
+            return Ok(PyAtomGroup::from_core(self.inner.select(&adapter)));
+        }
+
+        Err(PyTypeError::new_err(format!(
+            "Expected Select, got {}",
+            selector.get_type()
+        )))
     }
 
     #[pyo3(signature = (atom1, atom2, order=1))]
