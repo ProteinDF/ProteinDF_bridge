@@ -135,6 +135,15 @@ impl Position {
             self.x * other.y - self.y * other.x,
         )
     }
+
+    /// Creates a Position from raw coordinate data.
+    pub fn from_raw_data(data: &[f64]) -> Position {
+        Position::new(
+            data.first().copied().unwrap_or(0.0),
+            data.get(1).copied().unwrap_or(0.0),
+            data.get(2).copied().unwrap_or(0.0),
+        )
+    }
 }
 
 impl FromStr for Position {
