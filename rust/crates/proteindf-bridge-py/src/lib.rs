@@ -13,6 +13,7 @@ pub mod ion_pair;
 pub mod matrix;
 pub mod periodic_table;
 pub mod position;
+pub mod ramachandran;
 pub mod selector;
 pub mod ssbond;
 pub mod superposer;
@@ -80,6 +81,11 @@ fn proteindf_bridge_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     m.add_class::<selector::PySelectAtomGroup>()?;
     m.add("SelectAtomGroup", m.getattr("Select_AtomGroup")?)?;
+
+    // Ramachandran & Dihedral (PR#21)
+    m.add_class::<ramachandran::PyRamachandranAngle>()?;
+    m.add_function(wrap_pyfunction!(ramachandran::py_calc_phi_psi, m)?)?;
+    m.add_function(wrap_pyfunction!(ramachandran::py_dihedral_angle, m)?)?;
 
     Ok(())
 }
