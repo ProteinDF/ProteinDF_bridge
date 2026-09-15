@@ -26,6 +26,16 @@ impl PyAtomGroup {
     }
 }
 
+fn extract_key(key: &Bound<'_, PyAny>) -> PyResult<String> {
+    if let Ok(s) = key.extract::<String>() {
+        Ok(s)
+    } else if let Ok(i) = key.extract::<i64>() {
+        Ok(i.to_string())
+    } else {
+        key.str()?.extract::<String>()
+    }
+}
+
 fn extract_pos(arg: &Bound<'_, PyAny>) -> PyResult<Position> {
     if let Ok(pos) = arg.extract::<PyRef<PyPosition>>() {
         Ok(pos.inner)
@@ -111,44 +121,57 @@ impl PyAtomGroup {
         self.inner.get_number_of_bonds()
     }
 
-    pub fn get_atom(&self, key: &str) -> Option<PyAtom> {
-        self.inner
-            .get_atom(key)
-            .map(|a| PyAtom::from_core(a.clone()))
+    pub fn get_atom(&self, key: &Bound<'_, PyAny>) -> PyResult<Option<PyAtom>> {
+        let k = extract_key(key)?;
+        Ok(self
+            .inner
+            .get_atom(&k)
+            .map(|a| PyAtom::from_core(a.clone())))
     }
 
-    pub fn set_atom(&mut self, key: &str, atom: &PyAtom) {
-        self.inner.set_atom(key, atom.inner.clone());
+    pub fn set_atom(&mut self, key: &Bound<'_, PyAny>, atom: &PyAtom) -> PyResult<()> {
+        let k = extract_key(key)?;
+        self.inner.set_atom(&k, atom.inner.clone());
+        Ok(())
     }
 
-    pub fn has_atom(&self, key: &str) -> bool {
-        self.inner.has_atom(key)
+    pub fn has_atom(&self, key: &Bound<'_, PyAny>) -> PyResult<bool> {
+        let k = extract_key(key)?;
+        Ok(self.inner.has_atom(&k))
     }
 
-    pub fn del_atom(&mut self, key: &str) -> Option<PyAtom> {
-        self.inner.remove_atom(key).map(PyAtom::from_core)
+    pub fn del_atom(&mut self, key: &Bound<'_, PyAny>) -> PyResult<Option<PyAtom>> {
+        let k = extract_key(key)?;
+        Ok(self.inner.remove_atom(&k).map(PyAtom::from_core))
     }
 
-    pub fn get_group(&self, key: &str) -> Option<PyAtomGroup> {
-        self.inner
-            .get_group(key)
-            .map(|g| PyAtomGroup::from_core(g.clone()))
+    pub fn get_group(&self, key: &Bound<'_, PyAny>) -> PyResult<Option<PyAtomGroup>> {
+        let k = extract_key(key)?;
+        Ok(self
+            .inner
+            .get_group(&k)
+            .map(|g| PyAtomGroup::from_core(g.clone())))
     }
 
-    pub fn set_group(&mut self, key: &str, group: &PyAtomGroup) {
-        self.inner.set_group(key, group.inner.clone());
+    pub fn set_group(&mut self, key: &Bound<'_, PyAny>, group: &PyAtomGroup) -> PyResult<()> {
+        let k = extract_key(key)?;
+        self.inner.set_group(&k, group.inner.clone());
+        Ok(())
     }
 
-    pub fn has_group(&self, key: &str) -> bool {
-        self.inner.has_group(key)
+    pub fn has_group(&self, key: &Bound<'_, PyAny>) -> PyResult<bool> {
+        let k = extract_key(key)?;
+        Ok(self.inner.has_group(&k))
     }
 
-    pub fn has_groupkey(&self, key: &str) -> bool {
-        self.inner.has_groupkey(key)
+    pub fn has_groupkey(&self, key: &Bound<'_, PyAny>) -> PyResult<bool> {
+        let k = extract_key(key)?;
+        Ok(self.inner.has_groupkey(&k))
     }
 
-    pub fn del_group(&mut self, key: &str) -> Option<PyAtomGroup> {
-        self.inner.remove_group(key).map(PyAtomGroup::from_core)
+    pub fn del_group(&mut self, key: &Bound<'_, PyAny>) -> PyResult<Option<PyAtomGroup>> {
+        let k = extract_key(key)?;
+        Ok(self.inner.remove_group(&k).map(PyAtomGroup::from_core))
     }
 
     pub fn atoms(&self) -> Vec<(String, PyAtom)> {
@@ -250,44 +273,55 @@ impl PyAtomGroup {
         self.inner.sum_of_atomic_number()
     }
 
-    pub fn __getitem__<'py>(&self, py: Python<'py>, key: &str) -> PyResult<Bound<'py, PyAny>> {
+    pub fn __getitem__<'py>(
+        &self,
+        py: Python<'py>,
+        key: &Bound<'_, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let key_str = extract_key(key)?;
+        let key_ref = key_str.as_str();
         // 1. Child group by key
-        if self.inner.has_groupkey(key) {
-            if let Some(grp) = self.inner.get_group(key) {
+        if self.inner.has_groupkey(key_ref) {
+            if let Some(grp) = self.inner.get_group(key_ref) {
                 let py_grp = PyAtomGroup::from_core(grp.clone());
                 return py_grp.into_pyobject(py).map(|b| b.into_any());
             }
         }
         // 2. Child atom by key
-        if self.inner.has_atomkey(key) {
-            if let Some(atom) = self.inner.get_atom(key) {
+        if self.inner.has_atomkey(key_ref) {
+            if let Some(atom) = self.inner.get_atom(key_ref) {
                 let py_atom = PyAtom::from_core(atom.clone());
                 return py_atom.into_pyobject(py).map(|b| b.into_any());
             }
         }
         // 3. Search child groups by name
         for (_, grp) in self.inner.groups() {
-            if grp.name == key {
+            if grp.name == key_ref {
                 let py_grp = PyAtomGroup::from_core(grp.clone());
                 return py_grp.into_pyobject(py).map(|b| b.into_any());
             }
         }
         // 4. Search child atoms by name
         for (_, atom) in self.inner.atoms() {
-            if atom.name == key {
+            if atom.name == key_ref {
                 let py_atom = PyAtom::from_core(atom.clone());
                 return py_atom.into_pyobject(py).map(|b| b.into_any());
             }
         }
-        Err(PyKeyError::new_err(key.to_string()))
+        Err(PyKeyError::new_err(key_str))
     }
 
-    pub fn __setitem__(&mut self, key: &str, value: &Bound<'_, PyAny>) -> PyResult<()> {
+    pub fn __setitem__(
+        &mut self,
+        key: &Bound<'_, PyAny>,
+        value: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        let key_str = extract_key(key)?;
         if let Ok(grp) = value.extract::<PyRef<PyAtomGroup>>() {
-            self.inner.set_group(key, grp.inner.clone());
+            self.inner.set_group(&key_str, grp.inner.clone());
             Ok(())
         } else if let Ok(atom) = value.extract::<PyRef<PyAtom>>() {
-            self.inner.set_atom(key, atom.inner.clone());
+            self.inner.set_atom(&key_str, atom.inner.clone());
             Ok(())
         } else {
             Err(pyo3::exceptions::PyValueError::new_err(format!(
