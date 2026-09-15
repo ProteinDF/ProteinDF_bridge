@@ -279,3 +279,61 @@ PR#12(CCD形式1:1移植)・PR#13(`_atom_site`形式新規実装)、ともにCla
 
 - 既存Pythonコード(`proteindf_bridge/`)は変更しない。
 - **ブランチ運用ルール(MUST項目)を厳守**: `feature/phase4-prM` ブランチで作業し、`rust-port`へは自分でマージせず、レビュー承認を待つ。PR#12を先に、PR#13をその後に。
+
+## 運用ルールの変更(2026-09-15): `rust-port`統合ブランチの廃止
+
+Phase 1〜4が`main`へマージされ(`superposer_quaternion.py`のPythonバグ修正も`main`へ直接マージ済み)、`rust-port`ブランチは`main`より遅れた状態になった。Phase 5以降は**`rust-port`を経由せず、`main`から直接機能ブランチを切り、レビュー承認後に`main`へ直接マージする**運用に切り替える。ブランチ命名・レビューゲート(MUST項目)等の他のルールは変更なし。
+
+## Phase 5: Pythonバインディング(PyO3)
+
+### 背景・目的
+
+`RUST_PORT_SPEC.md` §4の多言語バインディング方針のうち、Pythonバインディングに着手する。既存`ProteinDF_bridge`ユーザーが最小コストで移行できるよう、既存Python API(クラス名・メソッド名)を可能な限り踏襲する。`selector.rs`で既に確立されているパターン(`Select_Symbol`等のPython互換エイリアス)を踏襲すること。
+
+### Cargo workspace構成
+
+```
+rust/
+├── Cargo.toml
+└── crates/
+    ├── pdf-bridge/        # コアライブラリ(既存)
+    └── pdf-bridge-py/     # 新規: PyO3バインディング
+        ├── Cargo.toml     # crate-type = ["cdylib"], pyo3依存
+        ├── pyproject.toml # maturin設定
+        └── src/lib.rs
+```
+
+Pythonパッケージ名は`pdf_bridge`(アンダースコア、Rustクレート名に合わせる)とし、既存`proteindf_bridge`パッケージと共存できるようにすること(名前が衝突しないため、移行期間中に両方インストールして比較検証できる)。
+
+### エラー変換方針
+
+`BridgeError`を、既存Python例外階層(`BrError`基底、`BrInputError`、`BrValueError`)に対応するPython例外クラスとして`pyo3::create_exception!`で定義し、変換すること。`BridgeError::General`→`BrError`、`InputError`→`BrInputError`、`ValueError`→`BrValueError`。`PeriodicTable`関連の独自エラー種別(`AtomicNumberNotFound`等、Python版に対応物がない)は`BrValueError`にマッピングすること(Python版periodictable.pyは例外を素通しするだけで独自メッセージを持たないため、最も意味的に近いものとして扱う)。
+
+### 完了の定義(Definition of Done、全PR共通)
+
+1. `maturin develop`でビルドでき、Pythonから`import pdf_bridge`できること。
+2. pytestベースのテストを追加し、**既存`proteindf_bridge`の同等クラスと同じ操作をして結果を比較する**(例: 同じ分子構造を新旧両方のAPIで構築し、原子数・座標が一致することを確認)。単にバインディングが動くことだけでなく、既存Python版との挙動一致を検証すること(これまでのRust移植と同じ検証方針)。
+3. クラス名・メソッド名は既存Python API(`SPEC.md`参照)に合わせること。
+4. `cargo clippy`/`cargo fmt`に加え、Python側のテストも実行して報告すること。
+
+### PR#14: 基盤・データモデルのバインディング(Phase 1相当)
+
+対象: `error`(例外階層)、`PeriodicTable`、`Vector`、`Matrix`/`SymmetricMatrix`、`Position`、`Atom`、`Bond`、`AtomGroup`。
+
+### PR#15: フォーマットI/Oのバインディング(Phase 2・4相当)
+
+対象: `Xyz`、`SimpleGro`、`SimpleMol2`、`AmberPrmtop`、`Pdb`、`SimpleMmcif`、`Format`。PR#14完了後に着手。
+
+### PR#16: 構造操作のバインディング(Phase 3相当)
+
+対象: `Selector`系(`Select_*`)、`AminoAcid`、`SSBond`、`IonPair`、`Superposer`、`SuperposerQuaternion`。PR#14完了後に着手(PR#15と並行可)。
+
+### スコープ外
+
+- C/C++バインディング(cbindgen、§4の別項目)。
+- `modeling.py`/`neutralize.py`、§3新機能、§3.4-3.6のQC結果I/O。
+
+### やってはいけないこと
+
+- 既存Pythonコード(`proteindf_bridge/`)は変更しない。
+- **ブランチ運用ルール(MUST項目)を厳守**: `feature/phase5-prM` ブランチを`main`から切って作業し、`main`へは自分でマージせず、レビュー承認を待つ。PR#14から着手すること。
