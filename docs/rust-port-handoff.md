@@ -303,7 +303,11 @@ Phase 1〜4が`main`へマージされ(`superposer_quaternion.py`のPythonバグ
 
 **ブランチ**: `fix/rename-to-proteindf-bridge`を`main`から切り、レビュー承認後`main`へマージ。この対応が完了してからPhase 5(PR#14)に着手すること。
 
-## Phase 5: Pythonバインディング(PyO3)
+## Phase 5: Pythonバインディング(PyO3)(完了 2026-09-15)
+
+PR#14(基盤・データモデル)・PR#15(フォーマットI/O)・PR#16(構造操作)、全てClaudeレビュー通過・`main`へマージ済み。`proteindf_bridge_rs`パッケージとして`import`可能。pytestベースの検証(`tests/test_rs_phase1.py`〜`test_rs_phase3.py`、累計42件)は全て既存の純Python版`proteindf_bridge`との直接比較になっており、実データフィクスチャ(1hls.pdb/2MGO.pdb/1HLS.cif等)による相互検証も実施済み。
+
+レビューで見つかった主な実バグ(いずれも修正済み): `cargo test --workspace`のリンクエラー(`extension-module`featureの扱い)、`AtomGroup.__getitem__`の非多態性(グループしか返さない)、`AtomGroup.select()`のカスタムPythonセレクタで例外が握りつぶされる問題。
 
 ### 背景・目的
 
