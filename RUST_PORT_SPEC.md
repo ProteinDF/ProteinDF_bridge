@@ -121,13 +121,21 @@ GPLv3を継続する（本リポジトリと同一ライセンス）。
 「結 (YUI)」が本クレートの`AtomGroup`/`Bond`を実際に統合する（`ROADMAP.md`フェーズ6e）にあたり、
 YUI側の調査で見つかった、bridge側で対応してほしい項目。優先度順。
 
-- **[高] protein schemaの形式化と検証ヘルパー**: `/model_N/chain_id/res_key/atom_key`という
-  パス深さによるmodel/chain/residueの区別は、現状`biopdb.py`等の実装コードにのみ暗黙的に
-  存在し、Rust版`atom_group.rs`にはこれを検証する関数（`is_model_level()`/`is_chain_level()`/
-  `is_residue_level()`相当）が無い。`AtomGroup`自体はスキーマレスな汎用木のため、この規約を
-  破るデータ（残基ラッパーなしでchain直下に置かれるHETATM/水分子等）が来ても検出できない。
-  本SPEC.md（または`atom_group.rs`のドキュメントコメント）にこの規約を明文化し、可能であれば
-  検証用のヘルパー関数を追加してほしい。
+- **[高] protein schemaの形式化と検証ヘルパー (PR#28対応)**:
+  タンパク質構造の標準パス階層規約を以下のように形式化する:
+  ```text
+  /model_N/chain_id/res_key/atom_key
+  ```
+  - **Level 0 (Root / Models)**: パス深さ0（例: `"/"`）。モデルグループ群を保持。直接の原子は不許可。
+  - **Level 1 (Model)**: パス深さ1（例: `"/model_1/"`）。`is_model_level()`で判定。チェイングループ群を保持。直接の原子は不許可。
+  - **Level 2 (Chain)**: パス深さ2（例: `"/model_1/A/"`）。`is_chain_level()`で判定。残基グループ群を保持。直接の原子は不許可。
+  - **Level 3 (Residue)**: パス深さ3（例: `"/model_1/A/6/"`）。`is_residue_level()`で判定。直接の原子を保持。サブグループは不許可。
+  - **Level 4 (Atom)**: パス深さ4（例: `"/model_1/A/6/CA"`）。葉ノード（原子）。
+
+  **位置的判定と構造的判定の区別**:
+  `AtomGroup`の`is_*_level()`は`path()`の深さに基づく「位置的」判定であり、`Format::is_chain`等の「構造的」判定（直下に原子がない・サブグループが要件を満たす）とは判定軸が異なる。
+  規約違反データ（残基ラッパーなしでchain直下に配置されたHETATMや水分子等）では、パス深さはchainレベル（深さ2）のまま構造的判定が失敗するという乖離が生じる。
+  この乖離および規約違反（非残基レベルの直接原子、残基内のサブグループ、深さ超過）を走査・検出するヘルパー`AtomGroup::validate_schema() -> Vec<SchemaViolation>`を提供する。
 - **[高] ファイル由来の明示的な結合トポロジーの読み込み**: 調査時点で、MOL2は書き出しのみで
   読み込み関数が存在せず、Amber-PRMTOPは`BONDS_WITHOUT_HYDROGEN`/`BONDS_INC_HYDROGEN`
   セクションを未パース、PDBはSSBOND（ジスルフィド）のみを結合として取り込みCONECTレコードは

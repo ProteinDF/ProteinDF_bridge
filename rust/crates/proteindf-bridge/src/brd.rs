@@ -57,8 +57,8 @@ fn zstd_decompress(data: &[u8]) -> Result<Vec<u8>> {
 #[cfg(all(feature = "ruzstd", not(feature = "zstd")))]
 fn zstd_decompress(data: &[u8]) -> Result<Vec<u8>> {
     use std::io::Read as _;
-    let mut decoder =
-        ruzstd::decoding::StreamingDecoder::new(data).map_err(|e| BridgeError::Zstd(e.to_string()))?;
+    let mut decoder = ruzstd::decoding::StreamingDecoder::new(data)
+        .map_err(|e| BridgeError::Zstd(e.to_string()))?;
     let mut out = Vec::new();
     decoder.read_to_end(&mut out)?;
     Ok(out)

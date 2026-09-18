@@ -1,5 +1,34 @@
-// SPDX-FileCopyrightText: The ProteinDF development team
-// SPDX-License-Identifier: GPL-3.0-or-later
+//! Hierarchical molecular structure representation for `proteindf-bridge`.
+//!
+//! # Protein Path Schema Convention
+//!
+//! Standard protein structures in `proteindf-bridge` follow a 4-level hierarchical path convention:
+//!
+//! ```text
+//! /model_N/chain_id/res_key/atom_key
+//! ```
+//!
+//! - **Level 0 (Root / Models)**: Path depth 0 (e.g. `"/"`). Contains model subgroups. No direct atoms.
+//! - **Level 1 (Model)**: Path depth 1 (e.g. `"/model_1/"`). Checked by [`AtomGroup::is_model_level`].
+//!   Contains chain subgroups. No direct atoms.
+//! - **Level 2 (Chain)**: Path depth 2 (e.g. `"/model_1/A/"`). Checked by [`AtomGroup::is_chain_level`].
+//!   Contains residue subgroups. No direct atoms.
+//! - **Level 3 (Residue)**: Path depth 3 (e.g. `"/model_1/A/6/"`). Checked by [`AtomGroup::is_residue_level`].
+//!   Contains atoms. Must not contain subgroups.
+//! - **Level 4 (Atom)**: Path (e.g. `"/model_1/A/6/CA"`). Leaf entity in the tree.
+//!
+//! ## Positional vs. Structural Checks
+//!
+//! Note the distinction between positional level checks and structural checks:
+//! - **Positional checks** ([`AtomGroup::is_model_level`], [`AtomGroup::is_chain_level`], [`AtomGroup::is_residue_level`])
+//!   inspect only the **path depth** of the group within the hierarchy.
+//! - **Structural checks** ([`crate::Format::is_protein`], [`crate::Format::is_chain`], [`crate::Format::is_residue`])
+//!   inspect the **content** (e.g. ensuring no direct atoms, all children are residues, etc.).
+//!
+//! In valid structures, positional and structural checks coincide. In malformed data (such as HETATM
+//! or water molecules placed directly in a chain without a residue wrapper), a group's path depth remains
+//! at the chain level (depth 2) while its structural validity ([`crate::Format::is_chain`]) fails.
+//! Use [`AtomGroup::validate_schema`] to detect such violations across the entire hierarchy.
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -12,6 +41,63 @@ use crate::error::Result;
 use crate::matrix::Matrix;
 use crate::periodic_table::PeriodicTable;
 use crate::position::Position;
+
+/// A violation of the standard protein schema (`/model_N/chain_id/res_key/atom_key`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SchemaViolation {
+    /// Direct atoms found at a non-residue level (e.g., under root, model, or chain).
+    DirectAtomsAtNonResidueLevel {
+        path: String,
+        depth: usize,
+        atom_keys: Vec<String>,
+    },
+    /// Subgroups found inside a residue-level group (residues must be leaf groups).
+    SubgroupsInResidue {
+        path: String,
+        group_keys: Vec<String>,
+    },
+    /// Group nested deeper than the residue level (depth > 3).
+    ExcessiveDepth { path: String, depth: usize },
+}
+
+impl fmt::Display for SchemaViolation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::DirectAtomsAtNonResidueLevel {
+                path,
+                depth,
+                atom_keys,
+            } => {
+                write!(
+                    f,
+                    "Group '{}' at depth {} has {} direct atom(s) ({:?}), but atoms are only allowed at residue level (depth 3)",
+                    path,
+                    depth,
+                    atom_keys.len(),
+                    atom_keys
+                )
+            }
+            Self::SubgroupsInResidue { path, group_keys } => {
+                write!(
+                    f,
+                    "Residue-level group '{}' contains {} subgroup(s) ({:?}), but residues must not contain subgroups",
+                    path,
+                    group_keys.len(),
+                    group_keys
+                )
+            }
+            Self::ExcessiveDepth { path, depth } => {
+                write!(
+                    f,
+                    "Group '{}' has path depth {}, exceeding maximum standard depth 3",
+                    path, depth
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for SchemaViolation {}
 
 /// A bond record storing two atom paths and the bond order.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -68,6 +154,91 @@ impl AtomGroup {
     /// Returns the group's current path (e.g. "/" or "/grp/").
     pub fn path(&self) -> &str {
         &self.path
+    }
+
+    /// Returns the depth of this group in the path hierarchy.
+    ///
+    /// Root (`"/"`) has depth 0, model (`"/model_1/"`) has depth 1,
+    /// chain (`"/model_1/A/"`) has depth 2, and residue (`"/model_1/A/6/"`) has depth 3.
+    pub fn path_depth(&self) -> usize {
+        self.path.split('/').filter(|s| !s.is_empty()).count()
+    }
+
+    /// Checks whether this group is at the model level based on path depth (depth == 1).
+    ///
+    /// # Positional vs. Structural Check
+    /// This is a positional check based on the group's `path()` (e.g. `"/model_1/"`).
+    /// In contrast, [`crate::Format::is_protein`] is a structural check that verifies
+    /// there are no direct atoms and all subgroups satisfy chain conditions.
+    pub fn is_model_level(&self) -> bool {
+        self.path_depth() == 1
+    }
+
+    /// Checks whether this group is at the chain level based on path depth (depth == 2).
+    ///
+    /// # Positional vs. Structural Check
+    /// This is a positional check based on the group's `path()` (e.g. `"/model_1/A/"`).
+    /// In contrast, [`crate::Format::is_chain`] is a structural check that verifies
+    /// there are no direct atoms and all subgroups satisfy residue conditions.
+    pub fn is_chain_level(&self) -> bool {
+        self.path_depth() == 2
+    }
+
+    /// Checks whether this group is at the residue level based on path depth (depth == 3).
+    ///
+    /// # Positional vs. Structural Check
+    /// This is a positional check based on the group's `path()` (e.g. `"/model_1/A/6/"`).
+    /// In contrast, [`crate::Format::is_residue`] is a structural check that verifies
+    /// there are no child groups (subgroups).
+    pub fn is_residue_level(&self) -> bool {
+        self.path_depth() == 3
+    }
+
+    /// Validates this `AtomGroup` tree against the standard protein schema
+    /// (`/model_N/chain_id/res_key/atom_key`).
+    ///
+    /// Traverses the entire tree recursively and collects all detected
+    /// [`SchemaViolation`]s, including:
+    /// - Direct atoms found at non-residue levels (depth != 3, e.g. HETATM placed directly under a chain).
+    /// - Subgroups found inside a residue-level group (depth == 3).
+    /// - Groups nested deeper than standard residue level (depth > 3).
+    pub fn validate_schema(&self) -> Vec<SchemaViolation> {
+        let mut violations = Vec::new();
+        self.collect_schema_violations(&mut violations);
+        violations
+    }
+
+    fn collect_schema_violations(&self, violations: &mut Vec<SchemaViolation>) {
+        let depth = self.path_depth();
+
+        // Atoms are only allowed at residue level (depth 3).
+        if !self.atoms.is_empty() && depth != 3 {
+            violations.push(SchemaViolation::DirectAtomsAtNonResidueLevel {
+                path: self.path.clone(),
+                depth,
+                atom_keys: self.atoms.keys().cloned().collect(),
+            });
+        }
+
+        // Residues (depth 3) must not have subgroups.
+        if depth == 3 && !self.groups.is_empty() {
+            violations.push(SchemaViolation::SubgroupsInResidue {
+                path: self.path.clone(),
+                group_keys: self.groups.keys().cloned().collect(),
+            });
+        }
+
+        // Nesting depth must not exceed 3.
+        if depth > 3 {
+            violations.push(SchemaViolation::ExcessiveDepth {
+                path: self.path.clone(),
+                depth,
+            });
+        }
+
+        for group in self.groups.values() {
+            group.collect_schema_violations(violations);
+        }
     }
 
     /// Sets the path of this group and updates descendant paths.
@@ -1414,5 +1585,134 @@ mod tests {
         let resolved_b = root.get_atom_by_path(&bonds[0].atom2_path);
         assert!(resolved_a.is_some());
         assert!(resolved_b.is_some());
+    }
+
+    #[test]
+    fn test_schema_level_checks_normal_hierarchy() {
+        use crate::format::Format;
+
+        let mut root = AtomGroup::new();
+        let mut model = AtomGroup::with_name("model_1");
+        let mut chain = AtomGroup::with_name("A");
+        let mut residue = AtomGroup::with_name("6");
+        let atom = Atom::from_symbol("C").unwrap();
+
+        residue.set_atom("CA", atom);
+        chain.set_group("6", residue);
+        model.set_group("A", chain);
+        root.set_group("model_1", model);
+
+        // Root (depth 0)
+        assert_eq!(root.path_depth(), 0);
+        assert!(!root.is_model_level());
+        assert!(!root.is_chain_level());
+        assert!(!root.is_residue_level());
+
+        // Model (depth 1)
+        let m = root.get_group("model_1").unwrap();
+        assert_eq!(m.path_depth(), 1);
+        assert!(m.is_model_level());
+        assert!(!m.is_chain_level());
+        assert!(!m.is_residue_level());
+        assert!(Format::is_protein(m));
+
+        // Chain (depth 2)
+        let c = m.get_group("A").unwrap();
+        assert_eq!(c.path_depth(), 2);
+        assert!(!c.is_model_level());
+        assert!(c.is_chain_level());
+        assert!(!c.is_residue_level());
+        assert!(Format::is_chain(c));
+
+        // Residue (depth 3)
+        let r = c.get_group("6").unwrap();
+        assert_eq!(r.path_depth(), 3);
+        assert!(!r.is_model_level());
+        assert!(!r.is_chain_level());
+        assert!(r.is_residue_level());
+        assert!(Format::is_residue(r));
+
+        // Validation on clean hierarchy produces no violations
+        let violations = root.validate_schema();
+        assert!(
+            violations.is_empty(),
+            "Expected no violations, got {:?}",
+            violations
+        );
+    }
+
+    #[test]
+    fn test_schema_violations_direct_atoms_in_chain() {
+        use crate::format::Format;
+
+        let mut root = AtomGroup::new();
+        let mut model = AtomGroup::with_name("model_1");
+        let mut chain = AtomGroup::with_name("A");
+        let mut residue = AtomGroup::with_name("6");
+
+        let ca = Atom::from_symbol("C").unwrap();
+        residue.set_atom("CA", ca);
+        chain.set_group("6", residue);
+
+        // Intentionally violate schema: attach HETATM / water directly under chain without a residue
+        let mut water = Atom::from_symbol("O").unwrap();
+        water.name = "O".to_string();
+        chain.set_atom("HOH_1", water);
+
+        model.set_group("A", chain);
+        root.set_group("model_1", model);
+
+        let c = root.get_group("model_1").unwrap().get_group("A").unwrap();
+        // Positional check still sees depth 2 (chain level)
+        assert!(c.is_chain_level());
+        // But structural check fails due to direct atoms
+        assert!(!Format::is_chain(c));
+
+        // validate_schema() detects the violation
+        let violations = root.validate_schema();
+        assert_eq!(violations.len(), 1);
+        match &violations[0] {
+            SchemaViolation::DirectAtomsAtNonResidueLevel {
+                path,
+                depth,
+                atom_keys,
+            } => {
+                assert_eq!(path, "/model_1/A/");
+                assert_eq!(*depth, 2);
+                assert_eq!(atom_keys, &vec!["HOH_1".to_string()]);
+            }
+            other => panic!("Unexpected violation: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_schema_violations_subgroups_in_residue_and_excessive_depth() {
+        let mut root = AtomGroup::new();
+        let mut model = AtomGroup::with_name("model_1");
+        let mut chain = AtomGroup::with_name("A");
+        let mut residue = AtomGroup::with_name("6");
+        let mut sub_residue = AtomGroup::with_name("sub");
+
+        let atom = Atom::from_symbol("C").unwrap();
+        sub_residue.set_atom("C1", atom);
+        residue.set_group("sub", sub_residue);
+        chain.set_group("6", residue);
+        model.set_group("A", chain);
+        root.set_group("model_1", model);
+
+        let violations = root.validate_schema();
+        // Should detect:
+        // 1. SubgroupsInResidue at "/model_1/A/6/"
+        // 2. ExcessiveDepth at "/model_1/A/6/sub/" (depth 4)
+        // 3. DirectAtomsAtNonResidueLevel at "/model_1/A/6/sub/" (depth 4 has direct atoms)
+        assert!(violations
+            .iter()
+            .any(|v| matches!(v, SchemaViolation::SubgroupsInResidue { .. })));
+        assert!(violations
+            .iter()
+            .any(|v| matches!(v, SchemaViolation::ExcessiveDepth { .. })));
+        assert!(violations
+            .iter()
+            .any(|v| matches!(v, SchemaViolation::DirectAtomsAtNonResidueLevel { .. })));
     }
 }
