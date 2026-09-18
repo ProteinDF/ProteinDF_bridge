@@ -17,13 +17,18 @@ serde_yaml_ng = "0.10"
 log = "0.4"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-zstd = "0.13"
+zstd = { version = "0.13", optional = true }
+ruzstd = { version = "0.9", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 ruzstd = "0.9"
 
 [features]
-default = []
-zstd = []
-ruzstd = []
+default = ["zstd"]
+# Bindings to the C libzstd library (fast, requires a C toolchain at build time).
+zstd = ["dep:zstd"]
+# Pure-Rust zstd implementation (no C toolchain required, slower). Mutually
+# exclusive with the `zstd` feature; select it with `--no-default-features
+# --features ruzstd`.
+ruzstd = ["dep:ruzstd"]
 
