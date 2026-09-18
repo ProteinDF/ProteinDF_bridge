@@ -23,53 +23,37 @@ pub const YUI_COMPRESSION_ZSTD: u8 = 1;
 
 #[cfg(all(feature = "zstd", feature = "ruzstd"))]
 compile_error!(
-    "features `zstd` and `ruzstd` are mutually exclusive zstd backends; enable only one (e.g. `--no-default-features --features ruzstd`)"
+    "features `zstd` and `ruzstd` are mutually exclusive zstd backends; enable only one"
 );
 
 /// Compresses `data` with the zstd backend selected at compile time.
-#[cfg(feature = "zstd")]
+#[cfg(not(target_arch = "wasm32"))]
 fn zstd_compress(data: &[u8]) -> Result<Vec<u8>> {
     zstd::encode_all(data, 0).map_err(|e| BridgeError::Zstd(e.to_string()))
 }
 
 /// Compresses `data` with the zstd backend selected at compile time.
-#[cfg(all(feature = "ruzstd", not(feature = "zstd")))]
+#[cfg(target_arch = "wasm32")]
 fn zstd_compress(data: &[u8]) -> Result<Vec<u8>> {
     use ruzstd::encoding::{compress_to_vec, CompressionLevel};
     Ok(compress_to_vec(data, CompressionLevel::Fastest))
 }
 
-/// Compresses `data` with the zstd backend selected at compile time.
-#[cfg(not(any(feature = "zstd", feature = "ruzstd")))]
-fn zstd_compress(_data: &[u8]) -> Result<Vec<u8>> {
-    Err(BridgeError::Zstd(
-        "zstd support not compiled in; enable the `zstd` or `ruzstd` feature".to_string(),
-    ))
-}
-
 /// Decompresses a zstd-compressed `data` slice with the backend selected at compile time.
-#[cfg(feature = "zstd")]
+#[cfg(not(target_arch = "wasm32"))]
 fn zstd_decompress(data: &[u8]) -> Result<Vec<u8>> {
     zstd::decode_all(data).map_err(|e| BridgeError::Zstd(e.to_string()))
 }
 
 /// Decompresses a zstd-compressed `data` slice with the backend selected at compile time.
-#[cfg(all(feature = "ruzstd", not(feature = "zstd")))]
+#[cfg(target_arch = "wasm32")]
 fn zstd_decompress(data: &[u8]) -> Result<Vec<u8>> {
     use std::io::Read as _;
-    let mut decoder =
-        ruzstd::decoding::StreamingDecoder::new(data).map_err(|e| BridgeError::Zstd(e.to_string()))?;
+    let mut decoder = ruzstd::decoding::StreamingDecoder::new(data)
+        .map_err(|e| BridgeError::Zstd(e.to_string()))?;
     let mut out = Vec::new();
     decoder.read_to_end(&mut out)?;
     Ok(out)
-}
-
-/// Decompresses a zstd-compressed `data` slice with the backend selected at compile time.
-#[cfg(not(any(feature = "zstd", feature = "ruzstd")))]
-fn zstd_decompress(_data: &[u8]) -> Result<Vec<u8>> {
-    Err(BridgeError::Zstd(
-        "zstd support not compiled in; enable the `zstd` or `ruzstd` feature".to_string(),
-    ))
 }
 
 /// Helper to convert a MessagePack Map key into a `&str`.
