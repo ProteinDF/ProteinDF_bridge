@@ -139,6 +139,15 @@ YUI側の調査で見つかった、bridge側で対応してほしい項目。�
   `core::spatial::AtomBvh`のような空間分割木による近傍探索を`Bond::setup()`に組み込むか、
   外部から効率的な近傍ペアクエリ（半径内の原子ペア列挙）を投げられる低レベルAPIを
   提供してほしい。
+- **[高] 二次構造情報の`AtomGroup`への書き戻し**: 現状`calc_secondary_structure(chain: &AtomGroup) -> Vec<SecondaryStructure>`は結果を別のVecとして返すのみで、`AtomGroup`ツリー自体には反映されない
+  （`AtomGroup`に汎用メタデータフィールドが無いため）。一方`Bond::setup()`は`mol.add_bond(...)`で
+  結果を`AtomGroup`自体に書き戻す設計になっており、一貫していない。`bonds: Vec<BondRecord>`と
+  同格の、生物学的に意味の明確な専用フィールド（例: 各residueレベルの`AtomGroup`が持つ
+  `secondary_structure: Option<SsCode>`）を追加し、`calc_secondary_structure`と対になる
+  `apply_secondary_structure(chain: &mut AtomGroup)`のような書き戻し関数を提供してほしい
+  （汎用メタデータ袋ではなく、`bonds`と同じ「specific typed field」パターンを希望）。
+  YUI側はこれが無い間、residueのpath文字列をキーとする一時的なサイドマップで代替する
+  （フェーズ6e-ii、`atom_group.rs`/`selector.rs`と同様「bridge実装までの一時代替」と明記）。
 - **[中] パスベース`BondRecord`の効率的な解決**: `BondRecord`の`atom1_path`/`atom2_path`が
   文字列パスのため、大規模構造でこれを原子への参照へ解決するコストを確認したい。
   パス文字列→原子への効率的なルックアップAPI（O(1)またはO(log n)）が既にあるか、
