@@ -870,9 +870,10 @@ CH-π候補ペア(既定閾値: 距離4.5Å以内・角度40°以内):
 ### 着手前に必ず確認すること(事前調査で判明、二重実装を避けるため)
 
 1. **`Format`(`format/mod.rs`、Phase 2 PR#4で実装済み)が§9「高」1件目の大部分を既にカバーしている。** `Format::is_residue`/`is_chain`/`is_protein`/`is_models`は「直下に原子を持たない」「サブグループが次階層の条件を満たす」という構造的判定を既に提供している。ゼロから設計しないこと。PR#28はこれを土台にする。
-2. **`AtomGroup::get_atom_by_path()`(`atom_group.rs:221`、`ssbond.rs`等の検証で既に使用中)は、`IndexMap`のO(1)ルックアップをパスの深さ分だけ辿る実装であり、既に効率的である可能性が高い。** §9「中」1件目(パスベース`BondRecord`解決コスト)が懸念する問題は、計測してみると既に解消されているかもしれない。PR#29はまず現状を計測・実証するところから始め、性能問題が実証されない限り新規API設計をしないこと。
+2. **`AtomGroup::get_atom_by_path()`(`atom_group.rs:221`、`ssbond.rs`等の検証で既に使用中)は、`IndexMap`のO(1)ルックアップをパスの深さ分だけ辿る実装であり、既に効率的である可能性が高い。** §9「中」1件目(パスベース`BondRecord`解決コスト)が懸念する問題は、計測してみると既に解消されているかもしれない。PR#30はまず現状を計測・実証するところから始め、性能問題が実証されない限り新規API設計をしないこと。
 3. **MOL2読み込み・PRMTOP `BONDS_*`セクションのパース・PDB CONECTレコードのパースは、いずれもPython版に対応する実装が一切存在しない**(`mol2.py`は書き込み専用で`load`相当のメソッドがない、`amber_prmtop.py`は`ATOM_NAME`/`CHARGE`/`ATOMIC_NUMBER`のみ読み込みBOND関連セクションは未対応、`biopdb.py`にCONECT処理はない)。Phase 7〜9と同じく「Python版との1:1比較」という受け入れ基準が使えないため、独立検証(仕様書・合成データでの手計算)が必要。
 4. **`Bond::setup()`(`bond.rs`)は現在、全原子ペアに対する総当たり距離計算(`make_distance_matrix`、`SymmetricMatrix`)で実装されている。** 実装を読んで確認済みで、O(n²)である。
+5. **§9は2026-09-19時点で並行して更新されており、「二次構造情報の`AtomGroup`への書き戻し」が新たに「高」優先度項目として追加された。** `calc_secondary_structure`(Phase 8 PR#23)が結果を別のVecとして返すのみで`AtomGroup`ツリーに反映しない点が、`Bond::setup()`の書き戻し設計と非一貫であるという指摘。詳細はPR#29参照。
 
 ### PR#27: wasm32ターゲットの`ruzstd`自動選択
 
@@ -903,7 +904,22 @@ CH-π候補ペア(既定閾値: 距離4.5Å以内・角度40°以内):
 
 スコープ外: mmCIF/PDB/PRMTOPパーサ自体の変更(規約違反データを検出できるようにするだけで、弾く・直すのは対象外)。
 
-### PR#29: パスベース`BondRecord`解決の検証・API整備
+### PR#29: 二次構造情報の`AtomGroup`への書き戻し
+
+背景: 2026-09-19に追記された§9の新規「高」優先度項目。`calc_secondary_structure(chain: &AtomGroup) -> Vec<SecondaryStructure>`(Phase 8 PR#23)は結果を別のVecとして返すのみで、`AtomGroup`ツリー自体には反映されない(`AtomGroup`に汎用メタデータフィールドが無いため)。一方`Bond::setup()`は`mol.add_bond(...)`で結果を`AtomGroup`自体に書き戻す設計になっており、一貫していない。YUI側は現状、residueのpath文字列をキーとする一時的なサイドマップで代替している(bridge側の対応までの暫定措置、フェーズ6e-ii)。
+
+対象:
+1. `bonds: Vec<BondRecord>`と同格の、residueレベルの`AtomGroup`が持つ専用フィールド`secondary_structure: Option<SsCode>`を追加する(汎用メタデータ袋ではなく、`bonds`と同じ「specific typed field」パターンをYUI側は希望している)。
+2. `calc_secondary_structure`と対になる`apply_secondary_structure(chain: &mut AtomGroup)`(算出結果を対応するresidueグループの`secondary_structure`フィールドに書き戻す関数)を追加する。
+
+完了の定義:
+1. `apply_secondary_structure`を呼んだ後、chain内の各residueグループの`secondary_structure`フィールドが、`calc_secondary_structure`が返すVecの対応するエントリと一致することをテストすること(Phase 8の基準値データ、`1hls.pdb`のchain A/Bで検証)。
+2. `AtomGroup`の`Clone`・マージ演算(`merge`/`BitAnd`/`BitOr`/`BitXor`)が新フィールドを正しく扱う(消えない・上書きロジックが妥当)ことを確認すること。**Phase 1是正事項5で`bonds`フィールドのマージ漏れが実際にバグとして見つかった前例があるため、同じ轍を踏まないこと。**
+3. `cargo clippy`/`cargo fmt`を通すこと。
+
+スコープ外: 8状態DSSP分類への拡張(Phase 8のスコープ外のまま)。
+
+### PR#30: パスベース`BondRecord`解決の検証・API整備
 
 背景: 上記「着手前確認事項2」の通り、`get_atom_by_path`は既にO(深さ)で動作している可能性が高い。まず現状を計測し、本当に新API追加が必要か判断すること。
 
@@ -917,11 +933,11 @@ CH-π候補ペア(既定閾値: 距離4.5Å以内・角度40°以内):
 2. `resolve_bond`ヘルパーとそのテストを追加すること。
 3. `cargo clippy`/`cargo fmt`を通すこと。
 
-### PR#30〜32: ファイル由来の明示的結合トポロジー読み込み
+### PR#31〜33: ファイル由来の明示的結合トポロジー読み込み
 
 いずれもPython版に対応実装がない新規機能(上記「着手前確認事項3」参照)。3フォーマットは独立して並行作業可能。
 
-#### PR#30: MOL2読み込み(`format/mol2.rs`)
+#### PR#31: MOL2読み込み(`format/mol2.rs`)
 
 対象: `SimpleMol2`に`load`/`from_str`(既存の`save`/`get_text`と対になる読み込み)を追加し、`@<TRIPOS>ATOM`・`@<TRIPOS>BOND`セクションをパースして結合情報付きの`AtomGroup`を構築する`get_atomgroup()`相当のメソッドを追加する。
 
@@ -930,7 +946,7 @@ CH-π候補ペア(既定閾値: 距離4.5Å以内・角度40°以内):
 2. 小さな合成MOL2フィクスチャ(新規追加)でパース結果を手動検証すること。
 3. `cargo clippy`/`cargo fmt`を通すこと。
 
-#### PR#31: PRMTOP `BONDS_*`セクションのパース(`format/amber_prmtop.rs`)
+#### PR#32: PRMTOP `BONDS_*`セクションのパース(`format/amber_prmtop.rs`)
 
 対象: `%FLAG BONDS_WITHOUT_HYDROGEN`/`%FLAG BONDS_INC_HYDROGEN`セクションをパースする。Amber PRMTOP形式ではこれらは`(atom1_idx*3, atom2_idx*3, bond_type_idx)`の3つ組のフラットな整数配列(`%FORMAT(10I8)`)であり、原子インデックスは0-basedで3倍された値(座標配列オフセット)である点に注意すること。パース結果を`get_atomgroup()`の結合情報として追加する。
 
@@ -939,7 +955,7 @@ CH-π候補ペア(既定閾値: 距離4.5Å以内・角度40°以内):
 2. インデックス変換(`/3`、0-based→内部表現)の境界値(最初/最後の原子)を検証すること。
 3. `cargo clippy`/`cargo fmt`を通すこと。
 
-#### PR#32: PDB CONECTレコードの読み込み(`format/pdb.rs`)
+#### PR#33: PDB CONECTレコードの読み込み(`format/pdb.rs`)
 
 対象: `CONECT`レコード(serial番号1つ+最大4つの結合相手serial番号)をパースし、`Pdb::get_atomgroup()`にSSBOND同様の方法で結合情報として追加する。serial番号からAtomGroup内の実際の原子への対応付けが必要(既存のSSBOND実装がserial→pathマッピングを持っていれば再利用すること)。
 
@@ -948,11 +964,11 @@ CH-π候補ペア(既定閾値: 距離4.5Å以内・角度40°以内):
 2. 1つのCONECT行に複数の結合相手(最大4つ)が書かれているケースを検証すること。
 3. `cargo clippy`/`cargo fmt`を通すこと。
 
-#### PR#30〜32共通: ファイル由来結合とVDWヒューリスティックの優先順位確立
+#### PR#31〜33共通: ファイル由来結合とVDWヒューリスティックの優先順位確立
 
 3フォーマット全ての対応完了後、以下の方針を`RUST_PORT_SPEC.md`(§2表の備考、または新規節)に明文化すること: **ファイルに明示的な結合情報があればそれを使い、`Bond::setup()`(VDW半径ヒューリスティック)は呼ばない。ファイルに結合情報がない場合のみ`Bond::setup()`にフォールバックする。** 各`get_atomgroup()`はこのPhase完了後、結合情報が取得できればそれを設定済みの状態で`AtomGroup`を返す想定なので、呼び出し側(YUI)が`AtomGroup::get_number_of_bonds() > 0`等で判定してから`Bond::setup()`を呼ぶかどうかを決める、という利用パターンをドキュメント化する。
 
-### PR#33+: `Bond::setup()`のスケーラビリティ改善
+### PR#34+: `Bond::setup()`のスケーラビリティ改善
 
 背景: 上記「着手前確認事項4」の通り、現状は全原子ペアの総当たり(O(n²))。YUIの目標(最大約100万原子)ではこのままでは実用に耐えない。設計判断を伴うやや大きめの作業なので、着手前に方針をPR説明(または着手前のコメント)でClaudeに確認すること。
 
@@ -986,5 +1002,6 @@ CH-π候補ペア(既定閾値: 距離4.5Å以内・角度40°以内):
 
 - 既存Pythonコード(`proteindf_bridge/`)は変更しない。
 - **PR#28着手前に`Format`(`format/mod.rs`)の既存実装を必ず読むこと。** 車輪の再発明をしない。
-- **PR#29着手前に`get_atom_by_path`の既存実装を必ず読むこと。** ベンチマークの結果次第では新規API追加が不要と判明する可能性がある——その場合は「不要と判断した」ことをPRで報告すればよく、無理に新しいAPIを作らないこと。
-- **ブランチ運用ルール(MUST項目)を厳守**: `feature/phase10-prM`ブランチを`develop`から切って作業し、`develop`へは自分でマージせず、レビュー承認を待つ。PR#27(依存なし、最も軽い)→PR#28→PR#29→(PR#30〜32は並行可)→PR#33+の順に着手すること。
+- **PR#29(`secondary_structure`書き戻し)は、`AtomGroup`のマージ・集合演算全て(`merge`/`BitAnd`/`BitOr`/`BitXor`/`Clone`)を洗い出してから着手すること。** 新フィールド追加のたびに一部の演算だけ対応漏れするパターンがPhase 1是正事項5で実際に起きている。
+- **PR#30着手前に`get_atom_by_path`の既存実装を必ず読むこと。** ベンチマークの結果次第では新規API追加が不要と判明する可能性がある——その場合は「不要と判断した」ことをPRで報告すればよく、無理に新しいAPIを作らないこと。
+- **ブランチ運用ルール(MUST項目)を厳守**: `feature/phase10-prM`ブランチを`develop`から切って作業し、`develop`へは自分でマージせず、レビュー承認を待つ。PR#27(依存なし、最も軽い)→PR#28→PR#29→PR#30→(PR#31〜33は並行可)→PR#34+の順に着手すること。
