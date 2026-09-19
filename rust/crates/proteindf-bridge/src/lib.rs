@@ -26,7 +26,7 @@ pub mod vector;
 
 pub use amino_acid::AminoAcid;
 pub use atom::Atom;
-pub use atom_group::{AtomGroup, BondRecord, Selector};
+pub use atom_group::{AtomGroup, BondRecord, SchemaViolation, Selector};
 pub use bond::Bond;
 pub use brd::{
     load_atomgroup, load_brd_yui, load_msgpack, save_atomgroup, save_brd_yui, save_msgpack,
