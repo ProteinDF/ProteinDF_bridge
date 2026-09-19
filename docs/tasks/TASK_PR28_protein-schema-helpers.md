@@ -67,3 +67,14 @@
 3. 可能であればSPDXヘッダーを復元すること。
 4. `cargo clippy` / `cargo fmt` / `cargo test`を通すこと。
 5. 修正後、同じ`feature/phase10-pr28`ブランチに追加コミットし、再度ユーザー経由でClaudeにレビュー依頼すること。
+
+## 再レビュー結果(2026-09-19、修正コミット`c4b8b16`確認・マージブロッカーなし)
+
+上記の実バグ1・2、SPDXヘッダー、テストの厳密化は全て修正・確認済み(回帰テスト`test_schema_regression_key_with_slash`/`test_schema_regression_empty_string_keys`を含め、ビルド・`cargo clippy -D warnings`・`cargo fmt --check`・`cargo test --workspace`は全てパス)。**この修正はマージ可能。**
+
+以下、Minorな残存懸念が1件あります。マージをブロックするものではありませんが、対応する場合はご確認ください。
+
+5. **`atom_group.rs`の`set_path()`(261〜263行目付近)に、`self.depth == 0 && self.path != "/"`のときだけ旧来の文字列分割方式(`path.split('/').filter(...).count()`)で`depth`を再計算するfallbackが残っている。** これは`set_group`経由(=`load_atomgroup`/`load_brd_yui`など外部データ読み込み経路)では`depth`が事前に非ゼロにセットされるため発火せず、**実際の読み込み経路には影響しないことを確認済み**。しかし`set_path`自体は`pub fn`であり、`modeling.rs`のACE/NMEキャップ生成(`answer.set_path("/ACE")`等)や`tests/test_ssbond.rs`で、未アタッチのfreshなgroupに直接パスを与える用途に実際に使われている。
+   - **再現手順(検証済み、一時テストで確認後revert)**: `AtomGroup::new()`(本来depth=0)に対して直接`g.set_path("/A/B".to_string())`を呼ぶと、`g.path_depth()`が本来の0ではなく2と誤計算される。
+   - 現状の呼び出し箇所(`modeling.rs`の"ACE"/"NME"、`test_ssbond.rs`の"model_1")はいずれも単一セグメント・スラッシュなしのリテラルなので実害はないが、「文字列ではなく真の木構造深さを使う」という本PRの設計意図・docコメントの説明("ensuring robustness against keys containing slashes or empty segments")と矛盾する経路が残っている。将来この関数を攻撃者制御パスに対して直接呼ぶコードが追加されると、修正したはずのバグが別の入口から再発しうる。
+   - **提案(任意)**: このfallbackを削除し、「`depth`は常に`set_group`/`update_paths`経由でのみ設定され、ルートの初期値0のみが正」という不変条件に統一する。`modeling.rs`側で直接`set_path`を呼んでいる箇所は、深さ管理が必要なら`set_group`で組み立てるよう見直すか、不要なら現状維持でよい。対応方針はagyの判断に委ねる。

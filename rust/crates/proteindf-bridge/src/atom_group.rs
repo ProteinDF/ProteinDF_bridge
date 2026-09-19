@@ -258,9 +258,6 @@ impl AtomGroup {
             new_path.push('/');
         }
         self.path = new_path;
-        if self.depth == 0 && self.path != "/" {
-            self.depth = self.path.split('/').filter(|s| !s.is_empty()).count();
-        }
         self.update_paths();
     }
 
