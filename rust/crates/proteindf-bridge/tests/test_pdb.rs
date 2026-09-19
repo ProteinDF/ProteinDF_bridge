@@ -291,3 +291,81 @@ fn test_occupancy_temp_factor_invalid_error() {
     assert_eq!(records[0].occupancy, 1.0);
     assert_eq!(records[0].temp_factor, 0.0);
 }
+
+#[test]
+fn test_2mgo_real_pdb_conect() {
+    let path = test_data_dir().join("2MGO.pdb");
+    let pdb = Pdb::from_file(&path, None).expect("failed to load 2MGO.pdb");
+
+    // Check CONECT record parsing from real PDB fixture
+    assert_eq!(pdb.conects().len(), 1);
+    assert_eq!(pdb.conects(), &[(6, 89)]);
+
+    let mut ag = pdb
+        .get_atomgroup(None, None)
+        .expect("failed to get AtomGroup");
+
+    // Verify deduplication between SSBOND and CONECT:
+    // Exactly 1 bond per model (20 total across 20 models), not duplicated to 40.
+    let bond_list = ag.get_bond_list();
+    assert_eq!(
+        bond_list.len(),
+        20,
+        "expected 20 bonds across 20 models (no duplicate between SSBOND and CONECT)"
+    );
+}
+
+#[test]
+fn test_conect_multiple_partners_synthetic() {
+    // Synthetic PDB with central carbon (serial 1) bonded to 4 hydrogens (serials 2, 3, 4, 5)
+    // in a single CONECT line: CONECT    1    2    3    4    5
+    // along with reverse CONECT lines to test deduplication.
+    let pdb_content = "\
+ATOM      1  C   MOL A   1       0.000   0.000   0.000  1.00  0.00           C  
+ATOM      2  H1  MOL A   1       1.000   0.000   0.000  1.00  0.00           H  
+ATOM      3  H2  MOL A   1       0.000   1.000   0.000  1.00  0.00           H  
+ATOM      4  H3  MOL A   1       0.000   0.000   1.000  1.00  0.00           H  
+ATOM      5  H4  MOL A   1      -1.000   0.000   0.000  1.00  0.00           H  
+CONECT    1    2    3    4    5
+CONECT    2    1
+CONECT    3    1
+CONECT    4    1
+CONECT    5    1
+";
+    let pdb = Pdb::from_str(pdb_content, None).expect("failed to parse pdb string");
+
+    // 4 unique bonds: (1, 2), (1, 3), (1, 4), (1, 5)
+    assert_eq!(pdb.conects().len(), 4);
+    assert_eq!(pdb.conects(), &[(1, 2), (1, 3), (1, 4), (1, 5)]);
+
+    let mut ag = pdb
+        .get_atomgroup(None, None)
+        .expect("failed to get AtomGroup");
+
+    let bond_list = ag.get_bond_list();
+    assert_eq!(bond_list.len(), 4);
+
+    for record in &bond_list {
+        let (a1, a2) = ag.resolve_bond(record).expect("bond must resolve");
+        match (a1.name.as_str(), a2.name.as_str()) {
+            ("C", "H1") | ("H1", "C") => assert_eq!(record.order, 1),
+            ("C", "H2") | ("H2", "C") => assert_eq!(record.order, 1),
+            ("C", "H3") | ("H3", "C") => assert_eq!(record.order, 1),
+            ("C", "H4") | ("H4", "C") => assert_eq!(record.order, 1),
+            other => panic!("unexpected bond pair: {:?}", other),
+        }
+    }
+}
+
+#[test]
+fn test_conect_invalid_error() {
+    let invalid_conect = "CONECT   XX    1\n";
+    let mut pdb = Pdb::new(None);
+    let err = pdb.parse_str(invalid_conect).unwrap_err();
+    assert!(err.to_string().contains("CONECT serial"));
+
+    let invalid_partner = "CONECT    1   YY\n";
+    let mut pdb2 = Pdb::new(None);
+    let err2 = pdb2.parse_str(invalid_partner).unwrap_err();
+    assert!(err2.to_string().contains("CONECT partner serial"));
+}

@@ -64,6 +64,7 @@ pub struct SsBondRecord {
 pub struct Pdb {
     data: BTreeMap<usize, Vec<PdbRecord>>,
     ssbonds: Vec<SsBondRecord>,
+    conects: Vec<(usize, usize)>,
     mode: Option<String>,
 }
 
@@ -84,6 +85,7 @@ impl Pdb {
         Self {
             data,
             ssbonds: Vec::new(),
+            conects: Vec::new(),
             mode: mode.map(|m| m.to_ascii_uppercase()),
         }
     }
@@ -122,6 +124,11 @@ impl Pdb {
         &self.ssbonds
     }
 
+    /// Returns a reference to the parsed CONECT records as deduplicated `(serial1, serial2)` pairs.
+    pub fn conects(&self) -> &[(usize, usize)] {
+        &self.conects
+    }
+
     /// Renumbers atom serial numbers within each model starting from 1.
     pub fn renumber(&mut self) {
         for records in self.data.values_mut() {
@@ -147,6 +154,7 @@ impl Pdb {
     pub fn parse_str(&mut self, content: &str) -> Result<()> {
         self.data.clear();
         self.ssbonds.clear();
+        self.conects.clear();
 
         let mut model_serial: usize = 1;
         let mut chain_serial: usize = 0;
@@ -328,6 +336,32 @@ impl Pdb {
                     charge: "  ".to_string(),
                 };
                 self.data.entry(model_serial).or_default().push(record);
+            } else if record_name == "CONECT" {
+                let serial_str = slice_chars(&chars, 6, 11);
+                let serial = serial_str.trim().parse::<usize>().map_err(|e| {
+                    BridgeError::input_error("CONECT serial", format!("invalid integer: {e}"))
+                })?;
+
+                // Up to 4 bonded partners in columns 12-16, 17-21, 22-26, 27-31
+                let partner_ranges = [(11, 16), (16, 21), (21, 26), (26, 31)];
+                for (start, end) in partner_ranges {
+                    let partner_str = slice_chars(&chars, start, end);
+                    let trimmed = partner_str.trim();
+                    if !trimmed.is_empty() {
+                        let partner = trimmed.parse::<usize>().map_err(|e| {
+                            BridgeError::input_error(
+                                "CONECT partner serial",
+                                format!("invalid integer: {e}"),
+                            )
+                        })?;
+                        if partner != serial {
+                            let bond_key = (serial.min(partner), serial.max(partner));
+                            if !self.conects.contains(&bond_key) {
+                                self.conects.push(bond_key);
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -359,6 +393,7 @@ impl Pdb {
             let model_name = format!("model_{model_serial}");
             let mut model = AtomGroup::new();
             model.name = model_name.clone();
+            let mut serial_to_atom = std::collections::HashMap::new();
 
             for item in model_items {
                 if item.record_name == "ATOM  " || item.record_name == "HETATM" {
@@ -397,11 +432,17 @@ impl Pdb {
                         if let Some(chain) = model.get_group_mut(&chain_id) {
                             if let Some(residue) = chain.get_group_mut(&res_key) {
                                 residue.set_atom(&atom_key, atom);
+                                if let Some(stored) = residue.get_atom(&atom_key) {
+                                    serial_to_atom.insert(item.serial, stored.clone());
+                                }
                             }
                         }
                     }
                 }
             }
+
+            // Track bonded atom path pairs to prevent duplicate bonds between SSBOND and CONECT
+            let mut existing_bonds = std::collections::HashSet::new();
 
             // Link SSBOND disulfide bonds
             for ssbond in &self.ssbonds {
@@ -421,7 +462,28 @@ impl Pdb {
                     .cloned();
 
                 if let (Some(sg1), Some(sg2)) = (sg1_opt, sg2_opt) {
-                    model.add_bond(&sg1, &sg2, 1);
+                    let pair = if sg1.path < sg2.path {
+                        (sg1.path.clone(), sg2.path.clone())
+                    } else {
+                        (sg2.path.clone(), sg1.path.clone())
+                    };
+                    if existing_bonds.insert(pair) {
+                        model.add_bond(&sg1, &sg2, 1);
+                    }
+                }
+            }
+
+            // Link CONECT bonds
+            for &(s1, s2) in &self.conects {
+                if let (Some(a1), Some(a2)) = (serial_to_atom.get(&s1), serial_to_atom.get(&s2)) {
+                    let pair = if a1.path < a2.path {
+                        (a1.path.clone(), a2.path.clone())
+                    } else {
+                        (a2.path.clone(), a1.path.clone())
+                    };
+                    if existing_bonds.insert(pair) {
+                        model.add_bond(a1, a2, 1);
+                    }
                 }
             }
 
