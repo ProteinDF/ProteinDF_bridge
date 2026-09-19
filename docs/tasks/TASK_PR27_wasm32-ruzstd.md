@@ -31,3 +31,13 @@
 
 - 既存Pythonコード(`proteindf_bridge/`)は変更しない。
 - Phase 10の他タスク(schema検証・ファイル由来結合・`Bond::setup()`のスケーラビリティ等)には手を出さない。
+
+## レビュー指摘 (2026-09-19, code-review)
+
+実装(コミット `ad55de7`, `aeab5bc`)をレビューした結果、正当性の問題は見つかりませんでした(ネイティブ/wasm32双方・`zstd`/`ruzstd`双方のfeature組み合わせでビルド・`cargo clippy -D warnings`・`cargo fmt --check`・既存テスト・クロスバックエンド往復テストが全てパス)。
+
+以下、Minorな指摘が1件あります。修正必須ではありませんが、対応する場合はご確認ください。
+
+- **`rust/crates/proteindf-bridge/Cargo.toml:21` と `:24`** — `ruzstd`のバージョン指定(`"0.9"`)が、`[target.'cfg(not(target_arch = "wasm32"))'.dependencies]`と`[target.'cfg(target_arch = "wasm32")'.dependencies]`の2箇所に重複して書かれています。
+  - **懸念**: 将来どちらか一方だけバージョンを上げた場合、`cargo`は重複について警告を出さないため、ネイティブビルドとwasm32ビルドで異なる`ruzstd`バージョンが解決される可能性があります。両バックエンドが生成する zstd フレームの相互互換性は同一バージョン前提で確認されているため、バージョンがずれると微妙な非互換のリスクがあります。
+  - **提案**: target非依存の`ruzstd`をoptional依存として一本化し(例: `[dependencies]`に`ruzstd = { version = "0.9", optional = true }`を置く)、wasm32側はtarget-gatedな`[target.'cfg(target_arch = "wasm32")'.dependencies.ruzstd] optional = false`相当、もしくはfeatureのtarget別デフォルト指定で有効化する形にまとめると重複を解消できます。対応方針はagyの判断に委ねます。

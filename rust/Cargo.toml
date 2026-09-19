@@ -7,3 +7,7 @@ default-members = [
     "crates/proteindf-bridge",
 ]
 resolver = "2"
+
+[workspace.dependencies]
+ruzstd = "0.9"
+zstd = "0.13"
