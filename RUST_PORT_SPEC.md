@@ -126,6 +126,43 @@ if ag.get_bond_list().is_empty() {
 - **C/C++:** `cdylib` + `cbindgen` によるヘッダー生成でC ABIを公開する。
 - **Python:** `PyO3` + `maturin` によるバインディングを提供し、既存 `ProteinDF_bridge`/`ProteinDF_pytools` ユーザーが最小コストで移行できるようにする（可能な限り既存Python APIの関数・クラス名を踏襲する）。パッケージ名は `proteindf_bridge_rs` とし、既存の純Python版 `proteindf_bridge` と共存インストールできるようにする。
 
+### 4.1 クレート配布方式の指針 (PR#36)
+
+現時点では crates.io への一般公開やプライベートレジストリでのバージョン管理は対応不要である。現状、「結 (YUI)」側はローカル開発環境における相対パス依存（`path = "../ProteinDF_bridge/rust/crates/proteindf-bridge"`）を前提にしている。
+
+#### 現実的な次の選択肢: GitHub git依存
+相対パス依存と crates.io 公開の中間の現実的な選択肢として、Cargoのgit依存機能が利用できる:
+```toml
+# リリース・特定タグを指定する場合
+proteindf-bridge = { git = "https://github.com/<org>/ProteinDF_bridge", tag = "v0.1.0" }
+
+# 特定のブランチやコミットを指定する場合
+# proteindf-bridge = { git = "https://github.com/<org>/ProteinDF_bridge", branch = "main" }
+```
+
+**git依存のトレードオフ:**
+- **メリット**: リポジトリ外部のプロジェクト（別PC環境やCI/CD）からも同一ディレクトリ配置を強制されることなくクレートを取得・ビルドできる。
+- **デメリット・制約**:
+  - crates.io のような SemVer に基づく柔軟なバージョン範囲解決やクレート単位の中央キャッシュ共有が効かず、指定したコミットやタグ単位での固定となる。
+  - プライベートリポジトリの場合、ローカルビルド環境やCI runnerにおいてGitHubアクセストークン（PAT）やSSH鍵等のgit認証設定が必要となる。
+
+**将来の移行判断基準:**
+外部の共同研究者・サードパーティ利用者が増加した場合、またはマルチリポジトリ構成のCI/CDパイプラインにおいて相対パス/git依存の管理コストが増大した段階で、crates.io公開（パブリッククレート化）またはプライベートCargoレジストリ（Cloudsmith、JFrog等）の導入を再検討する。
+
+### 4.2 Pythonバインディングの役割分担指針 (PR#36)
+
+将来的に `proteindf-bridge-py` と YUI 独自の `core-py`（`yui` パッケージ）が共存し得るため、その役割分担と使い分け指針を以下のように定める。
+
+- **`proteindf-bridge-py` (`proteindf_bridge_rs` パッケージ)**:
+  - **対象・目的**: 既存の純Python版 `ProteinDF_bridge` / `ProteinDF_pytools` を利用しているユーザー向けの移行パス、およびスクリプトベースのバッチ解析・量子化学計算前処理パイプライン。
+  - **責務**: 生体分子ファイルの高速パース/書き出し（PDB, mmCIF, Amber PRMTOP, MOL2等）、階層データモデル（`AtomGroup`）、結合判定、幾何重ね合わせ等、従来の `ProteinDF_bridge` の提供機能を高速化して提供する。既存Python APIの関数・クラス名を踏襲し、ユーザーが最小限の移行コストで高速化の恩恵を受けられるようにする。
+- **`core-py` (`yui` パッケージ)**:
+  - **対象・目的**: 「結 (YUI)」研究プラットフォーム向けの機能拡張、GUI/可視化連動、統合モデリングワークフロー。
+  - **責務**: YUIプラットフォーム独自の機能（レンダリングシーン制御、ビューア状態同期、対話的操作イベントハンドリング、GUIプラグイン機能等）を提供する。
+- **利用者の使い分け判断基準**:
+  - 既存のPythonスクリプトや計算バッチ処理の高速化・移行が目的の場合は **`proteindf_bridge_rs`** を使用する。
+  - YUIの可視化機能やUI・レンダラーと連動するアプリケーションやプラグインを開発する場合は **`yui`** を使用する。
+
 ## 5. ライセンス
 
 GPLv3を継続する（本リポジトリと同一ライセンス）。
@@ -196,10 +233,6 @@ YUI側の調査で見つかった、bridge側で対応してほしい項目。�
   毎回指定するのではなく、`Cargo.toml`側で`[target.'cfg(target_arch = "wasm32")'.dependencies]`を
   使い、wasm32ターゲットでは自動的に`ruzstd`が使われるよう構成してほしい（YUI自身の
   `core/Cargo.toml`が`zstd`に対して既に行っているのと同じパターン）。
-- **[低・将来] クレート配布方式**: YUIは現状`../ProteinDF_bridge`への相対パス依存を想定している。
-  CI・配布を考えると、crates.io公開かプライベートレジストリでのバージョン管理を今後検討してほしい。
-  今すぐの対応は不要。
-- **[低・将来] Pythonバインディングの名前空間整理**: `proteindf-bridge-py`とYUI独自の`core-py`
-  （`yui`パッケージ）が将来的に共存し得る。どちらをいつ使うべきか、4章にユーザー向けの
-  役割分担の指針を追記してほしい。今すぐの対応は不要。
+- **[低・将来] クレート配布方式 (PR#36対応完了、4.1節参照)**: 現時点では対応不要。YUI側は相対パス依存を前提とし、次の現実的な選択肢としてGitHub git依存の指針・トレードオフを4.1節に明記した。
+- **[低・将来] Pythonバインディングの名前空間整理 (PR#36対応完了、4.2節参照)**: `proteindf-bridge-py`（`proteindf_bridge_rs`）とYUI独自の`core-py`（`yui`）の責務と使い分け判断基準を4.2節に明記した。
 - 内部数値計算（`Vector`/`Matrix`）を自前実装のまま保つか、`nalgebra`等の既存クレートに置き換えるかの最終判断（1:1移植完了後に検討）
