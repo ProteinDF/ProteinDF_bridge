@@ -44,6 +44,7 @@ use crate::error::Result;
 use crate::matrix::Matrix;
 use crate::periodic_table::PeriodicTable;
 use crate::position::Position;
+use crate::secondary_structure::SsCode;
 
 /// A violation of the standard protein schema (`/model_N/chain_id/res_key/atom_key`).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -127,6 +128,7 @@ pub struct AtomGroup {
     atoms: IndexMap<String, Atom>,
     groups: IndexMap<String, AtomGroup>,
     bonds: Vec<BondRecord>,
+    pub secondary_structure: Option<SsCode>,
 }
 
 impl Default for AtomGroup {
@@ -138,6 +140,7 @@ impl Default for AtomGroup {
             atoms: IndexMap::new(),
             groups: IndexMap::new(),
             bonds: Vec::new(),
+            secondary_structure: None,
         }
     }
 }
@@ -572,6 +575,9 @@ impl AtomGroup {
                 self.bonds.push(bond.clone());
             }
         }
+        if other.secondary_structure.is_some() {
+            self.secondary_structure = other.secondary_structure;
+        }
     }
 
     /// Shifts all atoms in this group and subgroups by `direction`.
@@ -825,6 +831,21 @@ impl AtomGroup {
         self.bonds = bonds;
     }
 
+    /// Returns the secondary structure code assigned to this group (typically at residue level).
+    pub fn secondary_structure(&self) -> Option<SsCode> {
+        self.secondary_structure
+    }
+
+    /// Sets the secondary structure code for this group.
+    pub fn set_secondary_structure(&mut self, ss: Option<SsCode>) {
+        self.secondary_structure = ss;
+    }
+
+    /// Applies 3-state secondary structure assignments to each residue in this chain group.
+    pub fn apply_secondary_structure(&mut self) {
+        crate::secondary_structure::apply_secondary_structure(self);
+    }
+
     /// Returns the raw MessagePack Value representation of this AtomGroup.
     pub fn get_raw_data(&self) -> rmpv::Value {
         crate::brd::atomgroup_get_raw_data(self)
@@ -919,6 +940,8 @@ impl BitAnd for &AtomGroup {
                 result.bonds.push(bond.clone());
             }
         }
+
+        result.secondary_structure = self.secondary_structure.or(rhs.secondary_structure);
 
         result
     }
@@ -1042,6 +1065,14 @@ impl BitXor for &AtomGroup {
                 result.bonds.push(bond.clone());
             }
         }
+
+        result.secondary_structure = match (self.secondary_structure, rhs.secondary_structure) {
+            (Some(s), Some(r)) if s == r => None,
+            (Some(s), None) => Some(s),
+            (None, Some(r)) => Some(r),
+            (Some(s), Some(_)) => Some(s),
+            (None, None) => None,
+        };
 
         result
     }

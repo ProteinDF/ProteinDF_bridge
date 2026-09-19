@@ -7,7 +7,9 @@ use proteindf_bridge::atom::Atom;
 use proteindf_bridge::atom_group::AtomGroup;
 use proteindf_bridge::format::pdb::Pdb;
 use proteindf_bridge::position::Position;
-use proteindf_bridge::secondary_structure::{calc_secondary_structure, SsCode};
+use proteindf_bridge::secondary_structure::{
+    apply_secondary_structure, calc_secondary_structure, SsCode,
+};
 
 fn test_data_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data")
@@ -218,4 +220,113 @@ fn test_unsorted_chain_keys() {
 
     let ss_scrambled = calc_secondary_structure(&chain_scrambled);
     assert_eq!(ss_sorted, ss_scrambled);
+}
+
+#[test]
+fn test_apply_secondary_structure_1hls_chains() {
+    let path = test_data_dir().join("1hls.pdb");
+    let pdb = Pdb::from_file(&path, None).expect("failed to load 1hls.pdb");
+    let ag = pdb.get_atomgroup(None, None).expect("failed to get ag");
+
+    let model_1 = ag.get_group("model_1").expect("model_1 not found");
+
+    // Chain A
+    let mut chain_a = model_1.get_group("A").expect("chain A not found").clone();
+    let expected_a = calc_secondary_structure(&chain_a);
+    apply_secondary_structure(&mut chain_a);
+
+    for ss in &expected_a {
+        let res = chain_a
+            .get_group(&ss.residue_key)
+            .expect("residue should exist");
+        assert_eq!(
+            res.secondary_structure,
+            Some(ss.code),
+            "Chain A residue {} secondary_structure mismatch",
+            ss.residue_key
+        );
+        assert_eq!(
+            res.secondary_structure(),
+            Some(ss.code),
+            "Chain A residue {} getter mismatch",
+            ss.residue_key
+        );
+    }
+
+    // Chain B
+    let mut chain_b = model_1.get_group("B").expect("chain B not found").clone();
+    let expected_b = calc_secondary_structure(&chain_b);
+    apply_secondary_structure(&mut chain_b);
+
+    for ss in &expected_b {
+        let res = chain_b
+            .get_group(&ss.residue_key)
+            .expect("residue should exist");
+        assert_eq!(
+            res.secondary_structure,
+            Some(ss.code),
+            "Chain B residue {} secondary_structure mismatch",
+            ss.residue_key
+        );
+    }
+}
+
+#[test]
+fn test_secondary_structure_merge_and_set_operations() {
+    let mut res1 = AtomGroup::with_name("ALA");
+    let mut res2 = AtomGroup::with_name("GLY");
+
+    assert_eq!(res1.secondary_structure, None);
+    assert_eq!(res2.secondary_structure, None);
+
+    res1.secondary_structure = Some(SsCode::Helix);
+    res2.secondary_structure = Some(SsCode::Strand);
+
+    // Clone
+    let cloned = res1.clone();
+    assert_eq!(cloned.secondary_structure, Some(SsCode::Helix));
+
+    // Merge: res3 (None) merged with res1 (Helix) -> Helix
+    let mut res3 = AtomGroup::with_name("ALA");
+    res3.merge(&res1);
+    assert_eq!(res3.secondary_structure, Some(SsCode::Helix));
+
+    // Merge: res3 (Helix) merged with res2 (Strand) -> Strand (overwritten)
+    res3.merge(&res2);
+    assert_eq!(res3.secondary_structure, Some(SsCode::Strand));
+
+    // Set operations
+    let a1 = make_atom("CA", "C", Position::new(0.0, 0.0, 0.0));
+    let a2 = make_atom("CB", "C", Position::new(1.0, 1.0, 1.0));
+    let a3 = make_atom("N", "N", Position::new(2.0, 2.0, 2.0));
+
+    let mut g1 = AtomGroup::with_name("res1");
+    g1.secondary_structure = Some(SsCode::Helix);
+    g1.set_atom("CA", a1.clone());
+    g1.set_atom("CB", a2.clone());
+
+    let mut g2 = AtomGroup::with_name("res2");
+    g2.secondary_structure = Some(SsCode::Helix);
+    g2.set_atom("CB", a2.clone());
+    g2.set_atom("N", a3.clone());
+
+    // BitAnd: intersection of g1 and g2
+    let inter = &g1 & &g2;
+    assert_eq!(inter.secondary_structure, Some(SsCode::Helix));
+
+    // BitOr: union of g1 and g2
+    let union = &g1 | &g2;
+    assert_eq!(union.secondary_structure, Some(SsCode::Helix));
+
+    // BitXor: symmetric difference of identical ss -> None
+    let xor_same = &g1 ^ &g2;
+    assert_eq!(xor_same.secondary_structure, None);
+
+    // BitXor: symmetric difference where only one has ss
+    let mut g3 = AtomGroup::with_name("res3");
+    g3.secondary_structure = None;
+    g3.set_atom("N", a3);
+
+    let xor_diff = &g1 ^ &g3;
+    assert_eq!(xor_diff.secondary_structure, Some(SsCode::Helix));
 }

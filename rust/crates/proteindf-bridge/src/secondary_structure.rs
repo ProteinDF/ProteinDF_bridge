@@ -232,3 +232,16 @@ pub fn calc_secondary_structure(chain: &AtomGroup) -> Vec<SecondaryStructure> {
 
     results
 }
+
+/// Applies 3-state secondary structure assignments to each residue in a chain.
+///
+/// Calls [`calc_secondary_structure`] on the chain and writes the resulting
+/// [`SsCode`] directly into each residue group's `secondary_structure` field.
+pub fn apply_secondary_structure(chain: &mut AtomGroup) {
+    let assignments = calc_secondary_structure(chain);
+    for assignment in assignments {
+        if let Some(res) = chain.get_group_mut(&assignment.residue_key) {
+            res.secondary_structure = Some(assignment.code);
+        }
+    }
+}

@@ -50,7 +50,9 @@ pub use neutralize::Neutralize;
 pub use periodic_table::PeriodicTable;
 pub use position::{dihedral_angle, Position};
 pub use ramachandran::{calc_phi_psi, RamachandranAngle};
-pub use secondary_structure::{calc_secondary_structure, SecondaryStructure, SsCode};
+pub use secondary_structure::{
+    apply_secondary_structure, calc_secondary_structure, SecondaryStructure, SsCode,
+};
 pub use selector::{
     SelectAtom, SelectAtomGroup, SelectName, SelectPath, SelectPathRegex, SelectPathSimple,
     SelectPathWildcard, SelectRange, SelectSymbol, Select_Atom, Select_AtomGroup, Select_Name,
