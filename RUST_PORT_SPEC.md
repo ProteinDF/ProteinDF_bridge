@@ -215,7 +215,7 @@ YUI側の調査で見つかった、bridge側で対応してほしい項目。�
   （`CellList::for_each_neighbor_pair`/`query_pairs_within`）も公開した。
   2,000原子超では`distmat`/`bondmat`（従来のO(n²)密行列フィールド）は`None`になる
   （`MAX_DENSE_MATRIX_ATOMS`定数、メモリ保護のため）。
-- **[高] 二次構造情報の`AtomGroup`への書き戻し**: 現状`calc_secondary_structure(chain: &AtomGroup) -> Vec<SecondaryStructure>`は結果を別のVecとして返すのみで、`AtomGroup`ツリー自体には反映されない
+- **[高] 二次構造情報の`AtomGroup`への書き戻し (PR#29対応済み)**: 現状`calc_secondary_structure(chain: &AtomGroup) -> Vec<SecondaryStructure>`は結果を別のVecとして返すのみで、`AtomGroup`ツリー自体には反映されない
   （`AtomGroup`に汎用メタデータフィールドが無いため）。一方`Bond::setup()`は`mol.add_bond(...)`で
   結果を`AtomGroup`自体に書き戻す設計になっており、一貫していない。`bonds: Vec<BondRecord>`と
   同格の、生物学的に意味の明確な専用フィールド（例: 各residueレベルの`AtomGroup`が持つ
@@ -224,15 +224,24 @@ YUI側の調査で見つかった、bridge側で対応してほしい項目。�
   （汎用メタデータ袋ではなく、`bonds`と同じ「specific typed field」パターンを希望）。
   YUI側はこれが無い間、residueのpath文字列をキーとする一時的なサイドマップで代替する
   （フェーズ6e-ii、`atom_group.rs`/`selector.rs`と同様「bridge実装までの一時代替」と明記）。
-- **[中] パスベース`BondRecord`の効率的な解決**: `BondRecord`の`atom1_path`/`atom2_path`が
+  → `secondary_structure: Option<SsCode>`フィールド（`bonds`と同様private、`secondary_structure()`/
+  `set_secondary_structure()`経由でのみアクセス）と、`apply_secondary_structure(chain: &mut AtomGroup)`
+  を実装済み。`merge`/`BitAnd`/`BitOr`/`BitXor`/`Clone`全てで正しくハンドリングされることをテストで検証済み。
+- **[中] パスベース`BondRecord`の効率的な解決 (PR#30対応済み)**: `BondRecord`の`atom1_path`/`atom2_path`が
   文字列パスのため、大規模構造でこれを原子への参照へ解決するコストを確認したい。
   パス文字列→原子への効率的なルックアップAPI（O(1)またはO(log n)）が既にあるか、
   なければ追加してほしい。
-- **[中] wasm32ターゲット向けのデフォルト設定**: `cargo check --target wasm32-unknown-unknown`は
+  → 計測の結果、`get_atom_by_path`は既に階層深さのみに依存するO(depth)（実質O(1)）であることを実証
+  （75,000原子まで探索時間が変化しないことをベンチマークで確認）。ゼロアロケーション最適化も実施。
+  利便性のため`AtomGroup::resolve_bond(&self, record: &BondRecord) -> Option<(&Atom, &Atom)>`を追加した。
+- **[中] wasm32ターゲット向けのデフォルト設定 (PR#27対応済み)**: `cargo check --target wasm32-unknown-unknown`は
   `--no-default-features --features ruzstd`を指定すれば成功することを確認したが、これを消費側が
   毎回指定するのではなく、`Cargo.toml`側で`[target.'cfg(target_arch = "wasm32")'.dependencies]`を
   使い、wasm32ターゲットでは自動的に`ruzstd`が使われるよう構成してほしい（YUI自身の
   `core/Cargo.toml`が`zstd`に対して既に行っているのと同じパターン）。
+  → `[target.'cfg(target_arch = "wasm32")'.dependencies]`でwasm32では`ruzstd`が自動選択されるよう構成し、
+  ネイティブターゲットでは従来通り`zstd`/`ruzstd`をfeatureで明示選択できる状態を維持した
+  （バージョン指定は`[workspace.dependencies]`に一元化し重複を排除）。
 - **[低・将来] クレート配布方式 (PR#36対応完了、4.1節参照)**: 現時点では対応不要。YUI側は相対パス依存を前提とし、次の現実的な選択肢としてGitHub git依存の指針・トレードオフを4.1節に明記した。
 - **[低・将来] Pythonバインディングの名前空間整理 (PR#36対応完了、4.2節参照)**: `proteindf-bridge-py`（`proteindf_bridge_rs`）とYUI独自の`core-py`（`yui`）の責務と使い分け判断基準を4.2節に明記した。
 - 内部数値計算（`Vector`/`Matrix`）を自前実装のまま保つか、`nalgebra`等の既存クレートに置き換えるかの最終判断（1:1移植完了後に検討）
