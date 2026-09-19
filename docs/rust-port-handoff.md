@@ -964,11 +964,14 @@ CH-π候補ペア(既定閾値: 距離4.5Å以内・角度40°以内):
 2. 1つのCONECT行に複数の結合相手(最大4つ)が書かれているケースを検証すること。
 3. `cargo clippy`/`cargo fmt`を通すこと。
 
-### PR#34: ファイル由来結合とVDWヒューリスティックの優先順位確立(ドキュメントのみ)
+### PR#34: ファイル由来結合とVDWヒューリスティックの優先順位確立(ドキュメントのみ、完了 2026-09-19)
 
-TASK_PR31〜33の3フォーマット全ての対応完了後(2026-09-19、3つとも`develop`にマージ済み)に着手する、コード変更を伴わないフォローアップタスク。詳細は`docs/tasks/TASK_PR34_bond-priority-policy-doc.md`を参照。
+TASK_PR31〜33の3フォーマット全ての対応完了後(2026-09-19、3つとも`develop`にマージ済み)に着手した、コード変更を伴わないフォローアップタスク。詳細は`docs/tasks/TASK_PR34_bond-priority-policy-doc.md`を参照。
 
-以下の方針を`RUST_PORT_SPEC.md`(§2表の備考、または新規節)に明文化すること: **ファイルに明示的な結合情報があればそれを使い、`Bond::setup()`(VDW半径ヒューリスティック)は呼ばない。ファイルに結合情報がない場合のみ`Bond::setup()`にフォールバックする。** 各`get_atomgroup()`はこのPhase完了後、結合情報が取得できればそれを設定済みの状態で`AtomGroup`を返す想定なので、呼び出し側(YUI)が`AtomGroup::get_number_of_bonds() > 0`等で判定してから`Bond::setup()`を呼ぶかどうかを決める、という利用パターンをドキュメント化する。
+以下の方針を`RUST_PORT_SPEC.md` §3.8に明文化し、各フォーマットのdocコメントを整備した:
+- **方針**: ファイルに明示的な結合情報があればそれを使い、`Bond::setup()`(VDW半径ヒューリスティック)は呼ばない。ファイルに結合情報がない場合のみ`Bond::setup()`にフォールバックする。
+- **利用パターン**: 呼び出し側(「結 (YUI)」等)が`ag.get_bond_list().is_empty()`で判定してから`Bond::setup()`を呼ぶ設計指針・コード例を`RUST_PORT_SPEC.md` §3.8に明記。
+- **docコメント反映**: `SimpleMol2::get_atomgroup()`、`AmberPrmtop::get_atomgroup()`、`Pdb::get_atomgroup()`のdocコメントに明示的結合優先ポリシーへの参照を追記。
 
 ### PR#35+: `Bond::setup()`のスケーラビリティ改善
 

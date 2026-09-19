@@ -35,3 +35,24 @@ TASK_PR31〜33により、`SimpleMol2::get_atomgroup()`・`AmberPrmtop::get_atom
 - 既存Pythonコード(`proteindf_bridge/`)は変更しない。
 - コード変更を伴う作業(`get_atomgroup()`の挙動変更など)が必要だと判断した場合、独断で実装せず、まずユーザー経由でClaudeに報告し指示を仰ぐこと。
 - Phase 10の他タスク(`Bond::setup()`のスケーラビリティ等、TASK_PR35+のスコープ)には手を出さない。
+
+## 実施内容 (feature/phase10-pr34)
+
+1. **`RUST_PORT_SPEC.md` の更新**:
+   - 新規節「3.8 結合情報の優先順位方針（ファイル由来結合 vs VDWヒューリスティック）」を追加。
+   - 「ファイルに明示的な結合情報があればそれを優先して使い、`Bond::setup()`は呼ばない。ファイルに結合情報がない場合のみ`Bond::setup()`にフォールバックする」という基本方針を明文化。
+   - 各フォーマット（MOL2, PRMTOP, PDB）の結合パース実装状況を明記。
+   - 呼び出し側（「結 (YUI)」等）における推奨利用パターン（`ag.get_bond_list().is_empty()` による分岐コード例）を記述。
+   - §2 モジュール対応表および §9 の該当項目に完了ステータス・3.8節への参照を追記。
+2. **各フォーマットの doc コメント整備**:
+   - `SimpleMol2::get_atomgroup()` (`format/mol2.rs`)
+   - `AmberPrmtop::get_atomgroup()` (`format/amber_prmtop.rs`)
+   - `Pdb::get_atomgroup()` (`format/pdb.rs`)
+   それぞれの doc コメントに、ファイル由来の明示的結合情報が設定された `AtomGroup` を返す旨、および `RUST_PORT_SPEC.md` §3.8 の優先順位ポリシーへの参照を追記。
+3. **引き継ぎドキュメントの更新**:
+   - `docs/rust-port-handoff.md` の Phase 10 PR#34 節に完了記録を追記。
+4. **品質検証**:
+   - `cargo clippy --workspace --all-targets -- -D warnings`: 警告ゼロでパス
+   - `cargo fmt --check`: 差分なしでパス
+   - `cargo test --workspace`: 全テスト PASS (85 unit tests, 90 integration tests = 計175テストすべてパス)
+

@@ -373,6 +373,11 @@ impl Pdb {
     /// The resulting hierarchy is structured as:
     /// `root -> model_<serial> -> <chain_id> -> <res_seq> -> <serial>_<name>`
     ///
+    /// If the PDB file contains `SSBOND` (disulfide bonds) or `CONECT` records, the returned
+    /// `AtomGroup` includes the explicit bond topology parsed from the file with deduplication.
+    /// According to the bond priority policy (see `RUST_PORT_SPEC.md` §3.8), explicit
+    /// file-derived bonds take precedence over heuristic estimation (`Bond::setup()`).
+    ///
     /// If `select_model` is `None`, all models are included.
     /// Alternate location atoms matching `select_altloc` (default: "A") or blank are retained.
     pub fn get_atomgroup(

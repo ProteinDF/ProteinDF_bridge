@@ -40,10 +40,10 @@
 | `superposer_quaternion.py` | `superposer_quaternion.rs` | 四元数法（実験的） |
 | `xyz.py` | `format/xyz.rs` | |
 | `gro.py` (`SimpleGro`) | `format/gro.rs` | |
-| `mol2.py` (`SimpleMol2`) | `format/mol2.rs` | |
+| `mol2.py` (`SimpleMol2`) | `format/mol2.rs` | 読み込み対応・明示的結合情報をパース（3.8節参照） |
 | `mmcif.py` (`SimpleMmcif`) | `format/mmcif.rs` | **堅牢化が必要**（3章参照） |
-| `amber_prmtop.py` | `format/amber_prmtop.rs` | |
-| `biopdb.py` (`Pdb`) | `format/pdb.rs` | |
+| `amber_prmtop.py` | `format/amber_prmtop.rs` | 明示的結合情報をパース（3.8節参照） |
+| `biopdb.py` (`Pdb`) | `format/pdb.rs` | SSBONDに加えCONECTレコードをパース（3.8節参照） |
 | `functions.py`（YAML/MsgPack I/Oヘルパー） | `brd.rs` | ネイティブ `.brd` 往復フォーマット |
 
 `dbmanager.py`/`mail.py`（DB・メール送信のインフラ機能）は可視化・構造I/Oと無関係なため、Rust移植のスコープ外とする。
@@ -89,6 +89,36 @@ ProteinDF本体のC++ツール（`pdf-mkfld-dens`/`pdf-mkfld-mo`/`pdf-mkfld-esp`
 ### 3.7 QCLObotプレイブック連携のためのパス構文共有
 
 `*.QCLO.yaml` の `brd_select: /model_1/A/6/` のようなフラグメント選択パス文字列は、2章の `selector.rs`（`Select_Path_wildcard`/`Select_PathRegex`相当）でそのまま解決できる構文とする。QCLObot側の変更は不要。
+
+### 3.8 結合情報の優先順位方針（ファイル由来結合 vs VDWヒューリスティック）
+
+構造データが持つ明示的結合情報と、距離ベースの幾何学的結合推定（`Bond::setup()`）の優先順位について、以下の方針を確立する。
+
+> **方針**: ファイルに明示的な結合情報があればそれを優先して使用し、`Bond::setup()`（VDW半径ヒューリスティック）は呼ばない。ファイルに結合情報が存在しない場合のみ、`Bond::setup()` にフォールバックする。
+
+#### 各フォーマットの対応状況
+TASK_PR31〜PR33の実装により、明示的結合情報を持つ主要フォーマットのローダーは、パース時に結合トポロジーを構築して`AtomGroup`に格納した状態で返す:
+- **Tripos Mol2 (`format/mol2.rs`)**: `@<TRIPOS>BOND` セクションの結合ペア・結合次数をパースして`AtomGroup`に登録。
+- **Amber PRMTOP (`format/amber_prmtop.rs`)**: `%FLAG BONDS_WITHOUT_HYDROGEN` および `%FLAG BONDS_INC_HYDROGEN` の座標オフセット配列から原子インデックスを算出して`AtomGroup`に登録。
+- **PDB (`format/pdb.rs`)**: `SSBOND`（ジスルフィド結合）および `CONECT` レコードをパースして`AtomGroup`に登録。PDB仕様に基づく双方向冗長記述やSSBONDとの同一結合重複は自動的に排除（deduplication）される。
+
+#### 呼び出し側（「結 (YUI)」等）の推奨利用パターン
+各ローダーの `get_atomgroup()` は、明示的結合情報が存在する場合は設定済みの `AtomGroup` を返す。呼び出し側は以下のように結合情報の有無を判定し、存在しない場合のみ `Bond::setup()` を呼ぶ設計とする:
+
+```rust
+let mut ag = loader.get_atomgroup()?;
+
+// 構造全体で結合情報が1件以上存在するか判定
+// ※ PDB等の階層構造（root -> model -> chain...）を含め、
+//    ag.get_bond_list().is_empty() で構造全体の結合有無を確実に判定できる。
+if ag.get_bond_list().is_empty() {
+    // 明示的結合情報がないフォーマット（例: XYZ、GRO、結合未定義のPDB等）のみ
+    // VDW半径ヒューリスティックによる距離ベース結合推定にフォールバック
+    Bond::setup(&mut ag)?;
+}
+```
+
+この方針により、MOL2/PRMTOP/PDB由来の正確な結合トポロジーがヒューリスティック判定で上書き・二重定義されることを防止し、かつ結合情報を持たないフォーマットに対しても自動補完を提供する。
 
 ## 4. 多言語バインディング方針
 
@@ -136,12 +166,11 @@ YUI側の調査で見つかった、bridge側で対応してほしい項目。�
   `AtomGroup`の`is_*_level()`は`path()`の深さに基づく「位置的」判定であり、`Format::is_chain`等の「構造的」判定（直下に原子がない・サブグループが要件を満たす）とは判定軸が異なる。
   規約違反データ（残基ラッパーなしでchain直下に配置されたHETATMや水分子等）では、パス深さはchainレベル（深さ2）のまま構造的判定が失敗するという乖離が生じる。
   この乖離および規約違反（非残基レベルの直接原子、残基内のサブグループ、深さ超過）を走査・検出するヘルパー`AtomGroup::validate_schema() -> Vec<SchemaViolation>`を提供する。
-- **[高] ファイル由来の明示的な結合トポロジーの読み込み**: 調査時点で、MOL2は書き出しのみで
-  読み込み関数が存在せず、Amber-PRMTOPは`BONDS_WITHOUT_HYDROGEN`/`BONDS_INC_HYDROGEN`
-  セクションを未パース、PDBはSSBOND（ジスルフィド）のみを結合として取り込みCONECTレコードは
-  未対応（要再確認）。これらのフォーマットが持つ明示的な結合情報を読み込み、ファイルに情報が
-  あればそれを優先し、無ければ`Bond::setup()`のVDW半径ヒューリスティックにフォールバックする、
-  という優先順位を`AtomGroup`構築時に確立してほしい。
+- **[高] ファイル由来の明示的な結合トポロジーの読み込み (PR#31〜34対応済み、3.8節参照)**:
+  MOL2読み込み（PR#31）、PRMTOP `BONDS_*`パース（PR#32）、PDB `CONECT`レコードパース（PR#33）を
+  実装し、各ローダーが明示的結合情報付きの`AtomGroup`を返すよう拡張した。また、ファイル由来結合を
+  優先し、結合情報がない場合のみ`Bond::setup()`（VDW半径ヒューリスティック）にフォールバックする
+  利用優先順位を3.8節に確立した。
 - **[高] `Bond::setup()`のスケーラビリティ**: 現在は全原子ペアのO(n²)距離行列（`SymmetricMatrix`）。
   YUIは最大約100万原子の構造を目標としており、このままでは実用に耐えない。YUI側の
   `core::spatial::AtomBvh`のような空間分割木による近傍探索を`Bond::setup()`に組み込むか、
