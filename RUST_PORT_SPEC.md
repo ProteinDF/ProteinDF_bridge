@@ -171,11 +171,13 @@ YUI側の調査で見つかった、bridge側で対応してほしい項目。�
   実装し、各ローダーが明示的結合情報付きの`AtomGroup`を返すよう拡張した。また、ファイル由来結合を
   優先し、結合情報がない場合のみ`Bond::setup()`（VDW半径ヒューリスティック）にフォールバックする
   利用優先順位を3.8節に確立した。
-- **[高] `Bond::setup()`のスケーラビリティ**: 現在は全原子ペアのO(n²)距離行列（`SymmetricMatrix`）。
-  YUIは最大約100万原子の構造を目標としており、このままでは実用に耐えない。YUI側の
-  `core::spatial::AtomBvh`のような空間分割木による近傍探索を`Bond::setup()`に組み込むか、
-  外部から効率的な近傍ペアクエリ（半径内の原子ペア列挙）を投げられる低レベルAPIを
-  提供してほしい。
+- **[高] `Bond::setup()`のスケーラビリティ (PR#35対応済み)**: 従来は全原子ペアのO(n²)距離行列
+  （`SymmetricMatrix`）だったが、`spatial.rs`に一様セルリスト`CellList`を新設し、`Bond::setup()`を
+  動的セルサイズによるO(N)近傍探索に置き換えた。100万原子規模の合成構造で約3.4秒での完走を実測済み。
+  外部から効率的な近傍ペアクエリ（半径内の原子ペア列挙）を投げられる低レベルAPI
+  （`CellList::for_each_neighbor_pair`/`query_pairs_within`）も公開した。
+  2,000原子超では`distmat`/`bondmat`（従来のO(n²)密行列フィールド）は`None`になる
+  （`MAX_DENSE_MATRIX_ATOMS`定数、メモリ保護のため）。
 - **[高] 二次構造情報の`AtomGroup`への書き戻し**: 現状`calc_secondary_structure(chain: &AtomGroup) -> Vec<SecondaryStructure>`は結果を別のVecとして返すのみで、`AtomGroup`ツリー自体には反映されない
   （`AtomGroup`に汎用メタデータフィールドが無いため）。一方`Bond::setup()`は`mol.add_bond(...)`で
   結果を`AtomGroup`自体に書き戻す設計になっており、一貫していない。`bonds: Vec<BondRecord>`と
