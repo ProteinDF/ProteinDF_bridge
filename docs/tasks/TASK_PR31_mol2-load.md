@@ -30,3 +30,23 @@ TASK_PR31(本タスク)・TASK_PR32(PRMTOP)・TASK_PR33(PDB CONECT)の**3つ全�
 
 - 既存Pythonコード(`proteindf_bridge/`)は変更しない(この機能はPython版に存在しないため)。
 - Phase 10の他タスク(schema検証・`Bond::setup()`のスケーラビリティ等)には手を出さない。
+
+## 実施内容と検証結果 (2026-09-19)
+
+### 1. `SimpleMol2` への読み込み API 追加 (`format/mol2.rs`)
+- `from_file`, `from_str`, `load`, `parse_str` メソッドを追加。
+- `@<TRIPOS>MOLECULE`, `@<TRIPOS>ATOM`, `@<TRIPOS>BOND` の各セクションをパース。
+- SYBYL atom type（例: `"C.3"`, `"N.pl3"`, `"O.3"`, `"C.ar"`）および原子名から元素記号を正確に推定（`deduce_symbol_from_mol2`）。
+- 座標（x, y, z）、部分電荷（charge）をパースし、各原子を格納。
+- 結合種別（1, 2, 3, ar, am, du, un 等）を解釈し、`AtomGroup::add_bond` を用いて結合トポロジーを構築。
+- `get_atomgroup(&self) -> &AtomGroup` を追加。
+
+### 2. ラウンドトリップ検証 (`format/mol2.rs` インラインテスト)
+- `test_mol2_roundtrip`: `SimpleMol2::save` / `get_text` で出力した MOL2 を `from_str` で読み戻し、分子名・原子数・座標・結合（ペア・次数）および再出力テキストの完全一致を検証。
+- `test_mol2_from_file_roundtrip`: 一時ファイルを経由したファイル保存・読み込みのラウンドトリップを検証。
+- `test_mol2_load_synthetic_fixture`: 芳香族結合 (`ar`)、部分電荷、SYBYL 型を含む合成フィクスチャのパースを検証。
+
+### 3. 合成フィクスチャと統合テストの追加
+- `tests/data/sample.mol2`: エタノール（9原子、8結合、部分電荷付き）の合成フィクスチャを追加。
+- `tests/test_mol2.rs`: `sample.mol2` の読み込み・原子座標・電荷・結合トポロジーの手動検証テストを追加。
+
