@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: The ProteinDF development team
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 //! Hierarchical molecular structure representation for `proteindf-bridge`.
 //!
 //! # Protein Path Schema Convention
@@ -120,6 +123,7 @@ pub trait Selector {
 pub struct AtomGroup {
     pub name: String,
     path: String,
+    depth: usize,
     atoms: IndexMap<String, Atom>,
     groups: IndexMap<String, AtomGroup>,
     bonds: Vec<BondRecord>,
@@ -130,6 +134,7 @@ impl Default for AtomGroup {
         Self {
             name: String::new(),
             path: "/".to_string(),
+            depth: 0,
             atoms: IndexMap::new(),
             groups: IndexMap::new(),
             bonds: Vec::new(),
@@ -156,12 +161,16 @@ impl AtomGroup {
         &self.path
     }
 
-    /// Returns the depth of this group in the path hierarchy.
+    /// Returns the depth of this group in the hierarchy tree.
     ///
     /// Root (`"/"`) has depth 0, model (`"/model_1/"`) has depth 1,
     /// chain (`"/model_1/A/"`) has depth 2, and residue (`"/model_1/A/6/"`) has depth 3.
+    ///
+    /// This reflects the true tree nesting depth rather than counting slashes
+    /// in the path string, ensuring robustness against keys containing slashes
+    /// or empty segments.
     pub fn path_depth(&self) -> usize {
-        self.path.split('/').filter(|s| !s.is_empty()).count()
+        self.depth
     }
 
     /// Checks whether this group is at the model level based on path depth (depth == 1).
@@ -204,24 +213,26 @@ impl AtomGroup {
     /// - Groups nested deeper than standard residue level (depth > 3).
     pub fn validate_schema(&self) -> Vec<SchemaViolation> {
         let mut violations = Vec::new();
-        self.collect_schema_violations(&mut violations);
+        self.collect_schema_violations(self.depth, &mut violations);
         violations
     }
 
-    fn collect_schema_violations(&self, violations: &mut Vec<SchemaViolation>) {
-        let depth = self.path_depth();
-
+    fn collect_schema_violations(
+        &self,
+        current_depth: usize,
+        violations: &mut Vec<SchemaViolation>,
+    ) {
         // Atoms are only allowed at residue level (depth 3).
-        if !self.atoms.is_empty() && depth != 3 {
+        if !self.atoms.is_empty() && current_depth != 3 {
             violations.push(SchemaViolation::DirectAtomsAtNonResidueLevel {
                 path: self.path.clone(),
-                depth,
+                depth: current_depth,
                 atom_keys: self.atoms.keys().cloned().collect(),
             });
         }
 
         // Residues (depth 3) must not have subgroups.
-        if depth == 3 && !self.groups.is_empty() {
+        if current_depth == 3 && !self.groups.is_empty() {
             violations.push(SchemaViolation::SubgroupsInResidue {
                 path: self.path.clone(),
                 group_keys: self.groups.keys().cloned().collect(),
@@ -229,15 +240,15 @@ impl AtomGroup {
         }
 
         // Nesting depth must not exceed 3.
-        if depth > 3 {
+        if current_depth > 3 {
             violations.push(SchemaViolation::ExcessiveDepth {
                 path: self.path.clone(),
-                depth,
+                depth: current_depth,
             });
         }
 
         for group in self.groups.values() {
-            group.collect_schema_violations(violations);
+            group.collect_schema_violations(current_depth + 1, violations);
         }
     }
 
@@ -247,11 +258,15 @@ impl AtomGroup {
             new_path.push('/');
         }
         self.path = new_path;
+        if self.depth == 0 && self.path != "/" {
+            self.depth = self.path.split('/').filter(|s| !s.is_empty()).count();
+        }
         self.update_paths();
     }
 
     fn update_paths(&mut self) {
         for (key, group) in self.groups.iter_mut() {
+            group.depth = self.depth + 1;
             group.set_path(format!("{}{}/", self.path, key));
         }
         for (key, atom) in self.atoms.iter_mut() {
@@ -343,6 +358,7 @@ impl AtomGroup {
 
     /// Sets or adds a child group under `key`.
     pub fn set_group(&mut self, key: &str, mut group: AtomGroup) {
+        group.depth = self.depth + 1;
         group.set_path(format!("{}{}/", self.path, key));
         self.groups.insert(key.to_string(), group);
     }
@@ -1705,14 +1721,92 @@ mod tests {
         // 1. SubgroupsInResidue at "/model_1/A/6/"
         // 2. ExcessiveDepth at "/model_1/A/6/sub/" (depth 4)
         // 3. DirectAtomsAtNonResidueLevel at "/model_1/A/6/sub/" (depth 4 has direct atoms)
-        assert!(violations
-            .iter()
-            .any(|v| matches!(v, SchemaViolation::SubgroupsInResidue { .. })));
-        assert!(violations
-            .iter()
-            .any(|v| matches!(v, SchemaViolation::ExcessiveDepth { .. })));
-        assert!(violations
-            .iter()
-            .any(|v| matches!(v, SchemaViolation::DirectAtomsAtNonResidueLevel { .. })));
+        assert!(violations.iter().any(|v| matches!(
+            v,
+            SchemaViolation::SubgroupsInResidue { path, group_keys }
+                if path == "/model_1/A/6/" && group_keys == &vec!["sub".to_string()]
+        )));
+        assert!(violations.iter().any(|v| matches!(
+            v,
+            SchemaViolation::ExcessiveDepth { path, depth }
+                if path == "/model_1/A/6/sub/" && *depth == 4
+        )));
+        assert!(violations.iter().any(|v| matches!(
+            v,
+            SchemaViolation::DirectAtomsAtNonResidueLevel { path, depth, atom_keys }
+                if path == "/model_1/A/6/sub/" && *depth == 4 && atom_keys == &vec!["C1".to_string()]
+        )));
+    }
+
+    #[test]
+    fn test_schema_regression_key_with_slash() {
+        use crate::format::Format;
+
+        let mut root = AtomGroup::new();
+        let mut model = AtomGroup::with_name("model_1");
+        // Key with slash: "A/B"
+        let mut chain = AtomGroup::with_name("A/B");
+
+        // Directly attach atom under chain (schema violation)
+        let mut atom = Atom::from_symbol("O").unwrap();
+        atom.name = "O".to_string();
+        chain.set_atom("HOH_1", atom);
+
+        model.set_group("A/B", chain);
+        root.set_group("model_1", model);
+
+        let c = root.get_group("model_1").unwrap().get_group("A/B").unwrap();
+        // The tree depth of this chain is 2 (root=0 -> model=1 -> chain=2)
+        assert_eq!(c.path_depth(), 2);
+        assert!(c.is_chain_level());
+        assert!(!c.is_residue_level());
+        assert!(!Format::is_chain(c));
+
+        // validate_schema() must NOT report 0 violations due to slash miscount;
+        // it must detect DirectAtomsAtNonResidueLevel at depth 2
+        let violations = root.validate_schema();
+        assert_eq!(violations.len(), 1);
+        match &violations[0] {
+            SchemaViolation::DirectAtomsAtNonResidueLevel {
+                path,
+                depth,
+                atom_keys,
+            } => {
+                assert_eq!(path, "/model_1/A/B/");
+                assert_eq!(*depth, 2);
+                assert_eq!(atom_keys, &vec!["HOH_1".to_string()]);
+            }
+            other => panic!("Unexpected violation: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_schema_regression_empty_string_keys() {
+        let mut root = AtomGroup::new();
+        let mut g1 = AtomGroup::new(); // depth 1
+        let mut g2 = AtomGroup::new(); // depth 2
+        let mut g3 = AtomGroup::new(); // depth 3
+        let mut g4 = AtomGroup::new(); // depth 4 (excessive depth)
+
+        let atom = Atom::from_symbol("C").unwrap();
+        g4.set_atom("C1", atom);
+
+        g3.set_group("", g4);
+        g2.set_group("", g3);
+        g1.set_group("", g2);
+        root.set_group("", g1);
+
+        let violations = root.validate_schema();
+        // g4 is at depth 4: must detect ExcessiveDepth with depth == 4
+        // and DirectAtomsAtNonResidueLevel with depth == 4
+        assert!(violations.iter().any(|v| matches!(
+            v,
+            SchemaViolation::ExcessiveDepth { depth, .. } if *depth == 4
+        )));
+        assert!(violations.iter().any(|v| matches!(
+            v,
+            SchemaViolation::DirectAtomsAtNonResidueLevel { depth, atom_keys, .. }
+                if *depth == 4 && atom_keys == &vec!["C1".to_string()]
+        )));
     }
 }

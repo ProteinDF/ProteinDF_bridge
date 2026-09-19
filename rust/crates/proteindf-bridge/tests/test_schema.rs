@@ -177,3 +177,69 @@ fn test_schema_violation_subgroup_in_residue_and_depth() {
             if path == "/model_1/A/1/child_group/" && *depth == 4
     )));
 }
+
+#[test]
+fn test_schema_regression_key_with_slash() {
+    let mut root = AtomGroup::new();
+    let mut model = AtomGroup::with_name("model_1");
+    // Chain with a slash in key name: "A/B"
+    let mut chain = AtomGroup::with_name("A/B");
+
+    // Directly attach atom under chain (schema violation)
+    let mut atom = Atom::from_symbol("O").unwrap();
+    atom.name = "O".to_string();
+    chain.set_atom("HOH_1", atom);
+
+    model.set_group("A/B", chain);
+    root.set_group("model_1", model);
+
+    let c = root.get_group("model_1").unwrap().get_group("A/B").unwrap();
+    // Tree depth must be 2, not 3 (despite the slash in the key)
+    assert_eq!(c.path_depth(), 2);
+    assert!(c.is_chain_level());
+    assert!(!c.is_residue_level());
+    assert!(!Format::is_chain(c));
+
+    let violations = root.validate_schema();
+    assert_eq!(violations.len(), 1);
+    match &violations[0] {
+        SchemaViolation::DirectAtomsAtNonResidueLevel {
+            path,
+            depth,
+            atom_keys,
+        } => {
+            assert_eq!(path, "/model_1/A/B/");
+            assert_eq!(*depth, 2);
+            assert_eq!(atom_keys, &vec!["HOH_1".to_string()]);
+        }
+        other => panic!("Unexpected violation type: {:?}", other),
+    }
+}
+
+#[test]
+fn test_schema_regression_empty_string_keys() {
+    let mut root = AtomGroup::new();
+    let mut g1 = AtomGroup::new(); // depth 1
+    let mut g2 = AtomGroup::new(); // depth 2
+    let mut g3 = AtomGroup::new(); // depth 3
+    let mut g4 = AtomGroup::new(); // depth 4 (excessive depth)
+
+    let atom = Atom::from_symbol("C").unwrap();
+    g4.set_atom("C1", atom);
+
+    g3.set_group("", g4);
+    g2.set_group("", g3);
+    g1.set_group("", g2);
+    root.set_group("", g1);
+
+    let violations = root.validate_schema();
+    assert!(violations.iter().any(|v| matches!(
+        v,
+        SchemaViolation::ExcessiveDepth { depth, .. } if *depth == 4
+    )));
+    assert!(violations.iter().any(|v| matches!(
+        v,
+        SchemaViolation::DirectAtomsAtNonResidueLevel { depth, atom_keys, .. }
+            if *depth == 4 && atom_keys == &vec!["C1".to_string()]
+    )));
+}
