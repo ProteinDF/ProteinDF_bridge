@@ -30,3 +30,22 @@ TASK_PR31(MOL2)・TASK_PR32(本タスク)・TASK_PR33(PDB CONECT)の**3つ全て
 
 - 既存Pythonコード(`proteindf_bridge/`)は変更しない(この機能はPython版に存在しないため)。
 - Phase 10の他タスク(schema検証・`Bond::setup()`のスケーラビリティ等)には手を出さない。
+
+## 実施内容 (feature/phase10-pr32)
+
+1. **`AmberPrmtop` への結合サポート追加 (`format/amber_prmtop.rs`)**:
+   - `AmberPrmtop` 構造体に `bonds: Vec<(usize, usize)>` フィールドを追加。
+   - ゲッター `pub fn bonds(&self) -> &[(usize, usize)]` を追加。
+   - `%FLAG BONDS_WITHOUT_HYDROGEN` および `%FLAG BONDS_INC_HYDROGEN` セクションのパース関数 `read_bonds` を実装。
+   - Fortran `%FORMAT(10I8)` のフラット整数列から `(offset1, offset2, bond_type_idx)` の3要素組を `as_chunks::<3>()` で走査し、`offset % 3 == 0` を検証して `atom_idx = offset / 3` へ変換。
+   - `validate_data` にて結合インデックスが原子数範囲内であるかの境界値チェックを追加。
+   - `get_atomgroup()` において、生成した原子ペアに対して `atomgroup.add_bond(&a1, &a2, 1)` を呼び出しトポロジーに結合を登録。
+2. **単体テスト・境界値テストの実装**:
+   - `test_load_prmtop_with_bonds`: `BONDS_WITHOUT_HYDROGEN` と `BONDS_INC_HYDROGEN` の両方を含む4原子合成フィクスチャで結合ペア (`(0, 1)`, `(0, 2)`, `(1, 3)`) のパースおよび `ag.resolve_bond()` による両端原子の解決を検証。
+   - `test_bonds_boundary_first_and_last_atoms`: 5原子系における最初（0, offset 0）と最後（4, offset 12）の原子を結ぶ結合のパースおよび解決を検証。
+   - 異常系テスト: オフセットが3の倍数でない場合 (`test_bonds_invalid_offset_not_multiple_of_three`)、要素数が3の倍数でない場合 (`test_bonds_invalid_entry_count`)、結合インデックスが原子数以上の場合 (`test_bonds_out_of_bounds`) の各エラーハンドリングを検証。
+3. **品質検証**:
+   - `cargo clippy --workspace --all-targets -- -D warnings`: PASS
+   - `cargo fmt --check`: PASS
+   - `cargo test --workspace`: 全テスト PASS (85 unit tests, 87 integration tests)
+

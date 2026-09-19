@@ -20,6 +20,7 @@ pub struct AmberPrmtop {
     charges: Vec<f64>,
     atomic_numbers: Vec<usize>,
     xyz: Vec<Position>,
+    bonds: Vec<(usize, usize)>,
 }
 
 impl AmberPrmtop {
@@ -77,6 +78,7 @@ impl AmberPrmtop {
 
     /// Parses the PRMTOP format string.
     pub fn parse_prmtop_str(&mut self, content: &str) -> Result<()> {
+        self.bonds.clear();
         let mut lines = content.lines().peekable();
 
         while let Some(line) = lines.next() {
@@ -87,6 +89,11 @@ impl AmberPrmtop {
                 self.charges = Self::read_charges(&mut lines)?;
             } else if trimmed == "%FLAG ATOMIC_NUMBER" {
                 self.atomic_numbers = Self::read_atomic_numbers(&mut lines)?;
+            } else if trimmed == "%FLAG BONDS_INC_HYDROGEN"
+                || trimmed == "%FLAG BONDS_WITHOUT_HYDROGEN"
+            {
+                let section_bonds = Self::read_bonds(&mut lines)?;
+                self.bonds.extend(section_bonds);
             }
         }
 
@@ -165,6 +172,62 @@ impl AmberPrmtop {
             }
         }
         Ok(numbers)
+    }
+
+    fn read_bonds<'a>(
+        lines: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
+    ) -> Result<Vec<(usize, usize)>> {
+        let mut raw_ints = Vec::new();
+        while let Some(&line) = lines.peek() {
+            let trimmed = line.trim_end();
+            if trimmed.starts_with("%FLAG") {
+                break;
+            }
+            lines.next();
+            if trimmed.starts_with("%FORMAT") {
+                continue;
+            }
+
+            for val_str in trimmed.split_whitespace() {
+                let val = val_str.parse::<usize>().map_err(|_| {
+                    BridgeError::input_error(val_str, "failed to parse bond index in PRMTOP")
+                })?;
+                raw_ints.push(val);
+            }
+        }
+
+        if raw_ints.len() % 3 != 0 {
+            return Err(BridgeError::input_error(
+                "BONDS",
+                format!(
+                    "invalid number of entries in bond section: expected multiple of 3, got {}",
+                    raw_ints.len()
+                ),
+            ));
+        }
+
+        let mut bonds = Vec::with_capacity(raw_ints.len() / 3);
+        for chunk in raw_ints.as_chunks::<3>().0 {
+            let offset1 = chunk[0];
+            let offset2 = chunk[1];
+            // chunk[2] is bond_type_idx (force field parameter index)
+
+            if offset1 % 3 != 0 || offset2 % 3 != 0 {
+                return Err(BridgeError::input_error(
+                    "BONDS",
+                    format!(
+                        "invalid coordinate offset in bond entry: ({}, {}) must be multiples of 3",
+                        offset1, offset2
+                    ),
+                ));
+            }
+
+            let atom1 = offset1 / 3;
+            let atom2 = offset2 / 3;
+            bonds.push((atom1, atom2));
+        }
+
+        Ok(bonds)
     }
 
     /// Parses the INPCRD format string.
@@ -262,6 +325,17 @@ impl AmberPrmtop {
                 ),
             ));
         }
+        for &(a1, a2) in &self.bonds {
+            if n_atoms > 0 && (a1 >= n_atoms || a2 >= n_atoms) {
+                return Err(BridgeError::input_error(
+                    "AmberPrmtop",
+                    format!(
+                        "bond index out of bounds: ({}, {}) for atom count {}",
+                        a1, a2, n_atoms
+                    ),
+                ));
+            }
+        }
         Ok(())
     }
 
@@ -285,6 +359,11 @@ impl AmberPrmtop {
         &self.xyz
     }
 
+    /// Returns the parsed bonds as `(atom1_idx, atom2_idx)` pairs.
+    pub fn bonds(&self) -> &[(usize, usize)] {
+        &self.bonds
+    }
+
     /// Converts the parsed Amber data into an `AtomGroup`.
     pub fn get_atomgroup(&self) -> Result<AtomGroup> {
         let mut atomgroup = AtomGroup::new();
@@ -306,6 +385,16 @@ impl AmberPrmtop {
                 atom.name = self.atom_names[i].clone();
             }
             atomgroup.set_atom(&i.to_string(), atom);
+        }
+
+        for &(idx1, idx2) in &self.bonds {
+            let key1 = idx1.to_string();
+            let key2 = idx2.to_string();
+            if let (Some(a1), Some(a2)) = (atomgroup.get_atom(&key1), atomgroup.get_atom(&key2)) {
+                let a1_clone = a1.clone();
+                let a2_clone = a2.clone();
+                atomgroup.add_bond(&a1_clone, &a2_clone, 1);
+            }
         }
 
         Ok(atomgroup)
@@ -375,5 +464,152 @@ default_name
 
         let _ = fs::remove_file(&top_path);
         let _ = fs::remove_file(&crd_path);
+    }
+
+    const PRMTOP_WITH_BONDS: &str = "\
+%VERSION  VERSION_STAMP = V0001.000  DATE = 08/25/26  12:00:00
+%FLAG ATOM_NAME
+%FORMAT(20a4)
+C0  C1  H2  H3  
+%FLAG CHARGE
+%FORMAT(5E16.8)
+ 0.00000000E+00 0.00000000E+00 0.00000000E+00 0.00000000E+00
+%FLAG ATOMIC_NUMBER
+%FORMAT(10I8)
+       6       6       1       1
+%FLAG BONDS_WITHOUT_HYDROGEN
+%FORMAT(10I8)
+       0       3       1
+%FLAG BONDS_INC_HYDROGEN
+%FORMAT(10I8)
+       0       6       2       3       9       2
+";
+
+    const INPCRD_4ATOMS: &str = "\
+default_name
+    4
+   0.0000000   0.0000000   0.0000000   1.5000000   0.0000000   0.0000000
+  -0.5000000   0.9000000   0.0000000   2.0000000   0.9000000   0.0000000
+";
+
+    #[test]
+    fn test_load_prmtop_with_bonds() {
+        let amber = AmberPrmtop::from_strings(PRMTOP_WITH_BONDS, INPCRD_4ATOMS).unwrap();
+
+        assert_eq!(amber.atom_names().len(), 4);
+        assert_eq!(amber.bonds().len(), 3);
+        assert_eq!(amber.bonds(), &[(0, 1), (0, 2), (1, 3)]);
+
+        let mut ag = amber.get_atomgroup().unwrap();
+        assert_eq!(ag.get_number_of_atoms(), 4);
+        assert_eq!(ag.get_number_of_bonds(), 3);
+
+        let bond_list = ag.get_bond_list();
+        assert_eq!(bond_list.len(), 3);
+
+        // Verify that bonds resolve correctly to the expected atoms
+        for record in &bond_list {
+            let (a1, a2) = ag.resolve_bond(record).expect("bond must resolve");
+            match (a1.name.as_str(), a2.name.as_str()) {
+                ("C0", "C1") | ("C1", "C0") => assert_eq!(record.order, 1),
+                ("C0", "H2") | ("H2", "C0") => assert_eq!(record.order, 1),
+                ("C1", "H3") | ("H3", "C1") => assert_eq!(record.order, 1),
+                other => panic!("unexpected bond pair: {:?}", other),
+            }
+        }
+    }
+
+    #[test]
+    fn test_bonds_boundary_first_and_last_atoms() {
+        // System with 5 atoms: 0, 1, 2, 3, 4.
+        // Bond connects first atom (0, offset 0) and last atom (4, offset 12).
+        let prmtop = "\
+%FLAG ATOM_NAME
+%FORMAT(20a4)
+A0  A1  A2  A3  A4  
+%FLAG CHARGE
+%FORMAT(5E16.8)
+ 0.0 0.0 0.0 0.0 0.0
+%FLAG ATOMIC_NUMBER
+%FORMAT(10I8)
+       6       6       6       6       6
+%FLAG BONDS_WITHOUT_HYDROGEN
+%FORMAT(10I8)
+       0      12       1
+";
+        let inpcrd = "\
+boundary_test
+    5
+   0.0000000   0.0000000   0.0000000   1.0000000   0.0000000   0.0000000
+   2.0000000   0.0000000   0.0000000   3.0000000   0.0000000   0.0000000
+   4.0000000   0.0000000   0.0000000
+";
+        let amber = AmberPrmtop::from_strings(prmtop, inpcrd).unwrap();
+        assert_eq!(amber.bonds(), &[(0, 4)]);
+
+        let mut ag = amber.get_atomgroup().unwrap();
+        assert_eq!(ag.get_number_of_bonds(), 1);
+        let bond = &ag.get_bond_list()[0];
+        let (a1, a2) = ag.resolve_bond(bond).unwrap();
+        assert_eq!(a1.name, "A0");
+        assert_eq!(a2.name, "A4");
+    }
+
+    #[test]
+    fn test_bonds_invalid_offset_not_multiple_of_three() {
+        let prmtop = "\
+%FLAG ATOM_NAME
+%FORMAT(20a4)
+C1  H1  
+%FLAG BONDS_WITHOUT_HYDROGEN
+%FORMAT(10I8)
+       0       2       1
+";
+        let mut amber = AmberPrmtop::new();
+        let result = amber.parse_prmtop_str(prmtop);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("must be multiples of 3"));
+    }
+
+    #[test]
+    fn test_bonds_invalid_entry_count() {
+        let prmtop = "\
+%FLAG ATOM_NAME
+%FORMAT(20a4)
+C1  H1  
+%FLAG BONDS_WITHOUT_HYDROGEN
+%FORMAT(10I8)
+       0       3
+";
+        let mut amber = AmberPrmtop::new();
+        let result = amber.parse_prmtop_str(prmtop);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("expected multiple of 3"));
+    }
+
+    #[test]
+    fn test_bonds_out_of_bounds() {
+        let prmtop = "\
+%FLAG ATOM_NAME
+%FORMAT(20a4)
+C1  H1  
+%FLAG ATOMIC_NUMBER
+%FORMAT(10I8)
+       6       1
+%FLAG BONDS_WITHOUT_HYDROGEN
+%FORMAT(10I8)
+       0       6       1
+";
+        let inpcrd = "\
+test
+    2
+   0.0000000   0.0000000   0.0000000   1.0000000   0.0000000   0.0000000
+";
+        let result = AmberPrmtop::from_strings(prmtop, inpcrd);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("bond index out of bounds"));
     }
 }
