@@ -128,7 +128,7 @@ pub struct AtomGroup {
     atoms: IndexMap<String, Atom>,
     groups: IndexMap<String, AtomGroup>,
     bonds: Vec<BondRecord>,
-    pub secondary_structure: Option<SsCode>,
+    secondary_structure: Option<SsCode>,
 }
 
 impl Default for AtomGroup {
@@ -941,7 +941,10 @@ impl BitAnd for &AtomGroup {
             }
         }
 
-        result.secondary_structure = self.secondary_structure.or(rhs.secondary_structure);
+        result.secondary_structure = match (self.secondary_structure, rhs.secondary_structure) {
+            (Some(s), Some(r)) if s == r => Some(s),
+            _ => None,
+        };
 
         result
     }
@@ -1067,11 +1070,9 @@ impl BitXor for &AtomGroup {
         }
 
         result.secondary_structure = match (self.secondary_structure, rhs.secondary_structure) {
-            (Some(s), Some(r)) if s == r => None,
             (Some(s), None) => Some(s),
             (None, Some(r)) => Some(r),
-            (Some(s), Some(_)) => Some(s),
-            (None, None) => None,
+            _ => None,
         };
 
         result

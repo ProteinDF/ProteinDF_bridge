@@ -241,7 +241,7 @@ pub fn apply_secondary_structure(chain: &mut AtomGroup) {
     let assignments = calc_secondary_structure(chain);
     for assignment in assignments {
         if let Some(res) = chain.get_group_mut(&assignment.residue_key) {
-            res.secondary_structure = Some(assignment.code);
+            res.set_secondary_structure(Some(assignment.code));
         }
     }
 }

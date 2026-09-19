@@ -240,15 +240,9 @@ fn test_apply_secondary_structure_1hls_chains() {
             .get_group(&ss.residue_key)
             .expect("residue should exist");
         assert_eq!(
-            res.secondary_structure,
-            Some(ss.code),
-            "Chain A residue {} secondary_structure mismatch",
-            ss.residue_key
-        );
-        assert_eq!(
             res.secondary_structure(),
             Some(ss.code),
-            "Chain A residue {} getter mismatch",
+            "Chain A residue {} secondary_structure mismatch",
             ss.residue_key
         );
     }
@@ -263,7 +257,7 @@ fn test_apply_secondary_structure_1hls_chains() {
             .get_group(&ss.residue_key)
             .expect("residue should exist");
         assert_eq!(
-            res.secondary_structure,
+            res.secondary_structure(),
             Some(ss.code),
             "Chain B residue {} secondary_structure mismatch",
             ss.residue_key
@@ -276,24 +270,24 @@ fn test_secondary_structure_merge_and_set_operations() {
     let mut res1 = AtomGroup::with_name("ALA");
     let mut res2 = AtomGroup::with_name("GLY");
 
-    assert_eq!(res1.secondary_structure, None);
-    assert_eq!(res2.secondary_structure, None);
+    assert_eq!(res1.secondary_structure(), None);
+    assert_eq!(res2.secondary_structure(), None);
 
-    res1.secondary_structure = Some(SsCode::Helix);
-    res2.secondary_structure = Some(SsCode::Strand);
+    res1.set_secondary_structure(Some(SsCode::Helix));
+    res2.set_secondary_structure(Some(SsCode::Strand));
 
     // Clone
     let cloned = res1.clone();
-    assert_eq!(cloned.secondary_structure, Some(SsCode::Helix));
+    assert_eq!(cloned.secondary_structure(), Some(SsCode::Helix));
 
     // Merge: res3 (None) merged with res1 (Helix) -> Helix
     let mut res3 = AtomGroup::with_name("ALA");
     res3.merge(&res1);
-    assert_eq!(res3.secondary_structure, Some(SsCode::Helix));
+    assert_eq!(res3.secondary_structure(), Some(SsCode::Helix));
 
     // Merge: res3 (Helix) merged with res2 (Strand) -> Strand (overwritten)
     res3.merge(&res2);
-    assert_eq!(res3.secondary_structure, Some(SsCode::Strand));
+    assert_eq!(res3.secondary_structure(), Some(SsCode::Strand));
 
     // Set operations
     let a1 = make_atom("CA", "C", Position::new(0.0, 0.0, 0.0));
@@ -301,32 +295,49 @@ fn test_secondary_structure_merge_and_set_operations() {
     let a3 = make_atom("N", "N", Position::new(2.0, 2.0, 2.0));
 
     let mut g1 = AtomGroup::with_name("res1");
-    g1.secondary_structure = Some(SsCode::Helix);
+    g1.set_secondary_structure(Some(SsCode::Helix));
     g1.set_atom("CA", a1.clone());
     g1.set_atom("CB", a2.clone());
 
     let mut g2 = AtomGroup::with_name("res2");
-    g2.secondary_structure = Some(SsCode::Helix);
+    g2.set_secondary_structure(Some(SsCode::Helix));
     g2.set_atom("CB", a2.clone());
     g2.set_atom("N", a3.clone());
 
-    // BitAnd: intersection of g1 and g2
+    // BitAnd: intersection of g1 and g2 with identical ss -> Some(Helix)
     let inter = &g1 & &g2;
-    assert_eq!(inter.secondary_structure, Some(SsCode::Helix));
+    assert_eq!(inter.secondary_structure(), Some(SsCode::Helix));
 
-    // BitOr: union of g1 and g2
+    // BitOr: union of g1 and g2 -> Some(Helix)
     let union = &g1 | &g2;
-    assert_eq!(union.secondary_structure, Some(SsCode::Helix));
+    assert_eq!(union.secondary_structure(), Some(SsCode::Helix));
 
-    // BitXor: symmetric difference of identical ss -> None
+    // BitXor: symmetric difference of identical ss -> None (canceled)
     let xor_same = &g1 ^ &g2;
-    assert_eq!(xor_same.secondary_structure, None);
+    assert_eq!(xor_same.secondary_structure(), None);
 
-    // BitXor: symmetric difference where only one has ss
+    // BitXor: symmetric difference where only one side has ss -> Some(Helix)
     let mut g3 = AtomGroup::with_name("res3");
-    g3.secondary_structure = None;
-    g3.set_atom("N", a3);
+    g3.set_atom("N", a3.clone());
 
-    let xor_diff = &g1 ^ &g3;
-    assert_eq!(xor_diff.secondary_structure, Some(SsCode::Helix));
+    let xor_diff_presence = &g1 ^ &g3;
+    assert_eq!(xor_diff_presence.secondary_structure(), Some(SsCode::Helix));
+
+    // Conflicting secondary structures between g1 (Helix) and g4 (Strand):
+    let mut g4 = AtomGroup::with_name("res4");
+    g4.set_secondary_structure(Some(SsCode::Strand));
+    g4.set_atom("CB", a2);
+    g4.set_atom("N", a3);
+
+    // BitAnd: conflicting ss values do not match -> None
+    let inter_conflict = &g1 & &g4;
+    assert_eq!(inter_conflict.secondary_structure(), None);
+
+    // BitOr: union adopts rhs when merged -> Some(Strand)
+    let union_conflict = &g1 | &g4;
+    assert_eq!(union_conflict.secondary_structure(), Some(SsCode::Strand));
+
+    // BitXor: both sides have an assigned ss -> canceled out -> None
+    let xor_conflict = &g1 ^ &g4;
+    assert_eq!(xor_conflict.secondary_structure(), None);
 }
