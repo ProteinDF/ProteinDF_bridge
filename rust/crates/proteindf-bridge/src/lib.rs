@@ -19,6 +19,7 @@ pub mod position;
 pub mod ramachandran;
 pub mod secondary_structure;
 pub mod selector;
+pub mod spatial;
 pub mod ssbond;
 pub mod superposer;
 pub mod superposer_quaternion;
@@ -59,6 +60,7 @@ pub use selector::{
     Select_Path, Select_PathRegex, Select_Path_simple, Select_Path_wildcard, Select_Range,
     Select_Symbol,
 };
+pub use spatial::CellList;
 pub use ssbond::SSBond;
 pub use superposer::Superposer;
 pub use superposer_quaternion::{
