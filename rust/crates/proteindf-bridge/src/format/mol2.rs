@@ -158,8 +158,15 @@ impl SimpleMol2 {
         let mut id_to_atom: HashMap<usize, Atom> = HashMap::new();
 
         for (id, atom) in &parsed_atoms {
-            ag.set_atom(&id.to_string(), atom.clone());
-            id_to_atom.insert(*id, atom.clone());
+            let key = id.to_string();
+            ag.set_atom(&key, atom.clone());
+            if let Some(stored) = ag.get_atom(&key) {
+                id_to_atom.insert(*id, stored.clone());
+            } else {
+                let mut a = atom.clone();
+                a.path = format!("{}{}", ag.path(), key);
+                id_to_atom.insert(*id, a);
+            }
         }
 
         for (id1, id2, order) in parsed_bonds {
@@ -258,6 +265,15 @@ impl SimpleMol2 {
         let mut ag_clone = self.atomgroup.clone();
         let bond_list = ag_clone.get_bond_list();
 
+        let atoms = if self.atomgroup.get_number_of_atoms() > 0 {
+            self.atomgroup
+                .atoms()
+                .map(|(_, a)| a.clone())
+                .collect::<Vec<_>>()
+        } else {
+            self.atomgroup.get_atom_list()
+        };
+
         for (i, bond) in bond_list.iter().enumerate() {
             let bond_id = i + 1;
 
@@ -277,28 +293,34 @@ impl SimpleMol2 {
                     .unwrap_or(&bond.atom2_path)
             });
 
-            let atom_id1 = self
-                .atom_index_table
-                .iter()
-                .position(|n| n == a1_name)
-                .ok_or_else(|| {
-                    BridgeError::input_error(
-                        a1_name,
-                        format!("atom '{}' in bond not found in atom index table", a1_name),
-                    )
-                })?
-                + 1;
-            let atom_id2 = self
-                .atom_index_table
-                .iter()
-                .position(|n| n == a2_name)
-                .ok_or_else(|| {
-                    BridgeError::input_error(
-                        a2_name,
-                        format!("atom '{}' in bond not found in atom index table", a2_name),
-                    )
-                })?
-                + 1;
+            let atom_id1 = if let Some(pos) = atoms.iter().position(|a| a.path == bond.atom1_path) {
+                pos + 1
+            } else {
+                self.atom_index_table
+                    .iter()
+                    .position(|n| n == a1_name)
+                    .ok_or_else(|| {
+                        BridgeError::input_error(
+                            a1_name,
+                            format!("atom '{}' in bond not found in atom index table", a1_name),
+                        )
+                    })?
+                    + 1
+            };
+            let atom_id2 = if let Some(pos) = atoms.iter().position(|a| a.path == bond.atom2_path) {
+                pos + 1
+            } else {
+                self.atom_index_table
+                    .iter()
+                    .position(|n| n == a2_name)
+                    .ok_or_else(|| {
+                        BridgeError::input_error(
+                            a2_name,
+                            format!("atom '{}' in bond not found in atom index table", a2_name),
+                        )
+                    })?
+                    + 1
+            };
             let bond_type = bond.order;
 
             output.push_str(&format!(
@@ -569,5 +591,76 @@ USER_CHARGES
         assert_eq!(loaded.get_atomgroup().name, "water");
         assert_eq!(loaded.get_atomgroup().get_number_of_all_atoms(), 2);
         assert_eq!(loaded.get_atomgroup().get_number_of_bonds(), 1);
+    }
+
+    #[test]
+    fn test_mol2_duplicate_atom_names_bonds() {
+        // Molecule with duplicate atom names (two hydrogen atoms both named "H")
+        let mol2_str = r#"@<TRIPOS>MOLECULE
+dup_test
+4 2
+SMALL
+NO_CHARGES
+
+@<TRIPOS>ATOM
+      1 N           0.0000    0.0000    0.0000 N.3        1 RES      0.0000
+      2 O           2.0000    0.0000    0.0000 O.3        1 RES      0.0000
+      3 H           0.0000    1.0000    0.0000 H          1 RES      0.0000
+      4 H           2.0000    1.0000    0.0000 H          1 RES      0.0000
+@<TRIPOS>BOND
+     1     1     3 1
+     2     2     4 1
+"#;
+
+        let mol2 = SimpleMol2::from_str(mol2_str).unwrap();
+        let ag = mol2.get_atomgroup();
+
+        let mut ag_mut = ag.clone();
+        let bonds = ag_mut.get_bond_list();
+        assert_eq!(bonds.len(), 2);
+
+        // Bond 1: connects /1 (N) and /3 (first H)
+        let (b1_p1, b1_p2) = (&bonds[0].atom1_path, &bonds[0].atom2_path);
+        assert!(
+            (b1_p1 == "/1" && b1_p2 == "/3") || (b1_p1 == "/3" && b1_p2 == "/1"),
+            "Bond 1 must connect /1 and /3, got: {} - {}",
+            b1_p1,
+            b1_p2
+        );
+
+        // Bond 2: connects /2 (O) and /4 (second H), MUST NOT erroneously connect to /3
+        let (b2_p1, b2_p2) = (&bonds[1].atom1_path, &bonds[1].atom2_path);
+        assert!(
+            (b2_p1 == "/2" && b2_p2 == "/4") || (b2_p1 == "/4" && b2_p2 == "/2"),
+            "Bond 2 must connect /2 and /4, got: {} - {}",
+            b2_p1,
+            b2_p2
+        );
+
+        // Ensure resolution points to correct distinct atoms
+        let (a1_1, a1_2) = ag.resolve_bond(&bonds[0]).unwrap();
+        let (a2_1, a2_2) = ag.resolve_bond(&bonds[1]).unwrap();
+
+        assert_eq!(a1_1.name, "N");
+        assert_eq!(a1_2.name, "H");
+        assert_eq!(a2_1.name, "O");
+        assert_eq!(a2_2.name, "H");
+
+        // Coordinates of the bonded H atoms must differ (H3 at x=0, H4 at x=2)
+        let h3_xyz = if a1_2.name == "H" { a1_2.xyz } else { a1_1.xyz };
+        let h4_xyz = if a2_2.name == "H" { a2_2.xyz } else { a2_1.xyz };
+        assert!((h3_xyz.x - 0.0).abs() < 1e-4);
+        assert!((h4_xyz.x - 2.0).abs() < 1e-4);
+
+        // Re-export text must preserve correct bond atom IDs (1 3 and 2 4)
+        let reexported = mol2.get_text().unwrap();
+        assert!(
+            reexported.contains("1     1     3     1"),
+            "Re-exported bond 1 must be '1 1 3 1'"
+        );
+        assert!(
+            reexported.contains("2     2     4     1"),
+            "Re-exported bond 2 must be '2 2 4 1' (not '2 2 3 1')"
+        );
     }
 }
