@@ -180,6 +180,11 @@ impl SimpleMol2 {
     }
 
     /// Returns a reference to the underlying `AtomGroup`.
+    ///
+    /// If the MOL2 source contains an `@<TRIPOS>BOND` section, the returned `AtomGroup`
+    /// includes the explicit bond topology (pairs and orders) parsed from the file.
+    /// According to the bond priority policy (see `RUST_PORT_SPEC.md` §3.8), explicit
+    /// file-derived bonds take precedence over heuristic estimation (`Bond::setup()`).
     pub fn get_atomgroup(&self) -> &AtomGroup {
         &self.atomgroup
     }
