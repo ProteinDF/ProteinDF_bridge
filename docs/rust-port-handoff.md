@@ -996,13 +996,13 @@ TASK_PR31〜33の3フォーマット全ての対応完了後(2026-09-19、3つ�
 
 スコープ外: `secondary_structure.rs`/`hydrogen_bond.rs`/`ch_pi.rs`等、Phase 8〜9で実装済みの近傍探索(O(n²)のままの箇所がある可能性がある)への同様の最適化は本PRのスコープ外(必要になった時点で別途対応)。
 
-### PR#36: クレート配布方式・Pythonバインディング名前空間の指針(ドキュメントのみ)
+### PR#36: クレート配布方式・Pythonバインディング名前空間の指針(ドキュメントのみ、完了 2026-09-20)
 
-Phase 10最後のタスク。詳細は`docs/tasks/TASK_PR36_low-priority-docs.md`を参照。コード変更は不要で、`RUST_PORT_SPEC.md` §4に以下を追記するのみ:
-- クレート配布方式(crates.io公開かプライベートレジストリか)は今すぐ対応不要である旨と、現状YUI側が相対パス依存であることを明記。
-- `proteindf-bridge-py`とYUI独自の`core-py`の役割分担の指針(前者は既存`ProteinDF_bridge`ユーザー向けの移行パス、後者はYUI固有機能向け、等)を追記する。
+Phase 10最後のタスク。詳細は`docs/tasks/TASK_PR36_low-priority-docs.md`を参照。コード変更は不要で、`RUST_PORT_SPEC.md` §4(および§9該当項目)に以下を追記した:
+- **クレート配布方式 (4.1節)**: 現時点ではcrates.io公開・プライベートレジストリでのバージョン管理は対応不要である旨と、現状YUI側が相対パス依存であることを明記。現実的な次の選択肢としてのGitHub git依存の記述（`Cargo.toml`での`git`指定形式、トレードオフ、将来の判断基準）を追記した。
+- **Pythonバインディングの役割分担 (4.2節)**: `proteindf-bridge-py`（`proteindf_bridge_rs`）とYUI独自の`core-py`（`yui`）の対象ユーザー・提供機能の責務と使い分け判断基準を追記した。
 
-本タスクの完了をもってPhase 10(RUST_PORT_SPEC.md §9対応)は全て完了する。
+**本タスクの完了をもってPhase 10(RUST_PORT_SPEC.md §9「結 (YUI)」要求リスト対応)は全て完了した。**
 
 ### スコープ外(Phase 10全体)
 

@@ -27,9 +27,9 @@
 
 ## 完了の定義(Definition of Done)
 
-1. `RUST_PORT_SPEC.md` §4に上記2点が追記されていること。
-2. `docs/rust-port-handoff.md`のPhase 10節に本タスクの完了を記録すること。
-3. コード変更は無いため`cargo clippy`/`cargo fmt`の確認は不要(念のためリポジトリの状態に影響がないことだけ確認すること)。
+- [x] 1. `RUST_PORT_SPEC.md` §4に上記2点（4.1 クレート配布方式、4.2 Pythonバインディングの役割分担）が追記されていること。
+- [x] 2. `docs/rust-port-handoff.md`のPhase 10節に本タスクの完了を記録すること。
+- [x] 3. コード変更は無いため`cargo clippy`/`cargo fmt`の確認は不要(念のためリポジトリの状態に影響がないことだけ確認すること)。
 
 ## スコープ外
 
@@ -41,3 +41,12 @@
 - 既存Pythonコード(`proteindf_bridge/`)は変更しない。
 - コード変更を伴う作業が必要だと判断した場合、独断で実装せず、まずユーザー経由でClaudeに報告し指示を仰ぐこと。
 - 本タスクの完了をもってPhase 10全体の完了をrust-port-handoff.mdに明記してよいが、Phase 11以降の新規タスクには手を出さない。
+
+## 実施記録 (2026-09-20)
+
+- `RUST_PORT_SPEC.md` §4 に「4.1 クレート配布方式の指針」を追記:
+  - 現状の相対パス依存方針、および現実的な次の選択肢としての GitHub git依存（`Cargo.toml` の `git` 指定記法、トレードオフ、将来の移行判断基準）を明文化。
+- `RUST_PORT_SPEC.md` §4 に「4.2 Pythonバインディングの役割分担指針」を追記:
+  - `proteindf-bridge-py`（`proteindf_bridge_rs`）と YUI独自 `core-py`（`yui`）の対象・責務・使い分け判断基準を明文化。
+- `RUST_PORT_SPEC.md` §9 の該当2項目に対応完了注記を追記。
+- `docs/rust-port-handoff.md` にPR#36完了およびPhase 10全タスク完了を記録。
