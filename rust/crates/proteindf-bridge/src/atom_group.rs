@@ -421,19 +421,30 @@ impl AtomGroup {
         self.atoms.values_mut().find(|a| a.name == key_or_name)
     }
 
-    /// Retrieves an atom by hierarchical path (e.g. "/group_A/group_B/C3" or "C1").
+    /// Retrieves an atom by hierarchical path (e.g. "/model_1/A/1/CA" or "C1").
+    ///
+    /// The lookup traverses `IndexMap` groups level by level, taking O(depth) time
+    /// (typically 4 levels in standard protein schema) independent of the total
+    /// atom count in the structure.
     pub fn get_atom_by_path(&self, path: &str) -> Option<&Atom> {
         let trimmed = path.trim_start_matches('/');
-        let parts: Vec<&str> = trimmed.splitn(2, '/').collect();
-        if parts.len() == 1 {
-            self.get_atom(parts[0])
-        } else {
-            let grp_key = parts[0];
-            let rest = parts[1];
+        if let Some((grp_key, rest)) = trimmed.split_once('/') {
             self.groups
                 .get(grp_key)
                 .and_then(|g| g.get_atom_by_path(rest))
+        } else {
+            self.get_atom(trimmed)
         }
+    }
+
+    /// Resolves both endpoint atoms of a [`BondRecord`] by their hierarchical paths.
+    ///
+    /// Performs an O(depth) lookup for each endpoint. Returns `None` if either
+    /// atom cannot be found.
+    pub fn resolve_bond<'a>(&'a self, record: &BondRecord) -> Option<(&'a Atom, &'a Atom)> {
+        let a1 = self.get_atom_by_path(&record.atom1_path)?;
+        let a2 = self.get_atom_by_path(&record.atom2_path)?;
+        Some((a1, a2))
     }
 
     /// Collects all atoms within this group and subgroups whose key or name matches.
