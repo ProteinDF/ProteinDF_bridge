@@ -34,3 +34,22 @@ TASK_PR31(MOL2)・TASK_PR32(PRMTOP)・TASK_PR33(本タスク)の**3つ全てが�
 
 - 既存Pythonコード(`proteindf_bridge/`)は変更しない(この機能はPython版に存在しないため)。
 - Phase 10の他タスク(schema検証・`Bond::setup()`のスケーラビリティ等)には手を出さない。
+
+## 実施内容 (feature/phase10-pr33)
+
+1. **`Pdb` への CONECT レコードサポート追加 (`format/pdb.rs`)**:
+   - `Pdb` 構造体に `conects: Vec<(usize, usize)>` フィールドを追加。
+   - ゲッター `pub fn conects(&self) -> &[(usize, usize)]` を追加。
+   - `parse_str` に `CONECT` レコードパーサーを実装。中心原子 serial（カラム 7-11）と最大4つの相手原子 serial（カラム 12-16, 17-21, 22-26, 27-31）をパース。
+   - 自己結合（`serial == partner`）を除外し、`(min(s1, s2), max(s1, s2))` で一意化して PDB 特有の双方向冗長記述や重複を排除して登録。
+   - `get_atomgroup()` において、原子登録時に `serial -> Atom` マップを構築し、SSBOND 同様に `model.add_bond(a1, a2, 1)` を呼び出して結合を登録。
+   - SSBOND と CONECT の両方で同一結合（例: ジスルフィド結合）が記述されている場合に二重登録されないよう、原子ペアパスを用いた deduplication を導入。
+2. **単体テスト・結合テストの実装 (`tests/test_pdb.rs`)**:
+   - `test_2mgo_real_pdb_conect`: 実PDBフィクスチャ `2MGO.pdb`（行2872に `CONECT 6 89` が存在）のパースおよび SSBOND との重複排除（全20モデルで各1結合、計20結合）を検証。
+   - `test_conect_multiple_partners_synthetic`: 1行に最大4つの結合相手を持つケース（中心炭素 1 に結合する水素 2, 3, 4, 5）および双方向冗長行を含む合成 PDB で、4本の結合が正しくパースされ、`ag.resolve_bond()` で両端原子が解決されることを検証。
+   - `test_conect_invalid_error`: CONECT レコード内の serial が整数でない場合のエラーハンドリングを検証。
+3. **品質検証**:
+   - `cargo clippy --workspace --all-targets -- -D warnings`: 警告ゼロでパス
+   - `cargo fmt --check`: 差分なしでパス
+   - `cargo test --workspace`: 全テスト PASS (85 unit tests, 90 integration tests = 計175テストすべてパス)
+
