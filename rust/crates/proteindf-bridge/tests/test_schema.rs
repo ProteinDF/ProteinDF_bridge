@@ -243,3 +243,43 @@ fn test_schema_regression_empty_string_keys() {
             if *depth == 4 && atom_keys == &vec!["C1".to_string()]
     )));
 }
+
+#[test]
+fn test_schema_regression_cloned_subtree_set_path_depth() {
+    let mut root = AtomGroup::new();
+    let mut model = AtomGroup::with_name("model_1");
+    let mut chain = AtomGroup::with_name("A");
+    let mut residue = AtomGroup::with_name("1");
+    let atom = Atom::from_symbol("C").unwrap();
+    residue.set_atom("CA", atom);
+    chain.set_group("1", residue);
+    model.set_group("A", chain);
+    root.set_group("model_1", model);
+
+    // Get subtree at depth 2 (chain level: "/model_1/A/")
+    let chain_ref = root.get_group("model_1").unwrap().get_group("A").unwrap();
+    assert_eq!(chain_ref.path_depth(), 2);
+    assert_eq!(chain_ref.path(), "/model_1/A/");
+
+    let mut cloned = chain_ref.clone();
+
+    // With `set_path_with_depth`, standalone subtree can be repositioned with consistent depth
+    cloned.set_path_with_depth("/ACE".to_string(), 1);
+    assert_eq!(cloned.path(), "/ACE/");
+    assert_eq!(cloned.path_depth(), 1);
+    assert!(cloned.is_model_level());
+
+    // Descendant paths and depths are updated consistently
+    let child_res = cloned.get_group("1").unwrap();
+    assert_eq!(child_res.path(), "/ACE/1/");
+    assert_eq!(child_res.path_depth(), 2);
+
+    let child_atom = child_res.get_atom("CA").unwrap();
+    assert_eq!(child_atom.path, "/ACE/1/CA");
+
+    // Standard set_path preserves depth by design
+    let mut cloned2 = chain_ref.clone();
+    cloned2.set_path("/NEW_CHAIN".to_string());
+    assert_eq!(cloned2.path(), "/NEW_CHAIN/");
+    assert_eq!(cloned2.path_depth(), 2); // preserved
+}

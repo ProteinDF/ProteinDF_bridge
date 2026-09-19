@@ -99,7 +99,7 @@ impl Modeling {
             BridgeError::general("ACE group '1' not found in reference structure")
         })?;
         let mut answer = ace_group.clone();
-        answer.set_path("/ACE".to_string());
+        answer.set_path_with_depth("/ACE".to_string(), 1);
         Ok(answer)
     }
 
@@ -169,7 +169,7 @@ impl Modeling {
             BridgeError::general("NME group '3' not found in reference structure")
         })?;
         let mut answer = nme_group.clone();
-        answer.set_path("/NME".to_string());
+        answer.set_path_with_depth("/NME".to_string(), 1);
         Ok(answer)
     }
 

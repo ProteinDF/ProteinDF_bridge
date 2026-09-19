@@ -78,3 +78,39 @@
    - **再現手順(検証済み、一時テストで確認後revert)**: `AtomGroup::new()`(本来depth=0)に対して直接`g.set_path("/A/B".to_string())`を呼ぶと、`g.path_depth()`が本来の0ではなく2と誤計算される。
    - 現状の呼び出し箇所(`modeling.rs`の"ACE"/"NME"、`test_ssbond.rs`の"model_1")はいずれも単一セグメント・スラッシュなしのリテラルなので実害はないが、「文字列ではなく真の木構造深さを使う」という本PRの設計意図・docコメントの説明("ensuring robustness against keys containing slashes or empty segments")と矛盾する経路が残っている。将来この関数を攻撃者制御パスに対して直接呼ぶコードが追加されると、修正したはずのバグが別の入口から再発しうる。
    - **提案(任意)**: このfallbackを削除し、「`depth`は常に`set_group`/`update_paths`経由でのみ設定され、ルートの初期値0のみが正」という不変条件に統一する。`modeling.rs`側で直接`set_path`を呼んでいる箇所は、深さ管理が必要なら`set_group`で組み立てるよう見直すか、不要なら現状維持でよい。対応方針はagyの判断に委ねる。
+
+## 再々レビュー結果(2026-09-19、修正コミット`cf1b68c`確認・新たな要修正あり)
+
+上記5番の指摘どおり`set_path()`のfallbackは削除されました(ビルド・`cargo clippy -D warnings`・`cargo fmt --check`・`cargo test --workspace`は全てパス)。しかしこの削除の仕方により、**`modeling.rs`の既存呼び出しパターンで新たな不整合が生じる**ことを確認しました。マージ前の対応を推奨します(前回までの実バグ1・2ほど深刻ではありませんが、5番より一段重い"要検討"扱いとしています)。
+
+### 新たに判明した問題(要検討)
+
+6. **fallback削除により、「別の場所からclone/抽出したサブツリーに`set_path()`で新しいパスを直接与える」パターンで`depth`が古い(クローン元の)値のまま取り残され、新しい`path()`と矛盾する状態になる。** `set_path()`はもはや`depth`を一切更新しないため、`update_paths()`は誤った`self.depth`を基準に子孫の`depth`を再配布し続ける。
+   - **再現手順(検証済み、一時テストで確認後revert)**: 木構造中で深さ2に位置するグループ(`/A/1/`)を`clone()`し、`set_path("/ACE".to_string())`で単一セグメントのパス(本来は深さ1)に付け替えると、`path()`は`/ACE/`になるが`path_depth()`は2のまま(本来期待される1にならない)。
+   - **実際に該当するコード**: `rust/crates/proteindf-bridge/src/modeling.rs`の`get_ACE`(101〜102行目付近)・`get_NME`(170〜171行目付近)が、まさにこのパターン(`best.get_group(...)`で取得した既存木の一部を`.clone()`し、`set_path("/ACE")`/`set_path("/NME")`で付け替え)を使っている。現状これらの戻り値に対して`path_depth()`/`is_residue_level()`/`validate_schema()`を呼ぶ本番コード・テストはまだ存在しないため即座の実害は顕在化していないが、これらのキャップ残基を将来ペプチドモデルに組み込んで検証する処理を書いた瞬間に、`depth`と`path`が矛盾したデータとして混入する。
+   - なお、`load_atomgroup`/`load_brd_yui`などの外部データ読み込み経路(`set_group`のみ使用)には影響なし。
+3. **修正方針(提案)**: `set_path()`を「常に`depth`を`path`から独立に扱う(呼び出し元が`set_group`で正しく再アタッチするまでは`depth`は未定義扱い)」という設計にするなら、`set_path()`内で`depth`を（文字列パースではなく)**確実に無効化する**——例えば「この経路で`path`が変更されたら`depth`もその場で`path`のセグメント数から算出し直す」のではなく、**`set_path`を直接公開APIとして深さ整合性が必要な用途に使わせない**方針が良い。具体的には:
+   - (a) `modeling.rs`のget_ACE/get_NMEを、`.clone()` + `set_path()`ではなく、新規`AtomGroup`を`with_name`で作って親に`set_group`で正しく再アタッチする(あるいは深さをリセットする専用メソッド、例えば`detach_and_set_path()`が`depth`もpathのトップレベル呼び出し時点で明示的に0または1にリセットする)形に直す。
+   - (b) 最小限の対応として、`set_path()`のドキュメントコメントに「このメソッドは`depth`を更新しない。クローンしたサブツリーを付け替える場合は呼び出し元が`depth`の整合性に責任を持つこと(理想的には`set_group`経由で親に再アタッチすること)」という注意書きを追加する。
+   - いずれの対応も必須ではありませんが、`modeling.rs`のget_ACE/get_NMEの戻り値に対して将来`validate_schema()`等を呼ぶ計画があるなら、(a)を強く推奨します。
+
+### 完了の定義(対応する場合)
+
+1. 上記6番の再現手順を回帰テストとして追加する(clone後の`set_path`でdepthが新パスと矛盾しないことを確認)。
+2. `modeling.rs`のget_ACE/get_NMEを見直すか、`set_path()`のdocコメントに注意書きを追加する。
+3. `cargo clippy` / `cargo fmt` / `cargo test`を通すこと。
+4. 対応してもしなくても、対応方針をユーザー経由でClaudeに報告すること。**現時点でこの1件のみを理由にマージをブロックする必要はありません**(実際に踏むコードパスが現状存在しないため)が、agyの判断で対応するか、既知の制約としてドキュメント化するかを決めてください。
+
+## 指摘6対応結果 (2026-09-19)
+
+提案(a)および(b)の両方を採用して対応を完了しました。
+
+1. **`AtomGroup::set_path_with_depth` の新設**:
+   - `pub fn set_path_with_depth(&mut self, mut new_path: String, depth: usize)` を追加。サブツリーの切り離しやスタンドアロンのルート作成時に、任意の基準パスと深さを整合させて再設定可能とし、子孫の `depth`/`path` も正しく再帰更新する。
+2. **`set_path` の仕様明確化と doc コメント拡充**:
+   - `set_path` は `self.depth` を維持する仕様であることをドキュメントに明記し、深さを変更してデタッチ・再配置する場合は `set_path_with_depth` または `set_group` を使用すべき注意書きを追加。
+3. **`modeling.rs` の ACE / NME 生成処理の更新**:
+   - `get_ACE` および `get_NME` で `answer.set_path_with_depth("/ACE".to_string(), 1)` / `answer.set_path_with_depth("/NME".to_string(), 1)` を使用するよう修正。
+4. **回帰テスト追加**:
+   - `tests/test_schema.rs` に `test_schema_regression_cloned_subtree_set_path_depth` を追加し、クローンしたサブツリーに `set_path_with_depth` を呼んだ際の `path_depth()`、子グループ/原子の path・depth 整合性を検証。
+

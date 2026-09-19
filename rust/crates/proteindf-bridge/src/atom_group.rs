@@ -253,11 +253,28 @@ impl AtomGroup {
     }
 
     /// Sets the path of this group and updates descendant paths.
+    ///
+    /// Note: This method only updates `self.path` and propagates paths down the tree;
+    /// it preserves `self.depth`. If repositioning or detaching a subtree where
+    /// the root depth changes, use [`set_path_with_depth`](Self::set_path_with_depth)
+    /// or re-attach the group using [`set_group`](Self::set_group).
     pub fn set_path(&mut self, mut new_path: String) {
         if new_path.is_empty() || !new_path.ends_with('/') {
             new_path.push('/');
         }
         self.path = new_path;
+        self.update_paths();
+    }
+
+    /// Sets the path and depth of this group, updating descendant paths and depths.
+    ///
+    /// Use this when detaching a subtree or creating a standalone group at an explicit depth.
+    pub fn set_path_with_depth(&mut self, mut new_path: String, depth: usize) {
+        if new_path.is_empty() || !new_path.ends_with('/') {
+            new_path.push('/');
+        }
+        self.path = new_path;
+        self.depth = depth;
         self.update_paths();
     }
 
