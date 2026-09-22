@@ -208,9 +208,11 @@ pub struct StructConnRecord {
     pub conn_type_id: String,
     pub ptnr1_asym_id: String,
     pub ptnr1_seq_id: Option<i32>,
+    pub ptnr1_ins_code: String,
     pub ptnr1_atom_id: String,
     pub ptnr2_asym_id: String,
     pub ptnr2_seq_id: Option<i32>,
+    pub ptnr2_ins_code: String,
     pub ptnr2_atom_id: String,
 }
 
@@ -236,6 +238,11 @@ impl StructConnRecord {
                 row.get("_struct_conn.ptnr1_label_seq_id")
                     .and_then(|s| s.parse::<i32>().ok())
             });
+        let ptnr1_ins_code = row
+            .get("_struct_conn.pdbx_ptnr1_PDB_ins_code")
+            .filter(|s| *s != "." && *s != "?")
+            .cloned()
+            .unwrap_or_default();
         let ptnr1_atom_id = row
             .get("_struct_conn.ptnr1_label_atom_id")
             .cloned()
@@ -257,6 +264,11 @@ impl StructConnRecord {
                 row.get("_struct_conn.ptnr2_label_seq_id")
                     .and_then(|s| s.parse::<i32>().ok())
             });
+        let ptnr2_ins_code = row
+            .get("_struct_conn.pdbx_ptnr2_PDB_ins_code")
+            .filter(|s| *s != "." && *s != "?")
+            .cloned()
+            .unwrap_or_default();
         let ptnr2_atom_id = row
             .get("_struct_conn.ptnr2_label_atom_id")
             .cloned()
@@ -267,12 +279,19 @@ impl StructConnRecord {
             conn_type_id,
             ptnr1_asym_id,
             ptnr1_seq_id,
+            ptnr1_ins_code,
             ptnr1_atom_id,
             ptnr2_asym_id,
             ptnr2_seq_id,
+            ptnr2_ins_code,
             ptnr2_atom_id,
         })
     }
+}
+
+#[inline]
+pub(crate) fn build_residue_key(res_seq: i32, ins_code: &str) -> String {
+    format!("{res_seq}{}", ins_code.trim())
 }
 
 impl MmcifDataBlock {
@@ -563,7 +582,7 @@ impl SimpleMmcif {
                 // Determine residue sequence key:
                 // Prioritize auth_seq_id for both ATOM and HETATM, fallback to label_seq_id, default to 1
                 let res_seq = item.auth_seq_id.or(item.label_seq_id).unwrap_or(1);
-                let res_key = format!("{res_seq}");
+                let res_key = build_residue_key(res_seq, &item.pdbx_pdb_ins_code);
 
                 let mut res_name = item.auth_comp_id.clone();
                 if matches!(res_name.as_str(), "HID" | "HIE" | "HIP") {
@@ -603,8 +622,8 @@ impl SimpleMmcif {
             for conn in &conns {
                 if conn.conn_type_id == "disulf" {
                     if let (Some(seq1), Some(seq2)) = (conn.ptnr1_seq_id, conn.ptnr2_seq_id) {
-                        let res_key1 = format!("{seq1}");
-                        let res_key2 = format!("{seq2}");
+                        let res_key1 = build_residue_key(seq1, &conn.ptnr1_ins_code);
+                        let res_key2 = build_residue_key(seq2, &conn.ptnr2_ins_code);
 
                         let sg1_opt = model
                             .get_group(&conn.ptnr1_asym_id)

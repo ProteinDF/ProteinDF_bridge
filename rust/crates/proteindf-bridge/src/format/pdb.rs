@@ -55,8 +55,10 @@ impl Default for PdbRecord {
 pub struct SsBondRecord {
     pub chain_id1: String,
     pub seq_num1: i32,
+    pub icode1: String,
     pub chain_id2: String,
     pub seq_num2: i32,
+    pub icode2: String,
 }
 
 /// PDB file parser and serializer corresponding to `proteindf_bridge.biopdb.Pdb`.
@@ -178,6 +180,7 @@ impl Pdb {
                     .map_err(|e| {
                         BridgeError::input_error("SSBOND seqNum1", format!("invalid integer: {e}"))
                     })?;
+                let icode1 = slice_chars(&chars, 21, 22);
                 let chain_id2 = slice_chars(&chars, 29, 30);
                 let seq_num2 = slice_chars(&chars, 31, 35)
                     .trim()
@@ -185,12 +188,15 @@ impl Pdb {
                     .map_err(|e| {
                         BridgeError::input_error("SSBOND seqNum2", format!("invalid integer: {e}"))
                     })?;
+                let icode2 = slice_chars(&chars, 35, 36);
 
                 self.ssbonds.push(SsBondRecord {
                     chain_id1,
                     seq_num1,
+                    icode1,
                     chain_id2,
                     seq_num2,
+                    icode2,
                 });
             } else if record_name == "ATOM  " || record_name == "HETATM" {
                 // Pad line to 80 characters with spaces if needed
@@ -415,7 +421,7 @@ impl Pdb {
                         model.set_group(&chain_id, chain);
                     }
 
-                    let res_key = format!("{}", item.res_seq);
+                    let res_key = build_residue_key(item.res_seq, &item.i_code);
                     if let Some(chain) = model.get_group_mut(&chain_id) {
                         if !chain.has_group(&res_key) {
                             let mut residue = AtomGroup::new();
@@ -453,8 +459,8 @@ impl Pdb {
 
             // Link SSBOND disulfide bonds
             for ssbond in &self.ssbonds {
-                let res_key1 = format!("{}", ssbond.seq_num1);
-                let res_key2 = format!("{}", ssbond.seq_num2);
+                let res_key1 = build_residue_key(ssbond.seq_num1, &ssbond.icode1);
+                let res_key2 = build_residue_key(ssbond.seq_num2, &ssbond.icode2);
 
                 let sg1_opt = model
                     .get_group(&ssbond.chain_id1)
@@ -533,6 +539,13 @@ impl Pdb {
                     let digits: String =
                         res_key.chars().take_while(|c| c.is_ascii_digit()).collect();
                     let res_seq = digits.parse::<i32>().unwrap_or(0);
+                    let i_code_str: String =
+                        res_key.chars().skip_while(|c| c.is_ascii_digit()).collect();
+                    let i_code = if i_code_str.is_empty() {
+                        " ".to_string()
+                    } else {
+                        i_code_str
+                    };
 
                     let res_name = residue.name.clone();
                     let mut has_oxt = false;
@@ -565,7 +578,7 @@ impl Pdb {
                             res_name: res_name.clone(),
                             chain_id: rec_chain_id.clone(),
                             res_seq,
-                            i_code: " ".to_string(),
+                            i_code: i_code.clone(),
                             coord: [atom.xyz.x, atom.xyz.y, atom.xyz.z],
                             occupancy: 1.0,
                             temp_factor,
@@ -585,7 +598,7 @@ impl Pdb {
                             res_name: res_name.clone(),
                             chain_id: rec_chain_id.clone(),
                             res_seq,
-                            i_code: " ".to_string(),
+                            i_code: i_code.clone(),
                             coord: [0.0, 0.0, 0.0],
                             occupancy: 0.0,
                             temp_factor: 0.0,
@@ -792,6 +805,11 @@ impl fmt::Display for Pdb {
 // ---------------------------------------------------------------------------
 // Helper functions for PDB fixed-column parsing and formatting
 // ---------------------------------------------------------------------------
+
+#[inline]
+pub(crate) fn build_residue_key(res_seq: i32, i_code: &str) -> String {
+    format!("{}{}", res_seq, i_code.trim())
+}
 
 fn slice_chars(chars: &[char], start: usize, end: usize) -> String {
     if start >= chars.len() {
