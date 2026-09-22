@@ -6,6 +6,34 @@
 //! Provides canonical atom names and bond topology (with bond orders 1, 2, 3, 4)
 //! for standard amino acids, nucleic acids, and water, embedded at compile time
 //! via MessagePack binary for zero-filesystem portable access.
+//!
+//! # Runtime Extension with User-Supplied CCD Data
+//! While the standard 29 residue templates are embedded at compile time via [`CcdTemplateDb::global`],
+//! the database can be extended at runtime with user-supplied CCD files (e.g. `components.cif`
+//! or individual ligand CIF files) using [`CcdBondTemplate::from_mmcif_block`] and [`CcdTemplateDb::insert`]
+//! or [`CcdTemplateDb::merge`].
+//!
+//! ## Example
+//! ```no_run
+//! use std::path::Path;
+//! use proteindf_bridge::ccd_templates::{CcdBondTemplate, CcdTemplateDb};
+//! use proteindf_bridge::format::mmcif::SimpleMmcif;
+//!
+//! // 1. Load user-supplied CCD file via SimpleMmcif
+//! let mut cif = SimpleMmcif::new();
+//! cif.load(Path::new("path/to/custom_ligand.cif")).unwrap();
+//!
+//! // 2. Convert a CCD data block into CcdBondTemplate
+//! let block = cif.get_data_block("comp_LIG").unwrap();
+//! let template = CcdBondTemplate::from_mmcif_block(block, "LIG").unwrap();
+//!
+//! // 3. Insert into a mutable template DB (cloned from default or freshly created)
+//! let mut db = CcdTemplateDb::default();
+//! db.insert(template);
+//!
+//! // 4. Apply to AtomGroup
+//! // atom_group.apply_ccd_bond_templates(&db);
+//! ```
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -13,6 +41,7 @@ use std::sync::OnceLock;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{BridgeError, Result};
+use crate::format::mmcif::MmcifDataBlock;
 
 /// Raw embedded MessagePack bytes for standard CCD bond templates.
 pub const CCD_BOND_TEMPLATES_MSGPACK: &[u8] = include_bytes!("data/ccd_bond_templates.msgpack");
@@ -28,6 +57,108 @@ pub struct CcdBondTemplate {
     pub bonds: Vec<(String, String, usize)>,
 }
 
+impl CcdBondTemplate {
+    /// Builds a `CcdBondTemplate` from an mmCIF CCD data block.
+    ///
+    /// Extracts canonical atom names from `_chem_comp_atom.atom_id` and intra-component
+    /// bonds and bond orders from `_chem_comp_bond`.
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The block contains `_atom_site` records (full macromolecular structure data rather than a CCD chemical component).
+    /// - No `_chem_comp_atom` entries are found in the block.
+    pub fn from_mmcif_block(block: &MmcifDataBlock, comp_id: &str) -> Result<Self> {
+        if block.has_atom_site() {
+            return Err(BridgeError::input_error(
+                comp_id,
+                "Cannot build CcdBondTemplate from an mmCIF data block containing _atom_site records (macromolecular structure)",
+            ));
+        }
+
+        let actual_comp_id = block
+            .key_values
+            .get("_chem_comp.id")
+            .cloned()
+            .unwrap_or_else(|| {
+                let trimmed = comp_id.trim();
+                if trimmed.is_empty() {
+                    "UNKNOWN".to_string()
+                } else {
+                    trimmed.to_string()
+                }
+            });
+
+        // 1. Extract canonical atom names (preserving appearance order)
+        let mut atoms = Vec::new();
+        if let Some(atom_id) = block.key_values.get("_chem_comp_atom.atom_id") {
+            if !atoms.contains(atom_id) {
+                atoms.push(atom_id.clone());
+            }
+        }
+        for table in &block.tables {
+            for row in table {
+                if let Some(atom_id) = row.get("_chem_comp_atom.atom_id") {
+                    if !atoms.contains(atom_id) {
+                        atoms.push(atom_id.clone());
+                    }
+                }
+            }
+        }
+
+        if atoms.is_empty() {
+            return Err(BridgeError::input_error(
+                comp_id,
+                format!("No _chem_comp_atom entries found in mmCIF data block for '{comp_id}'"),
+            ));
+        }
+
+        // 2. Extract bonds and bond orders (reusing parse_chem_comp_bond_order)
+        let mut bonds = Vec::new();
+        if let (Some(a1), Some(a2)) = (
+            block.key_values.get("_chem_comp_bond.atom_id_1"),
+            block.key_values.get("_chem_comp_bond.atom_id_2"),
+        ) {
+            let order_str = block
+                .key_values
+                .get("_chem_comp_bond.value_order")
+                .map(|s| s.as_str())
+                .unwrap_or("");
+            let order = crate::format::mmcif::parse_chem_comp_bond_order(order_str);
+            if order > 0 {
+                bonds.push((a1.clone(), a2.clone(), order));
+            }
+        }
+
+        for table in &block.tables {
+            for row in table {
+                if row.contains_key("_chem_comp_bond.comp_id")
+                    || row.contains_key("_chem_comp_bond.atom_id_1")
+                {
+                    if let (Some(a1), Some(a2)) = (
+                        row.get("_chem_comp_bond.atom_id_1"),
+                        row.get("_chem_comp_bond.atom_id_2"),
+                    ) {
+                        let order_str = row
+                            .get("_chem_comp_bond.value_order")
+                            .map(|s| s.as_str())
+                            .unwrap_or("");
+                        let order = crate::format::mmcif::parse_chem_comp_bond_order(order_str);
+                        if order > 0 {
+                            bonds.push((a1.clone(), a2.clone(), order));
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(Self {
+            comp_id: actual_comp_id,
+            atoms,
+            bonds,
+        })
+    }
+}
+
 /// In-memory lookup database of CCD bond templates.
 #[derive(Debug, Clone)]
 pub struct CcdTemplateDb {
@@ -35,6 +166,13 @@ pub struct CcdTemplateDb {
 }
 
 impl CcdTemplateDb {
+    /// Creates a new, empty CCD template database.
+    pub fn new() -> Self {
+        Self {
+            templates: HashMap::new(),
+        }
+    }
+
     /// Returns the global singleton instance of the standard CCD template database.
     pub fn global() -> &'static Self {
         static INSTANCE: OnceLock<CcdTemplateDb> = OnceLock::new();
@@ -51,6 +189,25 @@ impl CcdTemplateDb {
                 BridgeError::input_error("ccd_templates", format!("MessagePack decode error: {e}"))
             })?;
         Ok(Self { templates })
+    }
+
+    /// Inserts a template into the database.
+    ///
+    /// If a template for the same `comp_id` already exists, it is replaced and the old
+    /// template is returned.
+    pub fn insert(&mut self, template: CcdBondTemplate) -> Option<CcdBondTemplate> {
+        self.templates.insert(template.comp_id.clone(), template)
+    }
+
+    /// Merges another `CcdTemplateDb` into this one.
+    ///
+    /// # Conflict Resolution
+    /// If a component with the same `comp_id` exists in both databases, the entry from
+    /// `other` takes precedence and overwrites the existing entry ("last-write-wins").
+    pub fn merge(&mut self, other: &CcdTemplateDb) {
+        for (comp_id, template) in &other.templates {
+            self.templates.insert(comp_id.clone(), template.clone());
+        }
     }
 
     /// Looks up a component template by its standard identifier (e.g. "ALA", "ARG").
