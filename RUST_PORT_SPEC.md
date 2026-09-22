@@ -103,20 +103,14 @@ TASK_PR31〜PR33の実装により、明示的結合情報を持つ主要フォ�
 - **PDB (`format/pdb.rs`)**: `SSBOND`（ジスルフィド結合）および `CONECT` レコードをパースして`AtomGroup`に登録。PDB仕様に基づく双方向冗長記述やSSBONDとの同一結合重複は自動的に排除（deduplication）される。
 
 #### 呼び出し側（「結 (YUI)」等）の推奨利用パターン
-各ローダーの `get_atomgroup()` は、明示的結合情報が存在する場合は設定済みの `AtomGroup` を返す。呼び出し側は、§3.13で新設された統合エントリポイント `AtomGroup::resolve_bonds()` を呼び出すことで、優先順位方針に沿った安全かつ完全な結合解決を1行で行うことができる:
+§3.14で確立した方針により、各ローダーの `get_atomgroup()` は、明示的結合情報が存在する場合はそれを尊重し、存在しない場合は内部で自動的に結合解決（CCDテンプレート→ヒューリスティック）まで完了させた状態で `AtomGroup` を返す。呼び出し側は追加の呼び出しなしにそのまま使ってよい:
 
 ```rust
-let mut ag = loader.get_atomgroup()?;
-
-// 統合エントリポイントによる結合解決 (§3.13):
-// 1. ファイル由来の結合（CONECT、MOL2、PRMTOP等）が存在する場合はそのまま最優先で保護される。
-// 2. 標準残基・水についてはCCDテンプレートから正準結合・結合次数（二重結合や芳香環）を補完。
-// 3. 残りの未結合原子ペア（残基間ペプチド結合や非標準構造）を共有結合半径ヒューリスティックで補完。
-// ※ 重複登録・上書きは内部で自動的に排除されるため、結合情報の有無にかかわらず安全に呼び出せる。
-ag.resolve_bonds(CcdTemplateDb::global())?;
+let ag = loader.get_atomgroup()?;
+// ag は既に結合解決済み（ファイル由来 > CCDテンプレート > ヒューリスティックの優先順位で）。
 ```
 
-※ 純粋な幾何ヒューリスティックのみを行いたい場合（CCDテンプレートを適用しない場合）は、従来通り `Bond::setup(&mut ag)?` を直接呼び出すことも可能である。
+原子を手動で追加・変更した後など、明示的に結合を再解決したい場合は `ag.setup()?`（組み込みCCD DBを使用）または `ag.setup_with_db(&db)?`（§3.11の拡張DBを使用）を呼び出す。純粋な幾何ヒューリスティックのみを行いたい場合（CCDテンプレートを適用しない場合）は、低レベルAPIの `Bond::setup_heuristic(&mut ag)?` を直接呼び出すことも可能である（詳細は§3.14）。
 
 この方針により、MOL2/PRMTOP/PDB由来の正確な結合トポロジーがヒューリスティック判定で上書き・二重定義されることを防止し、かつ結合情報を持たないフォーマットに対しても自動補完を提供する。
 
@@ -259,6 +253,44 @@ OpenBabel・RDKit・ASEの`natural_cutoffs`・Jmol/PyMOL等、主要な構造化
    - `tests/test_ccd_templates.rs` に `test_resolve_bonds_1hls_real_pdb` を追加。実PDB（`1hls.pdb`）に対して1回の呼び出しでCCD由来の二重結合（GLU 4 C=O、ARG 22 CZ=NH2等）とヒューリスティックによる残基間ペプチド結合の両方が重複なく得られることを検証。
    - `test_resolve_bonds_preserves_existing_file_bonds` を追加。事前に登録されたファイル由来結合（CONECT等）が上書き・重複されず保持されることを検証。
    - 既存の `Bond::setup()` 単体・`apply_ccd_bond_templates()` 単体のテストが全て引き続きパスすることを確認。
+
+### 3.14 `AtomGroup::setup()`を賢いデフォルトの結合解決エントリポイントにする(計画中、未着手)
+
+#### 背景
+
+§3.13で`AtomGroup::resolve_bonds(db)`を追加したが、呼び出し側から見ると「結合を解決するなら`Bond::setup()`を呼べばよい」という直感に反し、低レベルの`Bond::setup()`（純ヒューリスティックのみ）と高レベルの`AtomGroup::resolve_bonds()`（CCD+ヒューリスティック）のどちらを呼ぶべきかが分かりにくい、というユーザーからの指摘があった。
+
+「`Bond::setup()`自体を賢くする」案（`bond.rs`が`ccd_templates.rs`に依存する形になり、§3.13で明示的に避けたレイヤリング崩壊を招く）ではなく、**「`setup`という名前を、高レベルAPIである`AtomGroup`側の賢いデフォルトに割り当てる」**方針を採用する。`bond.rs`は`ccd_templates.rs`に依存しないレイヤリングを維持する。
+
+さらに、「ファイルを読み込んだ時点で自動的に結合解決まで完了していてほしい」という要望があった。ただし「`AtomGroup`の内容が更新されるたびに暗黙的に再実行する」方式は、以下の理由により採用しない:
+- **性能**: 原子を1個ずつ追加しながら構築するケースで、追加のたびにCCD照合・近傍探索が走ると計算量が爆発する(N原子でO(N²)相当)。
+- **正確性**: CCDテンプレート照合は残基内の全原子が揃っていることを前提とする。構築途中の不完全な状態で結合解決を走らせると、誤った結合が確定し、§3.12の「既存結合は上書きしない」方針により後から自動修正されなくなる。
+- **実装コスト**: `AtomGroup`は再帰的な木構造であり、「更新」をどこで検知するか（`set_atom`、`add_group`、子グループの更新の伝播...）が広範囲に及ぶ。
+
+代わりに、**「ファイルローダーの読み込み完了」という自然な区切りに限定して暗黙実行する**。手動で`AtomGroup`をゼロから構築するケース（テストコード等）では、構築完了後に明示的に`setup()`を呼ぶ、という形を維持する。
+
+#### 対象
+
+1. **`bond.rs`のリネーム**: `Bond::setup()`（純粋な共有結合半径ヒューリスティックのみ）を`Bond::setup_heuristic()`にリネームする。ロジックは変更しない。`proteindf-bridge-py`（Pythonバインディング）内の呼び出し箇所も追従させる。
+2. **`AtomGroup`側APIの整備**（`atom_group.rs`）:
+   - `AtomGroup::resolve_bonds(&mut self, db: &CcdTemplateDb) -> Result<()>` を `AtomGroup::setup_with_db(&mut self, db: &CcdTemplateDb) -> Result<()>` にリネームする（ロジックは変更しない。§3.11の拡張DBを使う場合の明示的エントリポイントとして残す）。
+   - 新規に `AtomGroup::setup(&mut self) -> Result<()>` を追加する。内部で `self.setup_with_db(CcdTemplateDb::global())` を呼ぶだけの薄いラッパーとする。これが「呼べば良きに計らってくれる」デフォルトの公開APIになる。
+3. **各フォーマットローダーでの暗黙実行**: `get_atomgroup()`（またはパース処理の完了直前）で、`ag.get_bond_list().is_empty()` の場合のみ `ag.setup()?` を呼んでから返すようにする。対象:
+   - `format/pdb.rs`の`get_atomgroup()`
+   - `format/mmcif.rs`の`get_atomgroup()`
+   - `format/amber_prmtop.rs`の`get_atomgroup()`
+   - `format/gro.rs`の`get_atomgroup()`
+   - `format/mol2.rs`は`get_atomgroup()`が`&AtomGroup`（参照）を返す設計のため、`parse_str()`内で`self.set_by_atomgroup(&ag)`を呼ぶ直前に同様のチェックを行う。
+   - いずれも「ファイル由来の結合が既にある場合は何もしない」ため、MOL2/PRMTOP/PDB(CONECT)等、明示的結合情報を持つフォーマットでは実質的にno-opとなり、§3.8の優先順位方針を壊さない。
+4. **ドキュメント更新**: `RUST_PORT_SPEC.md` §3.8の呼び出し側推奨パターンを、本セクションの内容に合わせて更新済み（先行して反映済み）。各ローダーファイル内の`Bond::setup()`を参照するdocコメント（`mol2.rs`・`pdb.rs`・`amber_prmtop.rs`）も新名称に更新する。
+
+#### 完了の定義(想定)
+
+1. `Bond::setup()`への参照が名称`Bond::setup_heuristic()`に統一され、`cargo build --workspace`（Pythonバインディング含む）が通ること。
+2. `AtomGroup::setup()`（引数なし）を呼ぶだけで、CCDテンプレート＋ヒューリスティックによる結合解決が行われることを検証する回帰テストを追加すること（既存の`test_resolve_bonds_*`系テストを新API名に追従させる形でよい）。
+3. 各ローダー（PDB・mmCIF・PRMTOP・GRO・MOL2）について、明示的結合情報を持たない入力に対して`get_atomgroup()`を呼んだだけで結合が自動解決されていることを検証する回帰テストを、フォーマットごとに最低1件追加すること。
+4. 明示的結合情報を持つ入力（PDBのCONECT、MOL2のBONDセクション、PRMTOPのBONDS等）に対して`get_atomgroup()`を呼んでも、ファイル由来の結合が上書き・重複されないことを確認する既存テストが引き続きパスすること。
+5. `cargo clippy` / `cargo fmt` を通すこと。
 
 ## 4. 多言語バインディング方針
 
