@@ -9,6 +9,7 @@ use proteindf_bridge::bond::Bond;
 use proteindf_bridge::ccd_templates::{CcdBondTemplate, CcdTemplateDb};
 use proteindf_bridge::format::mmcif::SimpleMmcif;
 use proteindf_bridge::format::Pdb;
+use proteindf_bridge::position::Position;
 
 #[test]
 fn test_ccd_template_db_embedded() {
@@ -113,23 +114,45 @@ fn test_apply_ccd_bond_templates_1hls_real_pdb() {
         .setup(&mut ag)
         .expect("Bond::setup after CCD templates failed");
     let final_bonds = ag.get_bond_list();
-    let co_bond = final_bonds.iter().find(|b| {
-        let is_a1_c = b.atom1_path.contains("/A/4/")
-            && (b.atom1_path.ends_with("_C") || b.atom1_path.ends_with("/C"));
-        let is_a2_o = b.atom2_path.contains("/A/4/")
-            && (b.atom2_path.ends_with("_O") || b.atom2_path.ends_with("/O"));
-        let is_a1_o = b.atom1_path.contains("/A/4/")
-            && (b.atom1_path.ends_with("_O") || b.atom1_path.ends_with("/O"));
-        let is_a2_c = b.atom2_path.contains("/A/4/")
-            && (b.atom2_path.ends_with("_C") || b.atom2_path.ends_with("/C"));
-        (is_a1_c && is_a2_o) || (is_a1_o && is_a2_c)
-    });
-    assert!(co_bond.is_some(), "C=O bond should be present");
+    let co_bonds: Vec<_> = final_bonds
+        .iter()
+        .filter(|b| {
+            let is_a1_c = b.atom1_path.contains("/A/4/")
+                && (b.atom1_path.ends_with("_C") || b.atom1_path.ends_with("/C"));
+            let is_a2_o = b.atom2_path.contains("/A/4/")
+                && (b.atom2_path.ends_with("_O") || b.atom2_path.ends_with("/O"));
+            let is_a1_o = b.atom1_path.contains("/A/4/")
+                && (b.atom1_path.ends_with("_O") || b.atom1_path.ends_with("/O"));
+            let is_a2_c = b.atom2_path.contains("/A/4/")
+                && (b.atom2_path.ends_with("_C") || b.atom2_path.ends_with("/C"));
+            (is_a1_c && is_a2_o) || (is_a1_o && is_a2_c)
+        })
+        .collect();
     assert_eq!(
-        co_bond.unwrap().order,
-        2,
+        co_bonds.len(),
+        1,
+        "GLU 4 C=O bond should appear exactly once (no duplicate bond record)"
+    );
+    assert_eq!(
+        co_bonds[0].order, 2,
         "C=O bond order should remain 2 after Bond::setup"
     );
+
+    // Verify that NO duplicate bond records exist across all final bonds
+    let mut seen_pairs = std::collections::HashSet::new();
+    for b in &final_bonds {
+        let key = if b.atom1_path <= b.atom2_path {
+            (&b.atom1_path, &b.atom2_path)
+        } else {
+            (&b.atom2_path, &b.atom1_path)
+        };
+        assert!(
+            seen_pairs.insert(key),
+            "Duplicate bond found between {} and {}",
+            b.atom1_path,
+            b.atom2_path
+        );
+    }
 }
 
 #[test]
@@ -364,4 +387,104 @@ fn test_ccd_template_db_merge_precedence() {
         "merged entry from db2 should overwrite existing entry with bond order 2"
     );
     assert!(db1.lookup("NEW").is_some());
+}
+
+#[test]
+fn test_bond_setup_after_ccd_does_not_duplicate_bonds() {
+    // Construct an isolated ALA residue with realistic coordinates
+    let mut ag = AtomGroup::new();
+    ag.set_path("/model_1/A/1/".to_string());
+    ag.name = "ALA".to_string();
+
+    let mut n = Atom::new();
+    n.name = "N".to_string();
+    n.set_atomic_number(7);
+    n.xyz = Position::new(0.0, 0.0, 0.0);
+
+    let mut ca = Atom::new();
+    ca.name = "CA".to_string();
+    ca.set_atomic_number(6);
+    ca.xyz = Position::new(1.46, 0.0, 0.0);
+
+    let mut c = Atom::new();
+    c.name = "C".to_string();
+    c.set_atomic_number(6);
+    c.xyz = Position::new(2.0, 1.4, 0.0);
+
+    let mut o = Atom::new();
+    o.name = "O".to_string();
+    o.set_atomic_number(8);
+    o.xyz = Position::new(1.3, 2.4, 0.0);
+
+    let mut cb = Atom::new();
+    cb.name = "CB".to_string();
+    cb.set_atomic_number(6);
+    cb.xyz = Position::new(2.0, -0.7, 1.2);
+
+    ag.set_atom("N", n);
+    ag.set_atom("CA", ca);
+    ag.set_atom("C", c);
+    ag.set_atom("O", o);
+    ag.set_atom("CB", cb);
+
+    // 1. Apply CCD templates
+    let db = CcdTemplateDb::global();
+    ag.apply_ccd_bond_templates(db);
+
+    let initial_bonds = ag.get_bond_list();
+    assert_eq!(
+        initial_bonds.len(),
+        4,
+        "ALA has 4 heavy atom bonds in CCD (N-CA, CA-C, C-O, CA-CB)"
+    );
+    let co_initial = initial_bonds
+        .iter()
+        .find(|b| {
+            (b.atom1_path.ends_with("/C") && b.atom2_path.ends_with("/O"))
+                || (b.atom1_path.ends_with("/O") && b.atom2_path.ends_with("/C"))
+        })
+        .expect("C=O bond should exist");
+    assert_eq!(
+        co_initial.order, 2,
+        "C=O bond should have order 2 in CCD template"
+    );
+
+    // 2. Call Bond::setup()
+    let mut bond = Bond::new();
+    bond.setup(&mut ag).expect("Bond::setup failed");
+
+    let after_bonds = ag.get_bond_list();
+    assert_eq!(
+        after_bonds.len(),
+        initial_bonds.len(),
+        "Bond::setup must not duplicate already registered bonds"
+    );
+
+    let co_bonds: Vec<_> = after_bonds
+        .iter()
+        .filter(|b| {
+            (b.atom1_path.ends_with("/C") && b.atom2_path.ends_with("/O"))
+                || (b.atom1_path.ends_with("/O") && b.atom2_path.ends_with("/C"))
+        })
+        .collect();
+    assert_eq!(
+        co_bonds.len(),
+        1,
+        "C=O bond must remain unique (no duplicate bond record)"
+    );
+    assert_eq!(
+        co_bonds[0].order, 2,
+        "C=O bond order must remain 2 after Bond::setup"
+    );
+
+    // Check all bonds are unique
+    let mut seen = std::collections::HashSet::new();
+    for b in &after_bonds {
+        let key = if b.atom1_path <= b.atom2_path {
+            (&b.atom1_path, &b.atom2_path)
+        } else {
+            (&b.atom2_path, &b.atom1_path)
+        };
+        assert!(seen.insert(key), "Duplicate bond found: {:?}", key);
+    }
 }

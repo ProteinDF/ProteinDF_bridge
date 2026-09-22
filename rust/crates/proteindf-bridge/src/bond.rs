@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: The ProteinDF development team
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use std::collections::HashSet;
+
 use crate::atom::Atom;
 use crate::atom_group::AtomGroup;
 use crate::error::Result;
@@ -68,13 +70,29 @@ impl Bond {
     ///
     /// Uses an $O(N)$ spatial cell list with dynamically calculated cell size.
     /// Dense matrices (`distmat`/`bondmat`) are allocated only when $N \le \text{MAX_DENSE_MATRIX_ATOMS}$.
+    ///
+    /// Pre-existing bonds in `mol` (e.g., from CCD templates or file-derived CONECT/bonds) are
+    /// preserved without duplicate registration or overwriting existing bond orders.
     pub fn setup(&mut self, mol: &mut AtomGroup) -> Result<()> {
+        mol.update_paths();
         self.atoms = mol.get_atom_list();
         let n = self.atoms.len();
         if n == 0 {
             self.distmat = Some(SymmetricMatrix::new(0));
             self.bondmat = Some(SymmetricMatrix::new(0));
             return Ok(());
+        }
+
+        // Collect existing bonds in mol to avoid duplicate registrations
+        let mut existing_bonds: HashSet<(String, String)> = HashSet::new();
+        for b in mol.get_bond_list() {
+            let p1 = b.atom1_path.clone();
+            let p2 = b.atom2_path.clone();
+            if p1 <= p2 {
+                existing_bonds.insert((p1, p2));
+            } else {
+                existing_bonds.insert((p2, p1));
+            }
         }
 
         // Collect covalent radii and find maximum covalent radius to dynamically size the cell list
@@ -123,7 +141,17 @@ impl Bond {
         cell_list.for_each_neighbor_pair(max_cutoff, |p, q, dist| {
             // p < q is guaranteed by CellList
             if dist <= (cov_radii[p] + cov_radii[q]) + COVALENT_BOND_TOLERANCE {
-                bonds_to_add.push((p, q));
+                let p1 = &self.atoms[p].path;
+                let p2 = &self.atoms[q].path;
+                let key = if p1 <= p2 {
+                    (p1.clone(), p2.clone())
+                } else {
+                    (p2.clone(), p1.clone())
+                };
+                if !existing_bonds.contains(&key) {
+                    existing_bonds.insert(key);
+                    bonds_to_add.push((p, q));
+                }
             }
         });
 

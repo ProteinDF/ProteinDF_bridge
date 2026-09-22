@@ -281,7 +281,7 @@ impl AtomGroup {
         self.update_paths();
     }
 
-    fn update_paths(&mut self) {
+    pub(crate) fn update_paths(&mut self) {
         for (key, group) in self.groups.iter_mut() {
             group.depth = self.depth + 1;
             group.set_path(format!("{}{}/", self.path, key));

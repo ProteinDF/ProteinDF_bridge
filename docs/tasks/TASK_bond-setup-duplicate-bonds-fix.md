@@ -30,11 +30,11 @@ Bond::setup()後:  bonds = [BondRecord { C, O, order: 2 }, BondRecord { C, O, or
 
 ## 完了の定義(Definition of Done)
 
-1. 今回発見した再現手順(CCD適用後にBond::setup()を呼ぶ)を回帰テストとして追加し、`ag.bonds().len()`が重複なく、既存のCCD結合次数(order 2)がそのまま維持されることを検証すること。
-2. 既存の`tests/test_ccd_templates.rs`の`test_apply_ccd_bond_templates_1hls_real_pdb`のアサーションを、単なる`.find()`ではなく総結合数の重複が無いこと(または該当原子ペアのレコード数が1件であること)まで検証するように強化すること。
-3. 既存の`test_bond_setup`系・`test_covalent_bond_detection`系のテストが引き続き全てパスすることを確認すること(回帰確認)。
-4. `cargo clippy` / `cargo fmt` を通すこと。
-5. `RUST_PORT_SPEC.md` §3.9または適切な箇所に、この修正内容を追記すること。
+- [x] 1. 今回発見した再現手順(CCD適用後にBond::setup()を呼ぶ)を回帰テストとして追加し、`ag.bonds().len()`が重複なく、既存のCCD結合次数(order 2)がそのまま維持されることを検証すること。
+- [x] 2. 既存の`tests/test_ccd_templates.rs`の`test_apply_ccd_bond_templates_1hls_real_pdb`のアサーションを、単なる`.find()`ではなく総結合数の重複が無いこと(または該当原子ペアのレコード数が1件であること)まで検証するように強化すること。
+- [x] 3. 既存の`test_bond_setup`系・`test_covalent_bond_detection`系のテストが引き続き全てパスすることを確認すること(回帰確認)。
+- [x] 4. `cargo clippy` / `cargo fmt` を通すこと。
+- [x] 5. `RUST_PORT_SPEC.md` §3.9または適切な箇所に、この修正内容を追記すること。
 
 ## スコープ外
 
