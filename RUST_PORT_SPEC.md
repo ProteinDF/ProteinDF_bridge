@@ -186,6 +186,33 @@ OpenBabel・RDKit・ASEの`natural_cutoffs`・Jmol/PyMOL等、主要な構造化
 - 結合次数の判定(引き続き§3.9のCCDテンプレート、またはテンプレートが無い場合は次数1のまま)。
 - VDW半径テーブル自体の削除・置き換え(共有結合半径テーブルを追加するのみ)。
 
+### 3.11 CCD結合テンプレートDBの実行時拡張(ユーザー提供の外部CCDデータ、計画中、未着手)
+
+#### 背景
+
+§3.9フェーズAで実装した`CcdTemplateDb`は、標準アミノ酸20種・標準核酸8種・水の計29残基に固定された組み込みデータベースであり(`include_bytes!`でバイナリに埋め込み)、これはクレートが**常に**持っているべき最小限のデフォルトとして妥当な設計である(サイズが小さく、wasm32/PyO3配布でポータビリティを損なわない)。
+
+一方、wwPDBのCCD全件(`components.cif`、数百MB規模、非標準リガンド・修飾残基・補酵素等を含む数万コンポーネント)のような**任意選択・大容量のデータ**まで同じ方式でバイナリに焼き込むのは悪手である(ほとんどのユーザーが使わないデータで全員のバイナリを肥大化させる、wwPDB側の更新への追従に再ビルドが必須になる等)。この種のデータは、**ユーザー自身が管理する外部ファイルとして、実行時に明示的にロードする方式**が適切(RDKit・OpenBabel等、他の主要ツールもCCD全件を配布物には同梱していない)。
+
+既存の`format/mmcif.rs`の`SimpleMmcif`は、CCD全件ファイル(複数`data_`ブロック)を含め、CCD形式全般を既にパースできることを確認済み(2026-09-22の調査・回帰テストで検証済み)。また`CcdTemplateDb::load_from_bytes(bytes: &[u8])`は、クレート内部でファイルパスを探すのではなく「バイト列を受け取ってパースするだけ」という設計になっており、ファイルの取得元(ローカルファイル・ネットワーク・wasm経由のJS fetch等)をクレート側が関知しない、ポータブルな形になっている。ただし現状、**`SimpleMmcif`でパースしたCCDデータから`CcdBondTemplate`/`CcdTemplateDb`を直接組み立てる手段が無く**、`load_from_bytes`が要求する内部MessagePackスキーマに変換する術がユーザー側に提供されていない。本タスクはこの変換手段を追加する。
+
+#### 対象
+
+1. **`SimpleMmcif`データブロックから`CcdBondTemplate`を組み立てる変換関数を追加する**: 例えば`CcdBondTemplate::from_mmcif_block(block: &MmcifDataBlock, comp_id: &str) -> Result<CcdBondTemplate>`のようなAPIを`ccd_templates.rs`(または`format/mmcif.rs`との橋渡し用に適切な場所)に新設する。内部実装は`format/mmcif.rs`の`SimpleMmcif::get_atomgroup`が既に持っている`_chem_comp_atom`/`_chem_comp_bond`パースロジック(結合次数変換テーブル含む)を再利用すること(重複実装しない)。
+2. **`CcdTemplateDb`への動的登録・マージ手段を追加する**: 例えば`CcdTemplateDb::insert(&mut self, template: CcdBondTemplate)`、または複数の`CcdTemplateDb`を合成する`merge(&mut self, other: &CcdTemplateDb)`のようなAPIを追加する。組み込みのデフォルトDB(`CcdTemplateDb::global()`)自体は不変(`&'static`)のままとし、ユーザーは`CcdTemplateDb::global().clone()`(既存の`Default`実装が既にこれを行っている)してから独自データを追加登録する、という使い方を想定する。
+3. **利用パターンをドキュメント化する**: 「ユーザーが`components.cif`(または個別コンポーネントのCCDファイル)をダウンロード → `SimpleMmcif`でロード → 対象コンポーネントを`CcdBondTemplate::from_mmcif_block`で変換 → 自分の`CcdTemplateDb`インスタンスに登録 → `AtomGroup::apply_ccd_bond_templates`にそのDBを渡す」という一連の流れをdocコメント(モジュールレベル)およびREADME相当の場所に例示すること。
+
+#### 完了の定義(想定)
+
+1. 既存の`ALA.cif`(単一コンポーネントのCCDフィクスチャ)を`SimpleMmcif`でロードし、`CcdBondTemplate::from_mmcif_block`で変換した結果が、組み込みDBの`ALA`エントリ(§3.9フェーズAで実データ検証済み、12結合・C=O二重結合)と一致することを検証する回帰テストを追加する。
+2. 組み込みDBに存在しない架空の合成コンポーネント(CCD形式の合成データ)を変換・登録し、`apply_ccd_bond_templates`がそれを正しく適用できることを検証する回帰テストを追加する。
+3. `cargo clippy` / `cargo fmt` を通すこと。
+
+#### スコープ外(当面)
+
+- CCD全件の自動ダウンロード・キャッシュ機構(あくまでユーザーが自分でファイルを用意する前提。ネットワーク取得をクレートに組み込むことはしない)。
+- 組み込みデフォルトDB(29残基)自体の拡張(§3.9フェーズAのスコープ、変更しない)。
+
 ## 4. 多言語バインディング方針
 
 - **Rust:** コアライブラリ本体。ネイティブクレートとしてYUIの `core`/`renderer-native` から直接利用する。
