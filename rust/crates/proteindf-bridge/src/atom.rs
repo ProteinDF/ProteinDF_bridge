@@ -95,6 +95,11 @@ impl Atom {
         PeriodicTable::vdw(self.atomic_number)
     }
 
+    /// Returns the covalent radius in Angstroms (Cordero et al. 2008).
+    pub fn covalent_radius(&self) -> Result<f64> {
+        PeriodicTable::covalent_radius(self.atomic_number)
+    }
+
     /// Moves the atom to the given position.
     pub fn move_to(&mut self, position: Position) -> &mut Self {
         self.xyz = position;

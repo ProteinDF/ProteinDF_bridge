@@ -15,14 +15,30 @@ use crate::spatial::CellList;
 /// to operate in $O(N)$ time and memory via spatial cell lists ([`CellList`]).
 pub const MAX_DENSE_MATRIX_ATOMS: usize = 2000;
 
-/// Bond detector based on VDW radii, corresponding to `proteindf_bridge.bond.Bond`.
+/// Default tolerance added to sum of covalent radii for bond detection (in Å).
+///
+/// Based on OpenBabel's standard convention (`OBAtom::ConnectsTo`, which uses
+/// $r_A + r_B + 0.45$ Å). This tolerance accommodates thermal vibration and experimental
+/// uncertainty in macromolecular structures while strictly preventing non-bonded van der Waals
+/// contacts and hydrogen bonds (~2.6–3.5 Å) from being falsely detected as covalent bonds.
+pub const COVALENT_BOND_TOLERANCE: f64 = 0.45;
+
+/// Bond detector based on covalent radii, corresponding to `proteindf_bridge.bond.Bond`.
 ///
 /// Bonds are established between pairs of atoms $(p, q)$ satisfying:
-/// $$r_{pq} \le \text{vdw}_p + \text{vdw}_q + 0.4$$
+/// $$r_{pq} \le \text{cov}_p + \text{cov}_q + \text{COVALENT_BOND_TOLERANCE}$$
+///
+/// # Intentional Deviation from Python Version
+/// In Python `proteindf_bridge.bond.Bond`, bond detection was based on van der Waals radii
+/// ($r_{pq} \le \text{vdw}_p + \text{vdw}_q + 0.4$). Because VDW radii represent non-bonded contact
+/// distances (e.g. C-C cutoff was $1.70 + 1.70 + 0.4 = 3.8$ Å), that heuristic frequently falsely
+/// identified hydrogen bonds (~2.6–3.5 Å) and steric VDW packing as covalent bonds.
+/// In this Rust port, following modern cheminformatics standards (OpenBabel, ASE `natural_cutoffs`,
+/// pymatgen), detection is based on Cordero et al. (2008) covalent radii plus a tolerance of 0.45 Å.
 ///
 /// # Performance & Scalability
 /// Bond detection uses an $O(N)$ uniform spatial cell list ([`CellList`]) with dynamically
-/// determined cell size based on the maximum VDW radius in the atom set.
+/// determined cell size based on the maximum covalent radius in the atom set.
 ///
 /// Dense matrices (`distmat` and `bondmat`) are populated only when $N \le \text{MAX_DENSE_MATRIX_ATOMS}$
 /// (up to 2,000 atoms, ~16 MB). For larger structures, these fields remain `None` to prevent out-of-memory
@@ -48,7 +64,7 @@ impl Bond {
         Self::default()
     }
 
-    /// Sets up bonds for the given `AtomGroup` based on VDW radii.
+    /// Sets up bonds for the given `AtomGroup` based on covalent radii.
     ///
     /// Uses an $O(N)$ spatial cell list with dynamically calculated cell size.
     /// Dense matrices (`distmat`/`bondmat`) are allocated only when $N \le \text{MAX_DENSE_MATRIX_ATOMS}$.
@@ -61,19 +77,19 @@ impl Bond {
             return Ok(());
         }
 
-        // Collect VDW radii and find maximum VDW radius to dynamically size the cell list
-        let mut vdws = Vec::with_capacity(n);
-        let mut max_vdw = 0.0_f64;
+        // Collect covalent radii and find maximum covalent radius to dynamically size the cell list
+        let mut cov_radii = Vec::with_capacity(n);
+        let mut max_cov = 0.0_f64;
         for atom in &self.atoms {
-            let v = atom.vdw()?;
-            if v > max_vdw {
-                max_vdw = v;
+            let r = atom.covalent_radius()?;
+            if r > max_cov {
+                max_cov = r;
             }
-            vdws.push(v);
+            cov_radii.push(r);
         }
 
-        // Dynamically determine cell size: must cover max possible cutoff (2 * max_vdw + 0.4)
-        let max_cutoff = 2.0 * max_vdw + 0.4;
+        // Dynamically determine cell size: must cover max possible cutoff (2 * max_cov + COVALENT_BOND_TOLERANCE)
+        let max_cutoff = 2.0 * max_cov + COVALENT_BOND_TOLERANCE;
         let cell_size = max_cutoff.max(3.0);
 
         // Build dense matrices only for small structures (backward compatibility)
@@ -81,11 +97,11 @@ impl Bond {
             let mut distmat = SymmetricMatrix::new(n);
             let mut bondmat = SymmetricMatrix::new(n);
             for p in 0..n {
-                let vdw_p = vdws[p];
-                for (q, &vdw_q) in vdws.iter().enumerate().take(p) {
+                let cov_p = cov_radii[p];
+                for (q, &cov_q) in cov_radii.iter().enumerate().take(p) {
                     let d = self.atoms[p].xyz.distance_from(&self.atoms[q].xyz);
                     distmat.set(p, q, d);
-                    if d <= (vdw_p + vdw_q) + 0.4 {
+                    if d <= (cov_p + cov_q) + COVALENT_BOND_TOLERANCE {
                         bondmat.set(p, q, 1.0);
                     } else {
                         bondmat.set(p, q, 0.0);
@@ -106,7 +122,7 @@ impl Bond {
         let mut bonds_to_add = Vec::new();
         cell_list.for_each_neighbor_pair(max_cutoff, |p, q, dist| {
             // p < q is guaranteed by CellList
-            if dist <= (vdws[p] + vdws[q]) + 0.4 {
+            if dist <= (cov_radii[p] + cov_radii[q]) + COVALENT_BOND_TOLERANCE {
                 bonds_to_add.push((p, q));
             }
         });
@@ -177,8 +193,10 @@ mod tests {
         let mut ag = AtomGroup::with_name("large");
         let n = MAX_DENSE_MATRIX_ATOMS + 1;
         for i in 0..n {
-            // Line of carbon atoms spaced by 2.5 Å (cutoff is 3.8 Å): only adjacent pairs are bonded
-            let atom = Atom::new_with_pos("C", Position::new(i as f64 * 2.5, 0.0, 0.0)).unwrap();
+            // Line of carbon atoms spaced by 1.5 Å (covalent cutoff = 0.76 + 0.76 + 0.45 = 1.97 Å):
+            // Only adjacent pairs (1.5 Å <= 1.97 Å) are bonded; next-nearest (3.0 Å > 1.97 Å) are not.
+            // (Updated from 2.5 Å in legacy VDW test, as 2.5 Å is non-bonded under covalent radius)
+            let atom = Atom::new_with_pos("C", Position::new(i as f64 * 1.5, 0.0, 0.0)).unwrap();
             ag.set_atom(&i.to_string(), atom);
         }
 
@@ -189,7 +207,7 @@ mod tests {
         assert!(bond.distmat.is_none());
         assert!(bond.bondmat.is_none());
 
-        // Only adjacent atoms (distance 2.5 Å <= 3.8 Å, next is 5.0 Å > 3.8 Å) are bonded: exactly n - 1 bonds
+        // Only adjacent atoms (distance 1.5 Å <= 1.97 Å, next is 3.0 Å > 1.97 Å) are bonded: exactly n - 1 bonds
         assert_eq!(ag.bonds().len(), n - 1);
     }
 
@@ -214,7 +232,7 @@ mod tests {
                     } else {
                         "O"
                     };
-                    let pos = Position::new(x as f64 * 1.8, y as f64 * 1.8, z as f64 * 1.8);
+                    let pos = Position::new(x as f64 * 1.5, y as f64 * 1.5, z as f64 * 1.5);
                     let atom = Atom::new_with_pos(symbol, pos).unwrap();
                     ag.set_atom(&idx.to_string(), atom.clone());
                     atoms.push(atom);
@@ -223,15 +241,15 @@ mod tests {
             }
         }
 
-        // 1. Brute-force O(N^2) bond collection
+        // 1. Brute-force O(N^2) bond collection using covalent radii
         let n = atoms.len();
         let mut brute_bonds = Vec::new();
         for i in 0..n {
-            let vdw_i = atoms[i].vdw().unwrap();
+            let cov_i = atoms[i].covalent_radius().unwrap();
             for j in i + 1..n {
-                let vdw_j = atoms[j].vdw().unwrap();
+                let cov_j = atoms[j].covalent_radius().unwrap();
                 let dist = atoms[i].xyz.distance_from(&atoms[j].xyz);
-                if dist <= (vdw_i + vdw_j) + 0.4 {
+                if dist <= (cov_i + cov_j) + COVALENT_BOND_TOLERANCE {
                     brute_bonds.push((i, j));
                 }
             }
@@ -275,14 +293,14 @@ mod tests {
         println!("\n--- 1,000,000 Atoms Benchmark ---");
         let start_gen = std::time::Instant::now();
 
-        // 100 x 100 x 100 grid = 1,000,000 atoms
+        // 100 x 100 x 100 grid = 1,000,000 atoms spaced by 1.5 Å (within C-C covalent cutoff)
         let n_side = 100;
         let mut ag = AtomGroup::with_name("bench_1m");
         let mut idx = 0;
         for x in 0..n_side {
             for y in 0..n_side {
                 for z in 0..n_side {
-                    let pos = Position::new(x as f64 * 2.0, y as f64 * 2.0, z as f64 * 2.0);
+                    let pos = Position::new(x as f64 * 1.5, y as f64 * 1.5, z as f64 * 1.5);
                     let atom = Atom::new_with_pos("C", pos).unwrap();
                     ag.set_atom(&idx.to_string(), atom);
                     idx += 1;
