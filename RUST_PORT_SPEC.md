@@ -487,4 +487,4 @@ YUI側の調査で見つかった、bridge側で対応してほしい項目。�
   そのまま活用できる。
   手元の検証用ファイル（`tests/data/1hls.pdb`, `3i3zH.pdb`, `2MGO.pdb`）にはいずれも挿入コード付き
   残基が含まれていなかったため、今回のyui側フェーズ6e-viiの実データ検証では顕在化していない。
-  対応は現時点では見送り。
+  → 2026-09-23、`docs/tasks/TASK_residue-insertion-code.md`として着手（対応中）。
