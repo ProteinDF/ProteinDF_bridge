@@ -41,11 +41,11 @@
 
 ## 完了の定義(Definition of Done)
 
-1. 標準アミノ酸(例: グルタミン酸のCOOH側鎖、アルギニンのグアニジノ基等、二重結合や複数の結合次数パターンを含む残基)を含む実PDBフィクスチャ(`1hls.pdb`等)で、`Bond::setup()`単独では次数1にしかならない結合が、`apply_ccd_bond_templates`適用後に正しい次数になることを検証する回帰テストを追加すること。
-2. ファイル由来の明示的結合(CONECT等)がある場合、テンプレート適用がそれを上書きしないことを検証するテストを追加すること。
-3. テンプレートDBに存在しない残基名(非標準・見つからない)の場合、エラーにならず何もせず処理が続行されることを検証すること。
-4. `cargo clippy` / `cargo fmt` を通すこと。
-5. `RUST_PORT_SPEC.md` §3.9のフェーズA該当箇所に実施内容・完了ステータスを追記すること。
+1. [x] 標準アミノ酸(例: グルタミン酸のCOOH側鎖、アルギニンのグアニジノ基等、二重結合や複数の結合次数パターンを含む残基)を含む実PDBフィクスチャ(`1hls.pdb`等)で、`Bond::setup()`単独では次数1にしかならない結合が、`apply_ccd_bond_templates`適用後に正しい次数になることを検証する回帰テストを追加すること。(`test_apply_ccd_bond_templates_1hls_real_pdb`でパス確認)
+2. [x] ファイル由来の明示的結合(CONECT等)がある場合、テンプレート適用がそれを上書きしないことを検証するテストを追加すること。(`test_apply_ccd_bond_templates_does_not_overwrite_existing_bonds`でパス確認)
+3. [x] テンプレートDBに存在しない残基名(非標準・見つからない)の場合、エラーにならず何もせず処理が続行されることを検証すること。(`test_apply_ccd_bond_templates_unknown_component_safe_skip`でパス確認)
+4. [x] `cargo clippy` / `cargo fmt` を通すこと。(全ターゲット `-- -D warnings` パス確認)
+5. [x] `RUST_PORT_SPEC.md` §3.9のフェーズA該当箇所に実施内容・完了ステータスを追記すること。(完了追記済み)
 
 ## スコープ外
 

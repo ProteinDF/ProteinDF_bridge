@@ -857,6 +857,65 @@ impl AtomGroup {
         crate::secondary_structure::apply_secondary_structure(self);
     }
 
+    /// Applies canonical bond orders and topologies from the wwPDB Chemical Component
+    /// Dictionary (CCD) database to standard residues within this group.
+    ///
+    /// # Behavior and Priority Policy (§3.8 & §3.9):
+    /// 1. Recursively traverses groups down to residue-level groups (groups with direct atoms
+    ///    whose name matches a registered CCD component, e.g. "ALA", "ARG", "DA", "HOH").
+    /// 2. For each residue, checks its atoms against the component template.
+    /// 3. Existing bonds (e.g. file-derived bonds from PDB CONECT, MOL2, or PRMTOP) are
+    ///    **never overwritten**. Only bonds not yet registered between the atom pair are added.
+    /// 4. Components not found in the template DB are safely skipped without error.
+    pub fn apply_ccd_bond_templates(&mut self, db: &crate::ccd_templates::CcdTemplateDb) {
+        self.update_paths();
+        let mut existing_bonds: HashSet<(String, String)> = HashSet::new();
+        for b in self.get_bond_list() {
+            let p1 = b.atom1_path.clone();
+            let p2 = b.atom2_path.clone();
+            if p1 <= p2 {
+                existing_bonds.insert((p1, p2));
+            } else {
+                existing_bonds.insert((p2, p1));
+            }
+        }
+
+        self.apply_ccd_bond_templates_recursive(db, &mut existing_bonds);
+    }
+
+    fn apply_ccd_bond_templates_recursive(
+        &mut self,
+        db: &crate::ccd_templates::CcdTemplateDb,
+        existing_bonds: &mut HashSet<(String, String)>,
+    ) {
+        if !self.atoms.is_empty() {
+            if let Some(template) = db.lookup(self.name.trim()) {
+                for (a1_name, a2_name, order) in &template.bonds {
+                    let a1_opt = self.get_atom(a1_name).cloned();
+                    let a2_opt = self.get_atom(a2_name).cloned();
+                    if let (Some(atom1), Some(atom2)) = (a1_opt, a2_opt) {
+                        let p1 = atom1.path.clone();
+                        let p2 = atom2.path.clone();
+                        let key = if p1 <= p2 {
+                            (p1.clone(), p2.clone())
+                        } else {
+                            (p2.clone(), p1.clone())
+                        };
+
+                        if !existing_bonds.contains(&key) {
+                            self.add_bond(&atom1, &atom2, *order);
+                            existing_bonds.insert(key);
+                        }
+                    }
+                }
+            }
+        }
+
+        for group in self.groups.values_mut() {
+            group.apply_ccd_bond_templates_recursive(db, existing_bonds);
+        }
+    }
+
     /// Returns the raw MessagePack Value representation of this AtomGroup.
     pub fn get_raw_data(&self) -> rmpv::Value {
         crate::brd::atomgroup_get_raw_data(self)
