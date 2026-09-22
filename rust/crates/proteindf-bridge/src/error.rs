@@ -30,6 +30,10 @@ pub enum BridgeError {
     #[error("PeriodicTable.vdw(): no VDW radius for atom {0}")]
     VdwRadiusNotFound(usize),
 
+    /// PeriodicTable error: covalent radius not found.
+    #[error("PeriodicTable.covalent_radius(): no covalent radius for atom {0}")]
+    CovalentRadiusNotFound(usize),
+
     /// PeriodicTable error: atomic weight not found.
     #[error("PeriodicTable.atomic_weight(): no atomic weight for atom {0}")]
     AtomicWeightNotFound(usize),

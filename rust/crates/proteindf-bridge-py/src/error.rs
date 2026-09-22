@@ -30,6 +30,10 @@ pub fn to_py_err(err: BridgeError) -> PyErr {
         BridgeError::VdwRadiusNotFound(n) => {
             BrValueError::new_err(format!("PeriodicTable.vdw(): no VDW radius for atom {}", n))
         }
+        BridgeError::CovalentRadiusNotFound(n) => BrValueError::new_err(format!(
+            "PeriodicTable.covalent_radius(): no covalent radius for atom {}",
+            n
+        )),
         BridgeError::AtomicWeightNotFound(n) => BrValueError::new_err(format!(
             "PeriodicTable.atomic_weight(): no atomic weight for atom {}",
             n
