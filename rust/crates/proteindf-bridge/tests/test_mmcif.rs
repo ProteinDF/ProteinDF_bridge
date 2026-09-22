@@ -728,3 +728,80 @@ disulf1 disulf A CYS 52 SG A A CYS 52 A CYS 100 SG ? A CYS 100
         a2.path
     );
 }
+
+#[test]
+fn test_2fb4_real_mmcif_insertion_codes_and_struct_conn() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/2FB4.cif");
+    let mut cif = SimpleMmcif::new();
+    cif.load(&path).expect("failed to load 2FB4.cif");
+
+    let mut ag = cif
+        .get_atomgroup("2FB4")
+        .expect("failed to get 2FB4 atomgroup");
+
+    let chain_h = ag
+        .get_group("model_1")
+        .expect("model_1 must exist")
+        .get_group("H")
+        .expect("chain H must exist");
+
+    // 1. Verify all 5 residues with seq 101 exist as separate groups
+    for &(res_key, expected_name, expected_atom_count) in &[
+        ("101", "GLY", 4),
+        ("101A", "HIS", 10),
+        ("101B", "GLY", 4),
+        ("101C", "PHE", 11),
+        ("101D", "CYS", 6),
+    ] {
+        assert!(
+            chain_h.has_group(res_key),
+            "chain H must have residue group {res_key}"
+        );
+        let res = chain_h.get_group(res_key).unwrap();
+        assert_eq!(
+            res.name, expected_name,
+            "residue {res_key} must be {expected_name}"
+        );
+        assert_eq!(
+            res.get_number_of_atoms(),
+            expected_atom_count,
+            "residue {res_key} must have {expected_atom_count} atoms"
+        );
+    }
+
+    // 2. Verify all 5 residues with seq 104 exist as separate groups
+    for &(res_key, expected_name, expected_atom_count) in &[
+        ("104", "ALA", 5),
+        ("104A", "SER", 6),
+        ("104B", "CYS", 6),
+        ("104C", "PHE", 11),
+        ("104D", "GLY", 4),
+    ] {
+        assert!(
+            chain_h.has_group(res_key),
+            "chain H must have residue group {res_key}"
+        );
+        let res = chain_h.get_group(res_key).unwrap();
+        assert_eq!(
+            res.name, expected_name,
+            "residue {res_key} must be {expected_name}"
+        );
+        assert_eq!(
+            res.get_number_of_atoms(),
+            expected_atom_count,
+            "residue {res_key} must have {expected_atom_count} atoms"
+        );
+    }
+
+    // 3. Verify disulfide bond between insertion-code residues CYS 101D and CYS 104B is resolved from _struct_conn
+    let bonds = ag.get_bond_list();
+    let ssbond_101d_104b = bonds.iter().find(|b| {
+        (b.atom1_path.contains("/H/101D/") && b.atom2_path.contains("/H/104B/"))
+            || (b.atom1_path.contains("/H/104B/") && b.atom2_path.contains("/H/101D/"))
+    });
+    assert!(
+        ssbond_101d_104b.is_some(),
+        "disulfide bond between CYS 101D and CYS 104B must be established in 2FB4 mmCIF"
+    );
+    assert_eq!(ssbond_101d_104b.unwrap().order, 1);
+}

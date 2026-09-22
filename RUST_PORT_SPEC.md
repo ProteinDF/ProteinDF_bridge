@@ -457,9 +457,5 @@ YUI側の調査で見つかった、bridge側で対応してほしい項目。�
     同一番号で異なる挿入コードを持つ残基の分離保持とSSBOND/`_struct_conn`結合の解決を検証。既存テスト全件パスを確認。
   - `yui`側は`core::atom_group::parse_residue_key()`（フェーズ6e-iii）で挿入コード付き残基キー
     （例: `"52A"` → `(52, Some('A'))`）を扱える設計に既になっているため、本修正と完全に整合する。
-  - **既知の制約**: 上記の回帰テストは全て手書きの合成PDB/mmCIF文字列によるものであり、
-    実際の挿入コード付き残基を含む実ファイルでの検証はまだ行っていない
-    （既存の実データフィクスチャ`tests/data/1hls.pdb`, `3i3zH.pdb`, `2MGO.pdb`にはいずれも
-    挿入コード付き残基が含まれていない）。
-  → 2026-09-23、`docs/tasks/TASK_residue-insertion-code.md`として完了。実ファイルでの追加検証は
-  `docs/tasks/TASK_residue-insertion-code-real-data.md`として別途着手（対応中）。
+  - **実データ検証 (2026-09-23完了)**: wwPDBから多数の挿入コード付き残基および両端が挿入コード付き残基であるSSBOND（CYS 101D - CYS 104B）を含む実エントリ `2FB4`（`2FB4.pdb`, `2FB4.cif`）を `tests/data/` に追加。`tests/test_pdb.rs` の `test_2fb4_real_pdb_insertion_codes_and_ssbond` および `tests/test_mmcif.rs` の `test_2fb4_real_mmcif_insertion_codes_and_struct_conn` において、同一`res_seq`（101A〜101D, 104A〜104D）の分離保持、原子数・残基名の正当性、およびSSBOND/`_struct_conn`結合の解決を実データ上で検証完了。
+  → 2026-09-23、`docs/tasks/TASK_residue-insertion-code-real-data.md`として実データ検証完了。
