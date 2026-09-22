@@ -34,12 +34,12 @@
 
 ## 完了の定義(Definition of Done)
 
-1. 既存の`tests/data/ALA.cif`(単一コンポーネントのCCDフィクスチャ)を`SimpleMmcif`でロードし、`CcdBondTemplate::from_mmcif_block`で変換した結果が、組み込みDBの`ALA`エントリ(12結合・C=O二重結合、§3.9フェーズAで実データ検証済み)と一致することを検証する回帰テストを追加すること。
-2. 組み込みDBに存在しない架空の合成コンポーネント(CCD形式の合成データ、既存のmmCIFテストで使われている手法と同様のもの)を変換・`insert`し、`apply_ccd_bond_templates`がそれを正しく適用できることを検証する回帰テストを追加すること。
-3. `_atom_site`ブロックを`from_mmcif_block`に渡した場合に適切にエラーになることを検証すること。
-4. `merge`の優先順位(同一`comp_id`が重複する場合の挙動)を検証するテストを追加すること。
-5. `cargo clippy` / `cargo fmt` を通すこと。
-6. `RUST_PORT_SPEC.md` §3.11に実施内容・完了ステータスを追記すること。
+1. [x] 既存の`tests/data/ALA.cif`(単一コンポーネントのCCDフィクスチャ)を`SimpleMmcif`でロードし、`CcdBondTemplate::from_mmcif_block`で変換した結果が、組み込みDBの`ALA`エントリ(12結合・C=O二重結合、§3.9フェーズAで実データ検証済み)と一致することを検証する回帰テストを追加すること。(`test_from_mmcif_block_ala_cif_matches_embedded`で確認)
+2. [x] 組み込みDBに存在しない架空の合成コンポーネント(CCD形式の合成データ、既存のmmCIFテストで使われている手法と同様のもの)を変換・`insert`し、`apply_ccd_bond_templates`がそれを正しく適用できることを検証する回帰テストを追加すること。(`test_from_mmcif_block_synthetic_custom_ligand`で確認)
+3. [x] `_atom_site`ブロックを`from_mmcif_block`に渡した場合に適切にエラーになることを検証すること。(`test_from_mmcif_block_rejects_atom_site`で確認)
+4. [x] `merge`の優先順位(同一`comp_id`が重複する場合の挙動)を検証するテストを追加すること。(`test_ccd_template_db_merge_precedence`で確認)
+5. [x] `cargo clippy` / `cargo fmt` を通すこと。(ワークスペース全ターゲット警告0・fmtパス確認)
+6. [x] `RUST_PORT_SPEC.md` §3.11に実施内容・完了ステータスを追記すること。(完了追記済み)
 
 ## スコープ外
 

@@ -396,8 +396,19 @@ impl SimpleMmcif {
     }
 
     /// Returns a specific data block by name.
+    ///
+    /// Accepts both exact block names (e.g. `"data_ALA"`) and unprefixed component names (e.g. `"ALA"`).
     pub fn get_data_block(&self, name: &str) -> Option<&MmcifDataBlock> {
-        self.data.get(name)
+        self.data
+            .get(name)
+            .or_else(|| {
+                let prefixed = format!("data_{name}");
+                self.data.get(&prefixed)
+            })
+            .or_else(|| {
+                name.strip_prefix("data_")
+                    .and_then(|stripped| self.data.get(stripped))
+            })
     }
 
     /// Constructs an `AtomGroup` from the given data block name.
@@ -405,12 +416,29 @@ impl SimpleMmcif {
     /// If the block contains `_atom_site` data, parses full structure coordinates.
     /// Otherwise, parses as Chemical Component Dictionary (CCD) data.
     pub fn get_atomgroup(&self, name: &str) -> Result<AtomGroup> {
-        let block = self.data.get(name).ok_or_else(|| {
-            BridgeError::input_error(name, format!("Invalid mmcif data: name={}", name))
-        })?;
+        let (block_name, block) = self
+            .data
+            .get_key_value(name)
+            .map(|(k, v)| (k.as_str(), v))
+            .or_else(|| {
+                let prefixed = format!("data_{name}");
+                self.data
+                    .get_key_value(&prefixed)
+                    .map(|(k, v)| (k.as_str(), v))
+            })
+            .or_else(|| {
+                name.strip_prefix("data_").and_then(|stripped| {
+                    self.data
+                        .get_key_value(stripped)
+                        .map(|(k, v)| (k.as_str(), v))
+                })
+            })
+            .ok_or_else(|| {
+                BridgeError::input_error(name, format!("Invalid mmcif data: name={}", name))
+            })?;
 
         if block.has_atom_site() {
-            return self.get_structure_atomgroup_for_block(name, None, None);
+            return self.get_structure_atomgroup_for_block(block_name, None, None);
         }
 
         let mut ag = AtomGroup::new();
@@ -441,18 +469,7 @@ impl SimpleMmcif {
                             .get("_chem_comp_bond.value_order")
                             .map(|s| s.as_str())
                             .unwrap_or("");
-                        // In mmCIF CCD, bond orders can be SING, DOUB, TRIP, QUAD, or AROM.
-                        // Following mol2 convention, aromatic bonds ("AROM") are recorded with bond order 1.
-                        // Quadruple bonds ("QUAD") are recorded with bond order 4.
-                        // Unknown or unhandled value_order values intentionally fall back to 0 (representing undefined/no bond).
-                        let bond_order = match bond_order_str {
-                            "SING" => 1,
-                            "DOUB" => 2,
-                            "TRIP" => 3,
-                            "QUAD" => 4,
-                            "AROM" => 1,
-                            _ => 0,
-                        };
+                        let bond_order = parse_chem_comp_bond_order(bond_order_str);
 
                         let atom1_opt = ag.get_atom(atom1_name).cloned();
                         let atom2_opt = ag.get_atom(atom2_name).cloned();
@@ -465,6 +482,11 @@ impl SimpleMmcif {
         }
 
         Ok(ag)
+    }
+
+    /// Parses an mmCIF CCD `_chem_comp_bond.value_order` string into an integer bond order.
+    pub fn parse_chem_comp_bond_order(bond_order_str: &str) -> usize {
+        parse_chem_comp_bond_order(bond_order_str)
     }
 
     /// Builds an `AtomGroup` hierarchy representing the mmCIF structure for the specified data block.
@@ -884,5 +906,25 @@ impl FromStr for SimpleMmcif {
         let mut mmcif = Self::new();
         mmcif.load_from_str(s)?;
         Ok(mmcif)
+    }
+}
+
+/// Parses an mmCIF CCD `_chem_comp_bond.value_order` string into an integer bond order.
+///
+/// Supported values:
+/// - `"SING"` => 1
+/// - `"DOUB"` => 2
+/// - `"TRIP"` => 3
+/// - `"QUAD"` => 4
+/// - `"AROM"` => 1 (aromatic bonds are represented with bond order 1 following mol2 convention)
+/// - Any unhandled or unknown value falls back to 0 (representing undefined/no bond).
+pub fn parse_chem_comp_bond_order(bond_order_str: &str) -> usize {
+    match bond_order_str {
+        "SING" => 1,
+        "DOUB" => 2,
+        "TRIP" => 3,
+        "QUAD" => 4,
+        "AROM" => 1,
+        _ => 0,
     }
 }

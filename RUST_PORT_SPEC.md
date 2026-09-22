@@ -183,7 +183,7 @@ OpenBabel・RDKit・ASEの`natural_cutoffs`・Jmol/PyMOL等、主要な構造化
 - 結合次数の判定(引き続き§3.9のCCDテンプレート、またはテンプレートが無い場合は次数1のまま)。
 - VDW半径テーブル自体の削除・置き換え(共有結合半径テーブルを追加するのみ)。
 
-### 3.11 CCD結合テンプレートDBの実行時拡張(ユーザー提供の外部CCDデータ、計画中、未着手)
+### 3.11 CCD結合テンプレートDBの実行時拡張(ユーザー提供の外部CCDデータ) (完了: 2026-09-22)
 
 #### 背景
 
@@ -191,19 +191,27 @@ OpenBabel・RDKit・ASEの`natural_cutoffs`・Jmol/PyMOL等、主要な構造化
 
 一方、wwPDBのCCD全件(`components.cif`、数百MB規模、非標準リガンド・修飾残基・補酵素等を含む数万コンポーネント)のような**任意選択・大容量のデータ**まで同じ方式でバイナリに焼き込むのは悪手である(ほとんどのユーザーが使わないデータで全員のバイナリを肥大化させる、wwPDB側の更新への追従に再ビルドが必須になる等)。この種のデータは、**ユーザー自身が管理する外部ファイルとして、実行時に明示的にロードする方式**が適切(RDKit・OpenBabel等、他の主要ツールもCCD全件を配布物には同梱していない)。
 
-既存の`format/mmcif.rs`の`SimpleMmcif`は、CCD全件ファイル(複数`data_`ブロック)を含め、CCD形式全般を既にパースできることを確認済み(2026-09-22の調査・回帰テストで検証済み)。また`CcdTemplateDb::load_from_bytes(bytes: &[u8])`は、クレート内部でファイルパスを探すのではなく「バイト列を受け取ってパースするだけ」という設計になっており、ファイルの取得元(ローカルファイル・ネットワーク・wasm経由のJS fetch等)をクレート側が関知しない、ポータブルな形になっている。ただし現状、**`SimpleMmcif`でパースしたCCDデータから`CcdBondTemplate`/`CcdTemplateDb`を直接組み立てる手段が無く**、`load_from_bytes`が要求する内部MessagePackスキーマに変換する術がユーザー側に提供されていない。本タスクはこの変換手段を追加する。
+既存の`format/mmcif.rs`の`SimpleMmcif`は、CCD全件ファイル(複数`data_`ブロック)を含め、CCD形式全般をパースできる機能を持っていた。本タスクにより、`SimpleMmcif`でパースした任意のCCDデータブロックから`CcdBondTemplate`を生成し、`CcdTemplateDb`に動的に登録・合成できる仕組みを整備した。
 
-#### 対象
+#### 実施内容 (2026-09-22完了)
 
-1. **`SimpleMmcif`データブロックから`CcdBondTemplate`を組み立てる変換関数を追加する**: 例えば`CcdBondTemplate::from_mmcif_block(block: &MmcifDataBlock, comp_id: &str) -> Result<CcdBondTemplate>`のようなAPIを`ccd_templates.rs`(または`format/mmcif.rs`との橋渡し用に適切な場所)に新設する。内部実装は`format/mmcif.rs`の`SimpleMmcif::get_atomgroup`が既に持っている`_chem_comp_atom`/`_chem_comp_bond`パースロジック(結合次数変換テーブル含む)を再利用すること(重複実装しない)。
-2. **`CcdTemplateDb`への動的登録・マージ手段を追加する**: 例えば`CcdTemplateDb::insert(&mut self, template: CcdBondTemplate)`、または複数の`CcdTemplateDb`を合成する`merge(&mut self, other: &CcdTemplateDb)`のようなAPIを追加する。組み込みのデフォルトDB(`CcdTemplateDb::global()`)自体は不変(`&'static`)のままとし、ユーザーは`CcdTemplateDb::global().clone()`(既存の`Default`実装が既にこれを行っている)してから独自データを追加登録する、という使い方を想定する。
-3. **利用パターンをドキュメント化する**: 「ユーザーが`components.cif`(または個別コンポーネントのCCDファイル)をダウンロード → `SimpleMmcif`でロード → 対象コンポーネントを`CcdBondTemplate::from_mmcif_block`で変換 → 自分の`CcdTemplateDb`インスタンスに登録 → `AtomGroup::apply_ccd_bond_templates`にそのDBを渡す」という一連の流れをdocコメント(モジュールレベル)およびREADME相当の場所に例示すること。
-
-#### 完了の定義(想定)
-
-1. 既存の`ALA.cif`(単一コンポーネントのCCDフィクスチャ)を`SimpleMmcif`でロードし、`CcdBondTemplate::from_mmcif_block`で変換した結果が、組み込みDBの`ALA`エントリ(§3.9フェーズAで実データ検証済み、12結合・C=O二重結合)と一致することを検証する回帰テストを追加する。
-2. 組み込みDBに存在しない架空の合成コンポーネント(CCD形式の合成データ)を変換・登録し、`apply_ccd_bond_templates`がそれを正しく適用できることを検証する回帰テストを追加する。
-3. `cargo clippy` / `cargo fmt` を通すこと。
+1. **`SimpleMmcif`データブロックから`CcdBondTemplate`を組み立てる変換関数の新設**:
+   - `CcdBondTemplate::from_mmcif_block(block: &MmcifDataBlock, comp_id: &str) -> Result<CcdBondTemplate>`を`ccd_templates.rs`に実装。
+   - `format/mmcif.rs`から結合次数変換関数`parse_chem_comp_bond_order`を抽出し、`format/mmcif.rs`と`ccd_templates.rs`で共通利用(重複実装を排除)。
+   - `block.has_atom_site()`が`true`の場合はマクロ分子構造データと判定し、適切なエラーを返却。
+   - また、`SimpleMmcif::get_data_block`および`get_atomgroup`において、`data_`プレフィックスの有無にかかわらず柔軟にブロックを検索できるよう改善。
+2. **`CcdTemplateDb`への動的登録・マージ手段の追加**:
+   - `CcdTemplateDb::new()`: 空のテンプレートDBを生成。
+   - `CcdTemplateDb::insert(&mut self, template: CcdBondTemplate) -> Option<CcdBondTemplate>`: 1件追加(同名存在時は上書きし旧値を返却)。
+   - `CcdTemplateDb::merge(&mut self, other: &CcdTemplateDb)`: 複数DBを合成。同名重複時は`other`のエントリが優先される後勝ち(last-write-wins)仕様を明記。
+   - 組み込みの`CcdTemplateDb::global()`は不変(`&'static`)として保持し、ユーザーは`CcdTemplateDb::default()`(組み込み29種のクローン)または`new()`を起点に拡張する。
+3. **利用パターンのドキュメント化**:
+   - `ccd_templates.rs`のモジュールレベルdocコメントに、外部CCDファイルのロードからテンプレート変換・DB登録・`AtomGroup`への適用までの一連のコード実例を記載(doctestでコンパイル検証済み)。
+4. **検証**:
+   - `tests/data/ALA.cif`から抽出したテンプレートが、組み込みDBの`ALA`エントリ(13原子・12結合・C=O二重結合)と完全一致することを検証。
+   - 架空の合成リガンドCIF(`LIG`)を動的変換・登録し、`AtomGroup::apply_ccd_bond_templates`によって二重結合・単結合が正しく付与されることを検証。
+   - `1HLS.cif`等のマクロ分子構造ブロックが`from_mmcif_block`で適切に拒絶されることを検証。
+   - `merge`における後勝ち優先順位を検証。
 
 #### スコープ外(当面)
 
