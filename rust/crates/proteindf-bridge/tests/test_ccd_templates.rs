@@ -488,3 +488,175 @@ fn test_bond_setup_after_ccd_does_not_duplicate_bonds() {
         assert!(seen.insert(key), "Duplicate bond found: {:?}", key);
     }
 }
+
+#[test]
+fn test_resolve_bonds_1hls_real_pdb() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/1hls.pdb");
+    let mut pdb = Pdb::new(None);
+    pdb.load(&path).expect("failed to load 1hls.pdb");
+    let mut ag = pdb
+        .get_atomgroup(None, None)
+        .expect("failed to get 1hls atomgroup");
+
+    // Call unified resolve_bonds entry point
+    let db = CcdTemplateDb::global();
+    ag.resolve_bonds(db).expect("resolve_bonds failed");
+
+    let final_bonds = ag.get_bond_list();
+
+    // 1. Verify CCD template bond orders (e.g. GLU 4 C=O has order 2, unique)
+    let glu4_co_bonds: Vec<_> = final_bonds
+        .iter()
+        .filter(|b| {
+            let is_a1_c = b.atom1_path.contains("/A/4/")
+                && (b.atom1_path.ends_with("_C") || b.atom1_path.ends_with("/C"));
+            let is_a2_o = b.atom2_path.contains("/A/4/")
+                && (b.atom2_path.ends_with("_O") || b.atom2_path.ends_with("/O"));
+            let is_a1_o = b.atom1_path.contains("/A/4/")
+                && (b.atom1_path.ends_with("_O") || b.atom1_path.ends_with("/O"));
+            let is_a2_c = b.atom2_path.contains("/A/4/")
+                && (b.atom2_path.ends_with("_C") || b.atom2_path.ends_with("/C"));
+            (is_a1_c && is_a2_o) || (is_a1_o && is_a2_c)
+        })
+        .collect();
+    assert_eq!(
+        glu4_co_bonds.len(),
+        1,
+        "GLU 4 C=O bond should appear exactly once"
+    );
+    assert_eq!(
+        glu4_co_bonds[0].order, 2,
+        "GLU 4 C=O bond should have order 2 from CCD template"
+    );
+
+    // 2. Verify ARG 22 in Chain B has multiple double bonds (C=O and CZ=NH2)
+    let arg_double_bonds = final_bonds
+        .iter()
+        .filter(|b| {
+            (b.atom1_path.contains("/B/22/") || b.atom2_path.contains("/B/22/")) && b.order == 2
+        })
+        .count();
+    assert!(
+        arg_double_bonds >= 2,
+        "ARG 22 should have at least 2 double bonds, found {}",
+        arg_double_bonds
+    );
+
+    // 3. Verify inter-residue peptide bond is established via heuristic fallback
+    let peptide_bond = final_bonds.iter().find(|b| {
+        let is_res4_c = b.atom1_path.contains("/A/4/")
+            && (b.atom1_path.ends_with("_C") || b.atom1_path.ends_with("/C"));
+        let is_res5_n = b.atom2_path.contains("/A/5/")
+            && (b.atom2_path.ends_with("_N") || b.atom2_path.ends_with("/N"));
+        let is_res5_n_rev = b.atom1_path.contains("/A/5/")
+            && (b.atom1_path.ends_with("_N") || b.atom1_path.ends_with("/N"));
+        let is_res4_c_rev = b.atom2_path.contains("/A/4/")
+            && (b.atom2_path.ends_with("_C") || b.atom2_path.ends_with("/C"));
+        (is_res4_c && is_res5_n) || (is_res5_n_rev && is_res4_c_rev)
+    });
+    assert!(
+        peptide_bond.is_some(),
+        "Inter-residue peptide bond between GLU 4 and PRO 5 should be detected by heuristic"
+    );
+    assert_eq!(
+        peptide_bond.unwrap().order,
+        1,
+        "Peptide bond should have order 1"
+    );
+
+    // 4. Verify that NO duplicate bond records exist across all final bonds
+    let mut seen_pairs = std::collections::HashSet::new();
+    for b in &final_bonds {
+        let key = if b.atom1_path <= b.atom2_path {
+            (&b.atom1_path, &b.atom2_path)
+        } else {
+            (&b.atom2_path, &b.atom1_path)
+        };
+        assert!(
+            seen_pairs.insert(key),
+            "Duplicate bond found between {} and {}",
+            b.atom1_path,
+            b.atom2_path
+        );
+    }
+}
+
+#[test]
+fn test_resolve_bonds_preserves_existing_file_bonds() {
+    let mut ag = AtomGroup::new();
+    ag.set_path("/model_1/A/1/".to_string());
+    ag.name = "ALA".to_string();
+
+    let mut n = Atom::new();
+    n.name = "N".to_string();
+    n.set_atomic_number(7);
+    n.xyz = Position::new(0.0, 0.0, 0.0);
+
+    let mut ca = Atom::new();
+    ca.name = "CA".to_string();
+    ca.set_atomic_number(6);
+    ca.xyz = Position::new(1.46, 0.0, 0.0);
+
+    let mut c = Atom::new();
+    c.name = "C".to_string();
+    c.set_atomic_number(6);
+    c.xyz = Position::new(2.0, 1.4, 0.0);
+
+    let mut o = Atom::new();
+    o.name = "O".to_string();
+    o.set_atomic_number(8);
+    o.xyz = Position::new(1.3, 2.4, 0.0);
+
+    let mut cb = Atom::new();
+    cb.name = "CB".to_string();
+    cb.set_atomic_number(6);
+    cb.xyz = Position::new(2.0, -0.7, 1.2);
+
+    ag.set_atom("N", n);
+    ag.set_atom("CA", ca);
+    ag.set_atom("C", c);
+    ag.set_atom("O", o);
+    ag.set_atom("CB", cb);
+
+    // Pre-register C-O bond as order 1 (e.g. from an explicit file source like CONECT)
+    let c_ref = ag.get_atom("C").unwrap().clone();
+    let o_ref = ag.get_atom("O").unwrap().clone();
+    ag.add_bond(&c_ref, &o_ref, 1);
+
+    assert_eq!(ag.bonds().len(), 1);
+    assert_eq!(ag.bonds()[0].order, 1);
+
+    // Call resolve_bonds
+    let db = CcdTemplateDb::global();
+    ag.resolve_bonds(db).expect("resolve_bonds failed");
+
+    // Verify:
+    // 1. Total heavy atom bonds for ALA is 4 (N-CA, CA-C, C-O, CA-CB)
+    let bonds = ag.get_bond_list();
+    assert_eq!(bonds.len(), 4, "Total bonds should be 4 without duplicates");
+
+    // 2. Pre-registered C-O bond order 1 was preserved (not overwritten by CCD's order 2)
+    let co_bonds: Vec<_> = bonds
+        .iter()
+        .filter(|b| {
+            (b.atom1_path.ends_with("/C") && b.atom2_path.ends_with("/O"))
+                || (b.atom1_path.ends_with("/O") && b.atom2_path.ends_with("/C"))
+        })
+        .collect();
+    assert_eq!(co_bonds.len(), 1, "C-O bond must be unique");
+    assert_eq!(
+        co_bonds[0].order, 1,
+        "Pre-existing C-O bond order 1 must be strictly preserved"
+    );
+
+    // 3. No duplicates
+    let mut seen = std::collections::HashSet::new();
+    for b in &bonds {
+        let key = if b.atom1_path <= b.atom2_path {
+            (&b.atom1_path, &b.atom2_path)
+        } else {
+            (&b.atom2_path, &b.atom1_path)
+        };
+        assert!(seen.insert(key), "Duplicate bond found: {:?}", key);
+    }
+}
