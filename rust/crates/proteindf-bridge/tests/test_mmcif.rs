@@ -460,3 +460,148 @@ ATOM 1 N N . GLY A not_a_number 8.071 6.020
         "error message should mention Cartn_x and invalid float: {err_str}"
     );
 }
+
+#[test]
+fn test_ccd_bond_order_arom_and_quad() {
+    let mmcif_content = r#"data_TEST_BONDS
+_chem_comp.id TEST_BONDS
+loop_
+_chem_comp_atom.comp_id
+_chem_comp_atom.atom_id
+_chem_comp_atom.type_symbol
+_chem_comp_atom.pdbx_model_Cartn_x_ideal
+_chem_comp_atom.pdbx_model_Cartn_y_ideal
+_chem_comp_atom.pdbx_model_Cartn_z_ideal
+TEST_BONDS C1 C 0.0 0.0 0.0
+TEST_BONDS C2 C 1.4 0.0 0.0
+TEST_BONDS Re1 RE 0.0 2.0 0.0
+TEST_BONDS Re2 RE 0.0 4.2 0.0
+loop_
+_chem_comp_bond.comp_id
+_chem_comp_bond.atom_id_1
+_chem_comp_bond.atom_id_2
+_chem_comp_bond.value_order
+TEST_BONDS C1 C2 AROM
+TEST_BONDS Re1 Re2 QUAD
+"#;
+
+    let mut cif = SimpleMmcif::new();
+    cif.load_from_str(mmcif_content).unwrap();
+    let ag = cif.get_atomgroup("data_TEST_BONDS").unwrap();
+
+    let bonds = ag.bonds();
+    assert_eq!(bonds.len(), 2);
+
+    let mut arom_found = false;
+    let mut quad_found = false;
+
+    for bond in bonds {
+        let p1 = bond.atom1_path.trim_start_matches('/');
+        let p2 = bond.atom2_path.trim_start_matches('/');
+        if (p1 == "C1" && p2 == "C2") || (p1 == "C2" && p2 == "C1") {
+            assert_eq!(bond.order, 1, "AROM bond order must be 1");
+            arom_found = true;
+        } else if (p1 == "Re1" && p2 == "Re2") || (p1 == "Re2" && p2 == "Re1") {
+            assert_eq!(bond.order, 4, "QUAD bond order must be 4");
+            quad_found = true;
+        }
+    }
+
+    assert!(arom_found, "AROM bond between C1 and C2 should be found");
+    assert!(quad_found, "QUAD bond between Re1 and Re2 should be found");
+}
+
+#[test]
+fn test_ccd_missing_coordinate_error() {
+    let mmcif_content = r#"data_MISSING_COORD
+_chem_comp.id MISSING_COORD
+loop_
+_chem_comp_atom.comp_id
+_chem_comp_atom.atom_id
+_chem_comp_atom.type_symbol
+_chem_comp_atom.pdbx_model_Cartn_x_ideal
+_chem_comp_atom.pdbx_model_Cartn_y_ideal
+_chem_comp_atom.pdbx_model_Cartn_z_ideal
+MISSING_COORD C1 C 0.0 0.0 0.0
+MISSING_COORD C2 C ? ? ?
+"#;
+
+    let mut cif = SimpleMmcif::new();
+    cif.load_from_str(mmcif_content).unwrap();
+    let result = cif.get_atomgroup("data_MISSING_COORD");
+
+    assert!(
+        result.is_err(),
+        "expected error when coordinates are missing for atom C2"
+    );
+
+    let err_str = result.err().unwrap().to_string();
+    assert!(
+        err_str.contains("C2") && err_str.contains("Missing or unparseable coordinates"),
+        "error message should mention atom 'C2' and missing coordinates: {err_str}"
+    );
+}
+
+#[test]
+fn test_ccd_multiple_data_blocks() {
+    let mmcif_content = r#"data_ALA
+_chem_comp.id ALA
+loop_
+_chem_comp_atom.comp_id
+_chem_comp_atom.atom_id
+_chem_comp_atom.type_symbol
+_chem_comp_atom.pdbx_model_Cartn_x_ideal
+_chem_comp_atom.pdbx_model_Cartn_y_ideal
+_chem_comp_atom.pdbx_model_Cartn_z_ideal
+ALA N N -0.966 0.493 1.500
+ALA CA C 0.257 0.418 0.692
+loop_
+_chem_comp_bond.comp_id
+_chem_comp_bond.atom_id_1
+_chem_comp_bond.atom_id_2
+_chem_comp_bond.value_order
+ALA N CA SING
+
+data_BNZ
+_chem_comp.id BNZ
+loop_
+_chem_comp_atom.comp_id
+_chem_comp_atom.atom_id
+_chem_comp_atom.type_symbol
+_chem_comp_atom.pdbx_model_Cartn_x_ideal
+_chem_comp_atom.pdbx_model_Cartn_y_ideal
+_chem_comp_atom.pdbx_model_Cartn_z_ideal
+BNZ C1 C 0.000 1.396 0.000
+BNZ C2 C 1.209 0.698 0.000
+BNZ C3 C 1.209 -0.698 0.000
+loop_
+_chem_comp_bond.comp_id
+_chem_comp_bond.atom_id_1
+_chem_comp_bond.atom_id_2
+_chem_comp_bond.value_order
+BNZ C1 C2 AROM
+BNZ C2 C3 AROM
+"#;
+
+    let mut cif = SimpleMmcif::new();
+    cif.load_from_str(mmcif_content).unwrap();
+
+    let mut names = cif.get_molecule_names();
+    names.sort();
+    assert_eq!(names, vec!["data_ALA".to_string(), "data_BNZ".to_string()]);
+
+    // Check ALA block
+    let ag_ala = cif.get_atomgroup("data_ALA").unwrap();
+    assert_eq!(ag_ala.name, "ALA");
+    assert_eq!(ag_ala.get_number_of_atoms(), 2);
+    assert_eq!(ag_ala.bonds().len(), 1);
+    assert_eq!(ag_ala.bonds()[0].order, 1);
+
+    // Check BNZ block
+    let ag_bnz = cif.get_atomgroup("data_BNZ").unwrap();
+    assert_eq!(ag_bnz.name, "BNZ");
+    assert_eq!(ag_bnz.get_number_of_atoms(), 3);
+    assert_eq!(ag_bnz.bonds().len(), 2);
+    assert_eq!(ag_bnz.bonds()[0].order, 1);
+    assert_eq!(ag_bnz.bonds()[1].order, 1);
+}

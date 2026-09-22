@@ -43,11 +43,11 @@ wwPDB CCDの多くのリガンド(ベンゼン環を含む化合物、核酸塩�
 
 ## 完了の定義(Definition of Done)
 
-1. 芳香族結合(`AROM`)を含む合成CCDデータで、結合次数が1として正しく登録されることを検証する回帰テストを追加すること。四重結合(`QUAD`)についても同様に4になることを検証すること。
-2. 座標が両方とも欠損しているCCDデータ(合成)で、期待通りエラーになる(またはスキップされてログが残る)ことを検証する回帰テストを追加すること。
-3. 既存のCCDテスト(`ALA.cif`等、既存フィクスチャ)が引き続き全てパスすること(回帰確認)。
-4. 複数`data_`ブロックを含む合成CCDデータ(例: 2〜3コンポーネント)を新規フィクスチャとして追加し、`get_molecule_names()`・各ブロックの`get_atomgroup()`が正しく動作することを検証するテストを追加すること(既存のALA.cif単体テストは単一ブロックのみなので、複数ブロックのケースが未検証)。
-5. `cargo clippy` / `cargo fmt` を通すこと。
+- [x] 1. 芳香族結合(`AROM`)を含む合成CCDデータで、結合次数が1として正しく登録されることを検証する回帰テストを追加すること。四重結合(`QUAD`)についても同様に4になることを検証すること。
+- [x] 2. 座標が両方とも欠損しているCCDデータ(合成)で、期待通りエラーになる(またはスキップされてログが残る)ことを検証する回帰テストを追加すること。
+- [x] 3. 既存のCCDテスト(`ALA.cif`等、既存フィクスチャ)が引き続き全てパスすること(回帰確認)。
+- [x] 4. 複数`data_`ブロックを含む合成CCDデータ(例: 2〜3コンポーネント)を新規フィクスチャとして追加し、`get_molecule_names()`・各ブロックの`get_atomgroup()`が正しく動作することを検証するテストを追加すること(既存のALA.cif単体テストは単一ブロックのみなので、複数ブロックのケースが未検証)。
+- [x] 5. `cargo clippy` / `cargo fmt` を通すこと。
 
 ## スコープ外
 
@@ -59,3 +59,17 @@ wwPDB CCDの多くのリガンド(ベンゼン環を含む化合物、核酸塩�
 
 - 既存Pythonコード(`proteindf_bridge/`)は変更しない(CCDのマルチブロック対応はPython版に対応物がない可能性が高いため、着手前に`proteindf_bridge/mmcif.py`を確認し、対応物があれば1:1方針を優先すること)。
 - 座標欠損時のエラーハンドリング方針(エラーを返す vs スキップ)を独断で決めず、判断に迷えばClaudeに相談すること。
+
+## 実施記録 (2026-09-22)
+
+- `format/mmcif.rs`:
+  - `_chem_comp_bond.value_order` パース処理に `AROM => 1`（mol2同様）および `QUAD => 4` を追加。未知の `value_order` に対する `_ => 0`（未定義/結合なし）のフォールバックを意図的な動作としてコメントに明記。
+  - `extract_atoms_and_name` を `Result<()>` 化し、`ideal` および `model` の両方で座標が取得・パースできない原子がある場合に、サイレントに原点 `(0,0,0)` へフォールバックせず `BridgeError::InputError` を明示的に返すよう修正。`get_atomgroup` 内でエラー伝播。
+- `tests/test_mmcif.rs`:
+  - `test_ccd_bond_order_arom_and_quad`: `AROM`（結合次数1）および `QUAD`（結合次数4）のパースを検証。
+  - `test_ccd_missing_coordinate_error`: 座標欠損原子で期待通り `BridgeError::InputError` が返り、原子名が含まれることを検証。
+  - `test_ccd_multiple_data_blocks`: `data_ALA` と `data_BNZ` の複数ブロックを含む合成CCDデータで、`get_molecule_names()` が両ブロック名を返し、それぞれ独立して `get_atomgroup()` が正しい原子数・結合次数で構築されることを検証。
+- 検証結果:
+  - ワークスペース全183テストすべて PASS。既存 CCD テスト（`ALA.cif`等）および `_atom_site` 全構造テスト（`1HLS.cif`, `2MGO.cif`, `3I3Z.cif`）の回帰なし。
+  - `cargo fmt --check` / `cargo clippy --workspace --all-targets -- -D warnings` 警告ゼロでパス。
+

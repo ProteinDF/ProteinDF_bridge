@@ -421,11 +421,11 @@ impl SimpleMmcif {
         }
 
         // Check key-values and tables for atoms and component name
-        Self::extract_atoms_and_name(&block.key_values, &mut ag);
+        Self::extract_atoms_and_name(&block.key_values, &mut ag)?;
 
         for table in &block.tables {
             for row in table {
-                Self::extract_atoms_and_name(row, &mut ag);
+                Self::extract_atoms_and_name(row, &mut ag)?;
             }
         }
 
@@ -441,10 +441,16 @@ impl SimpleMmcif {
                             .get("_chem_comp_bond.value_order")
                             .map(|s| s.as_str())
                             .unwrap_or("");
+                        // In mmCIF CCD, bond orders can be SING, DOUB, TRIP, QUAD, or AROM.
+                        // Following mol2 convention, aromatic bonds ("AROM") are recorded with bond order 1.
+                        // Quadruple bonds ("QUAD") are recorded with bond order 4.
+                        // Unknown or unhandled value_order values intentionally fall back to 0 (representing undefined/no bond).
                         let bond_order = match bond_order_str {
                             "SING" => 1,
                             "DOUB" => 2,
                             "TRIP" => 3,
+                            "QUAD" => 4,
+                            "AROM" => 1,
                             _ => 0,
                         };
 
@@ -617,7 +623,7 @@ impl SimpleMmcif {
         self.get_structure_atomgroup_for_block(first_block, select_model, select_altloc)
     }
 
-    fn extract_atoms_and_name(dict: &IndexMap<String, String>, ag: &mut AtomGroup) {
+    fn extract_atoms_and_name(dict: &IndexMap<String, String>, ag: &mut AtomGroup) -> Result<()> {
         if let Some(id) = dict.get("_chem_comp.id") {
             ag.name = id.clone();
         }
@@ -640,8 +646,19 @@ impl SimpleMmcif {
             let x = Self::get_coordinate("x", dict);
             let y = Self::get_coordinate("y", dict);
             let z = Self::get_coordinate("z", dict);
-            if let (Some(x), Some(y), Some(z)) = (x, y, z) {
-                atom.xyz = Position::new(x, y, z);
+            match (x, y, z) {
+                (Some(x), Some(y), Some(z)) => {
+                    atom.xyz = Position::new(x, y, z);
+                }
+                _ => {
+                    return Err(BridgeError::input_error(
+                        atom_id,
+                        format!(
+                            "Missing or unparseable coordinates for atom '{}' in mmCIF CCD data",
+                            atom_id
+                        ),
+                    ));
+                }
             }
 
             if let Some(charge_str) = dict.get("_chem_comp_atom.charge") {
@@ -654,6 +671,8 @@ impl SimpleMmcif {
 
             ag.set_atom(atom_id, atom);
         }
+
+        Ok(())
     }
 
     /// Extracts a coordinate axis (x, y, or z) prioritizing ideal coordinates over model coordinates.
