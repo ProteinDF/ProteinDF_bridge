@@ -120,7 +120,7 @@ if ag.get_bond_list().is_empty() {
 
 この方針により、MOL2/PRMTOP/PDB由来の正確な結合トポロジーがヒューリスティック判定で上書き・二重定義されることを防止し、かつ結合情報を持たないフォーマットに対しても自動補完を提供する。
 
-### 3.9 CCD結合テンプレートデータベースによる結合情報補完(計画中、未着手)
+### 3.9 CCD結合テンプレートデータベースによる結合情報補完 (フェーズA完了: 2026-09-22)
 
 #### 背景
 
@@ -132,13 +132,18 @@ wwPDB Chemical Component Dictionary (CCD, https://www.wwpdb.org/data/ccd) は、
 
 **フェーズA(結合次数補完)を先に、独立したタスクとして着手する。** フェーズBは幾何学的に大幅に難易度が高いため、フェーズA完了後に改めて計画する(本節では概要のみ記載)。
 
-##### フェーズA: 結合トポロジー・結合次数の補完
+##### フェーズA: 結合トポロジー・結合次数の補完 (完了: 2026-09-22)
 
-1. **テンプレートデータの抽出・同梱方針**: wwPDBの完全なCCD配布ファイル(`components.cif`)は数百MB規模で全実行時に読み込むのは非現実的なため、**標準アミノ酸20種・標準核酸(DNA/RNA各4種)・水(HOH)・既存テストフィクスチャで使用されている主要な修飾残基/リガンドに絞った軽量サブセット**を事前抽出する。抽出処理は1回限りのスクリプト(Python可、既存`scripts/`ディレクトリの慣習に合わせる)でよい。データ形式は既存の`.brd`(MessagePack)インフラ(`rmp-serde`)を再利用する。
-   **同梱方式は`include_bytes!`によるバイナリへの直接埋め込みとする**(例: `rust/crates/proteindf-bridge/src/data/ccd_bond_templates.msgpack`を`include_bytes!`で取り込み、初回参照時に`OnceLock`等で遅延デシリアライズして静的な`HashMap`として保持する)。実行時に外部ファイルをパスで探す方式は、wasm32ターゲット(ファイルシステムを持たない、Phase 10 PR#27で対応済み)やPyO3のwheel配布(パッケージデータの別途同梱が必要)でポータビリティを損なうため採用しない。CCDサブセットの更新には再ビルドが必要になるが、標準残基の結合トポロジーはほぼ不変なので実害はない。
-2. **テンプレート構造体の設計**: 残基名をキーとする`CcdBondTemplate { comp_id: String, atoms: Vec<String>, bonds: Vec<(String, String, usize)> }`のようなテンプレート(原子名ペア+結合次数)を新設し、`ccd_templates.rs`(新規モジュール)に実装する。ルックアップは`CcdTemplateDb::lookup(comp_id: &str) -> Option<&CcdBondTemplate>`のようなAPIとする。
-3. **結合情報への適用**: `AtomGroup`の各residueレベルグループについて、その`name`(残基名)でテンプレートDBを引き、原子名の対応が取れる結合ペアについて結合次数を設定・是正するメソッド(例: `AtomGroup::apply_ccd_bond_templates(&self, db: &CcdTemplateDb)`)を追加する。**§3.8の優先順位に第3階層として追加する**: (1) ファイル由来の明示的結合 > (2) CCDテンプレートによる結合(標準残基向け) > (3) `Bond::setup()`のVDWヒューリスティック(テンプレートが無い残基・非標準構造向け)。既存の結合(§3.8の(1))を上書きしないよう注意すること(テンプレートは「補完」であり「上書き」ではない、が同一原子ペアに矛盾する結合次数がある場合の扱いは要検討)。
-4. **完了の定義(想定)**: 標準アミノ酸(例: グルタミン酸の側鎖COOH、アルギニンのグアニジノ基等、複数の結合次数・芳香族性を含む残基)を含む実PDBフィクスチャで、`Bond::setup()`単独では次数1にしかならない結合が、テンプレート適用後に正しい次数(二重結合・芳香族由来の1)になることを検証する。既存の`ssbond.rs`/`ion_pair.rs`等、結合次数に依存しない既存機能への影響がないことも確認する。
+1. **テンプレートデータの抽出・同梱方針**: wwPDBの完全なCCD配布ファイル(`components.cif`)は数百MB規模で全実行時に読み込むのは非現実的なため、**標準アミノ酸20種・標準核酸(DNA/RNA各4種)・水(HOH)** の計29種を対象に、wwPDBの最新データ(`https://files.rcsb.org/ligands/view/{comp_id}.cif`)から抽出スクリプト(`scripts/build_ccd_bond_templates.py`)により抽出を実施した。データ形式はMessagePackバイナリ(`rust/crates/proteindf-bridge/src/data/ccd_bond_templates.msgpack`, 約9.2KB)として格納した。
+   **同梱方式は`include_bytes!`によるバイナリ直接埋め込み**を採用し、wasm32ターゲットやPyO3 wheel配布でのポータビリティを確保した。初回参照時に`std::sync::OnceLock`で遅延デシリアライズし、静的なルックアップテーブル(`CcdTemplateDb`)として保持する。
+2. **テンプレート構造体の設計**: `ccd_templates.rs`を新設し、`CcdBondTemplate { comp_id: String, atoms: Vec<String>, bonds: Vec<(String, String, usize)> }`および`CcdTemplateDb`(`global()`, `lookup()`)を実装した。
+3. **結合情報への適用**: `AtomGroup::apply_ccd_bond_templates(&mut self, db: &CcdTemplateDb)`を実装した。各residueレベルグループについて、その`name`(残基名)でテンプレートDBを引き、原子名の対応が取れる結合ペアについて結合次数を設定する。
+   **優先順位の保護**:
+   (1) ファイル由来の明示的結合(CONECT等、すでに存在する結合)
+   (2) CCDテンプレートによる結合(残基内の正準結合・結合次数)
+   (3) `Bond::setup()`のVDWヒューリスティック(残基間ペプチド結合・非標準構造向け)
+   既存の結合ペアは上書きせずそのまま保持する仕様とし、矛盾や不正な上書きを完全に防止した。
+4. **検証**: 実PDBフィクスチャ(`1hls.pdb`)を用いたテスト(`tests/test_ccd_templates.rs`)において、`Bond::setup()`単独では次数1にしかならないGLU側鎖(CD=OE1)や主鎖カルボニル(C=O)、ARGグアニジノ基(CZ=NH2)が正しく二重結合(order 2)として設定されること、および既存結合の上書き防止、未知残基の安全なスキップを確認した。
 
 ##### フェーズB: 水素付加(将来、フェーズA完了後に別途計画)
 
