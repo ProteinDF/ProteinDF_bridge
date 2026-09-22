@@ -175,10 +175,6 @@ impl SimpleMol2 {
             }
         }
 
-        if ag.get_bond_list().is_empty() {
-            ag.setup()?;
-        }
-
         self.set_by_atomgroup(&ag);
         Ok(())
     }
@@ -187,9 +183,9 @@ impl SimpleMol2 {
     ///
     /// If the MOL2 source contains an `@<TRIPOS>BOND` section, the returned `AtomGroup`
     /// includes the explicit bond topology (pairs and orders) parsed from the file.
-    /// According to the bond priority policy (see `RUST_PORT_SPEC.md` §3.8 & §3.14), explicit
-    /// file-derived bonds take precedence. If no explicit bond records exist,
-    /// [`AtomGroup::setup`] is automatically executed to resolve bonds.
+    /// According to the bond priority policy (see `RUST_PORT_SPEC.md` §3.8 & §3.15), explicit
+    /// file-derived bonds take precedence. If no explicit bond records exist, the returned
+    /// `AtomGroup` has no bonds; call [`AtomGroup::setup`] to resolve bonds.
     pub fn get_atomgroup(&self) -> &AtomGroup {
         &self.atomgroup
     }
