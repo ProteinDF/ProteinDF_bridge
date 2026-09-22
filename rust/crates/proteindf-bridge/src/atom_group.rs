@@ -842,6 +842,14 @@ impl AtomGroup {
         self.bonds = bonds;
     }
 
+    /// Recursively clears all bonds directly defined in this group and all its descendant groups.
+    pub fn clear_bonds(&mut self) {
+        self.bonds.clear();
+        for group in self.groups.values_mut() {
+            group.clear_bonds();
+        }
+    }
+
     /// Returns the secondary structure code assigned to this group (typically at residue level).
     pub fn secondary_structure(&self) -> Option<SsCode> {
         self.secondary_structure
@@ -916,23 +924,37 @@ impl AtomGroup {
         }
     }
 
-    /// Resolves chemical bonds in the molecule by first applying canonical CCD templates
-    /// (preserving correct bond orders such as double/aromatic bonds), and then filling in
-    /// remaining bonds (e.g. inter-residue peptide bonds, non-standard residues) via covalent
-    /// radius heuristics ([`crate::bond::Bond::setup`]).
+    /// Sets up chemical bonds in the molecule using the default embedded CCD templates
+    /// and covalent radius heuristics.
     ///
-    /// # Priority Policy (§3.8 & §3.13):
+    /// This is the smart default entry point for bond resolution (§3.14).
+    /// It first applies canonical CCD templates from the global embedded database
+    /// ([`crate::ccd_templates::CcdTemplateDb::global`]), assigning accurate bond orders
+    /// (e.g. C=O double bonds, aromatic rings), and then fills in remaining bonds
+    /// (e.g. inter-residue peptide bonds, non-standard residues) via covalent radius
+    /// heuristics ([`crate::bond::Bond::setup_heuristic`]).
+    ///
+    /// Pre-existing bonds in `self` (e.g., file-derived CONECT/bonds) are strictly preserved
+    /// and neither overwritten nor duplicated.
+    pub fn setup(&mut self) -> Result<()> {
+        self.setup_with_db(crate::ccd_templates::CcdTemplateDb::global())
+    }
+
+    /// Sets up chemical bonds in the molecule using the provided CCD template database `db`
+    /// and covalent radius heuristics.
+    ///
+    /// # Priority Policy (§3.8, §3.13, §3.14):
     /// 1. File-derived explicit bonds (PDB CONECT, MOL2, PRMTOP) already present in `self`
     ///    are strictly preserved (never overwritten or duplicated).
     /// 2. Canonical CCD templates from `db` are applied to standard residues, assigning accurate
     ///    bond orders (e.g., C=O double bonds, aromatic rings).
     /// 3. Remaining unbonded atom pairs within covalent distance are complemented via
-    ///    covalent radius heuristics, establishing peptide bonds and bonds in non-standard
-    ///    components without duplicating already registered bonds.
-    pub fn resolve_bonds(&mut self, db: &crate::ccd_templates::CcdTemplateDb) -> Result<()> {
+    ///    covalent radius heuristics ([`crate::bond::Bond::setup_heuristic`]), establishing
+    ///    peptide bonds and bonds in non-standard components without duplicating already registered bonds.
+    pub fn setup_with_db(&mut self, db: &crate::ccd_templates::CcdTemplateDb) -> Result<()> {
         self.apply_ccd_bond_templates(db);
         let mut bond = crate::bond::Bond::new();
-        bond.setup(self)?;
+        bond.setup_heuristic(self)?;
         Ok(())
     }
 

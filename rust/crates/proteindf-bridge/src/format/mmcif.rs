@@ -481,6 +481,10 @@ impl SimpleMmcif {
             }
         }
 
+        if ag.get_bond_list().is_empty() {
+            ag.setup()?;
+        }
+
         Ok(ag)
     }
 
@@ -626,6 +630,10 @@ impl SimpleMmcif {
             }
 
             root.set_group(&model_name, model);
+        }
+
+        if root.get_bond_list().is_empty() {
+            root.setup()?;
         }
 
         Ok(root)
