@@ -369,3 +369,103 @@ fn test_conect_invalid_error() {
     let err2 = pdb2.parse_str(invalid_partner).unwrap_err();
     assert!(err2.to_string().contains("CONECT partner serial"));
 }
+
+#[test]
+fn test_pdb_insertion_code_residues() {
+    // Synthetic PDB containing 3 residues with identical res_seq (52) but different insertion codes:
+    // residue 52 (blank i_code), 52A (i_code 'A'), and 52B (i_code 'B').
+    let pdb_content = "\
+ATOM      1  N   ALA A  52       0.000   0.000   0.000  1.00  0.00           N  
+ATOM      2  CA  ALA A  52       1.000   0.000   0.000  1.00  0.00           C  
+ATOM      3  N   GLY A  52A      2.000   0.000   0.000  1.00  0.00           N  
+ATOM      4  CA  GLY A  52A      3.000   0.000   0.000  1.00  0.00           C  
+ATOM      5  N   SER A  52B      4.000   0.000   0.000  1.00  0.00           N  
+ATOM      6  CA  SER A  52B      5.000   0.000   0.000  1.00  0.00           C  
+";
+    let pdb = Pdb::from_str(pdb_content, None).expect("failed to parse pdb string");
+    let ag = pdb
+        .get_atomgroup(None, None)
+        .expect("failed to get atomgroup");
+
+    let chain_a = ag
+        .get_group("model_1")
+        .expect("model_1 must exist")
+        .get_group("A")
+        .expect("chain A must exist");
+
+    // All three residues must exist as separate groups
+    assert!(chain_a.has_group("52"), "residue 52 must exist");
+    assert!(chain_a.has_group("52A"), "residue 52A must exist");
+    assert!(chain_a.has_group("52B"), "residue 52B must exist");
+
+    let res_52 = chain_a.get_group("52").unwrap();
+    let res_52a = chain_a.get_group("52A").unwrap();
+    let res_52b = chain_a.get_group("52B").unwrap();
+
+    assert_eq!(res_52.name, "ALA");
+    assert_eq!(res_52a.name, "GLY");
+    assert_eq!(res_52b.name, "SER");
+
+    assert_eq!(res_52.get_number_of_atoms(), 2);
+    assert_eq!(res_52a.get_number_of_atoms(), 2);
+    assert_eq!(res_52b.get_number_of_atoms(), 2);
+
+    // Verify roundtrip via set_by_atomgroup
+    let mut roundtrip_pdb = Pdb::new(None);
+    roundtrip_pdb
+        .set_by_atomgroup(&ag, false)
+        .expect("set_by_atomgroup failed");
+    let formatted = roundtrip_pdb.get_text();
+    assert!(formatted.contains("ALA A  52 "));
+    assert!(formatted.contains("GLY A  52A"));
+    assert!(formatted.contains("SER A  52B"));
+}
+
+#[test]
+fn test_pdb_insertion_code_ssbond() {
+    // SSBOND between CYS 52A and CYS 100:
+    // Columns:
+    //  0..6   "SSBOND"
+    // 15..16  "A" (chain1)
+    // 17..21  "  52" (seq_num1)
+    // 21..22  "A" (icode1)
+    // 26..28  "CYS"
+    // 29..30  "A" (chain2)
+    // 31..35  " 100" (seq_num2)
+    // 35..36  " " (icode2)
+    let pdb_content = "\
+SSBOND   1 CYS A   52A   CYS A  100 
+ATOM      1  N   CYS A  52A      0.000   0.000   0.000  1.00  0.00           N  
+ATOM      2  SG  CYS A  52A      1.000   0.000   0.000  1.00  0.00           S  
+ATOM      3  N   CYS A 100       5.000   0.000   0.000  1.00  0.00           N  
+ATOM      4  SG  CYS A 100       3.040   0.000   0.000  1.00  0.00           S  
+";
+    let pdb = Pdb::from_str(pdb_content, None).expect("failed to parse pdb string");
+    assert_eq!(pdb.ssbonds().len(), 1);
+    let ssbond = &pdb.ssbonds()[0];
+    assert_eq!(ssbond.chain_id1, "A");
+    assert_eq!(ssbond.seq_num1, 52);
+    assert_eq!(ssbond.icode1, "A");
+    assert_eq!(ssbond.chain_id2, "A");
+    assert_eq!(ssbond.seq_num2, 100);
+    assert_eq!(ssbond.icode2.trim(), "");
+
+    let mut ag = pdb
+        .get_atomgroup(None, None)
+        .expect("failed to get atomgroup");
+
+    let bonds = ag.get_bond_list();
+    assert_eq!(
+        bonds.len(),
+        1,
+        "SSBOND bond must be established for insertion code residue"
+    );
+    let (a1, a2) = ag.resolve_bond(&bonds[0]).expect("bond must resolve");
+    assert!(
+        (a1.path.contains("/52A/") && a2.path.contains("/100/"))
+            || (a1.path.contains("/100/") && a2.path.contains("/52A/")),
+        "Bond must connect CYS 52A SG and CYS 100 SG, got {} and {}",
+        a1.path,
+        a2.path
+    );
+}

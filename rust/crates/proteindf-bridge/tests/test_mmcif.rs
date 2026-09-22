@@ -605,3 +605,126 @@ BNZ C2 C3 AROM
     assert_eq!(ag_bnz.bonds()[0].order, 1);
     assert_eq!(ag_bnz.bonds()[1].order, 1);
 }
+
+#[test]
+fn test_mmcif_insertion_code_residues() {
+    let mmcif_content = r#"data_INS_CODE_TEST
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_seq_id
+_atom_site.pdbx_PDB_ins_code
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.auth_asym_id
+_atom_site.auth_comp_id
+_atom_site.auth_seq_id
+_atom_site.auth_atom_id
+_atom_site.pdbx_PDB_model_num
+ATOM 1 N N . ALA A 52 ? 0.000 0.000 0.000 A ALA 52 N 1
+ATOM 2 C CA . ALA A 52 ? 1.000 0.000 0.000 A ALA 52 CA 1
+ATOM 3 N N . GLY A 52 A 2.000 0.000 0.000 A GLY 52 N 1
+ATOM 4 C CA . GLY A 52 A 3.000 0.000 0.000 A GLY 52 CA 1
+ATOM 5 N N . SER A 52 B 4.000 0.000 0.000 A SER 52 N 1
+ATOM 6 C CA . SER A 52 B 5.000 0.000 0.000 A SER 52 CA 1
+"#;
+    let mut cif = SimpleMmcif::new();
+    cif.load_from_str(mmcif_content).unwrap();
+    let ag = cif.get_atomgroup("INS_CODE_TEST").unwrap();
+
+    let chain_a = ag
+        .get_group("model_1")
+        .expect("model_1 must exist")
+        .get_group("A")
+        .expect("chain A must exist");
+
+    // All three residues must exist as separate groups
+    assert!(chain_a.has_group("52"), "residue 52 must exist");
+    assert!(chain_a.has_group("52A"), "residue 52A must exist");
+    assert!(chain_a.has_group("52B"), "residue 52B must exist");
+
+    let res_52 = chain_a.get_group("52").unwrap();
+    let res_52a = chain_a.get_group("52A").unwrap();
+    let res_52b = chain_a.get_group("52B").unwrap();
+
+    assert_eq!(res_52.name, "ALA");
+    assert_eq!(res_52a.name, "GLY");
+    assert_eq!(res_52b.name, "SER");
+
+    assert_eq!(res_52.get_number_of_atoms(), 2);
+    assert_eq!(res_52a.get_number_of_atoms(), 2);
+    assert_eq!(res_52b.get_number_of_atoms(), 2);
+}
+
+#[test]
+fn test_mmcif_insertion_code_struct_conn() {
+    let mmcif_content = r#"data_CONN_TEST
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_seq_id
+_atom_site.pdbx_PDB_ins_code
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.auth_asym_id
+_atom_site.auth_comp_id
+_atom_site.auth_seq_id
+_atom_site.auth_atom_id
+_atom_site.pdbx_PDB_model_num
+ATOM 1 N N . CYS A 52 A 0.000 0.000 0.000 A CYS 52 N 1
+ATOM 2 S SG . CYS A 52 A 1.000 0.000 0.000 A CYS 52 SG 1
+ATOM 3 N N . CYS A 100 ? 5.000 0.000 0.000 A CYS 100 N 1
+ATOM 4 S SG . CYS A 100 ? 3.040 0.000 0.000 A CYS 100 SG 1
+
+loop_
+_struct_conn.id
+_struct_conn.conn_type_id
+_struct_conn.ptnr1_label_asym_id
+_struct_conn.ptnr1_label_comp_id
+_struct_conn.ptnr1_label_seq_id
+_struct_conn.ptnr1_label_atom_id
+_struct_conn.pdbx_ptnr1_PDB_ins_code
+_struct_conn.ptnr1_auth_asym_id
+_struct_conn.ptnr1_auth_comp_id
+_struct_conn.ptnr1_auth_seq_id
+_struct_conn.ptnr2_label_asym_id
+_struct_conn.ptnr2_label_comp_id
+_struct_conn.ptnr2_label_seq_id
+_struct_conn.ptnr2_label_atom_id
+_struct_conn.pdbx_ptnr2_PDB_ins_code
+_struct_conn.ptnr2_auth_asym_id
+_struct_conn.ptnr2_auth_comp_id
+_struct_conn.ptnr2_auth_seq_id
+disulf1 disulf A CYS 52 SG A A CYS 52 A CYS 100 SG ? A CYS 100
+"#;
+    let mut cif = SimpleMmcif::new();
+    cif.load_from_str(mmcif_content).unwrap();
+
+    let mut ag = cif.get_atomgroup("CONN_TEST").unwrap();
+    let bonds = ag.get_bond_list();
+    assert_eq!(
+        bonds.len(),
+        1,
+        "struct_conn disulfide bond must be established for insertion code residue"
+    );
+    let (a1, a2) = ag.resolve_bond(&bonds[0]).expect("bond must resolve");
+    assert!(
+        (a1.path.contains("/52A/") && a2.path.contains("/100/"))
+            || (a1.path.contains("/100/") && a2.path.contains("/52A/")),
+        "Bond must connect CYS 52A SG and CYS 100 SG, got {} and {}",
+        a1.path,
+        a2.path
+    );
+}
