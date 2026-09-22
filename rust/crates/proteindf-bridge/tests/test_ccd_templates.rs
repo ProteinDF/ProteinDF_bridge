@@ -58,13 +58,16 @@ fn test_apply_ccd_bond_templates_1hls_real_pdb() {
     let mut pdb = Pdb::new(None);
     pdb.load(&path).expect("failed to load 1hls.pdb");
 
-    let ag = pdb
+    let mut ag = pdb
         .get_atomgroup(None, None)
         .expect("failed to get 1hls atomgroup");
+    assert!(
+        ag.get_bond_list().is_empty(),
+        "Raw PDB loader output should have no bonds when file lacks CONECT/SSBOND"
+    );
 
     // Verify baseline: Bond::setup_heuristic() alone without templates assigns bond order 1 to all detected bonds
     let mut ag_baseline = ag.clone();
-    ag_baseline.clear_bonds();
     let mut bond = Bond::new();
     bond.setup_heuristic(&mut ag_baseline)
         .expect("Bond::setup_heuristic failed");
@@ -78,7 +81,6 @@ fn test_apply_ccd_bond_templates_1hls_real_pdb() {
 
     // Now apply CCD bond templates on a clean ag_ccd
     let mut ag_ccd = ag.clone();
-    ag_ccd.clear_bonds();
     let db = CcdTemplateDb::global();
     ag_ccd.apply_ccd_bond_templates(db);
 
@@ -506,9 +508,11 @@ fn test_atomgroup_setup_1hls_real_pdb() {
         .get_atomgroup(None, None)
         .expect("failed to get 1hls atomgroup");
 
-    // Clean bonds and call smart default AtomGroup::setup()
-    ag.clear_bonds();
-    assert!(ag.get_bond_list().is_empty());
+    // Verify raw output has no bonds, then call smart default AtomGroup::setup()
+    assert!(
+        ag.get_bond_list().is_empty(),
+        "Raw PDB loader output should have no bonds before setup()"
+    );
     ag.setup().expect("AtomGroup::setup failed");
 
     let final_bonds = ag.get_bond_list();
@@ -703,7 +707,7 @@ fn test_atomgroup_setup_with_db_custom() {
 }
 
 #[test]
-fn test_implicit_setup_loaders_without_bonds() {
+fn test_loaders_without_bonds_return_empty_bonds_until_setup() {
     let data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data");
 
     // 1. PDB: 1hls.pdb (has no CONECT records)
@@ -714,20 +718,54 @@ fn test_implicit_setup_loaders_without_bonds() {
         .get_atomgroup(None, None)
         .expect("failed to get PDB atomgroup");
     assert!(
+        ag_pdb.get_bond_list().is_empty(),
+        "PDB loader must return empty bonds when file has no explicit bonds"
+    );
+    ag_pdb.setup().expect("ag_pdb.setup failed");
+    assert!(
         !ag_pdb.get_bond_list().is_empty(),
-        "PDB loader must automatically resolve bonds when file has no explicit bonds"
+        "PDB atomgroup should resolve bonds after explicit setup()"
     );
 
-    // 2. mmCIF: 1HLS.cif (macromolecule structure)
-    let mmcif_path = data_dir.join("1HLS.cif");
+    // 2. mmCIF: macromolecule structure without _struct_conn
+    const MMCIF_NO_BONDS: &str = "\
+data_test
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_seq_id
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.auth_asym_id
+_atom_site.auth_comp_id
+_atom_site.auth_seq_id
+_atom_site.auth_atom_id
+_atom_site.pdbx_PDB_model_num
+ATOM 1 C C1 . ETH A 1 0.000 0.000 0.000 A ETH 1 C1 1
+ATOM 2 C C2 . ETH A 1 1.540 0.000 0.000 A ETH 1 C2 1
+";
     let mut mmcif = SimpleMmcif::new();
-    mmcif.load(&mmcif_path).expect("failed to load 1HLS.cif");
+    mmcif
+        .load_from_str(MMCIF_NO_BONDS)
+        .expect("parse mmcif without bonds failed");
     let mut ag_cif = mmcif
-        .get_atomgroup("1HLS")
+        .get_atomgroup("test")
         .expect("failed to get mmCIF atomgroup");
     assert!(
-        !ag_cif.get_bond_list().is_empty(),
-        "mmCIF loader must automatically resolve bonds when file has no explicit bonds"
+        ag_cif.get_bond_list().is_empty(),
+        "mmCIF loader must return empty bonds when file has no explicit bonds"
+    );
+    ag_cif.setup().expect("ag_cif.setup failed");
+    assert_eq!(
+        ag_cif.get_bond_list().len(),
+        1,
+        "mmCIF atomgroup should resolve bonds after explicit setup()"
     );
 
     // 3. PRMTOP: string with C1 and H1 spaced by 1.09 Å and no BONDS section
@@ -750,10 +788,15 @@ default_name
 ";
     let amber = AmberPrmtop::from_strings(PRMTOP_NO_BONDS, INPCRD_TWO_ATOMS).unwrap();
     let mut ag_amber = amber.get_atomgroup().unwrap();
+    assert!(
+        ag_amber.get_bond_list().is_empty(),
+        "PRMTOP loader must return empty bonds when BONDS section is absent"
+    );
+    ag_amber.setup().expect("ag_amber.setup failed");
     assert_eq!(
         ag_amber.get_bond_list().len(),
         1,
-        "PRMTOP loader must automatically resolve covalent bonds when BONDS section is absent"
+        "PRMTOP atomgroup should resolve covalent bonds after explicit setup()"
     );
 
     // 4. GRO: sample.gro (GRO format has no bond records)
@@ -761,8 +804,13 @@ default_name
     let gro = SimpleGro::from_file(&gro_path).expect("failed to load sample.gro");
     let mut ag_gro = gro.get_atomgroup().expect("failed to get GRO atomgroup");
     assert!(
+        ag_gro.get_bond_list().is_empty(),
+        "GRO loader must return empty bonds"
+    );
+    ag_gro.setup().expect("ag_gro.setup failed");
+    assert!(
         !ag_gro.get_bond_list().is_empty(),
-        "GRO loader must automatically resolve bonds"
+        "GRO atomgroup should resolve bonds after explicit setup()"
     );
 
     // 5. MOL2: Mol2 without @<TRIPOS>BOND section
@@ -782,16 +830,21 @@ NO_CHARGES
         .parse_str(mol2_no_bonds_str)
         .expect("parse mol2 without bonds failed");
     let mut ag_mol2 = mol2_no_bonds.get_atomgroup().clone();
+    assert!(
+        ag_mol2.get_bond_list().is_empty(),
+        "MOL2 loader must return empty bonds when @<TRIPOS>BOND is absent"
+    );
+    ag_mol2.setup().expect("ag_mol2.setup failed");
     let mol2_bonds = ag_mol2.get_bond_list();
     assert_eq!(
         mol2_bonds.len(),
         1,
-        "MOL2 loader must automatically resolve bonds when @<TRIPOS>BOND is absent"
+        "MOL2 atomgroup should resolve bonds after explicit setup()"
     );
 }
 
 #[test]
-fn test_implicit_setup_preserves_explicit_file_bonds() {
+fn test_loaders_preserve_explicit_file_bonds() {
     let data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data");
 
     // MOL2: sample.mol2 has 8 explicit bonds defined in @<TRIPOS>BOND
@@ -807,5 +860,25 @@ fn test_implicit_setup_preserves_explicit_file_bonds() {
     assert!(
         bonds.iter().all(|b| b.order == 1),
         "All explicit bonds should retain order 1"
+    );
+
+    // mmCIF: 1HLS.cif has 3 explicit disulfide bonds in _struct_conn per model across 20 models (total 60 bonds)
+    let mmcif_path = data_dir.join("1HLS.cif");
+    let mut mmcif = SimpleMmcif::new();
+    mmcif.load(&mmcif_path).expect("failed to load 1HLS.cif");
+    let mut ag_cif = mmcif
+        .get_atomgroup("1HLS")
+        .expect("failed to get mmCIF atomgroup");
+    let cif_bonds = ag_cif.get_bond_list();
+    assert_eq!(
+        cif_bonds.len(),
+        60,
+        "mmCIF loader must preserve exactly the 60 explicit _struct_conn disulfide bonds across 20 models without implicit setup"
+    );
+    let mut model_1 = ag_cif.get_group("model_1").unwrap().clone();
+    assert_eq!(
+        model_1.get_bond_list().len(),
+        3,
+        "model_1 must have exactly 3 disulfide bonds"
     );
 }

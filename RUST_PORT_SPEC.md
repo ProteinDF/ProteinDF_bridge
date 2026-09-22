@@ -288,7 +288,7 @@ OpenBabel・RDKit・ASEの`natural_cutoffs`・Jmol/PyMOL等、主要な構造化
    - `test_implicit_setup_loaders_without_bonds`: PDB・mmCIF・PRMTOP・GRO・MOL2 の全ローダーについて、明示的結合情報を持たない入力から `get_atomgroup()` を呼んだだけで結合が自動解決されることを検証。
    - `test_implicit_setup_preserves_explicit_file_bonds`: 明示的結合情報を持つ入力（`sample.mol2`等）でファイル由来結合が上書き・重複されないことを検証。
 
-### 3.15 ローダーからの暗黙`setup()`呼び出しの撤廃(計画中、未着手)
+### 3.15 ローダーからの暗黙`setup()`呼び出しの撤廃 (完了: 2026-09-23)
 
 #### 背景
 
@@ -300,24 +300,23 @@ OpenBabel・RDKit・ASEの`natural_cutoffs`・Jmol/PyMOL等、主要な構造化
 
 一方、§3.14で導入した `AtomGroup::setup()`（引数なしの薄いラッパー）自体は既に十分簡潔であり、「呼び忘れ防止」という暗黙実行が本来解決したかった問題に対して、`ag.setup()`という1行の明示呼び出しで既に十分実用的である。このため、**ローダー内部での暗黙呼び出しのみを撤廃し、`AtomGroup::setup()`/`AtomGroup::setup_with_db()`という明示APIはそのまま維持する**。
 
-#### 対象
+#### 実施内容 (2026-09-23完了)
 
-1. 以下のローダーから、§3.14で追加した「`get_bond_list().is_empty()`の場合に`setup()`を呼ぶ」処理を削除し、パースした生の結果（ファイル由来結合があればそれを含む、無ければ結合ゼロ）をそのまま返すようにする:
-   - `format/pdb.rs`の`get_atomgroup()`
-   - `format/mmcif.rs`の`get_atomgroup()` / `get_structure_atomgroup_for_block()`
-   - `format/amber_prmtop.rs`の`get_atomgroup()`
-   - `format/gro.rs`の`get_atomgroup()`
-   - `format/mol2.rs`の`parse_str()`
-2. `AtomGroup::setup()` / `AtomGroup::setup_with_db()` / `Bond::setup_heuristic()` 自体（§3.14・§3.12のロジック）は変更しない。
-3. §3.14で追加した`AtomGroup::clear_bonds()`は、ローダーの暗黙実行を前提としたテストのために追加されたものである。暗黙実行の撤廃に伴い、これに依存していたテスト(`test_implicit_setup_loaders_without_bonds`等)を、明示的に`ag.setup()`を呼ぶ形に書き換える。書き換えた結果`clear_bonds()`が他のテストからも使われなくなった場合は、削除して構わない(使われ続ける場合は残してよい)。
-4. `RUST_PORT_SPEC.md` §3.8の呼び出し側推奨パターンは、本セクションの内容に合わせて明示呼び出し形式に先行して更新済み。各ローダーファイル内のdocコメント（`AtomGroup::setup`が自動実行される旨の記述）も、明示呼び出しが必要である旨に更新すること。
-
-#### 完了の定義(想定)
-
-1. 上記5ローダーが、明示的結合情報を持たない入力に対して`get_atomgroup()`を呼んだ場合に、結合ゼロの`AtomGroup`を返すことを検証する回帰テストを追加・更新すること(§3.14で追加した暗黙実行の回帰テストを、明示呼び出し前提のテストへ書き換える形でよい)。
-2. `ag.setup()`を明示的に呼んだ場合には、従来通りCCDテンプレート＋ヒューリスティックによる結合解決が行われることを確認する既存テスト(`test_atomgroup_setup_1hls_real_pdb`等)が引き続きパスすること。
-3. 明示的結合情報を持つ入力（PDBのCONECT、MOL2のBONDセクション、PRMTOPのBONDS等）に対する既存テストが引き続きパスすること(この変更による影響はないはずだが回帰確認)。
-4. `cargo clippy` / `cargo fmt` を通すこと。
+1. **各フォーマットローダーからの暗黙`setup()`呼び出しの削除**:
+   - `format/pdb.rs`: `get_atomgroup()` 内の `root.setup()?` を削除。docコメントを明示呼び出し前提に更新。
+   - `format/mmcif.rs`: `get_atomgroup()` および `get_structure_atomgroup_for_block()` 内の暗黙呼び出しを削除。
+   - `format/amber_prmtop.rs`: `get_atomgroup()` 内の `atomgroup.setup()?` を削除。docコメントを更新。
+   - `format/gro.rs`: `get_atomgroup()` 内の `output.setup()?` を削除。
+   - `format/mol2.rs`: `parse_str()` 内の `ag.setup()?` を削除。docコメントを更新。
+2. **`AtomGroup::clear_bonds()` の撤廃**:
+   - 暗黙実行の摩擦回避のために追加されていた `clear_bonds()` を `atom_group.rs` から削除し、テストコード側の依存も完全に排除した。
+3. **明示APIの維持**:
+   - `AtomGroup::setup()`、`AtomGroup::setup_with_db()`、`Bond::setup_heuristic()` のロジックは一切変更せず維持。
+4. **検証**:
+   - `test_loaders_without_bonds_return_empty_bonds_until_setup`: PDB, mmCIF, PRMTOP, GRO, MOL2 の全5ローダーにおいて、明示的結合情報を持たない入力から得られた生の結果は結合ゼロ（`get_bond_list().is_empty()`）であり、明示的に `ag.setup()?` を呼んだ時点で初めて結合解決が行われることを検証。
+   - `test_loaders_preserve_explicit_file_bonds`: 明示的結合情報を持つファイル（`sample.mol2` の8本のBOND、`1HLS.cif` の20モデル×3本=60本の `_struct_conn` ジスルフィド結合等）が、暗黙`setup()`の撤廃後も正しくそのまま保持されることを検証。
+   - `cargo test --workspace`: 全テスト成功。
+   - `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`: 警告・エラーなし。
 
 ## 4. 多言語バインディング方針
 

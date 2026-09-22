@@ -842,14 +842,6 @@ impl AtomGroup {
         self.bonds = bonds;
     }
 
-    /// Recursively clears all bonds directly defined in this group and all its descendant groups.
-    pub fn clear_bonds(&mut self) {
-        self.bonds.clear();
-        for group in self.groups.values_mut() {
-            group.clear_bonds();
-        }
-    }
-
     /// Returns the secondary structure code assigned to this group (typically at residue level).
     pub fn secondary_structure(&self) -> Option<SsCode> {
         self.secondary_structure
