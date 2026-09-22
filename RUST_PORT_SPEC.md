@@ -443,3 +443,48 @@ YUI側の調査で見つかった、bridge側で対応してほしい項目。�
 - **[低・将来] クレート配布方式 (PR#36対応完了、4.1節参照)**: 現時点では対応不要。YUI側は相対パス依存を前提とし、次の現実的な選択肢としてGitHub git依存の指針・トレードオフを4.1節に明記した。
 - **[低・将来] Pythonバインディングの名前空間整理 (PR#36対応完了、4.2節参照)**: `proteindf-bridge-py`（`proteindf_bridge_rs`）とYUI独自の`core-py`（`yui`）の責務と使い分け判断基準を4.2節に明記した。
 - 内部数値計算（`Vector`/`Matrix`）を自前実装のまま保つか、`nalgebra`等の既存クレートに置き換えるかの最終判断（1:1移植完了後に検討）
+- **[中] `get_atomgroup()`系ローダーが挿入コード（insertion code）を無視している（2026-09-23、`yui`リポジトリ フェーズ6e-vii調査より、未対応）**:
+  `src/format/pdb.rs`の`Pdb::get_atomgroup()`と`src/format/mmcif.rs`の対応する読み込み処理の両方で、
+  残基キーの構築が挿入コードを無視している。
+  - `pdb.rs`（398行目付近）: `let res_key = format!("{}", item.res_seq);` — `PdbRecord.i_code`
+    （`i_code: String`、パース自体は正しく行われている）を全く参照していない。
+  - `mmcif.rs`（566行目付近）: `let res_key = format!("{res_seq}");` — `pdbx_pdb_ins_code`
+    （`_atom_site.pdbx_PDB_ins_code`、こちらもパース自体は正しく`"."`/`"?"`をフィルタして空文字既定値にしている）を
+    全く参照していない。
+
+  同一`res_seq`（または`auth_seq_id`/`label_seq_id`）だが異なる挿入コードを持つ複数の残基
+  （例: 抗体のCDRループ等で一般的な`"52A"`/`"52B"`のような番号付け）を含む実ファイルを読み込むと、
+  `chain.has_group(&res_key)`が既に真になっているため後続の挿入コード違いの残基がサイレントに
+  マージ・上書きされ、データが破損する。
+
+  **修正案:**
+  ```rust
+  // src/format/pdb.rs 内、get_atomgroup()
+  // 変更前: let res_key = format!("{}", item.res_seq);
+  let res_key = format!("{}{}", item.res_seq, item.i_code.trim());
+  // i_code の既定値は半角スペース " " なので trim() が必須（通常ケースでは res_key は
+  // 従来通り素の数値文字列のままになり、後方互換性が保たれる）。
+  ```
+  ```rust
+  // src/format/mmcif.rs 内、対応する読み込み処理
+  // 変更前: let res_key = format!("{res_seq}");
+  let res_key = format!("{res_seq}{}", item.pdbx_pdb_ins_code);
+  // pdbx_pdb_ins_code は取得時点で "."/"?" が既にフィルタ済み・空文字既定なので trim 不要。
+  ```
+
+  **見落としやすい注意点:** 同じファイル内で`res_key`を独立に再構築している箇所（例:
+  `pdb.rs`のSSBOND解決部分、`let res_key1/2 = format!("{}", ssbond.seq_num1/2);`付近、
+  および`mmcif.rs`の`_struct_conn`結合解決部分、`let res_key1/2 = format!("{seq1/2}");`付近）
+  **も、上記と全く同じフォーマットに揃える必要がある。** これらはSSBOND/CONECT由来の結合の
+  両端原子が属する残基を`chain.get_group(&res_key)`で引き直す処理であり、主経路（原子追加時の
+  `res_key`構築）だけ修正してこちらを直し忘れると、挿入コード付き残基に対するSSBOND/CONECT結合が
+  「該当残基が見つからない」形でサイレントに解決失敗する（新しいキー形式と一致しなくなるため）。
+  修正時は、ファイル内で`res_seq`/`auth_seq_id`/`label_seq_id`から`res_key`相当の文字列を
+  組み立てている箇所を全て洗い出し、共通のヘルパー関数に切り出すことを推奨する。
+
+  `yui`側は`core::atom_group::parse_residue_key()`（フェーズ6e-iii）で挿入コード付き残基キー
+  （例: `"52A"` → `(52, Some('A'))`）を扱える設計に既になっているため、上記修正が入れば
+  そのまま活用できる。
+  手元の検証用ファイル（`tests/data/1hls.pdb`, `3i3zH.pdb`, `2MGO.pdb`）にはいずれも挿入コード付き
+  残基が含まれていなかったため、今回のyui側フェーズ6e-viiの実データ検証では顕在化していない。
+  対応は現時点では見送り。
