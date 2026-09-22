@@ -68,7 +68,8 @@ fn test_non_covalent_contact_excluded() {
     ag.set_atom("C4", c4);
 
     let mut bond = Bond::new();
-    bond.setup(&mut ag).expect("Bond::setup failed");
+    bond.setup_heuristic(&mut ag)
+        .expect("Bond::setup_heuristic failed");
 
     let bonds = ag.get_bond_list();
 
@@ -96,7 +97,8 @@ fn test_known_covalent_bonds_1hls() {
         .expect("failed to get AtomGroup");
 
     let mut bond = Bond::new();
-    bond.setup(&mut ag).expect("Bond::setup failed on 1hls.pdb");
+    bond.setup_heuristic(&mut ag)
+        .expect("Bond::setup_heuristic failed on 1hls.pdb");
 
     let bonds = ag.get_bond_list();
     assert!(!bonds.is_empty(), "Bond list should not be empty");

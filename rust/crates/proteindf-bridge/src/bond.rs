@@ -66,14 +66,14 @@ impl Bond {
         Self::default()
     }
 
-    /// Sets up bonds for the given `AtomGroup` based on covalent radii.
+    /// Sets up bonds for the given `AtomGroup` based on covalent radii heuristics.
     ///
     /// Uses an $O(N)$ spatial cell list with dynamically calculated cell size.
     /// Dense matrices (`distmat`/`bondmat`) are allocated only when $N \le \text{MAX_DENSE_MATRIX_ATOMS}$.
     ///
     /// Pre-existing bonds in `mol` (e.g., from CCD templates or file-derived CONECT/bonds) are
     /// preserved without duplicate registration or overwriting existing bond orders.
-    pub fn setup(&mut self, mol: &mut AtomGroup) -> Result<()> {
+    pub fn setup_heuristic(&mut self, mol: &mut AtomGroup) -> Result<()> {
         mol.update_paths();
         self.atoms = mol.get_atom_list();
         let n = self.atoms.len();
@@ -183,7 +183,7 @@ mod tests {
         ag.set_atom("3", c3);
 
         let mut bond = Bond::new();
-        bond.setup(&mut ag).unwrap();
+        bond.setup_heuristic(&mut ag).unwrap();
 
         assert!(bond.distmat.is_some());
         assert!(bond.bondmat.is_some());
@@ -207,7 +207,7 @@ mod tests {
     fn test_bond_setup_empty() {
         let mut ag = AtomGroup::with_name("empty");
         let mut bond = Bond::new();
-        bond.setup(&mut ag).unwrap();
+        bond.setup_heuristic(&mut ag).unwrap();
 
         assert!(bond.distmat.is_some());
         assert!(bond.bondmat.is_some());
@@ -229,7 +229,7 @@ mod tests {
         }
 
         let mut bond = Bond::new();
-        bond.setup(&mut ag).unwrap();
+        bond.setup_heuristic(&mut ag).unwrap();
 
         // Dense matrices should be None to protect memory
         assert!(bond.distmat.is_none());
@@ -284,9 +284,9 @@ mod tests {
         }
         brute_bonds.sort();
 
-        // 2. CellList-based Bond::setup()
+        // 2. CellList-based Bond::setup_heuristic()
         let mut bond = Bond::new();
-        bond.setup(&mut ag).unwrap();
+        bond.setup_heuristic(&mut ag).unwrap();
 
         let mut cell_bonds: Vec<(usize, usize)> = ag
             .bonds()
@@ -340,11 +340,14 @@ mod tests {
 
         let start_bond = std::time::Instant::now();
         let mut bond = Bond::new();
-        bond.setup(&mut ag).unwrap();
+        bond.setup_heuristic(&mut ag).unwrap();
         let bond_time = start_bond.elapsed();
 
         let num_bonds = ag.bonds().len();
-        println!("Bond::setup() time for 1,000,000 atoms: {:.2?}", bond_time);
+        println!(
+            "Bond::setup_heuristic() time for 1,000,000 atoms: {:.2?}",
+            bond_time
+        );
         println!("Detected bonds count: {}", num_bonds);
         assert!(num_bonds > 0);
     }

@@ -193,6 +193,10 @@ impl SimpleGro {
             output.set_group("1", model);
         }
 
+        if output.get_bond_list().is_empty() {
+            output.setup()?;
+        }
+
         Ok(output)
     }
 

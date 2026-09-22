@@ -375,8 +375,9 @@ impl Pdb {
     ///
     /// If the PDB file contains `SSBOND` (disulfide bonds) or `CONECT` records, the returned
     /// `AtomGroup` includes the explicit bond topology parsed from the file with deduplication.
-    /// According to the bond priority policy (see `RUST_PORT_SPEC.md` §3.8), explicit
-    /// file-derived bonds take precedence over heuristic estimation (`Bond::setup()`).
+    /// According to the bond priority policy (see `RUST_PORT_SPEC.md` §3.8 & §3.14), explicit
+    /// file-derived bonds take precedence. If no explicit bond records exist in the file,
+    /// [`AtomGroup::setup`] is automatically executed to resolve bonds.
     ///
     /// If `select_model` is `None`, all models are included.
     /// Alternate location atoms matching `select_altloc` (default: "A") or blank are retained.
@@ -493,6 +494,10 @@ impl Pdb {
             }
 
             root.set_group(&model_name, model);
+        }
+
+        if root.get_bond_list().is_empty() {
+            root.setup()?;
         }
 
         Ok(root)

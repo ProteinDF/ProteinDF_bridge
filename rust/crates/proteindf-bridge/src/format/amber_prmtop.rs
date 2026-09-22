@@ -368,8 +368,9 @@ impl AmberPrmtop {
     ///
     /// If the PRMTOP file contains `BONDS_WITHOUT_HYDROGEN` or `BONDS_INC_HYDROGEN`
     /// sections, the returned `AtomGroup` includes the explicit bond topology parsed from
-    /// the file. According to the bond priority policy (see `RUST_PORT_SPEC.md` §3.8),
-    /// explicit file-derived bonds take precedence over heuristic estimation (`Bond::setup()`).
+    /// the file. According to the bond priority policy (see `RUST_PORT_SPEC.md` §3.8 & §3.14),
+    /// explicit file-derived bonds take precedence. If no explicit bond records exist,
+    /// [`AtomGroup::setup`] is automatically executed to resolve bonds.
     pub fn get_atomgroup(&self) -> Result<AtomGroup> {
         let mut atomgroup = AtomGroup::new();
         let num_of_atoms = self.xyz.len();
@@ -400,6 +401,10 @@ impl AmberPrmtop {
                 let a2_clone = a2.clone();
                 atomgroup.add_bond(&a1_clone, &a2_clone, 1);
             }
+        }
+
+        if atomgroup.get_bond_list().is_empty() {
+            atomgroup.setup()?;
         }
 
         Ok(atomgroup)

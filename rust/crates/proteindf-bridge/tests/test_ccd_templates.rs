@@ -7,7 +7,10 @@ use proteindf_bridge::atom::Atom;
 use proteindf_bridge::atom_group::AtomGroup;
 use proteindf_bridge::bond::Bond;
 use proteindf_bridge::ccd_templates::{CcdBondTemplate, CcdTemplateDb};
+use proteindf_bridge::format::amber_prmtop::AmberPrmtop;
+use proteindf_bridge::format::gro::SimpleGro;
 use proteindf_bridge::format::mmcif::SimpleMmcif;
+use proteindf_bridge::format::mol2::SimpleMol2;
 use proteindf_bridge::format::Pdb;
 use proteindf_bridge::position::Position;
 
@@ -55,27 +58,31 @@ fn test_apply_ccd_bond_templates_1hls_real_pdb() {
     let mut pdb = Pdb::new(None);
     pdb.load(&path).expect("failed to load 1hls.pdb");
 
-    let mut ag = pdb
+    let ag = pdb
         .get_atomgroup(None, None)
         .expect("failed to get 1hls atomgroup");
 
-    // Verify baseline: Bond::setup() alone without templates assigns bond order 1 to all detected bonds
+    // Verify baseline: Bond::setup_heuristic() alone without templates assigns bond order 1 to all detected bonds
     let mut ag_baseline = ag.clone();
+    ag_baseline.clear_bonds();
     let mut bond = Bond::new();
-    bond.setup(&mut ag_baseline).expect("Bond::setup failed");
+    bond.setup_heuristic(&mut ag_baseline)
+        .expect("Bond::setup_heuristic failed");
     let baseline_bonds = ag_baseline.get_bond_list();
     assert!(!baseline_bonds.is_empty());
-    // In pure VDW heuristic, every bond has order 1
+    // In pure VDW/covalent heuristic, every bond has order 1
     assert!(
         baseline_bonds.iter().all(|b| b.order == 1),
-        "Bond::setup alone should only produce order 1 bonds"
+        "Bond::setup_heuristic alone should only produce order 1 bonds"
     );
 
-    // Now apply CCD bond templates on ag
+    // Now apply CCD bond templates on a clean ag_ccd
+    let mut ag_ccd = ag.clone();
+    ag_ccd.clear_bonds();
     let db = CcdTemplateDb::global();
-    ag.apply_ccd_bond_templates(db);
+    ag_ccd.apply_ccd_bond_templates(db);
 
-    let bonds_after_ccd = ag.get_bond_list();
+    let bonds_after_ccd = ag_ccd.get_bond_list();
     assert!(!bonds_after_ccd.is_empty());
 
     // Verify double bonds in standard residues:
@@ -107,13 +114,13 @@ fn test_apply_ccd_bond_templates_1hls_real_pdb() {
         arg_double_bonds
     );
 
-    // 3. Fallback synergy test: Run Bond::setup afterwards for inter-residue peptide bonds
+    // 3. Fallback synergy test: Run Bond::setup_heuristic afterwards for inter-residue peptide bonds
     //    and verify that existing CCD template bonds (order 2) are not overwritten to order 1
     let mut bond2 = Bond::new();
     bond2
-        .setup(&mut ag)
-        .expect("Bond::setup after CCD templates failed");
-    let final_bonds = ag.get_bond_list();
+        .setup_heuristic(&mut ag_ccd)
+        .expect("Bond::setup_heuristic after CCD templates failed");
+    let final_bonds = ag_ccd.get_bond_list();
     let co_bonds: Vec<_> = final_bonds
         .iter()
         .filter(|b| {
@@ -135,7 +142,7 @@ fn test_apply_ccd_bond_templates_1hls_real_pdb() {
     );
     assert_eq!(
         co_bonds[0].order, 2,
-        "C=O bond order should remain 2 after Bond::setup"
+        "C=O bond order should remain 2 after Bond::setup_heuristic"
     );
 
     // Verify that NO duplicate bond records exist across all final bonds
@@ -449,15 +456,16 @@ fn test_bond_setup_after_ccd_does_not_duplicate_bonds() {
         "C=O bond should have order 2 in CCD template"
     );
 
-    // 2. Call Bond::setup()
+    // 2. Call Bond::setup_heuristic()
     let mut bond = Bond::new();
-    bond.setup(&mut ag).expect("Bond::setup failed");
+    bond.setup_heuristic(&mut ag)
+        .expect("Bond::setup_heuristic failed");
 
     let after_bonds = ag.get_bond_list();
     assert_eq!(
         after_bonds.len(),
         initial_bonds.len(),
-        "Bond::setup must not duplicate already registered bonds"
+        "Bond::setup_heuristic must not duplicate already registered bonds"
     );
 
     let co_bonds: Vec<_> = after_bonds
@@ -474,7 +482,7 @@ fn test_bond_setup_after_ccd_does_not_duplicate_bonds() {
     );
     assert_eq!(
         co_bonds[0].order, 2,
-        "C=O bond order must remain 2 after Bond::setup"
+        "C=O bond order must remain 2 after Bond::setup_heuristic"
     );
 
     // Check all bonds are unique
@@ -490,7 +498,7 @@ fn test_bond_setup_after_ccd_does_not_duplicate_bonds() {
 }
 
 #[test]
-fn test_resolve_bonds_1hls_real_pdb() {
+fn test_atomgroup_setup_1hls_real_pdb() {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/1hls.pdb");
     let mut pdb = Pdb::new(None);
     pdb.load(&path).expect("failed to load 1hls.pdb");
@@ -498,9 +506,10 @@ fn test_resolve_bonds_1hls_real_pdb() {
         .get_atomgroup(None, None)
         .expect("failed to get 1hls atomgroup");
 
-    // Call unified resolve_bonds entry point
-    let db = CcdTemplateDb::global();
-    ag.resolve_bonds(db).expect("resolve_bonds failed");
+    // Clean bonds and call smart default AtomGroup::setup()
+    ag.clear_bonds();
+    assert!(ag.get_bond_list().is_empty());
+    ag.setup().expect("AtomGroup::setup failed");
 
     let final_bonds = ag.get_bond_list();
 
@@ -626,9 +635,8 @@ fn test_resolve_bonds_preserves_existing_file_bonds() {
     assert_eq!(ag.bonds().len(), 1);
     assert_eq!(ag.bonds()[0].order, 1);
 
-    // Call resolve_bonds
-    let db = CcdTemplateDb::global();
-    ag.resolve_bonds(db).expect("resolve_bonds failed");
+    // Call smart default AtomGroup::setup()
+    ag.setup().expect("AtomGroup::setup failed");
 
     // Verify:
     // 1. Total heavy atom bonds for ALA is 4 (N-CA, CA-C, C-O, CA-CB)
@@ -659,4 +667,145 @@ fn test_resolve_bonds_preserves_existing_file_bonds() {
         };
         assert!(seen.insert(key), "Duplicate bond found: {:?}", key);
     }
+}
+
+#[test]
+fn test_atomgroup_setup_with_db_custom() {
+    let mut ag = AtomGroup::new();
+    ag.set_path("/model_1/A/1/".to_string());
+    ag.name = "XYZ".to_string();
+
+    let mut a1 = Atom::new();
+    a1.name = "A1".to_string();
+    a1.set_atomic_number(6);
+    a1.xyz = Position::new(0.0, 0.0, 0.0);
+
+    let mut a2 = Atom::new();
+    a2.name = "A2".to_string();
+    a2.set_atomic_number(8);
+    a2.xyz = Position::new(1.23, 0.0, 0.0);
+
+    ag.set_atom("A1", a1);
+    ag.set_atom("A2", a2);
+
+    // Custom database with XYZ ligand where A1=A2 is order 2
+    let mut custom_db = CcdTemplateDb::new();
+    custom_db.insert(CcdBondTemplate {
+        comp_id: "XYZ".to_string(),
+        atoms: vec!["A1".to_string(), "A2".to_string()],
+        bonds: vec![("A1".to_string(), "A2".to_string(), 2)],
+    });
+
+    ag.setup_with_db(&custom_db).expect("setup_with_db failed");
+    let bonds = ag.get_bond_list();
+    assert_eq!(bonds.len(), 1);
+    assert_eq!(bonds[0].order, 2);
+}
+
+#[test]
+fn test_implicit_setup_loaders_without_bonds() {
+    let data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data");
+
+    // 1. PDB: 1hls.pdb (has no CONECT records)
+    let pdb_path = data_dir.join("1hls.pdb");
+    let mut pdb = Pdb::new(None);
+    pdb.load(&pdb_path).expect("failed to load 1hls.pdb");
+    let mut ag_pdb = pdb
+        .get_atomgroup(None, None)
+        .expect("failed to get PDB atomgroup");
+    assert!(
+        !ag_pdb.get_bond_list().is_empty(),
+        "PDB loader must automatically resolve bonds when file has no explicit bonds"
+    );
+
+    // 2. mmCIF: 1HLS.cif (macromolecule structure)
+    let mmcif_path = data_dir.join("1HLS.cif");
+    let mut mmcif = SimpleMmcif::new();
+    mmcif.load(&mmcif_path).expect("failed to load 1HLS.cif");
+    let mut ag_cif = mmcif
+        .get_atomgroup("1HLS")
+        .expect("failed to get mmCIF atomgroup");
+    assert!(
+        !ag_cif.get_bond_list().is_empty(),
+        "mmCIF loader must automatically resolve bonds when file has no explicit bonds"
+    );
+
+    // 3. PRMTOP: string with C1 and H1 spaced by 1.09 Å and no BONDS section
+    const PRMTOP_NO_BONDS: &str = "\
+%VERSION  VERSION_STAMP = V0001.000  DATE = 08/25/26  12:00:00
+%FLAG ATOM_NAME
+%FORMAT(20a4)
+C1  H1  
+%FLAG CHARGE
+%FORMAT(5E16.8)
+ 0.00000000E+00 0.00000000E+00
+%FLAG ATOMIC_NUMBER
+%FORMAT(10I8)
+       6       1
+";
+    const INPCRD_TWO_ATOMS: &str = "\
+default_name
+    2
+   0.0000000   0.0000000   0.0000000   1.0900000   0.0000000   0.0000000
+";
+    let amber = AmberPrmtop::from_strings(PRMTOP_NO_BONDS, INPCRD_TWO_ATOMS).unwrap();
+    let mut ag_amber = amber.get_atomgroup().unwrap();
+    assert_eq!(
+        ag_amber.get_bond_list().len(),
+        1,
+        "PRMTOP loader must automatically resolve covalent bonds when BONDS section is absent"
+    );
+
+    // 4. GRO: sample.gro (GRO format has no bond records)
+    let gro_path = data_dir.join("sample.gro");
+    let gro = SimpleGro::from_file(&gro_path).expect("failed to load sample.gro");
+    let mut ag_gro = gro.get_atomgroup().expect("failed to get GRO atomgroup");
+    assert!(
+        !ag_gro.get_bond_list().is_empty(),
+        "GRO loader must automatically resolve bonds"
+    );
+
+    // 5. MOL2: Mol2 without @<TRIPOS>BOND section
+    let mol2_no_bonds_str = "\
+@<TRIPOS>MOLECULE
+ethane_fragment
+2 0 0 0 0
+SMALL
+NO_CHARGES
+
+@<TRIPOS>ATOM
+      1 C1          0.0000    0.0000    0.0000 C.3       1 ETH       0.0000
+      2 C2          1.5400    0.0000    0.0000 C.3       1 ETH       0.0000
+";
+    let mut mol2_no_bonds = SimpleMol2::new();
+    mol2_no_bonds
+        .parse_str(mol2_no_bonds_str)
+        .expect("parse mol2 without bonds failed");
+    let mut ag_mol2 = mol2_no_bonds.get_atomgroup().clone();
+    let mol2_bonds = ag_mol2.get_bond_list();
+    assert_eq!(
+        mol2_bonds.len(),
+        1,
+        "MOL2 loader must automatically resolve bonds when @<TRIPOS>BOND is absent"
+    );
+}
+
+#[test]
+fn test_implicit_setup_preserves_explicit_file_bonds() {
+    let data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data");
+
+    // MOL2: sample.mol2 has 8 explicit bonds defined in @<TRIPOS>BOND
+    let mol2_path = data_dir.join("sample.mol2");
+    let mol2 = SimpleMol2::from_file(&mol2_path).expect("failed to load sample.mol2");
+    let mut ag_mol2 = mol2.get_atomgroup().clone();
+    let bonds = ag_mol2.get_bond_list();
+    assert_eq!(
+        bonds.len(),
+        8,
+        "MOL2 loader must preserve exactly the 8 explicit file-derived bonds without duplication"
+    );
+    assert!(
+        bonds.iter().all(|b| b.order == 1),
+        "All explicit bonds should retain order 1"
+    );
 }
