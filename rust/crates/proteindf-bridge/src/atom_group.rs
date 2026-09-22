@@ -916,6 +916,26 @@ impl AtomGroup {
         }
     }
 
+    /// Resolves chemical bonds in the molecule by first applying canonical CCD templates
+    /// (preserving correct bond orders such as double/aromatic bonds), and then filling in
+    /// remaining bonds (e.g. inter-residue peptide bonds, non-standard residues) via covalent
+    /// radius heuristics ([`crate::bond::Bond::setup`]).
+    ///
+    /// # Priority Policy (§3.8 & §3.13):
+    /// 1. File-derived explicit bonds (PDB CONECT, MOL2, PRMTOP) already present in `self`
+    ///    are strictly preserved (never overwritten or duplicated).
+    /// 2. Canonical CCD templates from `db` are applied to standard residues, assigning accurate
+    ///    bond orders (e.g., C=O double bonds, aromatic rings).
+    /// 3. Remaining unbonded atom pairs within covalent distance are complemented via
+    ///    covalent radius heuristics, establishing peptide bonds and bonds in non-standard
+    ///    components without duplicating already registered bonds.
+    pub fn resolve_bonds(&mut self, db: &crate::ccd_templates::CcdTemplateDb) -> Result<()> {
+        self.apply_ccd_bond_templates(db);
+        let mut bond = crate::bond::Bond::new();
+        bond.setup(self)?;
+        Ok(())
+    }
+
     /// Returns the raw MessagePack Value representation of this AtomGroup.
     pub fn get_raw_data(&self) -> rmpv::Value {
         crate::brd::atomgroup_get_raw_data(self)
