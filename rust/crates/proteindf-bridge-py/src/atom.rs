@@ -56,7 +56,7 @@ impl PyAtom {
                 atom = CoreAtom::from_symbol(&sym).map_err(to_py_err)?;
             } else if let Ok(num) = first.extract::<usize>() {
                 atom.set_atomic_number(num);
-            } else if let Ok(dict) = first.downcast::<PyDict>() {
+            } else if let Ok(dict) = first.cast::<PyDict>() {
                 if let Some(z) = dict.get_item("Z")? {
                     atom.set_atomic_number(z.extract::<usize>()?);
                 }
