@@ -3,8 +3,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """
-Extracts standard amino acid, nucleic acid, and water bond templates from wwPDB CCD
-and packages them into a MessagePack binary database for proteindf-bridge.
+Extracts standard amino acid, nucleic acid, and water bond+geometry templates from
+wwPDB CCD and packages them into a MessagePack binary database for proteindf-bridge.
+
+Each atom entry includes its element symbol and idealized 3D coordinates
+(falling back to model coordinates when idealized ones are absent), used both for
+bond-order resolution (`AtomGroup::apply_ccd_bond_templates`) and for CCD-reference
+hydrogen addition (`RUST_PORT_SPEC.md` §3.16).
 
 Target components:
 - 20 standard amino acids: ALA, ARG, ASN, ASP, CYS, GLN, GLU, GLY, HIS, ILE,
@@ -99,9 +104,39 @@ def parse_ccd_cif(cif_text: str, comp_id: str) -> dict:
 
             if is_atom_loop:
                 atom_id_col = "_chem_comp_atom.atom_id"
+                type_symbol_col = "_chem_comp_atom.type_symbol"
+                ideal_cols = (
+                    "_chem_comp_atom.pdbx_model_Cartn_x_ideal",
+                    "_chem_comp_atom.pdbx_model_Cartn_y_ideal",
+                    "_chem_comp_atom.pdbx_model_Cartn_z_ideal",
+                )
+                model_cols = (
+                    "_chem_comp_atom.model_Cartn_x",
+                    "_chem_comp_atom.model_Cartn_y",
+                    "_chem_comp_atom.model_Cartn_z",
+                )
+
+                def parse_xyz(r, cols):
+                    values = [r.get(c) for c in cols]
+                    if any(v is None or v in ("?", ".") for v in values):
+                        return None
+                    try:
+                        return [float(v) for v in values]
+                    except ValueError:
+                        return None
+
                 for r in rows:
-                    if atom_id_col in r:
-                        atoms.append(r[atom_id_col])
+                    if atom_id_col not in r:
+                        continue
+                    element = r.get(type_symbol_col, "X")
+                    if element == "D":
+                        element = "H"
+                    ideal_xyz = parse_xyz(r, ideal_cols) or parse_xyz(r, model_cols)
+                    atoms.append({
+                        "name": r[atom_id_col],
+                        "element": element,
+                        "ideal_xyz": ideal_xyz,
+                    })
 
             elif is_bond_loop:
                 a1_col = "_chem_comp_bond.atom_id_1"

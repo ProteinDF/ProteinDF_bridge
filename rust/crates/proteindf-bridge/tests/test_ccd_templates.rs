@@ -6,13 +6,23 @@ use std::path::PathBuf;
 use proteindf_bridge::atom::Atom;
 use proteindf_bridge::atom_group::AtomGroup;
 use proteindf_bridge::bond::Bond;
-use proteindf_bridge::ccd_templates::{CcdBondTemplate, CcdTemplateDb};
+use proteindf_bridge::ccd_templates::{CcdAtom, CcdBondTemplate, CcdTemplateDb};
 use proteindf_bridge::format::amber_prmtop::AmberPrmtop;
 use proteindf_bridge::format::gro::SimpleGro;
 use proteindf_bridge::format::mmcif::SimpleMmcif;
 use proteindf_bridge::format::mol2::SimpleMol2;
 use proteindf_bridge::format::Pdb;
 use proteindf_bridge::position::Position;
+
+/// Builds a minimal synthetic `CcdAtom` for tests that only care about atom names/bonds
+/// (e.g. merge-precedence tests), not geometry.
+fn synthetic_atom(name: &str) -> CcdAtom {
+    CcdAtom {
+        name: name.to_string(),
+        element: "C".to_string(),
+        ideal_xyz: None,
+    }
+}
 
 #[test]
 fn test_ccd_template_db_embedded() {
@@ -23,11 +33,11 @@ fn test_ccd_template_db_embedded() {
     // Check ALA
     let ala = db.lookup("ALA").expect("ALA template should exist");
     assert_eq!(ala.comp_id, "ALA");
-    assert!(ala.atoms.contains(&"N".to_string()));
-    assert!(ala.atoms.contains(&"CA".to_string()));
-    assert!(ala.atoms.contains(&"C".to_string()));
-    assert!(ala.atoms.contains(&"O".to_string()));
-    assert!(ala.atoms.contains(&"CB".to_string()));
+    assert!(ala.get_atom("N").is_some());
+    assert!(ala.get_atom("CA").is_some());
+    assert!(ala.get_atom("C").is_some());
+    assert!(ala.get_atom("O").is_some());
+    assert!(ala.get_atom("CB").is_some());
     // C=O should have order 2
     let co_bond = ala
         .bonds
@@ -49,6 +59,92 @@ fn test_ccd_template_db_embedded() {
     assert_eq!(hoh.bonds.len(), 2);
     for (_, _, order) in &hoh.bonds {
         assert_eq!(*order, 1);
+    }
+}
+
+/// Reference idealized coordinates for ALA, independently read off the raw CCD CIF
+/// (`https://files.rcsb.org/ligands/view/ALA.cif`, `_chem_comp_atom` loop,
+/// `pdbx_model_Cartn_{x,y,z}_ideal` columns) rather than derived from the code under test.
+#[test]
+fn test_ccd_template_ala_hydrogen_ideal_coordinates() {
+    let db = CcdTemplateDb::global();
+    let ala = db.lookup("ALA").expect("ALA template should exist");
+
+    let cases: &[(&str, &str, (f64, f64, f64))] = &[
+        ("N", "N", (-0.966, 0.493, 1.500)),
+        ("CA", "C", (0.257, 0.418, 0.692)),
+        ("C", "C", (-0.094, 0.017, -0.716)),
+        ("O", "O", (-1.056, -0.682, -0.923)),
+        ("CB", "C", (1.204, -0.620, 1.296)),
+        ("H", "H", (-1.383, -0.425, 1.482)),
+        ("H2", "H", (-0.676, 0.661, 2.452)),
+        ("HA", "H", (0.746, 1.392, 0.682)),
+        ("HB1", "H", (1.459, -0.330, 2.316)),
+        ("HB2", "H", (0.715, -1.594, 1.307)),
+        ("HB3", "H", (2.113, -0.676, 0.697)),
+        ("OXT", "O", (0.661, 0.439, -1.742)),
+        ("HXT", "H", (0.435, 0.182, -2.647)),
+    ];
+
+    for (name, element, (x, y, z)) in cases {
+        let atom = ala
+            .get_atom(name)
+            .unwrap_or_else(|| panic!("ALA atom '{name}' should exist"));
+        assert_eq!(&atom.element, element, "element mismatch for atom {name}");
+        let (ax, ay, az) = atom
+            .ideal_xyz
+            .unwrap_or_else(|| panic!("ALA atom '{name}' should have ideal_xyz"));
+        assert!(
+            (ax - x).abs() < 1e-6 && (ay - y).abs() < 1e-6 && (az - z).abs() < 1e-6,
+            "ideal_xyz mismatch for atom {name}: got ({ax}, {ay}, {az}), expected ({x}, {y}, {z})"
+        );
+    }
+
+    // Hydrogen classification
+    assert!(ala.get_atom("HA").unwrap().is_hydrogen());
+    assert!(!ala.get_atom("CA").unwrap().is_hydrogen());
+}
+
+/// Every embedded template (all 29 standard components) should expose element symbols
+/// and idealized coordinates for its hydrogen atoms, not just bare names.
+#[test]
+fn test_ccd_template_all_embedded_hydrogens_have_ideal_coordinates() {
+    let db = CcdTemplateDb::global();
+    let comp_ids = [
+        "ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY", "HIS", "ILE", "LEU", "LYS", "MET",
+        "PHE", "PRO", "SER", "THR", "TRP", "TYR", "VAL", "DA", "DC", "DG", "DT", "A", "C", "G",
+        "U", "HOH",
+    ];
+    assert_eq!(comp_ids.len(), 29);
+
+    for comp_id in comp_ids {
+        let template = db
+            .lookup(comp_id)
+            .unwrap_or_else(|| panic!("template '{comp_id}' should exist"));
+        let hydrogens: Vec<_> = template.atoms.iter().filter(|a| a.is_hydrogen()).collect();
+        assert!(
+            !hydrogens.is_empty(),
+            "template '{comp_id}' should have at least one hydrogen atom"
+        );
+        for h in &hydrogens {
+            assert_eq!(h.element, "H", "hydrogen atom '{}' in {comp_id}", h.name);
+            assert!(
+                h.ideal_xyz.is_some(),
+                "hydrogen atom '{}' in {comp_id} should have ideal_xyz",
+                h.name
+            );
+        }
+        // Heavy atoms should also be present with resolvable coordinates.
+        let heavy_without_xyz: Vec<_> = template
+            .atoms
+            .iter()
+            .filter(|a| !a.is_hydrogen() && a.ideal_xyz.is_none())
+            .map(|a| a.name.clone())
+            .collect();
+        assert!(
+            heavy_without_xyz.is_empty(),
+            "template '{comp_id}' has heavy atoms without ideal_xyz: {heavy_without_xyz:?}"
+        );
     }
 }
 
@@ -290,7 +386,14 @@ LIG C1 C2 SING
         CcdBondTemplate::from_mmcif_block(block, "LIG").expect("from_mmcif_block failed");
 
     assert_eq!(template.comp_id, "LIG");
-    assert_eq!(template.atoms, vec!["C1", "O1", "C2"]);
+    assert_eq!(template.atoms.len(), 3);
+    // No coordinate columns in this minimal fixture: ideal_xyz must fall back to None,
+    // not error (a template usable for bond-order resolution even without geometry).
+    for (name, element) in [("C1", "C"), ("O1", "O"), ("C2", "C")] {
+        let atom = template.get_atom(name).unwrap();
+        assert_eq!(atom.element, element);
+        assert!(atom.ideal_xyz.is_none());
+    }
     assert_eq!(
         template.bonds,
         vec![
@@ -349,6 +452,57 @@ LIG C1 C2 SING
     );
 }
 
+/// A user-supplied CCD file (via `from_mmcif_block`) with explicit hydrogens and both
+/// idealized and model coordinate columns must: (1) normalize deuterium ("D") to "H",
+/// (2) prefer idealized over model coordinates when both are present, and (3) fall back
+/// to model coordinates when idealized ones are unresolvable ("?").
+#[test]
+fn test_from_mmcif_block_ideal_priority_and_deuterium_normalization() {
+    let cif_text = r#"
+data_LG2
+#
+_chem_comp.id                                    LG2
+#
+loop_
+_chem_comp_atom.comp_id
+_chem_comp_atom.atom_id
+_chem_comp_atom.type_symbol
+_chem_comp_atom.model_Cartn_x
+_chem_comp_atom.model_Cartn_y
+_chem_comp_atom.model_Cartn_z
+_chem_comp_atom.pdbx_model_Cartn_x_ideal
+_chem_comp_atom.pdbx_model_Cartn_y_ideal
+_chem_comp_atom.pdbx_model_Cartn_z_ideal
+LG2 C1 C 0.100 0.200 0.300 1.100 1.200 1.300
+LG2 D1 D 0.400 0.500 0.600 1.400 1.500 1.600
+LG2 C2 C 0.700 0.800 0.900 ?     ?     ?
+"#;
+
+    let mut cif = SimpleMmcif::new();
+    cif.load_from_str(cif_text)
+        .expect("failed to parse synthetic LG2 CIF");
+    let block = cif.get_data_block("LG2").expect("block LG2 not found");
+    let template =
+        CcdBondTemplate::from_mmcif_block(block, "LG2").expect("from_mmcif_block failed");
+
+    // Idealized coordinates take priority over model coordinates when both are present.
+    let c1 = template.get_atom("C1").unwrap();
+    assert_eq!(c1.element, "C");
+    assert_eq!(c1.ideal_xyz, Some((1.100, 1.200, 1.300)));
+
+    // Deuterium ("D") is normalized to hydrogen ("H"), and its idealized coordinates
+    // are used just like any other atom.
+    let d1 = template.get_atom("D1").unwrap();
+    assert_eq!(d1.element, "H");
+    assert!(d1.is_hydrogen());
+    assert_eq!(d1.ideal_xyz, Some((1.400, 1.500, 1.600)));
+
+    // Unresolvable ("?") idealized coordinates fall back to model coordinates.
+    let c2 = template.get_atom("C2").unwrap();
+    assert_eq!(c2.element, "C");
+    assert_eq!(c2.ideal_xyz, Some((0.700, 0.800, 0.900)));
+}
+
 #[test]
 fn test_from_mmcif_block_rejects_atom_site() {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/1HLS.cif");
@@ -370,19 +524,19 @@ fn test_ccd_template_db_merge_precedence() {
     let mut db1 = CcdTemplateDb::new();
     db1.insert(CcdBondTemplate {
         comp_id: "XYZ".to_string(),
-        atoms: vec!["A1".to_string(), "A2".to_string()],
+        atoms: vec![synthetic_atom("A1"), synthetic_atom("A2")],
         bonds: vec![("A1".to_string(), "A2".to_string(), 1)],
     });
 
     let mut db2 = CcdTemplateDb::new();
     db2.insert(CcdBondTemplate {
         comp_id: "XYZ".to_string(),
-        atoms: vec!["A1".to_string(), "A2".to_string()],
+        atoms: vec![synthetic_atom("A1"), synthetic_atom("A2")],
         bonds: vec![("A1".to_string(), "A2".to_string(), 2)], // Updated bond order 2
     });
     db2.insert(CcdBondTemplate {
         comp_id: "NEW".to_string(),
-        atoms: vec!["B1".to_string()],
+        atoms: vec![synthetic_atom("B1")],
         bonds: vec![],
     });
 
@@ -696,7 +850,7 @@ fn test_atomgroup_setup_with_db_custom() {
     let mut custom_db = CcdTemplateDb::new();
     custom_db.insert(CcdBondTemplate {
         comp_id: "XYZ".to_string(),
-        atoms: vec!["A1".to_string(), "A2".to_string()],
+        atoms: vec![synthetic_atom("A1"), synthetic_atom("A2")],
         bonds: vec![("A1".to_string(), "A2".to_string(), 2)],
     });
 

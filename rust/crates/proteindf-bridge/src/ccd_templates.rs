@@ -3,9 +3,13 @@
 
 //! wwPDB Chemical Component Dictionary (CCD) bond template database.
 //!
-//! Provides canonical atom names and bond topology (with bond orders 1, 2, 3, 4)
-//! for standard amino acids, nucleic acids, and water, embedded at compile time
-//! via MessagePack binary for zero-filesystem portable access.
+//! Provides canonical atom names/elements/idealized geometry and bond topology
+//! (with bond orders 1, 2, 3, 4) for standard amino acids, nucleic acids, and
+//! water, embedded at compile time via MessagePack binary for zero-filesystem
+//! portable access. The idealized geometry (including explicit hydrogens) is the
+//! data foundation for CCD-reference-based hydrogen addition (`RUST_PORT_SPEC.md`
+//! §3.16); this module itself only provides the template data and bond-order
+//! resolution (`AtomGroup::apply_ccd_bond_templates`), not hydrogenation itself.
 //!
 //! # Runtime Extension with User-Supplied CCD Data
 //! While the standard 29 residue templates are embedded at compile time via [`CcdTemplateDb::global`],
@@ -46,18 +50,92 @@ use crate::format::mmcif::MmcifDataBlock;
 /// Raw embedded MessagePack bytes for standard CCD bond templates.
 pub const CCD_BOND_TEMPLATES_MSGPACK: &[u8] = include_bytes!("data/ccd_bond_templates.msgpack");
 
+/// A single atom of a CCD component, with element and idealized geometry.
+///
+/// `ideal_xyz` is `None` when neither an idealized (`pdbx_model_Cartn_*_ideal`) nor a
+/// model (`model_Cartn_*`) coordinate could be resolved for this atom (e.g. a
+/// minimal user-supplied CCD file that only lists atom names/elements). Bond-order
+/// resolution (`AtomGroup::apply_ccd_bond_templates`) does not need coordinates, so a
+/// missing `ideal_xyz` does not prevent a template from being usable for that purpose.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CcdAtom {
+    /// Canonical atom name (e.g. "CA", "HB2").
+    pub name: String,
+    /// Element symbol (e.g. "C", "N", "H"). Deuterium ("D") is normalized to "H".
+    pub element: String,
+    /// Idealized (or, failing that, model) Cartesian coordinates in Angstrom.
+    pub ideal_xyz: Option<(f64, f64, f64)>,
+}
+
+impl CcdAtom {
+    /// Returns whether this atom's element is hydrogen.
+    pub fn is_hydrogen(&self) -> bool {
+        self.element.eq_ignore_ascii_case("H")
+    }
+}
+
 /// A bond template for a chemical component in the CCD.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CcdBondTemplate {
     /// 3-letter component identifier (e.g. "ALA", "ARG", "DA", "HOH").
     pub comp_id: String,
-    /// List of canonical atom names.
-    pub atoms: Vec<String>,
+    /// List of canonical atoms (name, element, idealized geometry).
+    pub atoms: Vec<CcdAtom>,
     /// List of intra-component bonds as (atom_id_1, atom_id_2, bond_order).
     pub bonds: Vec<(String, String, usize)>,
 }
 
 impl CcdBondTemplate {
+    /// Looks up an atom by its canonical name.
+    pub fn get_atom(&self, name: &str) -> Option<&CcdAtom> {
+        self.atoms.iter().find(|a| a.name == name)
+    }
+
+    /// Extracts an idealized (falling back to model) coordinate axis from an mmCIF
+    /// `_chem_comp_atom` row, mirroring `format::mmcif`'s coordinate-resolution
+    /// convention (idealized coordinates take priority over model coordinates).
+    fn get_coordinate(axis: &str, dict: &indexmap::IndexMap<String, String>) -> Option<f64> {
+        let ideal_key = format!("_chem_comp_atom.pdbx_model_Cartn_{axis}_ideal");
+        let model_key = format!("_chem_comp_atom.model_Cartn_{axis}");
+
+        if let Some(val) = dict.get(&ideal_key) {
+            if let Ok(v) = val.parse::<f64>() {
+                return Some(v);
+            }
+        }
+        if let Some(val) = dict.get(&model_key) {
+            if let Ok(v) = val.parse::<f64>() {
+                return Some(v);
+            }
+        }
+        None
+    }
+
+    /// Builds a `CcdAtom` from an mmCIF `_chem_comp_atom` row, if it contains an `atom_id`.
+    fn atom_from_row(row: &indexmap::IndexMap<String, String>) -> Option<CcdAtom> {
+        let name = row.get("_chem_comp_atom.atom_id")?.clone();
+        let mut element = row
+            .get("_chem_comp_atom.type_symbol")
+            .cloned()
+            .unwrap_or_else(|| "X".to_string());
+        if element == "D" {
+            element = "H".to_string();
+        }
+        let ideal_xyz = match (
+            Self::get_coordinate("x", row),
+            Self::get_coordinate("y", row),
+            Self::get_coordinate("z", row),
+        ) {
+            (Some(x), Some(y), Some(z)) => Some((x, y, z)),
+            _ => None,
+        };
+        Some(CcdAtom {
+            name,
+            element,
+            ideal_xyz,
+        })
+    }
+
     /// Builds a `CcdBondTemplate` from an mmCIF CCD data block.
     ///
     /// Extracts canonical atom names from `_chem_comp_atom.atom_id` and intra-component
@@ -88,18 +166,18 @@ impl CcdBondTemplate {
                 }
             });
 
-        // 1. Extract canonical atom names (preserving appearance order)
-        let mut atoms = Vec::new();
-        if let Some(atom_id) = block.key_values.get("_chem_comp_atom.atom_id") {
-            if !atoms.contains(atom_id) {
-                atoms.push(atom_id.clone());
+        // 1. Extract canonical atoms (name, element, idealized geometry; preserving appearance order)
+        let mut atoms: Vec<CcdAtom> = Vec::new();
+        if let Some(atom) = Self::atom_from_row(&block.key_values) {
+            if !atoms.iter().any(|a| a.name == atom.name) {
+                atoms.push(atom);
             }
         }
         for table in &block.tables {
             for row in table {
-                if let Some(atom_id) = row.get("_chem_comp_atom.atom_id") {
-                    if !atoms.contains(atom_id) {
-                        atoms.push(atom_id.clone());
+                if let Some(atom) = Self::atom_from_row(row) {
+                    if !atoms.iter().any(|a| a.name == atom.name) {
+                        atoms.push(atom);
                     }
                 }
             }
