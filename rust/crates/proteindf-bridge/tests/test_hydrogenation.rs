@@ -81,9 +81,16 @@ fn test_hydrogenation_identity_superposition() {
     let hydrogenated = add_hydrogens_to_component(&ala_heavy, template)
         .expect("hydrogenation should succeed on identical coordinates");
 
-    // Verify all hydrogens were added and coordinates match exactly
+    // In PR#38 single-component hydrogenation, backbone N 'H2' is unconditionally skipped to avoid
+    // over-protonating internal/C-terminal peptide residues.
+    assert!(
+        !hydrogenated.has_atom("H2"),
+        "Backbone N 'H2' should be skipped unconditionally"
+    );
+
+    // Verify all applicable hydrogens were added and coordinates match exactly
     for atom in &template.atoms {
-        if atom.is_hydrogen() {
+        if atom.is_hydrogen() && atom.name != "H2" && atom.name != "H3" {
             let (ix, iy, iz) = atom.ideal_xyz.unwrap();
             let ideal_pos = Position::new(ix, iy, iz);
 
@@ -543,4 +550,119 @@ fn test_hydrogenation_in_place_atomic_on_error() {
             );
         }
     }
+}
+
+// 10. Regression test: H2 / H3 on backbone N must be unconditionally skipped in single-component
+// hydrogenation (PR#38), whether the component is an isolated amino acid, C-terminal (with OXT),
+// or internal. Only standard amide 'H' is added; full N-terminal amine capping/protonation (NH3+)
+// is deferred to PR#39.
+#[test]
+fn test_hydrogenation_backbone_n_skips_h2_h3_unconditionally() {
+    let db = CcdTemplateDb::global();
+    let template = db.lookup("ALA").expect("ALA template exists");
+
+    // Case A: Isolated / C-terminal ALA (has OXT)
+    let mut c_term_ala = AtomGroup::with_name("ALA");
+    for atom in &template.atoms {
+        if !atom.is_hydrogen() {
+            let (x, y, z) = atom.ideal_xyz.unwrap();
+            c_term_ala.set_atom(
+                &atom.name,
+                Atom::new_with_pos(&atom.element, Position::new(x, y, z)).unwrap(),
+            );
+        }
+    }
+    assert!(c_term_ala.has_atom("OXT"));
+    assert!(c_term_ala.has_atom("N"));
+
+    let hydrogenated_c_term = add_hydrogens_to_component(&c_term_ala, template)
+        .expect("Hydrogenation of C-terminal ALA should succeed");
+
+    assert!(
+        hydrogenated_c_term.has_atom("H"),
+        "Primary backbone hydrogen 'H' must be added"
+    );
+    assert!(
+        !hydrogenated_c_term.has_atom("H2"),
+        "'H2' must NOT be added to backbone N even when OXT is present"
+    );
+    assert!(
+        !hydrogenated_c_term.has_atom("H3"),
+        "'H3' must NOT be added to backbone N"
+    );
+    assert!(
+        hydrogenated_c_term.has_atom("HXT"),
+        "'HXT' must be added when parent 'OXT' is present"
+    );
+
+    // Case B: Internal ALA (lacks OXT)
+    let mut internal_ala = AtomGroup::with_name("ALA");
+    for atom in &template.atoms {
+        if !atom.is_hydrogen() && atom.name != "OXT" {
+            let (x, y, z) = atom.ideal_xyz.unwrap();
+            internal_ala.set_atom(
+                &atom.name,
+                Atom::new_with_pos(&atom.element, Position::new(x, y, z)).unwrap(),
+            );
+        }
+    }
+    assert!(!internal_ala.has_atom("OXT"));
+
+    let hydrogenated_internal = add_hydrogens_to_component(&internal_ala, template)
+        .expect("Hydrogenation of internal ALA should succeed");
+
+    assert!(
+        hydrogenated_internal.has_atom("H"),
+        "Primary backbone hydrogen 'H' must be added"
+    );
+    assert!(
+        !hydrogenated_internal.has_atom("H2"),
+        "'H2' must NOT be added to internal peptide residue"
+    );
+    assert!(
+        !hydrogenated_internal.has_atom("H3"),
+        "'H3' must NOT be added to internal peptide residue"
+    );
+    assert!(
+        !hydrogenated_internal.has_atom("HXT"),
+        "'HXT' must NOT be added when parent 'OXT' is absent"
+    );
+}
+
+// 11. Regression test: Hydrogens without bond information in template are safely skipped.
+// If a hydrogen in template.atoms has no corresponding bond in template.bonds, it must NOT
+// be added blindly, but skipped safely.
+#[test]
+fn test_hydrogenation_skips_hydrogen_with_missing_bond_info() {
+    let db = CcdTemplateDb::global();
+    let template = db.lookup("ALA").expect("ALA template exists");
+
+    // Construct a template where the bond connecting 'HA' to 'CA' is removed from template.bonds
+    let mut stripped_bonds_template = template.clone();
+    stripped_bonds_template
+        .bonds
+        .retain(|(a1, a2, _)| !((a1 == "HA" && a2 == "CA") || (a1 == "CA" && a2 == "HA")));
+
+    let mut ala_heavy = AtomGroup::with_name("ALA");
+    for atom in &template.atoms {
+        if !atom.is_hydrogen() && atom.name != "OXT" {
+            let (x, y, z) = atom.ideal_xyz.unwrap();
+            ala_heavy.set_atom(
+                &atom.name,
+                Atom::new_with_pos(&atom.element, Position::new(x, y, z)).unwrap(),
+            );
+        }
+    }
+
+    let hydrogenated = add_hydrogens_to_component(&ala_heavy, &stripped_bonds_template)
+        .expect("Hydrogenation should succeed even if some hydrogens have no bond information");
+
+    // 'HA' should have been safely skipped because its parent heavy atom could not be determined
+    assert!(
+        !hydrogenated.has_atom("HA"),
+        "Hydrogen 'HA' without bond information in template must be safely skipped"
+    );
+    // Other hydrogens with valid bond info (e.g. 'H', 'HB1') should still be added
+    assert!(hydrogenated.has_atom("H"));
+    assert!(hydrogenated.has_atom("HB1"));
 }

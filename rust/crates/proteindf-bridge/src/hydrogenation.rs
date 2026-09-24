@@ -13,6 +13,12 @@
 //!   energy minimization or hydrogen-bond network optimization.
 //! - **Protonation state**: Fixed neutral/standard tautomer states from the CCD are used;
 //!   pH-dependent pKa estimation (e.g. PROPKA) is not performed.
+//! - **Main-chain N-terminal amine protonation**: Single-component hydrogenation (PR#38) cannot
+//!   discern whether a residue is a free N-terminus or part of a polymer chain without chain
+//!   context. To prevent over-protonation of internal and C-terminal peptide residues, secondary
+//!   amine hydrogens ('H2', 'H3' on backbone 'N') are never added in PR#38, leaving only the
+//!   standard amide hydrogen 'H'. Complete N-terminal amine capping/protonation (NH3+) is handled
+//!   in PR#39 (using `Modeling::get_NH3`).
 //! - **Conformational distortion guard scope**: `detect_distorted_terminal_atoms` is scoped
 //!   specifically to protein residues (detecting missing `OXT` and guarding backbone carbonyl `O`).
 //!   Nucleic acid phosphate terminal/bridging oxygen distortion detection is not covered in PR#38
@@ -40,6 +46,9 @@ pub struct HydrogenationOptions<'a> {
     /// Whether to automatically exclude heavy atoms with known conformational discrepancies
     /// between free-CCD templates and polymer-bound structures (specifically protein backbone
     /// carbonyl oxygen 'O' when the free carboxylate terminal 'OXT' is absent in internal peptide residues).
+    ///
+    /// This guard currently applies only to protein C-terminal carboxylate (`OXT`) and backbone
+    /// carbonyl `O`. It does not apply to nucleic acids or ligands.
     ///
     /// Defaults to `true`. Even when [`fit_heavy_atoms`](Self::fit_heavy_atoms) is explicitly provided,
     /// distorted atoms are guarded against unless this flag is explicitly set to `false`.
@@ -203,19 +212,12 @@ pub fn add_hydrogens_to_component_in_place_with_options(
         }
     }
 
-    // Determine whether this residue is an internal (non-terminal) peptide residue.
-    // If the template defines standard amino acid C-terminal OXT and the actual component lacks OXT,
-    // this residue is connected to another amino acid along the backbone.
-    let is_internal_peptide =
-        template.get_atom("OXT").is_some() && !component_has_atom(component, "OXT");
-
     // 3. Identify missing hydrogens and resolve their positions in a staging buffer.
     // Atomicity guarantee: We compute and validate all new hydrogen atoms into a local buffer first.
     // Only after all missing hydrogens are successfully transformed and constructed do we apply
     // them to `component`. If any hydrogen fails (e.g. missing ideal coordinates), `component`
     // remains completely unmodified.
     let mut staged_hydrogens = Vec::new();
-    let mut added_atom_names = Vec::new();
 
     for ccd_atom in &template.atoms {
         if !ccd_atom.is_hydrogen() {
@@ -228,24 +230,27 @@ pub fn add_hydrogens_to_component_in_place_with_options(
         }
 
         // Parent heavy atom check:
-        // A hydrogen must only be added if its parent heavy atom actually exists in the component.
-        // For example, HXT is bonded to OXT; if OXT is absent (as in internal peptide residues),
-        // HXT must NOT be added.
-        if let Some(&parent_heavy) = h_to_parent.get(ccd_atom.name.as_str()) {
-            if !component_has_atom(component, parent_heavy) {
-                continue;
-            }
+        // A hydrogen must only be added if its parent heavy atom is known from template bonds
+        // AND actually exists in the component.
+        // - If bond information is missing for a hydrogen, skip it safely.
+        // - For example, HXT is bonded to OXT; if OXT is absent (as in internal peptide residues),
+        //   HXT must NOT be added.
+        let Some(&parent_heavy) = h_to_parent.get(ccd_atom.name.as_str()) else {
+            continue;
+        };
+        if !component_has_atom(component, parent_heavy) {
+            continue;
+        }
 
-            // Chemical valence rule for peptide backbone amide N:
-            // Free amino acid templates (e.g. ALA) represent free amines (N with H and H2).
-            // In internal peptide residues, backbone N is an amide (R-NH-CO-R') and carries
-            // only a single hydrogen ('H'). Secondary amine hydrogens ('H2', 'H3') must be skipped.
-            if is_internal_peptide
-                && parent_heavy == "N"
-                && matches!(ccd_atom.name.as_str(), "H2" | "H3")
-            {
-                continue;
-            }
+        // Chemical valence rule for peptide backbone N:
+        // Free amino acid templates (e.g. ALA) represent free amines (N with H and H2).
+        // Without polymer chain context, a single-component hydrogenation cannot discern whether
+        // a residue is a free N-terminus or connected in a chain. Adding H2/H3 to internal or
+        // C-terminal peptide residues causes over-protonation. Therefore, PR#38 adds only the
+        // standard backbone amide hydrogen 'H', and unconditionally skips 'H2' and 'H3' on 'N'.
+        // Polymer N-terminal amine capping/protonation (NH3+) is handled in PR#39.
+        if parent_heavy == "N" && matches!(ccd_atom.name.as_str(), "H2" | "H3") {
+            continue;
         }
 
         let (ix, iy, iz) = ccd_atom.ideal_xyz.ok_or_else(|| {
@@ -265,8 +270,12 @@ pub fn add_hydrogens_to_component_in_place_with_options(
         h_atom.name = ccd_atom.name.clone();
 
         staged_hydrogens.push((ccd_atom.name.clone(), h_atom));
-        added_atom_names.push(ccd_atom.name.clone());
     }
+
+    let added_atom_names: Vec<String> = staged_hydrogens
+        .iter()
+        .map(|(name, _)| name.clone())
+        .collect();
 
     // Apply all validated hydrogens atomically
     let added_hydrogens = staged_hydrogens.len();
