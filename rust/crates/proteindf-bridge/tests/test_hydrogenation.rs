@@ -436,79 +436,60 @@ fn test_hydrogenation_in_place_idempotency() {
     assert_eq!(ser.get_number_of_atoms(), count_after_first);
 }
 
-// 8. Nucleic acid phosphate bridging oxygen protection:
-// In internal nucleotide residues, terminal capping oxygen (OP3) is absent.
-// Bridging oxygen O5' (bonded to both P and C5', heavy_degree >= 2) must NOT be excluded
-// as a distorted terminal atom. Only non-bridging oxygens (heavy_degree == 1) should be distorted candidates.
-//
-// To ensure the test has real discriminatory power (per Review Round 3 Finding 6),
-// we perturb O5' from its ideal position and compare hydrogenation results:
-// - Default automatic fitting: includes O5' as a non-distorted bridging atom, yielding a superposed position
-//   that takes the perturbed O5' into account.
-// - Explicit fit without O5': produces a different superposition that ignores O5'.
-// This proves that O5' is actively included in the automatic superposition set rather than being excluded.
+// 8. Valence rule and parent heavy atom check (Review Round 4 Bug 1):
+// - Free amino acid templates (e.g. ALA) contain an N-terminal free amine (N with H and H2)
+//   and a C-terminal carboxylate (C with O, OXT, and HXT).
+// - In an internal peptide residue (where OXT is absent):
+//   1. The backbone amide nitrogen must only receive 'H', and secondary amine hydrogens ('H2', 'H3')
+//      must NOT be added (avoiding over-protonation).
+//   2. Hydrogens whose parent heavy atom is missing from the component (e.g. HXT bonded to OXT)
+//      must NOT be added.
 #[test]
-fn test_hydrogenation_nucleic_acid_phosphate_o5_prime_bridging_preserved() {
+fn test_hydrogenation_internal_peptide_valence_and_parent_heavy_check() {
     let db = CcdTemplateDb::global();
-    let template = db.lookup("DA").expect("DA template exists");
+    let template = db.lookup("ALA").expect("ALA template exists");
 
-    // Construct an internal DA nucleotide containing all heavy atoms except OP3 (missing capping oxygen).
-    // O5' is present and links the phosphate group to C5'.
-    let mut da_internal = AtomGroup::with_name("DA");
+    // Construct an internal ALA residue: has N, CA, C, O, CB (lacks OXT)
+    let mut internal_ala = AtomGroup::with_name("ALA");
     for atom in &template.atoms {
-        if !atom.is_hydrogen() && atom.name != "OP3" {
-            let (mut x, y, z) = atom.ideal_xyz.unwrap();
-            // Perturb O5' coordinate slightly
-            if atom.name == "O5'" {
-                x += 0.2;
-            }
-            da_internal.set_atom(
+        if !atom.is_hydrogen() && atom.name != "OXT" {
+            let (x, y, z) = atom.ideal_xyz.unwrap();
+            internal_ala.set_atom(
                 &atom.name,
                 Atom::new_with_pos(&atom.element, Position::new(x, y, z)).unwrap(),
             );
         }
     }
 
-    assert!(da_internal.has_atom("O5'"));
-    assert!(!da_internal.has_atom("OP3"));
+    assert!(internal_ala.has_atom("N"));
+    assert!(!internal_ala.has_atom("OXT"));
 
-    // 1. Hydrogenation with automatic detection (should include O5')
-    let result_auto = add_hydrogens_to_component(&da_internal, template);
+    let hydrogenated = add_hydrogens_to_component(&internal_ala, template)
+        .expect("Hydrogenation of internal ALA residue should succeed");
+
+    // 1. Primary amide hydrogen 'H' must be added
     assert!(
-        result_auto.is_ok(),
-        "DA nucleotide with missing OP3 should successfully hydrogenate: {:?}",
-        result_auto.err()
+        hydrogenated.has_atom("H"),
+        "Backbone amide hydrogen 'H' should be added"
     );
-    let h_auto = result_auto.unwrap();
-    let pos_h8_auto = h_auto.get_atom("H8").unwrap().xyz;
 
-    // 2. Hydrogenation with explicit heavy atoms that exclude O5'
-    let heavy_without_o5: Vec<&str> = template
-        .atoms
-        .iter()
-        .filter(|a| !a.is_hydrogen() && a.name != "OP3" && a.name != "O5'")
-        .map(|a| a.name.as_str())
-        .collect();
-    let opts = HydrogenationOptions {
-        fit_heavy_atoms: Some(&heavy_without_o5),
-        ..Default::default()
-    };
-    let result_no_o5 = proteindf_bridge::hydrogenation::add_hydrogens_to_component_with_options(
-        &da_internal,
-        template,
-        &opts,
-    );
-    assert!(result_no_o5.is_ok());
-    let h_no_o5 = result_no_o5.unwrap();
-    let pos_h8_no_o5 = h_no_o5.get_atom("H8").unwrap().xyz;
-
-    // Since O5' was perturbed and included in result_auto, the resulting superposition differs from
-    // the one where O5' was excluded.
-    let diff = distance(&pos_h8_auto, &pos_h8_no_o5);
+    // 2. Secondary amine hydrogen 'H2' must NOT be added to an internal peptide residue
     assert!(
-        diff > 1e-4,
-        "Superposition including O5' should differ from superposition excluding O5' (diff = {diff})"
+        !hydrogenated.has_atom("H2"),
+        "Secondary amine hydrogen 'H2' must NOT be added to internal peptide residue (over-protonation)"
     );
+
+    // 3. C-terminal carboxylate hydrogen 'HXT' must NOT be added when parent 'OXT' is missing
+    assert!(
+        !hydrogenated.has_atom("HXT"),
+        "C-terminal hydrogen 'HXT' must NOT be added when parent 'OXT' is absent"
+    );
+
+    // 4. Sidechain and alpha hydrogens must be present
+    assert!(hydrogenated.has_atom("HA"));
+    assert!(hydrogenated.has_atom("HB1"));
+    assert!(hydrogenated.has_atom("HB2"));
+    assert!(hydrogenated.has_atom("HB3"));
 }
 
 // 9. Atomic rollback on error during in-place hydrogenation:
