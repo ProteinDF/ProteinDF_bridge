@@ -597,10 +597,7 @@ impl SimpleMmcif {
                     }
                 }
 
-                let mut element = item.type_symbol.clone();
-                if element == "D" {
-                    element = "H".to_string();
-                }
+                let element = normalize_element_symbol(&item.type_symbol);
 
                 let mut atom = Atom::new();
                 if let Ok(num) = PeriodicTable::get_atomic_number(&element) {
@@ -673,25 +670,21 @@ impl SimpleMmcif {
             let mut atom = Atom::new();
             atom.name = atom_id.clone();
 
-            let mut symbol = dict
-                .get("_chem_comp_atom.type_symbol")
-                .cloned()
-                .unwrap_or_else(|| "X".to_string());
-            if symbol == "D" {
-                symbol = "H".to_string();
-            }
+            let symbol = normalize_element_symbol(
+                &dict
+                    .get("_chem_comp_atom.type_symbol")
+                    .cloned()
+                    .unwrap_or_else(|| "X".to_string()),
+            );
             if let Ok(num) = PeriodicTable::get_atomic_number(&symbol) {
                 atom.set_atomic_number(num);
             }
 
-            let x = Self::get_coordinate("x", dict);
-            let y = Self::get_coordinate("y", dict);
-            let z = Self::get_coordinate("z", dict);
-            match (x, y, z) {
-                (Some(x), Some(y), Some(z)) => {
+            match resolve_chem_comp_atom_xyz(dict) {
+                Some((x, y, z)) => {
                     atom.xyz = Position::new(x, y, z);
                 }
-                _ => {
+                None => {
                     return Err(BridgeError::input_error(
                         atom_id,
                         format!(
@@ -714,24 +707,6 @@ impl SimpleMmcif {
         }
 
         Ok(())
-    }
-
-    /// Extracts a coordinate axis (x, y, or z) prioritizing ideal coordinates over model coordinates.
-    fn get_coordinate(axis: &str, dict: &IndexMap<String, String>) -> Option<f64> {
-        let ideal_key = format!("_chem_comp_atom.pdbx_model_Cartn_{}_ideal", axis);
-        let model_key = format!("_chem_comp_atom.model_Cartn_{}", axis);
-
-        if let Some(val) = dict.get(&ideal_key) {
-            if let Ok(v) = val.parse::<f64>() {
-                return Some(v);
-            }
-        }
-        if let Some(val) = dict.get(&model_key) {
-            if let Ok(v) = val.parse::<f64>() {
-                return Some(v);
-            }
-        }
-        None
     }
 
     /// Parses tokens into data blocks, key-values, and loop tables.
@@ -945,5 +920,55 @@ pub fn parse_chem_comp_bond_order(bond_order_str: &str) -> usize {
         "QUAD" => 4,
         "AROM" => 1,
         _ => 0,
+    }
+}
+
+/// Resolves idealized (falling back to model) Cartesian coordinates for a
+/// `_chem_comp_atom` mmCIF row.
+///
+/// The idealized (`pdbx_model_Cartn_{x,y,z}_ideal`) triple is resolved **atomically**:
+/// if any single axis is missing or unparseable, the whole idealized triple is
+/// discarded (never mixed axis-by-axis with model coordinates, which would produce a
+/// point that is not a valid position in either conformer) and the model
+/// (`model_Cartn_{x,y,z}`) triple is attempted as a whole instead.
+///
+/// Shared by [`SimpleMmcif`]'s own CCD-component `AtomGroup` construction and by
+/// [`crate::ccd_templates::CcdBondTemplate::from_mmcif_block`] (the CCD geometry
+/// template runtime-extension path, `RUST_PORT_SPEC.md` §3.16 PR#37).
+pub fn resolve_chem_comp_atom_xyz(dict: &IndexMap<String, String>) -> Option<(f64, f64, f64)> {
+    fn triple(
+        dict: &IndexMap<String, String>,
+        x_key: &str,
+        y_key: &str,
+        z_key: &str,
+    ) -> Option<(f64, f64, f64)> {
+        let x = dict.get(x_key)?.parse::<f64>().ok()?;
+        let y = dict.get(y_key)?.parse::<f64>().ok()?;
+        let z = dict.get(z_key)?.parse::<f64>().ok()?;
+        Some((x, y, z))
+    }
+
+    triple(
+        dict,
+        "_chem_comp_atom.pdbx_model_Cartn_x_ideal",
+        "_chem_comp_atom.pdbx_model_Cartn_y_ideal",
+        "_chem_comp_atom.pdbx_model_Cartn_z_ideal",
+    )
+    .or_else(|| {
+        triple(
+            dict,
+            "_chem_comp_atom.model_Cartn_x",
+            "_chem_comp_atom.model_Cartn_y",
+            "_chem_comp_atom.model_Cartn_z",
+        )
+    })
+}
+
+/// Normalizes an mmCIF/CCD element symbol, mapping deuterium (`"D"`) to hydrogen (`"H"`).
+pub fn normalize_element_symbol(symbol: &str) -> String {
+    if symbol == "D" {
+        "H".to_string()
+    } else {
+        symbol.to_string()
     }
 }

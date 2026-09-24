@@ -167,6 +167,37 @@ D_test D1 C1 SING
 }
 
 #[test]
+fn test_partial_ideal_coordinate_falls_back_to_full_model_triple() {
+    // Only the z-axis idealized coordinate is unresolvable ("?"). The whole idealized
+    // triple must be discarded in favor of the whole model triple, not mixed
+    // axis-by-axis (idealized x/y with model z), which would not be a valid position
+    // in either conformer.
+    let mmcif_content = r#"data_PARTIAL_IDEAL
+_chem_comp.id PARTIAL_IDEAL
+loop_
+_chem_comp_atom.comp_id
+_chem_comp_atom.atom_id
+_chem_comp_atom.type_symbol
+_chem_comp_atom.model_Cartn_x
+_chem_comp_atom.model_Cartn_y
+_chem_comp_atom.model_Cartn_z
+_chem_comp_atom.pdbx_model_Cartn_x_ideal
+_chem_comp_atom.pdbx_model_Cartn_y_ideal
+_chem_comp_atom.pdbx_model_Cartn_z_ideal
+PARTIAL_IDEAL C1 C 0.1 0.2 0.3 9.1 9.2 ?
+"#;
+
+    let mut cif = SimpleMmcif::new();
+    cif.load_from_str(mmcif_content).unwrap();
+    let ag = cif.get_atomgroup("data_PARTIAL_IDEAL").unwrap();
+
+    let c1 = ag.get_atom("C1").unwrap();
+    assert!((c1.xyz.x - 0.1).abs() < 1e-6);
+    assert!((c1.xyz.y - 0.2).abs() < 1e-6);
+    assert!((c1.xyz.z - 0.3).abs() < 1e-6);
+}
+
+#[test]
 fn test_error_handling() {
     let cif = SimpleMmcif::new();
     let result = cif.get_atomgroup("non_existent");

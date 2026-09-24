@@ -91,49 +91,49 @@ impl CcdBondTemplate {
         self.atoms.iter().find(|a| a.name == name)
     }
 
-    /// Extracts an idealized (falling back to model) coordinate axis from an mmCIF
-    /// `_chem_comp_atom` row, mirroring `format::mmcif`'s coordinate-resolution
-    /// convention (idealized coordinates take priority over model coordinates).
-    fn get_coordinate(axis: &str, dict: &indexmap::IndexMap<String, String>) -> Option<f64> {
-        let ideal_key = format!("_chem_comp_atom.pdbx_model_Cartn_{axis}_ideal");
-        let model_key = format!("_chem_comp_atom.model_Cartn_{axis}");
-
-        if let Some(val) = dict.get(&ideal_key) {
-            if let Ok(v) = val.parse::<f64>() {
-                return Some(v);
-            }
-        }
-        if let Some(val) = dict.get(&model_key) {
-            if let Ok(v) = val.parse::<f64>() {
-                return Some(v);
-            }
-        }
-        None
-    }
-
     /// Builds a `CcdAtom` from an mmCIF `_chem_comp_atom` row, if it contains an `atom_id`.
+    ///
+    /// Element normalization (deuterium "D" -> "H") and idealized/model coordinate
+    /// resolution are shared with `format::mmcif`'s own CCD-component parsing
+    /// (`crate::format::mmcif::normalize_element_symbol`/`resolve_chem_comp_atom_xyz`)
+    /// so the two mmCIF `_chem_comp_atom` parsing paths cannot silently drift apart.
     fn atom_from_row(row: &indexmap::IndexMap<String, String>) -> Option<CcdAtom> {
         let name = row.get("_chem_comp_atom.atom_id")?.clone();
-        let mut element = row
-            .get("_chem_comp_atom.type_symbol")
-            .cloned()
-            .unwrap_or_else(|| "X".to_string());
-        if element == "D" {
-            element = "H".to_string();
-        }
-        let ideal_xyz = match (
-            Self::get_coordinate("x", row),
-            Self::get_coordinate("y", row),
-            Self::get_coordinate("z", row),
-        ) {
-            (Some(x), Some(y), Some(z)) => Some((x, y, z)),
-            _ => None,
-        };
+        let element = crate::format::mmcif::normalize_element_symbol(
+            &row.get("_chem_comp_atom.type_symbol")
+                .cloned()
+                .unwrap_or_else(|| "X".to_string()),
+        );
+        let ideal_xyz = crate::format::mmcif::resolve_chem_comp_atom_xyz(row);
         Some(CcdAtom {
             name,
             element,
             ideal_xyz,
         })
+    }
+
+    /// Appends `atom` to `atoms`, keyed by name.
+    ///
+    /// A row repeating an already-seen atom name is tolerated only when it is an exact
+    /// duplicate (same element and coordinates) of the one already collected; a row that
+    /// repeats a name with a *different* element or geometry is rejected with an error
+    /// rather than silently keeping whichever row happened to appear first (e.g. an
+    /// alternate-conformer or malformed user-supplied CCD file).
+    fn push_atom_checked(atoms: &mut Vec<CcdAtom>, atom: CcdAtom, comp_id: &str) -> Result<()> {
+        if let Some(existing) = atoms.iter().find(|a| a.name == atom.name) {
+            if existing != &atom {
+                return Err(BridgeError::input_error(
+                    comp_id,
+                    format!(
+                        "Conflicting _chem_comp_atom rows for atom '{}' in component '{comp_id}': {existing:?} vs {atom:?}",
+                        atom.name
+                    ),
+                ));
+            }
+            return Ok(());
+        }
+        atoms.push(atom);
+        Ok(())
     }
 
     /// Builds a `CcdBondTemplate` from an mmCIF CCD data block.
@@ -169,16 +169,12 @@ impl CcdBondTemplate {
         // 1. Extract canonical atoms (name, element, idealized geometry; preserving appearance order)
         let mut atoms: Vec<CcdAtom> = Vec::new();
         if let Some(atom) = Self::atom_from_row(&block.key_values) {
-            if !atoms.iter().any(|a| a.name == atom.name) {
-                atoms.push(atom);
-            }
+            Self::push_atom_checked(&mut atoms, atom, &actual_comp_id)?;
         }
         for table in &block.tables {
             for row in table {
                 if let Some(atom) = Self::atom_from_row(row) {
-                    if !atoms.iter().any(|a| a.name == atom.name) {
-                        atoms.push(atom);
-                    }
+                    Self::push_atom_checked(&mut atoms, atom, &actual_comp_id)?;
                 }
             }
         }

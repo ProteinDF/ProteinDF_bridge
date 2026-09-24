@@ -367,6 +367,15 @@ CCDの理想化座標をそのまま使える水素と、使えない水素が�
 6. 既存の結合解決関連テスト(§3.8〜3.15、`test_ccd_templates.rs`の他16件・`cargo test --workspace`全件)がそのままパスすることを確認。
 7. `cargo clippy -p proteindf-bridge --all-targets -- -D warnings`・`cargo fmt --all -- --check`とも警告・エラーなし(`proteindf-bridge-py`クレートのpyo3 0.29関連の既存deprecation警告は本PRと無関係、developで先行して存在することを確認済み)。
 
+**レビュー指摘への対応 (2026-09-24)**:
+`/code-review develop...feature/hydrogenation-pr37` で3件の指摘を受け、いずれも修正した。
+
+1. **軸ごと独立解決によるハイブリッド座標のバグ(修正)**: 当初の実装はx/y/z各軸を独立に「ideal優先・model フォールバック」していたため、例えばy軸だけidealが"?"の場合、x/zはideal・yはmodelという、どちらの配座にも属さない無意味な座標が生成され得た。`format::mmcif::resolve_chem_comp_atom_xyz`としてx/y/z三つ組を**原子的に**(全軸揃って初めて採用、1軸でも欠ければ三つ組ごと棄却してmodel三つ組を試す)解決するよう修正した。`scripts/build_ccd_bond_templates.py`の`parse_xyz`は元々この三つ組原子性を持っていたため、Python側との整合も取れた。
+2. **`format/mmcif.rs`との実装重複(修正)**: `ccd_templates.rs`の座標解決・D→H正規化ロジックが、既存の`format/mmcif.rs`の`extract_atoms_and_name`/`get_coordinate`(CCD単体コンポーネントを`AtomGroup`として読み込む`SimpleMmcif::get_atomgroup`が使用)と実質的に重複していた。`format::mmcif::resolve_chem_comp_atom_xyz`/`normalize_element_symbol`を共有関数として`format/mmcif.rs`に新設し(上記の原子性バグもここで一度に修正)、`extract_atoms_and_name`と`ccd_templates.rs::atom_from_row`の両方がこれを呼ぶように統一した。`format/mmcif.rs`の私有`get_coordinate`メソッドは削除。
+3. **重複`atom_id`行の無言解決(修正)**: 同じ`atom_id`が複数行に現れた場合、従来(座標追加前のコードも含め)最初に現れた行を無条件に採用し残りを無言で捨てていた。元素・座標が全く同じ重複行は許容するが、異なる場合はエラーにする`push_atom_checked`ヘルパーを新設し、矛盾する重複行を無言で解決しないようにした。
+
+**追加検証**: `test_partial_ideal_coordinate_falls_back_to_full_model_triple`(`test_mmcif.rs`、新規)・`test_from_mmcif_block_ideal_priority_and_deuterium_normalization`への部分欠損ケース追加(`test_ccd_templates.rs`)・`test_from_mmcif_block_duplicate_atom_id_rows`(新規)。`cargo test --workspace`(140+件)・clippy・fmtとも再確認済み。
+
 ##### PR#38: 汎用水素付加エンジン(単一コンポーネント内、PR#37完了後)
 
 1. 新規`hydrogenation.rs`。任意の単一コンポーネント(残基/リガンド)の`AtomGroup`とCCDジオメトリテンプレートを受け取り、以下を行う関数(例: `add_hydrogens_to_component(residue: &AtomGroup, template: &CcdGeometryTemplate) -> Result<AtomGroup>`、または`&mut AtomGroup`を直接更新する設計、実装時に判断):

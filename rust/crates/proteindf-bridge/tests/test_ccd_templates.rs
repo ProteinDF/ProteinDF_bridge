@@ -476,6 +476,7 @@ _chem_comp_atom.pdbx_model_Cartn_z_ideal
 LG2 C1 C 0.100 0.200 0.300 1.100 1.200 1.300
 LG2 D1 D 0.400 0.500 0.600 1.400 1.500 1.600
 LG2 C2 C 0.700 0.800 0.900 ?     ?     ?
+LG2 C3 C 2.100 2.200 2.300 3.100 3.200 ?
 "#;
 
     let mut cif = SimpleMmcif::new();
@@ -501,6 +502,58 @@ LG2 C2 C 0.700 0.800 0.900 ?     ?     ?
     let c2 = template.get_atom("C2").unwrap();
     assert_eq!(c2.element, "C");
     assert_eq!(c2.ideal_xyz, Some((0.700, 0.800, 0.900)));
+
+    // A partially-unresolvable idealized triple (only the z axis is "?") must fall back
+    // to the *whole* model triple, not silently mix idealized x/y with model z into a
+    // geometrically meaningless point that belongs to neither conformer.
+    let c3 = template.get_atom("C3").unwrap();
+    assert_eq!(c3.element, "C");
+    assert_eq!(c3.ideal_xyz, Some((2.100, 2.200, 2.300)));
+}
+
+#[test]
+fn test_from_mmcif_block_duplicate_atom_id_rows() {
+    // An exact duplicate row (same element and coordinates) for an already-seen atom
+    // name is tolerated silently...
+    let exact_dup_cif = r#"
+data_DUP1
+#
+loop_
+_chem_comp_atom.comp_id
+_chem_comp_atom.atom_id
+_chem_comp_atom.type_symbol
+DUP1 C1 C
+DUP1 C1 C
+"#;
+    let mut cif = SimpleMmcif::new();
+    cif.load_from_str(exact_dup_cif)
+        .expect("failed to parse DUP1 CIF");
+    let block = cif.get_data_block("DUP1").expect("block DUP1 not found");
+    let template =
+        CcdBondTemplate::from_mmcif_block(block, "DUP1").expect("exact duplicate should be OK");
+    assert_eq!(template.atoms.len(), 1);
+
+    // ...but a *conflicting* duplicate row (different element for the same atom name) is
+    // rejected with an error instead of silently keeping whichever row appeared first.
+    let conflicting_dup_cif = r#"
+data_DUP2
+#
+loop_
+_chem_comp_atom.comp_id
+_chem_comp_atom.atom_id
+_chem_comp_atom.type_symbol
+DUP2 C1 C
+DUP2 C1 N
+"#;
+    let mut cif2 = SimpleMmcif::new();
+    cif2.load_from_str(conflicting_dup_cif)
+        .expect("failed to parse DUP2 CIF");
+    let block2 = cif2.get_data_block("DUP2").expect("block DUP2 not found");
+    let result = CcdBondTemplate::from_mmcif_block(block2, "DUP2");
+    assert!(
+        result.is_err(),
+        "conflicting duplicate atom_id rows should be rejected, not silently resolved"
+    );
 }
 
 #[test]
