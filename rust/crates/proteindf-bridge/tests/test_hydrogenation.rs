@@ -12,6 +12,7 @@ use proteindf_bridge::hydrogenation::{
     add_hydrogens_to_component_with_options, HydrogenationOptions, MIN_SUPERPOSE_HEAVY_ATOMS,
 };
 use proteindf_bridge::position::Position;
+use proteindf_bridge::superposer::Superposer;
 
 fn test_data_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data")
@@ -21,6 +22,17 @@ fn test_data_dir() -> PathBuf {
 fn distance(p1: &Position, p2: &Position) -> f64 {
     let diff = *p1 - *p2;
     diff.length()
+}
+
+/// Helper: creates a copy of a residue group containing only heavy atoms (strips hydrogens).
+fn strip_hydrogens(res: &AtomGroup) -> AtomGroup {
+    let mut res_heavy = AtomGroup::with_name(&res.name);
+    for (k, atom) in res.atoms() {
+        if atom.atomic_number() != 1 {
+            res_heavy.set_atom(k, atom.clone());
+        }
+    }
+    res_heavy
 }
 
 /// Helper: retrieves a residue group by chain and residue key from a loaded structure.
@@ -106,17 +118,10 @@ fn test_hydrogenation_real_fixture_1hls_bond_lengths() {
     let pdb = Pdb::from_file(&pdb_path, None).expect("failed to load 1hls.pdb");
     let protein = pdb.get_atomgroup(None, None).expect("failed to get ag");
 
-    // Test ALA B/14: rigid methyl sidechain, fits on N, CA, C, CB
+    // Test ALA B/14: rigid methyl sidechain, fits on N, CA, C, CB (O excluded automatically)
     let template = db.lookup("ALA").expect("Template for ALA must exist");
     let res = get_residue(&protein, "B", "14");
-
-    // Strip any existing hydrogens to simulate input without hydrogens (e.g. X-ray structure)
-    let mut res_heavy = AtomGroup::with_name(&res.name);
-    for (k, atom) in res.atoms() {
-        if atom.atomic_number() != 1 {
-            res_heavy.set_atom(k, atom.clone());
-        }
-    }
+    let res_heavy = strip_hydrogens(res);
 
     let report = add_hydrogens_to_component(&res_heavy, template)
         .expect("Failed to hydrogenate residue B/14 (ALA)");
@@ -177,16 +182,11 @@ fn test_hydrogenation_options_custom_heavy_atoms() {
     {
         let template = db.lookup("VAL").expect("VAL template exists");
         let res = get_residue(&protein, "A", "3");
-
-        let mut res_heavy = AtomGroup::with_name(&res.name);
-        for (k, atom) in res.atoms() {
-            if atom.atomic_number() != 1 {
-                res_heavy.set_atom(k, atom.clone());
-            }
-        }
+        let res_heavy = strip_hydrogens(res);
 
         let options = HydrogenationOptions {
             fit_heavy_atoms: Some(&["N", "CA", "C", "CB"]),
+            auto_exclude_distorted_atoms: true,
         };
 
         let hydrogenated = add_hydrogens_to_component_with_options(&res_heavy, template, &options)
@@ -205,16 +205,11 @@ fn test_hydrogenation_options_custom_heavy_atoms() {
     {
         let template = db.lookup("PHE").expect("PHE template exists");
         let res = get_residue(&protein, "B", "24");
-
-        let mut res_heavy = AtomGroup::with_name(&res.name);
-        for (k, atom) in res.atoms() {
-            if atom.atomic_number() != 1 {
-                res_heavy.set_atom(k, atom.clone());
-            }
-        }
+        let res_heavy = strip_hydrogens(res);
 
         let options = HydrogenationOptions {
             fit_heavy_atoms: Some(&["CG", "CD1", "CD2", "CE1", "CE2", "CZ"]),
+            auto_exclude_distorted_atoms: true,
         };
 
         let hydrogenated = add_hydrogens_to_component_with_options(&res_heavy, template, &options)
@@ -240,7 +235,106 @@ fn test_hydrogenation_options_custom_heavy_atoms() {
     }
 }
 
-// 4. Insufficient common heavy atoms error test:
+// 4. Verification of Bug 2: fit_heavy_atoms explicitly naming 'O' still guards against distortion
+// by default, unless auto_exclude_distorted_atoms is explicitly disabled.
+#[test]
+fn test_hydrogenation_guard_not_bypassed_by_explicit_fit_atoms() {
+    let db = CcdTemplateDb::global();
+    let pdb_path = test_data_dir().join("1hls.pdb");
+    let pdb = Pdb::from_file(&pdb_path, None).expect("failed to load 1hls.pdb");
+    let protein = pdb.get_atomgroup(None, None).expect("failed to get ag");
+
+    let template = db.lookup("ALA").expect("ALA template exists");
+    let res = get_residue(&protein, "B", "14");
+    let res_heavy = strip_hydrogens(res);
+
+    // Case A: User explicitly provides ["N", "CA", "C", "O", "CB"] with default auto_exclude = true.
+    // The distorted 'O' should still be excluded, yielding proper CA-HA bond length (~1.08 A).
+    let options_safe = HydrogenationOptions {
+        fit_heavy_atoms: Some(&["N", "CA", "C", "O", "CB"]),
+        auto_exclude_distorted_atoms: true,
+    };
+    let h_safe = add_hydrogens_to_component_with_options(&res_heavy, template, &options_safe)
+        .expect("Safe fit should succeed");
+    let ca_ha_dist = distance(
+        &h_safe.pickup_atoms("CA")[0].xyz,
+        &h_safe.pickup_atoms("HA")[0].xyz,
+    );
+    assert!(
+        (0.95..=1.15).contains(&ca_ha_dist),
+        "With auto_exclude=true, CA-HA bond length should be valid ({ca_ha_dist:.3} A)"
+    );
+
+    // Case B: User forces auto_exclude = false with 'O' included.
+    // The ~170 deg psi discrepancy distorts the fit, resulting in invalid CA-HA length (> 1.5 A).
+    let options_forced = HydrogenationOptions {
+        fit_heavy_atoms: Some(&["N", "CA", "C", "O", "CB"]),
+        auto_exclude_distorted_atoms: false,
+    };
+    let h_forced = add_hydrogens_to_component_with_options(&res_heavy, template, &options_forced)
+        .expect("Forced fit should succeed");
+    let ca_ha_dist_forced = distance(
+        &h_forced.pickup_atoms("CA")[0].xyz,
+        &h_forced.pickup_atoms("HA")[0].xyz,
+    );
+    assert!(
+        ca_ha_dist_forced > 1.5,
+        "With auto_exclude=false and 'O' forced, CA-HA length should show distortion (> 1.5 A), got {ca_ha_dist_forced:.3} A"
+    );
+}
+
+// 5. Verification of Bug 1: Collinear and degenerate heavy atoms must be rejected with an error.
+#[test]
+fn test_hydrogenation_collinear_heavy_atoms_rejected() {
+    let db = CcdTemplateDb::global();
+    let template = db.lookup("ALA").expect("ALA template exists");
+
+    // Construct synthetic component where 3 heavy atoms are strictly collinear: (0,0,0), (1,0,0), (2,0,0)
+    let mut collinear_group = AtomGroup::with_name("ALA");
+    collinear_group.set_atom(
+        "N",
+        Atom::new_with_pos("N", Position::new(0.0, 0.0, 0.0)).unwrap(),
+    );
+    collinear_group.set_atom(
+        "CA",
+        Atom::new_with_pos("C", Position::new(1.0, 0.0, 0.0)).unwrap(),
+    );
+    collinear_group.set_atom(
+        "C",
+        Atom::new_with_pos("C", Position::new(2.0, 0.0, 0.0)).unwrap(),
+    );
+
+    let err = add_hydrogens_to_component(&collinear_group, template);
+    assert!(
+        err.is_err(),
+        "Collinear points must be rejected as rigid superposition cannot be uniquely determined"
+    );
+    let err_msg = err.unwrap_err().to_string();
+    assert!(
+        err_msg.contains("collinear or degenerate"),
+        "Unexpected error message: {err_msg}"
+    );
+
+    // Direct Superposer check on collinear points
+    let mut g1 = AtomGroup::new();
+    let mut g2 = AtomGroup::new();
+    for (i, name) in ["A1", "A2", "A3"].iter().enumerate() {
+        let x = i as f64;
+        let mut a1 = Atom::new_with_pos("C", Position::new(x, 0.0, 0.0)).unwrap();
+        a1.name = name.to_string();
+        let mut a2 = Atom::new_with_pos("C", Position::new(0.0, x, 0.0)).unwrap();
+        a2.name = name.to_string();
+        g1.set_atom(name, a1);
+        g2.set_atom(name, a2);
+    }
+    let sp_err = Superposer::new(&g1, &g2);
+    assert!(
+        sp_err.is_err(),
+        "Superposer::new must reject collinear points"
+    );
+}
+
+// 6. Insufficient common heavy atoms error test:
 // When fewer than MIN_SUPERPOSE_HEAVY_ATOMS (3) matching heavy atoms exist,
 // the function must return an error and not perform silent fallback.
 #[test]
@@ -286,7 +380,7 @@ fn test_hydrogenation_insufficient_heavy_atoms_error() {
         "Unexpected error message: {err_msg_2}"
     );
 
-    // Case D: 3 heavy atoms with valid non-collinear geometry succeeds
+    // Case D: 3 non-collinear heavy atoms succeeds
     let mut group_3 = AtomGroup::with_name("ALA");
     let n = template.get_atom("N").unwrap().ideal_xyz.unwrap();
     let ca = template.get_atom("CA").unwrap().ideal_xyz.unwrap();
@@ -306,12 +400,12 @@ fn test_hydrogenation_insufficient_heavy_atoms_error() {
     let ok_3 = add_hydrogens_to_component(&group_3, template);
     assert!(
         ok_3.is_ok(),
-        "3 heavy atoms should satisfy MIN_SUPERPOSE_HEAVY_ATOMS: {:?}",
+        "3 non-collinear heavy atoms should satisfy MIN_SUPERPOSE_HEAVY_ATOMS: {:?}",
         ok_3.err()
     );
 }
 
-// 5. In-place modification and idempotency:
+// 7. In-place modification and idempotency:
 // Calling add_hydrogens_to_component_in_place a second time should add 0 hydrogens.
 #[test]
 fn test_hydrogenation_in_place_idempotency() {
