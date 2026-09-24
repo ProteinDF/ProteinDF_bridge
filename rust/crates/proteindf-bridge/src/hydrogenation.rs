@@ -187,8 +187,12 @@ pub fn add_hydrogens_to_component_in_place_with_options(
     // Superposer::new validates non-collinearity / non-degeneracy
     let superposer = Superposer::new(&template_heavy_group, &actual_heavy_group)?;
 
-    // 3. Identify missing hydrogens and transfer them with transformed coordinates
-    let mut added_hydrogens = 0;
+    // 3. Identify missing hydrogens and resolve their positions in a staging buffer.
+    // Atomicity guarantee: We compute and validate all new hydrogen atoms into a local buffer first.
+    // Only after all missing hydrogens are successfully transformed and constructed do we apply
+    // them to `component`. If any hydrogen fails (e.g. missing ideal coordinates), `component`
+    // remains completely unmodified.
+    let mut staged_hydrogens = Vec::new();
     let mut added_atom_names = Vec::new();
 
     for ccd_atom in &template.atoms {
@@ -217,9 +221,14 @@ pub fn add_hydrogens_to_component_in_place_with_options(
         let mut h_atom = Atom::new_with_pos(&ccd_atom.element, pos)?;
         h_atom.name = ccd_atom.name.clone();
 
-        component.set_atom(&ccd_atom.name, h_atom);
-        added_hydrogens += 1;
+        staged_hydrogens.push((ccd_atom.name.clone(), h_atom));
         added_atom_names.push(ccd_atom.name.clone());
+    }
+
+    // Apply all validated hydrogens atomically
+    let added_hydrogens = staged_hydrogens.len();
+    for (name, atom) in staged_hydrogens {
+        component.set_atom(&name, atom);
     }
 
     Ok(HydrogenationReport {
@@ -261,10 +270,12 @@ fn detect_distorted_terminal_atoms(
     }
 
     // 2. Identify missing capping heavy atoms in the component.
-    // Note: We only check heavy capping atoms (e.g. OXT in amino acids, OP3 in nucleotides).
+    // Note: We only check true terminal capping heavy atoms (OXT in amino acids, OP3 in nucleotides).
+    // Regular non-bridging phosphate oxygens (OP1, OP2, and their legacy PDB aliases O1P, O2P)
+    // are present throughout internal polymer residues and must NOT be treated as terminal capping atoms.
     // Hydrogens (e.g. HOP3, H3T) are not part of heavy-atom superposition and are intentionally excluded here.
     let is_known_terminal_capping_heavy_atom =
-        |name: &str| -> bool { matches!(name, "OXT" | "OP3" | "O1P" | "O2P") };
+        |name: &str| -> bool { matches!(name, "OXT" | "OP3") };
 
     let missing_capping_heavy: Vec<&str> = template
         .atoms

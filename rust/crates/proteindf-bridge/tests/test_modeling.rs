@@ -416,3 +416,46 @@ fn test_get_ace_and_nme_resilient_to_conformer_failure() {
     let nme_grp = nme.unwrap();
     assert_eq!(nme_grp.get_number_of_atoms(), 6);
 }
+
+#[test]
+fn test_get_ace_and_nme_all_conformers_fail_error_context() {
+    let m = Modeling::new().unwrap();
+
+    // Construct a residue where atoms are collinear (N, CA, C on a single line)
+    // and fewer than 3 non-collinear atoms exist. Superposer::new will fail with
+    // a collinearity error on all conformers.
+    let mut collinear_res = AtomGroup::with_name("GLY");
+    collinear_res.set_atom("N", make_atom("N", "N", Position::new(0.0, 0.0, 0.0)));
+    collinear_res.set_atom("CA", make_atom("CA", "C", Position::new(1.0, 0.0, 0.0)));
+    collinear_res.set_atom("C", make_atom("C", "C", Position::new(2.0, 0.0, 0.0)));
+
+    let ace_res = m.get_ACE(&collinear_res, None);
+    assert!(
+        ace_res.is_err(),
+        "Must fail when all conformers are collinear"
+    );
+    let ace_err = ace_res.err().unwrap().to_string();
+    assert!(
+        ace_err.contains("no matching ACE conformer found"),
+        "Error should state no matching conformer: {ace_err}"
+    );
+    assert!(
+        ace_err.contains("collinear") || ace_err.contains("trans1"),
+        "Error must contain underlying failure details: {ace_err}"
+    );
+
+    let nme_res = m.get_NME(&collinear_res, None);
+    assert!(
+        nme_res.is_err(),
+        "Must fail when all conformers are collinear"
+    );
+    let nme_err = nme_res.err().unwrap().to_string();
+    assert!(
+        nme_err.contains("no matching NME conformer found"),
+        "Error should state no matching conformer: {nme_err}"
+    );
+    assert!(
+        nme_err.contains("collinear") || nme_err.contains("trans1"),
+        "Error must contain underlying failure details: {nme_err}"
+    );
+}

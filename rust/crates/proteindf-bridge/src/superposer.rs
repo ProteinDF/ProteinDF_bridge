@@ -219,12 +219,20 @@ impl Superposer {
         positions.iter().map(|p| *p - center).collect()
     }
 
+    /// Tolerance in Angstroms for detecting degenerate or collinear point sets.
+    ///
+    /// Interatomic bond lengths in molecular systems are on the order of ~1.0-1.5 Å,
+    /// and non-bonded distances are 2-5 Å. A perpendicular deviation threshold of
+    /// 1e-4 Å (0.0001 Å) is well below physical atomic vibrations and numerical uncertainties,
+    /// making an absolute threshold robust across any realistic molecular point set size.
+    pub const COLLINEARITY_TOLERANCE_ANGSTROM: f64 = 1e-4;
+
     /// Checks whether a set of centroid-shifted positions is degenerate (all points at origin)
     /// or collinear (all points lie on a single line passing through the centroid).
     ///
     /// Requires at least 3 points spanning at least 2 dimensions to uniquely determine
     /// a 3D rotation matrix. Returns true if the maximum perpendicular distance from the
-    /// primary axis through the centroid is below `TOLERANCE` (1e-4 Angstrom).
+    /// primary axis through the centroid is below `COLLINEARITY_TOLERANCE_ANGSTROM` (1e-4 Å).
     fn is_collinear_or_degenerate(shifted: &[Position]) -> bool {
         if shifted.len() < 3 {
             return true;
@@ -242,7 +250,7 @@ impl Superposer {
         }
 
         // If even the furthest point is essentially at origin, it is completely degenerate
-        if max_len < 1e-4 {
+        if max_len < Self::COLLINEARITY_TOLERANCE_ANGSTROM {
             return true;
         }
 
@@ -258,7 +266,7 @@ impl Superposer {
             }
         }
 
-        max_perp < 1e-4
+        max_perp < Self::COLLINEARITY_TOLERANCE_ANGSTROM
     }
 
     /// Computes the optimal 3x3 rotation matrix using the Kabsch algorithm.

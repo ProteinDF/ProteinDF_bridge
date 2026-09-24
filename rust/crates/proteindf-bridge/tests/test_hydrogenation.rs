@@ -440,6 +440,13 @@ fn test_hydrogenation_in_place_idempotency() {
 // In internal nucleotide residues, terminal capping oxygen (OP3) is absent.
 // Bridging oxygen O5' (bonded to both P and C5', heavy_degree >= 2) must NOT be excluded
 // as a distorted terminal atom. Only non-bridging oxygens (heavy_degree == 1) should be distorted candidates.
+//
+// To ensure the test has real discriminatory power (per Review Round 3 Finding 6),
+// we perturb O5' from its ideal position and compare hydrogenation results:
+// - Default automatic fitting: includes O5' as a non-distorted bridging atom, yielding a superposed position
+//   that takes the perturbed O5' into account.
+// - Explicit fit without O5': produces a different superposition that ignores O5'.
+// This proves that O5' is actively included in the automatic superposition set rather than being excluded.
 #[test]
 fn test_hydrogenation_nucleic_acid_phosphate_o5_prime_bridging_preserved() {
     let db = CcdTemplateDb::global();
@@ -450,7 +457,11 @@ fn test_hydrogenation_nucleic_acid_phosphate_o5_prime_bridging_preserved() {
     let mut da_internal = AtomGroup::with_name("DA");
     for atom in &template.atoms {
         if !atom.is_hydrogen() && atom.name != "OP3" {
-            let (x, y, z) = atom.ideal_xyz.unwrap();
+            let (mut x, y, z) = atom.ideal_xyz.unwrap();
+            // Perturb O5' coordinate slightly
+            if atom.name == "O5'" {
+                x += 0.2;
+            }
             da_internal.set_atom(
                 &atom.name,
                 Atom::new_with_pos(&atom.element, Position::new(x, y, z)).unwrap(),
@@ -461,18 +472,94 @@ fn test_hydrogenation_nucleic_acid_phosphate_o5_prime_bridging_preserved() {
     assert!(da_internal.has_atom("O5'"));
     assert!(!da_internal.has_atom("OP3"));
 
-    // Hydrogenation should succeed and add all hydrogens to the nucleotide
-    let result = add_hydrogens_to_component(&da_internal, template);
+    // 1. Hydrogenation with automatic detection (should include O5')
+    let result_auto = add_hydrogens_to_component(&da_internal, template);
     assert!(
-        result.is_ok(),
+        result_auto.is_ok(),
         "DA nucleotide with missing OP3 should successfully hydrogenate: {:?}",
-        result.err()
+        result_auto.err()
     );
+    let h_auto = result_auto.unwrap();
+    let pos_h8_auto = h_auto.get_atom("H8").unwrap().xyz;
 
-    let hydrogenated = result.unwrap();
-    // Check that sugar and base hydrogens are populated
-    assert!(hydrogenated.has_atom("H1'"));
-    assert!(hydrogenated.has_atom("H2'"));
-    assert!(hydrogenated.has_atom("H8"));
-    assert!(hydrogenated.has_atom("H61"));
+    // 2. Hydrogenation with explicit heavy atoms that exclude O5'
+    let heavy_without_o5: Vec<&str> = template
+        .atoms
+        .iter()
+        .filter(|a| !a.is_hydrogen() && a.name != "OP3" && a.name != "O5'")
+        .map(|a| a.name.as_str())
+        .collect();
+    let opts = HydrogenationOptions {
+        fit_heavy_atoms: Some(&heavy_without_o5),
+        ..Default::default()
+    };
+    let result_no_o5 = proteindf_bridge::hydrogenation::add_hydrogens_to_component_with_options(
+        &da_internal,
+        template,
+        &opts,
+    );
+    assert!(result_no_o5.is_ok());
+    let h_no_o5 = result_no_o5.unwrap();
+    let pos_h8_no_o5 = h_no_o5.get_atom("H8").unwrap().xyz;
+
+    // Since O5' was perturbed and included in result_auto, the resulting superposition differs from
+    // the one where O5' was excluded.
+    let diff = distance(&pos_h8_auto, &pos_h8_no_o5);
+    assert!(
+        diff > 1e-4,
+        "Superposition including O5' should differ from superposition excluding O5' (diff = {diff})"
+    );
+}
+
+// 9. Atomic rollback on error during in-place hydrogenation:
+// If any hydrogen atom cannot be resolved (e.g. missing ideal_xyz),
+// add_hydrogens_to_component_in_place must return Err AND leave the component
+// completely unmodified (0 hydrogens partially added).
+#[test]
+fn test_hydrogenation_in_place_atomic_on_error() {
+    let db = CcdTemplateDb::global();
+    let template = db.lookup("ALA").expect("ALA template exists");
+
+    // Create a modified template where the LAST hydrogen has None for ideal_xyz
+    let mut bad_template = template.clone();
+    let last_h_idx = bad_template
+        .atoms
+        .iter()
+        .rposition(|a| a.is_hydrogen())
+        .expect("ALA has hydrogens");
+    bad_template.atoms[last_h_idx].ideal_xyz = None;
+
+    // Prepare component with ALA heavy atoms
+    let mut ala_heavy = AtomGroup::with_name("ALA");
+    for atom in &template.atoms {
+        if !atom.is_hydrogen() {
+            let (x, y, z) = atom.ideal_xyz.unwrap();
+            ala_heavy.set_atom(
+                &atom.name,
+                Atom::new_with_pos(&atom.element, Position::new(x, y, z)).unwrap(),
+            );
+        }
+    }
+
+    let initial_atom_count = ala_heavy.get_number_of_atoms();
+
+    // Call in-place hydrogenation with the flawed template
+    let res = add_hydrogens_to_component_in_place(&mut ala_heavy, &bad_template);
+    assert!(res.is_err(), "Must fail when a hydrogen has no ideal_xyz");
+
+    // Verify atomicity: NO hydrogens were added to ala_heavy
+    assert_eq!(
+        ala_heavy.get_number_of_atoms(),
+        initial_atom_count,
+        "Component must remain completely unmodified on failure"
+    );
+    for atom in &template.atoms {
+        if atom.is_hydrogen() {
+            assert!(
+                !ala_heavy.has_atom(&atom.name),
+                "Hydrogen '{}' should not exist in component after atomic failure",
+                atom.name
+            );
+        }
+    }
 }
