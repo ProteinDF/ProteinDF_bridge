@@ -3,9 +3,13 @@
 
 //! wwPDB Chemical Component Dictionary (CCD) bond template database.
 //!
-//! Provides canonical atom names and bond topology (with bond orders 1, 2, 3, 4)
-//! for standard amino acids, nucleic acids, and water, embedded at compile time
-//! via MessagePack binary for zero-filesystem portable access.
+//! Provides canonical atom names/elements/idealized geometry and bond topology
+//! (with bond orders 1, 2, 3, 4) for standard amino acids, nucleic acids, and
+//! water, embedded at compile time via MessagePack binary for zero-filesystem
+//! portable access. The idealized geometry (including explicit hydrogens) is the
+//! data foundation for CCD-reference-based hydrogen addition (`RUST_PORT_SPEC.md`
+//! §3.16); this module itself only provides the template data and bond-order
+//! resolution (`AtomGroup::apply_ccd_bond_templates`), not hydrogenation itself.
 //!
 //! # Runtime Extension with User-Supplied CCD Data
 //! While the standard 29 residue templates are embedded at compile time via [`CcdTemplateDb::global`],
@@ -46,18 +50,92 @@ use crate::format::mmcif::MmcifDataBlock;
 /// Raw embedded MessagePack bytes for standard CCD bond templates.
 pub const CCD_BOND_TEMPLATES_MSGPACK: &[u8] = include_bytes!("data/ccd_bond_templates.msgpack");
 
+/// A single atom of a CCD component, with element and idealized geometry.
+///
+/// `ideal_xyz` is `None` when neither an idealized (`pdbx_model_Cartn_*_ideal`) nor a
+/// model (`model_Cartn_*`) coordinate could be resolved for this atom (e.g. a
+/// minimal user-supplied CCD file that only lists atom names/elements). Bond-order
+/// resolution (`AtomGroup::apply_ccd_bond_templates`) does not need coordinates, so a
+/// missing `ideal_xyz` does not prevent a template from being usable for that purpose.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CcdAtom {
+    /// Canonical atom name (e.g. "CA", "HB2").
+    pub name: String,
+    /// Element symbol (e.g. "C", "N", "H"). Deuterium ("D") is normalized to "H".
+    pub element: String,
+    /// Idealized (or, failing that, model) Cartesian coordinates in Angstrom.
+    pub ideal_xyz: Option<(f64, f64, f64)>,
+}
+
+impl CcdAtom {
+    /// Returns whether this atom's element is hydrogen.
+    pub fn is_hydrogen(&self) -> bool {
+        self.element.eq_ignore_ascii_case("H")
+    }
+}
+
 /// A bond template for a chemical component in the CCD.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CcdBondTemplate {
     /// 3-letter component identifier (e.g. "ALA", "ARG", "DA", "HOH").
     pub comp_id: String,
-    /// List of canonical atom names.
-    pub atoms: Vec<String>,
+    /// List of canonical atoms (name, element, idealized geometry).
+    pub atoms: Vec<CcdAtom>,
     /// List of intra-component bonds as (atom_id_1, atom_id_2, bond_order).
     pub bonds: Vec<(String, String, usize)>,
 }
 
 impl CcdBondTemplate {
+    /// Looks up an atom by its canonical name.
+    pub fn get_atom(&self, name: &str) -> Option<&CcdAtom> {
+        self.atoms.iter().find(|a| a.name == name)
+    }
+
+    /// Builds a `CcdAtom` from an mmCIF `_chem_comp_atom` row, if it contains an `atom_id`.
+    ///
+    /// Element normalization (deuterium "D" -> "H") and idealized/model coordinate
+    /// resolution are shared with `format::mmcif`'s own CCD-component parsing
+    /// (`crate::format::mmcif::normalize_element_symbol`/`resolve_chem_comp_atom_xyz`)
+    /// so the two mmCIF `_chem_comp_atom` parsing paths cannot silently drift apart.
+    fn atom_from_row(row: &indexmap::IndexMap<String, String>) -> Option<CcdAtom> {
+        let name = row.get("_chem_comp_atom.atom_id")?.clone();
+        let element = crate::format::mmcif::normalize_element_symbol(
+            &row.get("_chem_comp_atom.type_symbol")
+                .cloned()
+                .unwrap_or_else(|| "X".to_string()),
+        );
+        let ideal_xyz = crate::format::mmcif::resolve_chem_comp_atom_xyz(row);
+        Some(CcdAtom {
+            name,
+            element,
+            ideal_xyz,
+        })
+    }
+
+    /// Appends `atom` to `atoms`, keyed by name.
+    ///
+    /// A row repeating an already-seen atom name is tolerated only when it is an exact
+    /// duplicate (same element and coordinates) of the one already collected; a row that
+    /// repeats a name with a *different* element or geometry is rejected with an error
+    /// rather than silently keeping whichever row happened to appear first (e.g. an
+    /// alternate-conformer or malformed user-supplied CCD file).
+    fn push_atom_checked(atoms: &mut Vec<CcdAtom>, atom: CcdAtom, comp_id: &str) -> Result<()> {
+        if let Some(existing) = atoms.iter().find(|a| a.name == atom.name) {
+            if existing != &atom {
+                return Err(BridgeError::input_error(
+                    comp_id,
+                    format!(
+                        "Conflicting _chem_comp_atom rows for atom '{}' in component '{comp_id}': {existing:?} vs {atom:?}",
+                        atom.name
+                    ),
+                ));
+            }
+            return Ok(());
+        }
+        atoms.push(atom);
+        Ok(())
+    }
+
     /// Builds a `CcdBondTemplate` from an mmCIF CCD data block.
     ///
     /// Extracts canonical atom names from `_chem_comp_atom.atom_id` and intra-component
@@ -88,19 +166,15 @@ impl CcdBondTemplate {
                 }
             });
 
-        // 1. Extract canonical atom names (preserving appearance order)
-        let mut atoms = Vec::new();
-        if let Some(atom_id) = block.key_values.get("_chem_comp_atom.atom_id") {
-            if !atoms.contains(atom_id) {
-                atoms.push(atom_id.clone());
-            }
+        // 1. Extract canonical atoms (name, element, idealized geometry; preserving appearance order)
+        let mut atoms: Vec<CcdAtom> = Vec::new();
+        if let Some(atom) = Self::atom_from_row(&block.key_values) {
+            Self::push_atom_checked(&mut atoms, atom, &actual_comp_id)?;
         }
         for table in &block.tables {
             for row in table {
-                if let Some(atom_id) = row.get("_chem_comp_atom.atom_id") {
-                    if !atoms.contains(atom_id) {
-                        atoms.push(atom_id.clone());
-                    }
+                if let Some(atom) = Self::atom_from_row(row) {
+                    Self::push_atom_checked(&mut atoms, atom, &actual_comp_id)?;
                 }
             }
         }

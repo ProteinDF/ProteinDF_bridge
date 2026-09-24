@@ -346,17 +346,35 @@ CCDの理想化座標をそのまま使える水素と、使えない水素が�
 
 #### 対象(PR分割)
 
-##### PR#37: CCDジオメトリテンプレートのデータ基盤
+##### PR#37: CCDジオメトリテンプレートのデータ基盤 (完了: 2026-09-24)
 
 1. `ccd_templates.rs`(または新設する姉妹モジュール、実装時に判断)に、原子ごとの元素記号・理想3次元座標を保持する構造体を追加する(例: `CcdAtomGeometry { name: String, element: String, ideal_xyz: (f64, f64, f64) }`を`CcdBondTemplate`に追加、または新規`CcdGeometryTemplate`型)。既存`CcdBondTemplate`のシリアライズ形式・呼び出し箇所への影響を実装時に精査し、後方互換性(既存の結合解決パス§3.8〜3.15が壊れないこと)を確認すること。
 2. `scripts/build_ccd_bond_templates.py`を拡張し、`_chem_comp_atom.type_symbol`・`pdbx_model_Cartn_{x,y,z}_ideal`を抽出して埋め込みMessagePackに含める。組み込み29テンプレート(標準アミノ酸20+核酸8+HOH)を再生成する。
 3. `CcdBondTemplate::from_mmcif_block`(§3.11のユーザー提供CCDファイルによる実行時拡張パス)も同様に元素記号・理想座標を抽出するよう拡張する。
 
-**完了の定義(想定)**:
-1. 組み込み29テンプレートそれぞれについて、水素原子(元素記号"H")が理想座標付きで正しく抽出されていることを検証するテストを追加する(例: ALAならHA/HB1/HB2/HB3等の水素の存在と、独立に確認した理想座標値との一致)。
-2. `from_mmcif_block`について、水素を含むユーザー提供CCDファイル(フィクスチャとして追加)から座標付きテンプレートが構築できることを検証する。
-3. 既存の結合解決関連テスト(§3.8〜3.15)が全てそのままパスすること(スキーマ拡張による既存機能への影響がないことの確認)。
-4. `cargo clippy`/`cargo fmt`を通すこと。
+#### 実施内容 (2026-09-24完了)
+
+1. **構造体設計**: 既存`CcdBondTemplate`を拡張する方針を採用した(新規姉妹型は作らない)。`atoms`フィールドの型を`Vec<String>`から新設`CcdAtom { name: String, element: String, ideal_xyz: Option<(f64, f64, f64)> }`の`Vec`に変更した。`ideal_xyz`を`Option`にしたのは、座標列を持たない最小限のユーザー提供CCDファイル(名前・元素のみ)でも結合次数解決用途では引き続き使えるようにするため(後方互換性維持)。`atoms`フィールドは既存コード中では結合解決ロジック(`AtomGroup::apply_ccd_bond_templates`)から一切参照されていないことを事前に確認済みであり、型変更による既存動作への影響はない。
+2. **データ抽出**: `scripts/build_ccd_bond_templates.py`の`_chem_comp_atom`ループ処理に`type_symbol`・`pdbx_model_Cartn_{x,y,z}_ideal`(未解決時は`model_Cartn_{x,y,z}`にフォールバック)の抽出を追加し、組み込み29テンプレートを実際にRCSBから再取得して再生成した(`ccd_bond_templates.msgpack`、9.2KB→44.8KB)。重水素("D")は"H"に正規化する(既存`format/mmcif.rs`の`extract_atoms_and_name`と同じ規約)。
+3. **`from_mmcif_block`拡張**: 同様のideal優先・model フォールバック・D→H正規化ロジックを`CcdBondTemplate::atom_from_row`として実装した(`format/mmcif.rs`の`get_coordinate`と同じアルゴリズムを、型が異なる`IndexMap`引数向けに実装。共有可能な形へのリファクタリングは本PRのスコープ外とした)。
+
+**検証 (2026-09-24完了)**:
+1. `test_ccd_template_ala_hydrogen_ideal_coordinates`: ALAの全13原子(水素7個含む)の元素記号・理想座標を、RCSBの生CIF(`https://files.rcsb.org/ligands/view/ALA.cif`)から独立に手動で読み取った基準値と誤差1e-6以内で一致することを検証。
+2. `test_ccd_template_all_embedded_hydrogens_have_ideal_coordinates`: 組み込み29テンプレート全てについて、水素原子が最低1個存在し、水素・重原子とも`ideal_xyz`が解決済みであることを検証。
+3. `test_from_mmcif_block_ideal_priority_and_deuterium_normalization`(新規合成フィクスチャ): idealがmodelより優先されること、重水素("D")が"H"に正規化されること、idealが"?"(未解決)の場合はmodelにフォールバックすることを個別に検証。
+4. `test_from_mmcif_block_ala_cif_matches_embedded`(既存テスト): 実フィクスチャ`tests/data/ALA.cif`から`from_mmcif_block`で構築したテンプレートが、埋め込みDBのALAエントリと`atoms`(座標込み)・`bonds`とも完全一致することを確認(実行時拡張パスと組み込みパスの整合性検証)。
+5. `test_from_mmcif_block_synthetic_custom_ligand`(既存テスト、更新): 座標列を持たない最小限のCIF断片から構築したテンプレートで`ideal_xyz`が`None`になり、エラーにならないことを確認(後方互換性)。
+6. 既存の結合解決関連テスト(§3.8〜3.15、`test_ccd_templates.rs`の他16件・`cargo test --workspace`全件)がそのままパスすることを確認。
+7. `cargo clippy -p proteindf-bridge --all-targets -- -D warnings`・`cargo fmt --all -- --check`とも警告・エラーなし(`proteindf-bridge-py`クレートのpyo3 0.29関連の既存deprecation警告は本PRと無関係、developで先行して存在することを確認済み)。
+
+**レビュー指摘への対応 (2026-09-24)**:
+`/code-review develop...feature/hydrogenation-pr37` で3件の指摘を受け、いずれも修正した。
+
+1. **軸ごと独立解決によるハイブリッド座標のバグ(修正)**: 当初の実装はx/y/z各軸を独立に「ideal優先・model フォールバック」していたため、例えばy軸だけidealが"?"の場合、x/zはideal・yはmodelという、どちらの配座にも属さない無意味な座標が生成され得た。`format::mmcif::resolve_chem_comp_atom_xyz`としてx/y/z三つ組を**原子的に**(全軸揃って初めて採用、1軸でも欠ければ三つ組ごと棄却してmodel三つ組を試す)解決するよう修正した。`scripts/build_ccd_bond_templates.py`の`parse_xyz`は元々この三つ組原子性を持っていたため、Python側との整合も取れた。
+2. **`format/mmcif.rs`との実装重複(修正)**: `ccd_templates.rs`の座標解決・D→H正規化ロジックが、既存の`format/mmcif.rs`の`extract_atoms_and_name`/`get_coordinate`(CCD単体コンポーネントを`AtomGroup`として読み込む`SimpleMmcif::get_atomgroup`が使用)と実質的に重複していた。`format::mmcif::resolve_chem_comp_atom_xyz`/`normalize_element_symbol`を共有関数として`format/mmcif.rs`に新設し(上記の原子性バグもここで一度に修正)、`extract_atoms_and_name`と`ccd_templates.rs::atom_from_row`の両方がこれを呼ぶように統一した。`format/mmcif.rs`の私有`get_coordinate`メソッドは削除。
+3. **重複`atom_id`行の無言解決(修正)**: 同じ`atom_id`が複数行に現れた場合、従来(座標追加前のコードも含め)最初に現れた行を無条件に採用し残りを無言で捨てていた。元素・座標が全く同じ重複行は許容するが、異なる場合はエラーにする`push_atom_checked`ヘルパーを新設し、矛盾する重複行を無言で解決しないようにした。
+
+**追加検証**: `test_partial_ideal_coordinate_falls_back_to_full_model_triple`(`test_mmcif.rs`、新規)・`test_from_mmcif_block_ideal_priority_and_deuterium_normalization`への部分欠損ケース追加(`test_ccd_templates.rs`)・`test_from_mmcif_block_duplicate_atom_id_rows`(新規)。`cargo test --workspace`(140+件)・clippy・fmtとも再確認済み。
 
 ##### PR#38: 汎用水素付加エンジン(単一コンポーネント内、PR#37完了後)
 
