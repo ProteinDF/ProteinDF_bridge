@@ -83,10 +83,17 @@ impl Modeling {
             let ref_aan = self.ace_ala_nme.get(conformer).ok_or_else(|| {
                 BridgeError::general(format!("reference conformer {conformer} not found"))
             })?;
-            let (matched, rmsd) = self.match_ace(ref_aan, res, next_aa)?;
-            if rmsd < rmsd_min {
-                rmsd_min = rmsd;
-                aan_best = Some(matched);
+            match self.match_ace(ref_aan, res, next_aa) {
+                Ok((matched, rmsd)) => {
+                    if rmsd < rmsd_min {
+                        rmsd_min = rmsd;
+                        aan_best = Some(matched);
+                    }
+                }
+                Err(err) => {
+                    log::warn!("ACE conformer {conformer} match failed: {err}");
+                    continue;
+                }
             }
         }
 
@@ -153,10 +160,17 @@ impl Modeling {
             let ref_aan = self.ace_ala_nme.get(conformer).ok_or_else(|| {
                 BridgeError::general(format!("reference conformer {conformer} not found"))
             })?;
-            let (matched, rmsd) = self.match_nme(ref_aan, res, next_aa)?;
-            if rmsd < rmsd_min {
-                rmsd_min = rmsd;
-                aan_best = Some(matched);
+            match self.match_nme(ref_aan, res, next_aa) {
+                Ok((matched, rmsd)) => {
+                    if rmsd < rmsd_min {
+                        rmsd_min = rmsd;
+                        aan_best = Some(matched);
+                    }
+                }
+                Err(err) => {
+                    log::warn!("NME conformer {conformer} match failed: {err}");
+                    continue;
+                }
             }
         }
 

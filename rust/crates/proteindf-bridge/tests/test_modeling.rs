@@ -382,3 +382,37 @@ fn test_geometry_helpers() {
     );
     assert_eq!(m.get_last_index(&res), 42);
 }
+
+#[test]
+fn test_get_ace_and_nme_resilient_to_conformer_failure() {
+    let m = Modeling::new().unwrap();
+
+    // Construct a minimal residue where exactly 3 atoms match (N, CA, C).
+    // The atoms are positioned non-collinearly so valid superposition can occur,
+    // but without CB, HA, O, ensuring only 3 points are matched.
+    // In some reference conformers or geometries, if 3 points are collinear/degenerate,
+    // Superposer::new will return Err. The loop in get_ACE / get_NME should continue
+    // and successfully find a matching conformer rather than terminating early with `?`.
+    let mut min_res = AtomGroup::with_name("GLY");
+    min_res.set_atom("N", make_atom("N", "N", Position::new(-1.0, 1.0, 0.0)));
+    min_res.set_atom("CA", make_atom("CA", "C", Position::new(0.0, 0.0, 0.0)));
+    min_res.set_atom("C", make_atom("C", "C", Position::new(1.0, 1.0, 0.0)));
+
+    let ace = m.get_ACE(&min_res, None);
+    assert!(
+        ace.is_ok(),
+        "get_ACE should succeed when valid conformers exist: {:?}",
+        ace.err()
+    );
+    let ace_grp = ace.unwrap();
+    assert_eq!(ace_grp.get_number_of_atoms(), 6);
+
+    let nme = m.get_NME(&min_res, None);
+    assert!(
+        nme.is_ok(),
+        "get_NME should succeed when valid conformers exist: {:?}",
+        nme.err()
+    );
+    let nme_grp = nme.unwrap();
+    assert_eq!(nme_grp.get_number_of_atoms(), 6);
+}

@@ -435,3 +435,44 @@ fn test_hydrogenation_in_place_idempotency() {
     assert!(report2.added_atom_names.is_empty());
     assert_eq!(ser.get_number_of_atoms(), count_after_first);
 }
+
+// 8. Nucleic acid phosphate bridging oxygen protection:
+// In internal nucleotide residues, terminal capping oxygen (OP3) is absent.
+// Bridging oxygen O5' (bonded to both P and C5', heavy_degree >= 2) must NOT be excluded
+// as a distorted terminal atom. Only non-bridging oxygens (heavy_degree == 1) should be distorted candidates.
+#[test]
+fn test_hydrogenation_nucleic_acid_phosphate_o5_prime_bridging_preserved() {
+    let db = CcdTemplateDb::global();
+    let template = db.lookup("DA").expect("DA template exists");
+
+    // Construct an internal DA nucleotide containing all heavy atoms except OP3 (missing capping oxygen).
+    // O5' is present and links the phosphate group to C5'.
+    let mut da_internal = AtomGroup::with_name("DA");
+    for atom in &template.atoms {
+        if !atom.is_hydrogen() && atom.name != "OP3" {
+            let (x, y, z) = atom.ideal_xyz.unwrap();
+            da_internal.set_atom(
+                &atom.name,
+                Atom::new_with_pos(&atom.element, Position::new(x, y, z)).unwrap(),
+            );
+        }
+    }
+
+    assert!(da_internal.has_atom("O5'"));
+    assert!(!da_internal.has_atom("OP3"));
+
+    // Hydrogenation should succeed and add all hydrogens to the nucleotide
+    let result = add_hydrogens_to_component(&da_internal, template);
+    assert!(
+        result.is_ok(),
+        "DA nucleotide with missing OP3 should successfully hydrogenate: {:?}",
+        result.err()
+    );
+
+    let hydrogenated = result.unwrap();
+    // Check that sugar and base hydrogens are populated
+    assert!(hydrogenated.has_atom("H1'"));
+    assert!(hydrogenated.has_atom("H2'"));
+    assert!(hydrogenated.has_atom("H8"));
+    assert!(hydrogenated.has_atom("H61"));
+}
