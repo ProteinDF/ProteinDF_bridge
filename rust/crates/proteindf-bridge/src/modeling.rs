@@ -460,7 +460,7 @@ impl Modeling {
         rot.set(0, 2, nx * nz * (1.0 - cos_theta) - ny * sin_theta);
         rot.set(1, 0, nx * ny * (1.0 - cos_theta) - nz * sin_theta);
         rot.set(1, 1, ny * ny * (1.0 - cos_theta) + cos_theta);
-        rot.set(1, 2, nx * nz * (1.0 - cos_theta) + nx * sin_theta);
+        rot.set(1, 2, ny * nz * (1.0 - cos_theta) + nx * sin_theta);
         rot.set(2, 0, nx * nz * (1.0 - cos_theta) + ny * sin_theta);
         rot.set(2, 1, ny * nz * (1.0 - cos_theta) - nx * sin_theta);
         rot.set(2, 2, nz * nz * (1.0 - cos_theta) + cos_theta);

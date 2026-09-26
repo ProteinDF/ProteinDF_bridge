@@ -7,7 +7,8 @@ use proteindf_bridge::atom::Atom;
 use proteindf_bridge::atom_group::AtomGroup;
 use proteindf_bridge::backbone_hydrogen::{
     add_backbone_hydrogens_to_residue, add_backbone_hydrogens_to_residue_in_place,
-    build_backbone_amide_hydrogen, build_nterm_hydrogens, STANDARD_AMIDE_NH_BOND_LENGTH,
+    build_backbone_amide_hydrogen, build_nterm_hydrogens, NH3_TETRAHEDRAL_HALF_ANGLE,
+    STANDARD_AMIDE_NH_BOND_LENGTH,
 };
 use proteindf_bridge::format::Pdb;
 use proteindf_bridge::position::Position;
@@ -127,7 +128,7 @@ fn test_backbone_amide_hydrogen_real_fixture_1hls() {
         let curr_res = get_residue(&protein, "A", &curr_key);
 
         // PRO residues have no backbone amide H
-        if curr_res.name.eq_ignore_ascii_case("PRO") {
+        if curr_res.name == "PRO" {
             continue;
         }
 
@@ -192,6 +193,9 @@ fn test_backbone_hydrogen_proline_skipped() {
 // 4. N-terminal hydrogenation test:
 // When prev_residue is None, the residue is treated as an N-terminus and receives
 // ammonium hydrogens (H1, H2, H3).
+// Verifies that:
+// - 3 hydrogens are added with length ~1.0 A
+// - Each H-N-CA angle matches tetrahedral angle arccos(-1/3) ~ 109.47 deg.
 #[test]
 fn test_backbone_hydrogen_n_terminus() {
     let pdb_path = test_data_dir().join("1hls.pdb");
@@ -218,8 +222,11 @@ fn test_backbone_hydrogen_n_terminus() {
     assert!(gly_stripped.has_atom("H2"));
     assert!(gly_stripped.has_atom("H3"));
 
-    // Check bond lengths N-H
+    // Check bond lengths N-H and tetrahedral angle H-N-CA (ideal: arccos(-1/3) ~ 109.47 deg)
     let n = gly_stripped.get_atom("N").unwrap();
+    let ca = gly_stripped.get_atom("CA").unwrap();
+    let ideal_tet_angle = (-1.0_f64 / 3.0).acos(); // ~1.9106 rad
+
     for h_name in ["H1", "H2", "H3"] {
         let h = gly_stripped.get_atom(h_name).unwrap();
         let bond_len = distance(&n.xyz, &h.xyz);
@@ -227,11 +234,22 @@ fn test_backbone_hydrogen_n_terminus() {
             (bond_len - 1.0).abs() < 1e-4,
             "N-{h_name} bond length was {bond_len}, expected 1.0 A"
         );
+
+        let ang = angle_rad(&h.xyz, &n.xyz, &ca.xyz);
+        assert!(
+            (ang - ideal_tet_angle).abs() < 0.02,
+            "H-N-CA angle for {h_name} was {:.2} deg ({:.4} rad), expected {:.2} deg ({:.4} rad)",
+            ang.to_degrees(),
+            ang,
+            ideal_tet_angle.to_degrees(),
+            ideal_tet_angle
+        );
     }
 }
 
 // 5. N-terminal PRO test:
-// When an N-terminal residue is PRO, it receives 2 hydrogens (H1, H2) corresponding to secondary amine.
+// When an N-terminal residue is PRO, it receives 2 hydrogens (H1, H2) corresponding to secondary amine,
+// and any spurious existing H3 is removed.
 #[test]
 fn test_backbone_hydrogen_n_terminal_proline() {
     let mut pro = AtomGroup::with_name("PRO");
@@ -243,6 +261,11 @@ fn test_backbone_hydrogen_n_terminal_proline() {
         "CA",
         Atom::new_with_pos("C", Position::new(1.4, 0.0, 0.0)).unwrap(),
     );
+    // Spurious existing H3 should be purged
+    pro.set_atom(
+        "H3",
+        Atom::new_with_pos("H", Position::new(0.0, 1.0, 0.0)).unwrap(),
+    );
 
     let report = add_backbone_hydrogens_to_residue_in_place(&mut pro, None)
         .expect("N-terminal PRO hydrogenation should succeed");
@@ -253,11 +276,14 @@ fn test_backbone_hydrogen_n_terminal_proline() {
     );
     assert!(pro.has_atom("H1"));
     assert!(pro.has_atom("H2"));
-    assert!(!pro.has_atom("H3"));
+    assert!(
+        !pro.has_atom("H3"),
+        "Spurious H3 must be removed on N-terminal PRO"
+    );
 }
 
-// 6. Degenerate and missing coordinate error handling:
-// Verifies proper BridgeError propagation when required atoms are missing or coincident.
+// 6. Degenerate, missing coordinate, and distance error handling:
+// Verifies proper BridgeError propagation when required atoms are missing, coincident, or disconnected.
 #[test]
 fn test_backbone_hydrogen_error_handling() {
     let mut curr = AtomGroup::with_name("ALA");
@@ -288,6 +314,14 @@ fn test_backbone_hydrogen_error_handling() {
         Atom::new_with_pos("C", Position::new(0.0, 0.0, 0.0)).unwrap(),
     );
     assert!(add_backbone_hydrogens_to_residue_in_place(&mut curr, Some(&prev)).is_err());
+
+    // Case D: Disconnected / out-of-bounds peptide bond distance (> 2.5 A)
+    let mut far_prev = AtomGroup::with_name("GLY");
+    far_prev.set_atom(
+        "C",
+        Atom::new_with_pos("C", Position::new(-5.0, 0.0, 0.0)).unwrap(),
+    );
+    assert!(add_backbone_hydrogens_to_residue_in_place(&mut curr, Some(&far_prev)).is_err());
 }
 
 // 7. Immutable API and build_nterm_hydrogens direct function test
@@ -300,12 +334,25 @@ fn test_add_backbone_hydrogens_immutable_and_build_nterm() {
     ala.set_atom("N", Atom::new_with_pos("N", n).unwrap());
     ala.set_atom("CA", Atom::new_with_pos("C", ca).unwrap());
 
+    // Verify NH3_TETRAHEDRAL_HALF_ANGLE constant value (arccos(1/3) ~ 70.53 deg)
+    assert!(
+        (NH3_TETRAHEDRAL_HALF_ANGLE - (1.0_f64 / 3.0).acos()).abs() < 1e-12,
+        "NH3_TETRAHEDRAL_HALF_ANGLE must equal arccos(1/3)"
+    );
+
     // Direct build_nterm_hydrogens: 3 hydrogens for standard residue
     let h_vec = build_nterm_hydrogens(&ala).expect("build_nterm_hydrogens should succeed");
     assert_eq!(h_vec.len(), 3);
+    let ideal_tet_angle = (-1.0_f64 / 3.0).acos(); // ~109.47 deg
     for (_name, h) in &h_vec {
         let bond_len = distance(&n, &h.xyz);
         assert!((bond_len - 1.0).abs() < 1e-4);
+        let ang = angle_rad(&h.xyz, &n, &ca);
+        assert!(
+            (ang - ideal_tet_angle).abs() < 0.02,
+            "Direct build_nterm_hydrogens H-N-CA angle was {:.2} deg, expected 109.47 deg",
+            ang.to_degrees()
+        );
     }
 
     // Direct build_nterm_hydrogens: 2 hydrogens for secondary amine (proline)
