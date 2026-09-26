@@ -13,16 +13,18 @@
 //!   energy minimization or hydrogen-bond network optimization.
 //! - **Protonation state**: Fixed neutral/standard tautomer states from the CCD are used;
 //!   pH-dependent pKa estimation (e.g. PROPKA) is not performed.
-//! - **Main-chain N-terminal amine protonation**: Single-component hydrogenation (PR#38) cannot
-//!   discern whether a residue is a free N-terminus or part of a polymer chain without chain
-//!   context. To prevent over-protonation of internal and C-terminal peptide residues, secondary
-//!   amine hydrogens ('H2', 'H3' on backbone 'N') are never added in PR#38, leaving only the
-//!   standard amide hydrogen 'H'. Complete N-terminal amine capping/protonation (NH3+) is handled
-//!   in PR#39 (using `Modeling::get_NH3`).
+//! - **Main-chain peptide backbone N hydrogens**: Single-component hydrogenation (PR#38) operates
+//!   on individual residues without polymer chain context. Because free-amino-acid CCD templates
+//!   model monomeric N-terminal geometries (carrying free amine hydrogens or, in PRO, a secondary amine
+//!   N-H) rather than polymer backbone amides, all hydrogens bonded to backbone 'N' (where 'N', 'CA',
+//!   and 'C' are present in the template) are excluded in PR#38. Peptide backbone amide N-H (for non-proline
+//!   residues) and N-terminal capping/protonation (NH3+) are constructed with proper polymer geometry in PR#39.
 //! - **Conformational distortion guard scope**: `detect_distorted_terminal_atoms` is scoped
 //!   specifically to protein residues (detecting missing `OXT` and guarding backbone carbonyl `O`).
 //!   Nucleic acid phosphate terminal/bridging oxygen distortion detection is not covered in PR#38
 //!   (deferred to a separate task with real nucleic acid fixtures, per `RUST_PORT_SPEC.md` §3.16).
+//!   Additionally, in experimental X-ray structures where a true C-terminal residue has an unresolved
+//!   (unmodeled) `OXT`, the guard may conservatively exclude backbone `O` as if the residue were internal.
 
 use std::collections::{HashMap, HashSet};
 
@@ -212,6 +214,17 @@ pub fn add_hydrogens_to_component_in_place_with_options(
         }
     }
 
+    // Determine whether the template has a standard amino acid backbone (contains N, CA, and C).
+    // In standard amino acids, free monomer CCD templates represent free amines (N with H and H2,
+    // or N with H in PRO). Without polymer chain context, single-component hydrogenation cannot
+    // know whether a residue is an N-terminus or connected in a chain. Adding monomer N hydrogens
+    // causes over-protonation in internal residues (and internal PRO has zero hydrogens on N).
+    // Therefore, PR#38 unconditionally skips ALL hydrogens bonded to backbone 'N' in amino acid
+    // templates. Polymer backbone amide N-H and N-terminal capping (NH3+) are handled in PR#39.
+    let is_amino_acid_template = template.get_atom("N").is_some()
+        && template.get_atom("CA").is_some()
+        && template.get_atom("C").is_some();
+
     // 3. Identify missing hydrogens and resolve their positions in a staging buffer.
     // Atomicity guarantee: We compute and validate all new hydrogen atoms into a local buffer first.
     // Only after all missing hydrogens are successfully transformed and constructed do we apply
@@ -242,14 +255,11 @@ pub fn add_hydrogens_to_component_in_place_with_options(
             continue;
         }
 
-        // Chemical valence rule for peptide backbone N:
-        // Free amino acid templates (e.g. ALA) represent free amines (N with H and H2).
-        // Without polymer chain context, a single-component hydrogenation cannot discern whether
-        // a residue is a free N-terminus or connected in a chain. Adding H2/H3 to internal or
-        // C-terminal peptide residues causes over-protonation. Therefore, PR#38 adds only the
-        // standard backbone amide hydrogen 'H', and unconditionally skips 'H2' and 'H3' on 'N'.
-        // Polymer N-terminal amine capping/protonation (NH3+) is handled in PR#39.
-        if parent_heavy == "N" && matches!(ccd_atom.name.as_str(), "H2" | "H3") {
+        // Bond-topology exclusion rule for peptide backbone N:
+        // If the template is an amino acid backbone (has N, CA, C), skip ALL hydrogens bonded
+        // to heavy atom "N" regardless of their name (e.g. 'H', 'H2', 'H3' in standard amino acids,
+        // or 'H' in PRO). This avoids misfiring on ligands that happen to contain an atom named "N".
+        if is_amino_acid_template && parent_heavy == "N" {
             continue;
         }
 
@@ -325,9 +335,10 @@ fn detect_distorted_terminal_atoms(
     let missing_capping_heavy: Vec<&str> = template
         .atoms
         .iter()
-        .filter(|a| !a.is_hydrogen() && !component_has_atom(component, &a.name))
+        .filter(|a| !a.is_hydrogen())
         .map(|a| a.name.as_str())
         .filter(|&name| is_known_terminal_capping_heavy_atom(name))
+        .filter(|&name| !component_has_atom(component, name))
         .collect();
 
     if missing_capping_heavy.is_empty() {

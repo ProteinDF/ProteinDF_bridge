@@ -81,16 +81,21 @@ fn test_hydrogenation_identity_superposition() {
     let hydrogenated = add_hydrogens_to_component(&ala_heavy, template)
         .expect("hydrogenation should succeed on identical coordinates");
 
-    // In PR#38 single-component hydrogenation, backbone N 'H2' is unconditionally skipped to avoid
-    // over-protonating internal/C-terminal peptide residues.
+    // In PR#38 single-component hydrogenation, backbone N hydrogens ('H', 'H2', 'H3') are
+    // unconditionally skipped in amino acid templates to avoid over-protonating internal/C-terminal
+    // peptide residues and misplacing peptide amide geometry (deferred to PR#39).
+    assert!(
+        !hydrogenated.has_atom("H"),
+        "Backbone N 'H' should be skipped unconditionally in PR#38"
+    );
     assert!(
         !hydrogenated.has_atom("H2"),
-        "Backbone N 'H2' should be skipped unconditionally"
+        "Backbone N 'H2' should be skipped unconditionally in PR#38"
     );
 
-    // Verify all applicable hydrogens were added and coordinates match exactly
+    // Verify all applicable non-backbone-N hydrogens were added and coordinates match exactly
     for atom in &template.atoms {
-        if atom.is_hydrogen() && atom.name != "H2" && atom.name != "H3" {
+        if atom.is_hydrogen() && !matches!(atom.name.as_str(), "H" | "H2" | "H3") {
             let (ix, iy, iz) = atom.ideal_xyz.unwrap();
             let ideal_pos = Position::new(ix, iy, iz);
 
@@ -474,10 +479,11 @@ fn test_hydrogenation_internal_peptide_valence_and_parent_heavy_check() {
     let hydrogenated = add_hydrogens_to_component(&internal_ala, template)
         .expect("Hydrogenation of internal ALA residue should succeed");
 
-    // 1. Primary amide hydrogen 'H' must be added
+    // 1. Backbone N hydrogens ('H', 'H2', 'H3') must NOT be added in PR#38
+    // (peptide amide N-H is deferred to PR#39 for proper planar geometry)
     assert!(
-        hydrogenated.has_atom("H"),
-        "Backbone amide hydrogen 'H' should be added"
+        !hydrogenated.has_atom("H"),
+        "Backbone amide hydrogen 'H' must NOT be added in PR#38 (deferred to PR#39)"
     );
 
     // 2. Secondary amine hydrogen 'H2' must NOT be added to an internal peptide residue
@@ -552,12 +558,12 @@ fn test_hydrogenation_in_place_atomic_on_error() {
     }
 }
 
-// 10. Regression test: H2 / H3 on backbone N must be unconditionally skipped in single-component
-// hydrogenation (PR#38), whether the component is an isolated amino acid, C-terminal (with OXT),
-// or internal. Only standard amide 'H' is added; full N-terminal amine capping/protonation (NH3+)
-// is deferred to PR#39.
+// 10. Regression test: All hydrogens bonded to backbone N must be unconditionally skipped in
+// single-component hydrogenation (PR#38) for amino acid templates, whether the component is an
+// isolated amino acid, C-terminal (with OXT), or internal. Peptide backbone amide N-H and full
+// N-terminal amine capping/protonation (NH3+) are deferred to PR#39.
 #[test]
-fn test_hydrogenation_backbone_n_skips_h2_h3_unconditionally() {
+fn test_hydrogenation_backbone_n_skips_all_n_hydrogens_unconditionally() {
     let db = CcdTemplateDb::global();
     let template = db.lookup("ALA").expect("ALA template exists");
 
@@ -579,8 +585,8 @@ fn test_hydrogenation_backbone_n_skips_h2_h3_unconditionally() {
         .expect("Hydrogenation of C-terminal ALA should succeed");
 
     assert!(
-        hydrogenated_c_term.has_atom("H"),
-        "Primary backbone hydrogen 'H' must be added"
+        !hydrogenated_c_term.has_atom("H"),
+        "Backbone N 'H' must NOT be added in PR#38 even when OXT is present"
     );
     assert!(
         !hydrogenated_c_term.has_atom("H2"),
@@ -612,8 +618,8 @@ fn test_hydrogenation_backbone_n_skips_h2_h3_unconditionally() {
         .expect("Hydrogenation of internal ALA should succeed");
 
     assert!(
-        hydrogenated_internal.has_atom("H"),
-        "Primary backbone hydrogen 'H' must be added"
+        !hydrogenated_internal.has_atom("H"),
+        "Backbone N 'H' must NOT be added to internal peptide residue in PR#38"
     );
     assert!(
         !hydrogenated_internal.has_atom("H2"),
@@ -662,7 +668,170 @@ fn test_hydrogenation_skips_hydrogen_with_missing_bond_info() {
         !hydrogenated.has_atom("HA"),
         "Hydrogen 'HA' without bond information in template must be safely skipped"
     );
-    // Other hydrogens with valid bond info (e.g. 'H', 'HB1') should still be added
-    assert!(hydrogenated.has_atom("H"));
+    // Other hydrogens with valid bond info (e.g. 'HB1') should still be added
     assert!(hydrogenated.has_atom("HB1"));
+}
+
+// 12. Regression test: All 20 standard amino acids (including PRO) have all backbone N hydrogens
+// skipped in single-component hydrogenation, while sidechain hydrogens are correctly added.
+#[test]
+fn test_hydrogenation_all_20_amino_acids_skip_backbone_n_hydrogens() {
+    let db = CcdTemplateDb::global();
+    let standard_20 = [
+        "ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY", "HIS", "ILE", "LEU", "LYS", "MET",
+        "PHE", "PRO", "SER", "THR", "TRP", "TYR", "VAL",
+    ];
+
+    for comp_id in standard_20 {
+        let template = db
+            .lookup(comp_id)
+            .unwrap_or_else(|| panic!("Template for {comp_id} must exist in DB"));
+
+        // Build a residue with all heavy atoms except OXT (internal peptide residue)
+        let mut residue_heavy = AtomGroup::with_name(comp_id);
+        for atom in &template.atoms {
+            if !atom.is_hydrogen() && atom.name != "OXT" {
+                let (x, y, z) = atom.ideal_xyz.unwrap_or_else(|| {
+                    panic!(
+                        "Atom {} in {} must have ideal coordinates",
+                        atom.name, comp_id
+                    )
+                });
+                residue_heavy.set_atom(
+                    &atom.name,
+                    Atom::new_with_pos(&atom.element, Position::new(x, y, z)).unwrap(),
+                );
+            }
+        }
+
+        let hydrogenated = add_hydrogens_to_component(&residue_heavy, template)
+            .unwrap_or_else(|e| panic!("Hydrogenation for {comp_id} failed: {e:?}"));
+
+        // Collect all hydrogen names bonded to backbone 'N' in the template
+        let n_hydrogens: Vec<&str> = template
+            .bonds
+            .iter()
+            .filter_map(|(a1, a2, _)| {
+                if a1 == "N" {
+                    template
+                        .get_atom(a2)
+                        .filter(|a| a.is_hydrogen())
+                        .map(|a| a.name.as_str())
+                } else if a2 == "N" {
+                    template
+                        .get_atom(a1)
+                        .filter(|a| a.is_hydrogen())
+                        .map(|a| a.name.as_str())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // For PRO, N has a single hydrogen 'H' in the CCD template, which must be skipped
+        if comp_id == "PRO" {
+            assert!(
+                n_hydrogens.contains(&"H"),
+                "PRO CCD template must define bond N-H"
+            );
+        }
+
+        // None of the backbone N hydrogens should be present in the hydrogenated component
+        for h_name in n_hydrogens {
+            assert!(
+                !hydrogenated.has_atom(h_name),
+                "Backbone N hydrogen '{h_name}' should NOT be added to {comp_id} in PR#38"
+            );
+        }
+
+        // Verify that at least one other hydrogen (e.g. CA-H or sidechain) was added
+        let non_n_template_hydrogens: Vec<&str> = template
+            .atoms
+            .iter()
+            .filter(|a| a.is_hydrogen() && a.name != "HXT")
+            .map(|a| a.name.as_str())
+            .filter(|name| {
+                // Must not be bonded to N
+                !template
+                    .bonds
+                    .iter()
+                    .any(|(a1, a2, _)| (a1 == "N" && a2 == name) || (a2 == "N" && a1 == name))
+            })
+            .collect();
+
+        assert!(
+            !non_n_template_hydrogens.is_empty(),
+            "{comp_id} should have non-backbone-N hydrogens in template"
+        );
+        for non_n_h in non_n_template_hydrogens {
+            assert!(
+                hydrogenated.has_atom(non_n_h),
+                "Non-backbone-N hydrogen '{non_n_h}' should be added to {comp_id}"
+            );
+        }
+    }
+}
+
+// 13. Regression test: Non-amino-acid ligand with an atom named "N" does NOT have its N-H hydrogens
+// skipped (the exclusion rule is restricted to templates that possess a standard amino acid backbone N+CA+C).
+#[test]
+fn test_hydrogenation_non_amino_acid_ligand_with_n_retains_hydrogens() {
+    use proteindf_bridge::ccd_templates::{CcdAtom, CcdBondTemplate};
+
+    // Construct a synthetic ligand "LIG" containing heavy atoms "N", "C1", "C2" (no "CA")
+    // and a hydrogen "HN1" bonded to "N".
+    let lig_template = CcdBondTemplate {
+        comp_id: "LIG".to_string(),
+        atoms: vec![
+            CcdAtom {
+                name: "N".to_string(),
+                element: "N".to_string(),
+                ideal_xyz: Some((0.0, 0.0, 0.0)),
+            },
+            CcdAtom {
+                name: "C1".to_string(),
+                element: "C".to_string(),
+                ideal_xyz: Some((1.4, 0.0, 0.0)),
+            },
+            CcdAtom {
+                name: "C2".to_string(),
+                element: "C".to_string(),
+                ideal_xyz: Some((2.0, 1.2, 0.0)),
+            },
+            CcdAtom {
+                name: "HN1".to_string(),
+                element: "H".to_string(),
+                ideal_xyz: Some((-0.5, 0.8, 0.0)),
+            },
+        ],
+        bonds: vec![
+            ("N".to_string(), "C1".to_string(), 1),
+            ("C1".to_string(), "C2".to_string(), 1),
+            ("N".to_string(), "HN1".to_string(), 1),
+        ],
+    };
+
+    let mut lig_heavy = AtomGroup::with_name("LIG");
+    lig_heavy.set_atom(
+        "N",
+        Atom::new_with_pos("N", Position::new(0.0, 0.0, 0.0)).unwrap(),
+    );
+    lig_heavy.set_atom(
+        "C1",
+        Atom::new_with_pos("C", Position::new(1.4, 0.0, 0.0)).unwrap(),
+    );
+    lig_heavy.set_atom(
+        "C2",
+        Atom::new_with_pos("C", Position::new(2.0, 1.2, 0.0)).unwrap(),
+    );
+
+    let hydrogenated = add_hydrogens_to_component(&lig_heavy, &lig_template)
+        .expect("Hydrogenation of ligand LIG should succeed");
+
+    // "HN1" is bonded to heavy atom "N", but because "LIG" lacks "CA", the amino acid backbone
+    // exclusion rule must NOT fire, and "HN1" must be successfully added.
+    assert!(
+        hydrogenated.has_atom("HN1"),
+        "Hydrogen 'HN1' bonded to 'N' in non-amino-acid ligand should be added"
+    );
 }
