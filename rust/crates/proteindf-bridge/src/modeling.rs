@@ -74,27 +74,70 @@ impl Modeling {
     // Capping: ACE and NME
     // -----------------------------------------------------------------
 
-    /// Builds an ACE capping group by fitting against the optimal reference conformer.
-    pub fn get_ACE(&self, res: &AtomGroup, next_aa: Option<&AtomGroup>) -> Result<AtomGroup> {
+    /// Evaluates all reference conformers using `match_fn`, tracking the best RMSD match
+    /// and collecting errors so full context is preserved if all conformers fail.
+    fn find_best_conformer<F>(
+        &self,
+        capping_name: &str,
+        res: &AtomGroup,
+        next_aa: Option<&AtomGroup>,
+        match_fn: F,
+    ) -> Result<AtomGroup>
+    where
+        F: Fn(&Self, &AtomGroup, &AtomGroup, Option<&AtomGroup>) -> Result<(AtomGroup, f64)>,
+    {
         let mut aan_best: Option<AtomGroup> = None;
-        let mut rmsd_min = 1000.0;
+        let mut rmsd_min = f64::MAX;
+        let mut errors: Vec<(String, String)> = Vec::new();
 
         for conformer in Self::CONFORMERS {
-            let ref_aan = self.ace_ala_nme.get(conformer).ok_or_else(|| {
-                BridgeError::general(format!("reference conformer {conformer} not found"))
-            })?;
-            let (matched, rmsd) = self.match_ace(ref_aan, res, next_aa)?;
-            if rmsd < rmsd_min {
-                rmsd_min = rmsd;
-                aan_best = Some(matched);
+            let ref_aan = match self.ace_ala_nme.get(conformer) {
+                Some(aan) => aan,
+                None => {
+                    errors.push((
+                        conformer.to_string(),
+                        format!("reference conformer {conformer} not found"),
+                    ));
+                    continue;
+                }
+            };
+            match match_fn(self, ref_aan, res, next_aa) {
+                Ok((matched, rmsd)) => {
+                    if rmsd < rmsd_min {
+                        rmsd_min = rmsd;
+                        aan_best = Some(matched);
+                    }
+                }
+                Err(err) => {
+                    log::warn!("{capping_name} conformer {conformer} match failed: {err}");
+                    errors.push((conformer.to_string(), err.to_string()));
+                }
             }
         }
 
-        if rmsd_min > 1.0 {
-            log::warn!("RMSD value is too large: {}", rmsd_min);
+        match aan_best {
+            Some(best) => {
+                if rmsd_min > 1.0 {
+                    log::warn!("{capping_name} RMSD value is too large: {rmsd_min}");
+                }
+                Ok(best)
+            }
+            None => {
+                let err_details = errors
+                    .into_iter()
+                    .map(|(conf, err)| format!("{conf}: {err}"))
+                    .collect::<Vec<_>>()
+                    .join("; ");
+                Err(BridgeError::general(format!(
+                    "no matching {capping_name} conformer found ({err_details})"
+                )))
+            }
         }
+    }
 
-        let best = aan_best.ok_or_else(|| BridgeError::general("no matching ACE conformer"))?;
+    /// Builds an ACE capping group by fitting against the optimal reference conformer.
+    pub fn get_ACE(&self, res: &AtomGroup, next_aa: Option<&AtomGroup>) -> Result<AtomGroup> {
+        let best = self.find_best_conformer("ACE", res, next_aa, Self::match_ace)?;
         let ace_group = best.get_group("1").ok_or_else(|| {
             BridgeError::general("ACE group '1' not found in reference structure")
         })?;
@@ -146,25 +189,7 @@ impl Modeling {
 
     /// Builds an NME capping group by fitting against the optimal reference conformer.
     pub fn get_NME(&self, res: &AtomGroup, next_aa: Option<&AtomGroup>) -> Result<AtomGroup> {
-        let mut aan_best: Option<AtomGroup> = None;
-        let mut rmsd_min = 1000.0;
-
-        for conformer in Self::CONFORMERS {
-            let ref_aan = self.ace_ala_nme.get(conformer).ok_or_else(|| {
-                BridgeError::general(format!("reference conformer {conformer} not found"))
-            })?;
-            let (matched, rmsd) = self.match_nme(ref_aan, res, next_aa)?;
-            if rmsd < rmsd_min {
-                rmsd_min = rmsd;
-                aan_best = Some(matched);
-            }
-        }
-
-        if rmsd_min > 1.0 {
-            log::warn!("RMSD value is too large: {}", rmsd_min);
-        }
-
-        let best = aan_best.ok_or_else(|| BridgeError::general("no matching NME conformer"))?;
+        let best = self.find_best_conformer("NME", res, next_aa, Self::match_nme)?;
         let nme_group = best.get_group("3").ok_or_else(|| {
             BridgeError::general("NME group '3' not found in reference structure")
         })?;

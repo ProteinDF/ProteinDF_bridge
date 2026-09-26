@@ -11,6 +11,7 @@ pub mod ch_pi;
 pub mod error;
 pub mod format;
 pub mod hydrogen_bond;
+pub mod hydrogenation;
 pub mod ion_pair;
 pub mod matrix;
 pub mod modeling;
@@ -45,6 +46,11 @@ pub use hydrogen_bond::{
     calc_backbone_hbonds, calc_kabsch_sander_energy, calc_pseudo_hydrogen, calc_sidechain_hbonds,
     calc_sidechain_hbonds_with_options, HydrogenBond, SidechainAtomType, SidechainHydrogenBond,
     SIDECHAIN_ATOM_TYPES,
+};
+pub use hydrogenation::{
+    add_hydrogens_to_component, add_hydrogens_to_component_in_place,
+    add_hydrogens_to_component_in_place_with_options, add_hydrogens_to_component_with_options,
+    HydrogenationOptions, HydrogenationReport, MIN_SUPERPOSE_HEAVY_ATOMS,
 };
 pub use ion_pair::{IonPair, IonPairRecord};
 pub use matrix::{identity_matrix, Matrix, SymmetricMatrix};
