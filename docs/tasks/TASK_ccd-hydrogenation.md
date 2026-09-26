@@ -33,12 +33,15 @@
 - `CcdBondTemplate::get_atom(name) -> Option<&CcdAtom>`
 - `CcdAtom { name: String, element: String, ideal_xyz: Option<(f64,f64,f64)> }`、`CcdAtom::is_hydrogen()`
 
-### PR#38: 汎用水素付加エンジン(PR#37完了後、agy担当)
+### PR#38: 汎用水素付加エンジン(PR#37完了後、agy担当) (完了: 2026-09-26、developにマージ済み)
 
-1. 新規`hydrogenation.rs`。単一コンポーネントについて、共有する重原子名で`Superposer`剛体フィット→欠けている水素をテンプレートから転写する汎用関数。
-2. 共有重原子が不足する場合は明示的にエラーを返す(サイレントなフォールバックにしないこと)。
+`hydrogenation.rs`を新規実装。8回のレビューラウンドを経て収束、`main`ブランチの`develop`にマージ済み。詳細は`RUST_PORT_SPEC.md` §3.16 PR#38の「実施内容・検証」を参照。
 
-**完了の定義**: `RUST_PORT_SPEC.md` §3.16 PR#38の項を参照。
+**PR#39で使う主なAPI**:
+- `hydrogenation::add_hydrogens_to_component(component: &AtomGroup, template: &CcdBondTemplate) -> Result<AtomGroup>` / `_with_options`版・in-place版
+- `hydrogenation::HydrogenationOptions { fit_heavy_atoms, auto_exclude_distorted_atoms }`
+- `hydrogenation::HydrogenationReport { added_hydrogens, added_atom_names }`
+- **重要**: PR#38は標準アミノ酸主鎖(`N`・`CA`・`C`が存在するテンプレート)の`N`に結合する水素を名前を問わず一律に除外する(`is_amino_acid_template`判定)。主鎖アミドH自体はPR#39の担当であり、PR#38はそこに一切関与しない。
 
 ### PR#39: 主鎖アミドN-Hの幾何構築(PR#38完了後、agy担当)
 
@@ -46,6 +49,10 @@
 2. N末端は既存`Modeling::get_NH3`を再利用(新規実装しない)。
 
 **完了の定義**: `RUST_PORT_SPEC.md` §3.16 PR#39の項を参照。**幾何パラメータの文献値を記憶・推測で埋めないこと**(自信が持てない場合は着手前にユーザー経由でClaudeに相談する)。
+
+**PR#38からの教訓(PR#39にも適用)**:
+- 「単一残基/コンポーネントの情報だけで判定できないこと」(例: このNが鎖内かN末端か)を、ヒューリスティックで近似しようとしない。判定に必要な情報(前残基のC等)が無ければ、それを引数として明示的に受け取る設計にすること。
+- 個別の原子名を列挙して特殊ケースに対応するのではなく、結合構造(どの重原子に結合しているか)に基づく一般的な規則を優先すること(プロリンのように、同じ役割の原子でも種によって命名・個数が異なることがある)。
 
 ### PR#40: 統合エントリポイント(PR#38・PR#39完了後、agy担当)
 

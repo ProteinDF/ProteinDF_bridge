@@ -376,7 +376,7 @@ CCDの理想化座標をそのまま使える水素と、使えない水素が�
 
 **追加検証**: `test_partial_ideal_coordinate_falls_back_to_full_model_triple`(`test_mmcif.rs`、新規)・`test_from_mmcif_block_ideal_priority_and_deuterium_normalization`への部分欠損ケース追加(`test_ccd_templates.rs`)・`test_from_mmcif_block_duplicate_atom_id_rows`(新規)。`cargo test --workspace`(140+件)・clippy・fmtとも再確認済み。
 
-##### PR#38: 汎用水素付加エンジン(単一コンポーネント内、PR#37完了後)
+##### PR#38: 汎用水素付加エンジン(単一コンポーネント内、PR#37完了後) (完了: 2026-09-26)
 
 1. 新規`hydrogenation.rs`。任意の単一コンポーネント(残基/リガンド)の`AtomGroup`とCCDジオメトリテンプレートを受け取り、以下を行う関数(例: `add_hydrogens_to_component(residue: &AtomGroup, template: &CcdGeometryTemplate) -> Result<AtomGroup>`、または`&mut AtomGroup`を直接更新する設計、実装時に判断):
    - テンプレートと実構造で**名前が一致する重原子**を全て収集する(`modeling.rs`の`match_residues`のような固定リストではなく、共有する全重原子名を対象にする汎用マッチング)。共有重原子が不足する場合(フィットに必要な最小原子数、目安3点以上)はエラーを返す(サイレントなフォールバックにしないこと、これまでのレビュー方針§3.15コメント等と同じ考え方)。
@@ -391,6 +391,15 @@ CCDの理想化座標をそのまま使える水素と、使えない水素が�
 4. `cargo clippy`/`cargo fmt`を通すこと。
 
 **スコープ変更(2026-09-24、レビュー4回目、ユーザー承認済み)**: 実装過程で、鎖内残基の主鎖カルボニルOが遊離アミノ酸CCDテンプレートと幾何が異なる問題(§3.16本文参照)への対策として`detect_distorted_terminal_atoms`(末端キャッピング原子の欠損を手がかりに、歪みうる兄弟原子をフィット対象から除外する機構)を追加実装した。タンパク質(`OXT`欠損→主鎖`O`除外)については実データ検証済みで正しく機能する。**核酸のリン酸基(`OP3`欠損→`OP1`/`OP2`/`O5'`の扱い)については、3回のレビューラウンドにわたり本質的に同種の誤判定(架橋酸素`O5'`の誤除外、次いで非架橋酸素`OP1`/`OP2`の誤除外)が繰り返し発生し、かつ核酸の実データ/合成テストフィクスチャが一切無い状態が続いた。** ユーザー判断により、**本PRでは`detect_distorted_terminal_atoms`をタンパク質(`OXT`)専用に縮小し、核酸のリン酸基への対応は行わない(既知の限界としてdocコメントに明記する)こととした。** 核酸のリン酸基周りの歪み検知は、実データ・合成フィクスチャを用意した上で改めて独立したタスクとして計画・着手すること。
+
+**実施内容・検証 (2026-09-26完了、8回のレビューラウンドを経て収束)**:
+実装はagy、レビューはClaudeが担当した(`docs/tasks/TASK_ccd-hydrogenation.md`参照)。最終的な実装は、`hydrogenation.rs`に`add_hydrogens_to_component`/`add_hydrogens_to_component_with_options`/`add_hydrogens_to_component_in_place`(および`_with_options`版)、`HydrogenationOptions`(`fit_heavy_atoms`・`auto_exclude_distorted_atoms`)、`HydrogenationReport`を実装した。主な設計上の到達点:
+- **主鎖N水素の除外は原子名ではなく結合構造で判定する**: テンプレートが標準アミノ酸主鎖(`N`・`CA`・`C`が存在)である場合、`N`に結合する水素は名前(`H`/`H2`/`H3`)を問わず一律に除外する。これにより、鎖内残基での過剰プロトン化(自由アミノ酸のNH2/NH3+を鎖内アミドに誤って付加)と、プロリンの環状N(鎖内では水素0個)の両方を1つの規則で正しく扱える。主鎖アミドH自体はPR#39が担当する(単一コンポーネントの情報だけでは、鎖内かN末端かを判定できないため)。
+- **末端キャッピング原子の欠損による歪み検知もタンパク質専用の同じ判定でガードする**: `detect_distorted_terminal_atoms`(`OXT`欠損時に主鎖カルボニル`O`をフィット対象から除外)も、同じ`is_amino_acid_template`判定で非タンパク質テンプレート(ユーザー提供CCDでたまたま`OXT`という名前の原子を持つ場合等)への誤発動を防ぐ。
+- `Superposer::new`に共線/縮退した適合点集合を検出するガード(`COLLINEARITY_TOLERANCE_ANGSTROM`)を追加した(既存の`modeling.rs`の`get_ACE`/`get_NME`等、他の呼び出し元にも安全側の恩恵がある)。これに伴い`modeling.rs`のコンフォーマー探索ループ(`find_best_conformer`)を、1コンフォーマーの失敗で全体を中断するのではなく、失敗したコンフォーマーはスキップして次を試す設計に変更した(全滅時のみエラー、個々の失敗理由も保持)。
+- 水素の親重原子(`template.bonds`から解決)が実構造に存在しない場合は水素を追加しない、ボンド情報が欠けた水素は安全側でスキップする、in-place系APIは一部成功・一部失敗という中間状態を作らず原子的に適用する、といった防御的な設計を採用した。
+- **検証**: 実PDBフィクスチャ(`1hls.pdb`)、標準アミノ酸20種全て(プロリン含む)での主鎖N水素除外の網羅テスト、非アミノ酸リガンド(たまたま`N`/`OXT`という名前を持つ合成テンプレート)でガードが誤発動しないことの確認、共線/縮退フィットの拒否、恒等変換での座標一致等を検証済み。`cargo test --workspace`(165件)・`cargo clippy`・`cargo fmt`とも問題なし。
+- **既知の限界**: 回転可能水素(側鎖OH/SH/NH3+)はCCD理想配座をそのまま採用(局所最適化なし)。核酸のリン酸基まわりの歪み検知は別タスク。ユーザー提供CCDテンプレートのボンド行に対する重複/矛盾検証は未実装(組み込み29テンプレートには影響しない)。
 
 ##### PR#39: 主鎖アミドN-Hの幾何構築(PR#38完了後)
 
