@@ -12,7 +12,7 @@
 //!   Proline residues (`PRO`) lack backbone amide hydrogens and are skipped.
 //! - **N-terminal ammonium hydrogens (`H1`, `H2`, `H3`)**: For true N-terminal residues
 //!   where no preceding residue exists, standard tetrahedral ammonium geometry is generated
-//!   using [`crate::Modeling::get_NH3`] aligned against the $N-CA$ bond.
+//!   using [`crate::Modeling::get_NH3`] aligned against the $CA \to N$ bond.
 //!
 //! See `RUST_PORT_SPEC.md` §3.16 for full design details and literature sources.
 
@@ -20,16 +20,10 @@ use crate::atom::Atom;
 use crate::atom_group::AtomGroup;
 use crate::error::{BridgeError, Result};
 use crate::hydrogen_bond::calc_pseudo_hydrogen;
+pub use crate::hydrogen_bond::STANDARD_AMIDE_NH_BOND_LENGTH;
 use crate::hydrogenation::HydrogenationReport;
 use crate::modeling::Modeling;
 use crate::position::Position;
-
-/// Standard bond length for backbone amide N-H in Angstroms.
-///
-/// Source: Engh, R. A. & Huber, R. (1991). Accurate bond and angle parameters for X-ray
-/// protein structure refinement. Acta Cryst. A47, 392-400. Also matches the DSSP /
-/// Kabsch & Sander (1983) electrostatic model used across structural bioinformatics.
-pub const STANDARD_AMIDE_NH_BOND_LENGTH: f64 = 1.01;
 
 /// Half cone angle from CA->N axis for tetrahedral N-terminal ammonium hydrogens (rad).
 ///
@@ -39,6 +33,19 @@ pub const STANDARD_AMIDE_NH_BOND_LENGTH: f64 = 1.01;
 /// To obtain the ideal tetrahedral angle of $\arccos(-1/3) \approx 109.47^\circ$, the cone angle
 /// must satisfy $\cos(\text{angle}) = -\cos(109.47^\circ) = 1/3$, yielding $\arccos(1/3) \approx 70.53^\circ$.
 pub const NH3_TETRAHEDRAL_HALF_ANGLE: f64 = 1.230_959_417_340_774_7; // (1.0_f64 / 3.0).acos()
+
+/// Helper: removes all atoms matching `target_name` by inspecting atom names
+/// and removing via their actual storage keys (which may be `"{serial}_{name}"` in PDB structures).
+fn remove_atoms_by_name(residue: &mut AtomGroup, target_name: &str) {
+    let keys_to_remove: Vec<String> = residue
+        .atoms()
+        .filter(|(_, atom)| atom.name.trim() == target_name)
+        .map(|(key, _)| key.clone())
+        .collect();
+    for key in keys_to_remove {
+        residue.remove_atom(&key);
+    }
+}
 
 /// Calculates the position of the peptide backbone amide hydrogen (`H`) for a residue
 /// given the preceding residue's carbonyl carbon `C`, the current residue's `N`, and `CA`.
@@ -62,6 +69,11 @@ pub fn build_backbone_amide_hydrogen(
 ///
 /// For proline (`PRO`), whose ring nitrogen is a secondary amine at the N-terminus,
 /// two hydrogens (`H1`, `H2`) are generated.
+///
+/// # Errors
+/// Returns an error if required heavy atoms (`N`, `CA`) are missing or degenerate,
+/// or if the $CA \to N$ vector is exactly collinear with the reference Z axis resulting
+/// in a zero cross product during rotation matrix calculation.
 pub fn build_nterm_hydrogens(residue: &AtomGroup) -> Result<Vec<(String, Atom)>> {
     let n = residue
         .get_atom("N")
@@ -115,13 +127,17 @@ pub fn build_nterm_hydrogens(residue: &AtomGroup) -> Result<Vec<(String, Atom)>>
 /// * `prev_residue` - Optional reference to the preceding residue in the chain.
 ///   - If `Some(prev)`: Treats `residue` as an internal/C-terminal residue connected to `prev`.
 ///     Adds peptide backbone amide hydrogen (`H`) using [`build_backbone_amide_hydrogen`].
-///     If the residue is Proline (`PRO`), no backbone hydrogen is added.
+///     If the residue is Proline (`PRO`), no backbone hydrogen is added, and any spurious
+///     existing `H` is purged.
 ///   - If `None`: Treats `residue` as an N-terminal residue. Adds N-terminal ammonium
 ///     hydrogens (`H1`, `H2`, `H3`, or `H1`, `H2` for PRO) using [`build_nterm_hydrogens`].
+///     For N-terminal PRO, any spurious existing `H3` is purged.
 ///
 /// # Errors
 /// Returns an error if required heavy atoms (`N`, `CA`, or `prev.C`) are missing,
 /// have degenerate coordinates, or if the $C_{prev}-N$ distance is outside plausible peptide bond bounds (0.8 - 2.5 Å).
+/// Note: The $C_{prev}-N$ distance check is a physical plausibility heuristic and does not guarantee
+/// strict sequence-level adjacency (which is the responsibility of the polymer chain orchestrator in PR#40).
 pub fn add_backbone_hydrogens_to_residue_in_place(
     residue: &mut AtomGroup,
     prev_residue: Option<&AtomGroup>,
@@ -132,6 +148,8 @@ pub fn add_backbone_hydrogens_to_residue_in_place(
         // Internal peptide residue
         // Proline has a tertiary amine ring nitrogen in peptide chains and carries NO amide hydrogen.
         if residue.name == "PRO" {
+            // Purge any spurious existing H atom (using name-based key lookup)
+            remove_atoms_by_name(residue, "H");
             return Ok(HydrogenationReport {
                 added_hydrogens: 0,
                 added_atom_names: Vec::new(),
@@ -153,7 +171,7 @@ pub fn add_backbone_hydrogens_to_residue_in_place(
                 )
             })?;
 
-            // Guard against disconnected residues or chain breaks
+            // Guard against disconnected residues or chain breaks (physical heuristic)
             let c_n_dist = (n.xyz - c_prev.xyz).length();
             if !(0.8..=2.5).contains(&c_n_dist) {
                 return Err(BridgeError::value_error(
@@ -178,9 +196,9 @@ pub fn add_backbone_hydrogens_to_residue_in_place(
         }
     } else {
         // True N-terminal residue
-        // For N-terminal PRO (secondary amine), purge any spurious existing H3
-        if residue.name == "PRO" && residue.has_atom("H3") {
-            residue.remove_atom("H3");
+        // For N-terminal PRO (secondary amine), purge any spurious existing H3 by atom name
+        if residue.name == "PRO" {
+            remove_atoms_by_name(residue, "H3");
         }
 
         let nterm_hydrogens = build_nterm_hydrogens(residue)?;

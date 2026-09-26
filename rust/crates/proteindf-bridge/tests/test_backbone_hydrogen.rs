@@ -11,6 +11,7 @@ use proteindf_bridge::backbone_hydrogen::{
     STANDARD_AMIDE_NH_BOND_LENGTH,
 };
 use proteindf_bridge::format::Pdb;
+use proteindf_bridge::modeling::Modeling;
 use proteindf_bridge::position::Position;
 
 fn test_data_dir() -> PathBuf {
@@ -118,6 +119,8 @@ fn test_backbone_amide_hydrogen_real_fixture_1hls() {
     let pdb = Pdb::from_file(&pdb_path, None).expect("failed to load 1hls.pdb");
     let protein = pdb.get_atomgroup(None, None).expect("failed to get ag");
 
+    let mut checked_count = 0;
+
     // Test Chain A residues 2..21 (insulin A chain)
     // Predecessor of A/2 is A/1
     for resid in 2..=21 {
@@ -141,6 +144,7 @@ fn test_backbone_amide_hydrogen_real_fixture_1hls() {
 
         // If experimental H is present in 1hls, check distance and angle consistency
         if let Some(exp_h) = curr_res.get_atom("H") {
+            checked_count += 1;
             let dist = distance(&calc_h, &exp_h.xyz);
             // Experimental NMR model coordinates fluctuate, but calculated H should be close (~0.1 - 0.4 A)
             assert!(
@@ -162,10 +166,17 @@ fn test_backbone_amide_hydrogen_real_fixture_1hls() {
             );
         }
     }
+
+    // Ensure that experimental comparisons were actually executed and not skipped
+    assert!(
+        checked_count >= 15,
+        "Expected at least 15 residues with experimental H compared, but got {checked_count}"
+    );
 }
 
 // 3. Proline exclusion test:
-// In an internal chain, adding backbone hydrogen to a PRO residue must do nothing (return 0 added).
+// In an internal chain, adding backbone hydrogen to a PRO residue must do nothing (return 0 added),
+// and any spurious existing H atom (even with PDB serial_name key format like "1234_H") must be removed.
 #[test]
 fn test_backbone_hydrogen_proline_skipped() {
     let pdb_path = test_data_dir().join("1hls.pdb");
@@ -177,8 +188,11 @@ fn test_backbone_hydrogen_proline_skipped() {
     let pro_res = get_residue(&protein, "B", "28"); // PRO
 
     let mut pro_copy = pro_res.clone();
-    // Strip any existing H
-    pro_copy.remove_atom("H");
+    // Add a spurious H with PDB-style "{serial}_{name}" storage key
+    let mut spurious_h = Atom::new_with_pos("H", Position::new(0.0, 0.0, 0.0)).unwrap();
+    spurious_h.name = "H".to_string();
+    pro_copy.set_atom("1234_H", spurious_h);
+    assert!(pro_copy.has_atom("H"));
 
     let report = add_backbone_hydrogens_to_residue_in_place(&mut pro_copy, Some(prev_res))
         .expect("PRO backbone hydrogenation should succeed");
@@ -187,7 +201,10 @@ fn test_backbone_hydrogen_proline_skipped() {
         report.added_hydrogens, 0,
         "Proline must NOT receive a backbone amide hydrogen"
     );
-    assert!(!pro_copy.has_atom("H"));
+    assert!(
+        !pro_copy.has_atom("H"),
+        "Spurious H with key '1234_H' must be purged on internal PRO"
+    );
 }
 
 // 4. N-terminal hydrogenation test:
@@ -249,7 +266,7 @@ fn test_backbone_hydrogen_n_terminus() {
 
 // 5. N-terminal PRO test:
 // When an N-terminal residue is PRO, it receives 2 hydrogens (H1, H2) corresponding to secondary amine,
-// and any spurious existing H3 is removed.
+// and any spurious existing H3 (even with key "{serial}_{name}") is removed by name.
 #[test]
 fn test_backbone_hydrogen_n_terminal_proline() {
     let mut pro = AtomGroup::with_name("PRO");
@@ -261,11 +278,12 @@ fn test_backbone_hydrogen_n_terminal_proline() {
         "CA",
         Atom::new_with_pos("C", Position::new(1.4, 0.0, 0.0)).unwrap(),
     );
-    // Spurious existing H3 should be purged
-    pro.set_atom(
-        "H3",
-        Atom::new_with_pos("H", Position::new(0.0, 1.0, 0.0)).unwrap(),
-    );
+
+    // Spurious existing H3 with PDB-style "{serial}_{name}" storage key (e.g. "5678_H3")
+    let mut spurious_h3 = Atom::new_with_pos("H", Position::new(0.0, 1.0, 0.0)).unwrap();
+    spurious_h3.name = "H3".to_string();
+    pro.set_atom("5678_H3", spurious_h3);
+    assert!(pro.has_atom("H3"));
 
     let report = add_backbone_hydrogens_to_residue_in_place(&mut pro, None)
         .expect("N-terminal PRO hydrogenation should succeed");
@@ -278,7 +296,7 @@ fn test_backbone_hydrogen_n_terminal_proline() {
     assert!(pro.has_atom("H2"));
     assert!(
         !pro.has_atom("H3"),
-        "Spurious H3 must be removed on N-terminal PRO"
+        "Spurious H3 keyed as '5678_H3' must be purged on N-terminal PRO"
     );
 }
 
@@ -369,4 +387,58 @@ fn test_add_backbone_hydrogens_immutable_and_build_nterm() {
     assert!(hydrated.has_atom("H1"));
     assert!(hydrated.has_atom("H2"));
     assert!(hydrated.has_atom("H3"));
+}
+
+// 8. Regression test for arbitary_rotate_matrix (Rodrigues rotation formula, (1, 2) entry ny*nz)
+#[test]
+fn test_arbitary_rotate_matrix_rodrigues_formula() {
+    let modeling = Modeling::new().expect("Modeling should initialize");
+
+    // Choose two general non-axial 3D vectors:
+    let v_src = Position::new(1.0, 2.0, 3.0);
+    let v_dst = Position::new(3.0, -1.0, 2.0);
+
+    let rot = modeling
+        .arbitary_rotate_matrix(v_src, v_dst)
+        .expect("arbitary_rotate_matrix should succeed for non-parallel vectors");
+
+    // 1. Matrix orthogonality: R * R^T = I
+    for i in 0..3 {
+        for j in 0..3 {
+            let mut dot = 0.0;
+            for k in 0..3 {
+                dot += rot.get(i, k).unwrap() * rot.get(j, k).unwrap();
+            }
+            let expected = if i == j { 1.0 } else { 0.0 };
+            assert!(
+                (dot - expected).abs() < 1e-6,
+                "R * R^T ({i}, {j}) was {dot}, expected {expected}"
+            );
+        }
+    }
+
+    // 2. Determinant should be +1 (proper rotation)
+    let g = |r: usize, c: usize| rot.get(r, c).unwrap();
+    let det = g(0, 0) * (g(1, 1) * g(2, 2) - g(1, 2) * g(2, 1))
+        - g(0, 1) * (g(1, 0) * g(2, 2) - g(1, 2) * g(2, 0))
+        + g(0, 2) * (g(1, 0) * g(2, 1) - g(1, 1) * g(2, 0));
+    assert!(
+        (det - 1.0).abs() < 1e-6,
+        "Determinant of rotation matrix was {det}, expected 1.0"
+    );
+
+    // 3. arbitary_rotate_matrix(a, b) generates the rotation matrix aligning b to a
+    // Rotating normalized v_dst must yield normalized v_src
+    let mut rotated = v_dst;
+    rotated.norm().unwrap();
+    rotated.rotate(&rot).unwrap();
+
+    let mut expected_src = v_src;
+    expected_src.norm().unwrap();
+
+    let diff = distance(&rotated, &expected_src);
+    assert!(
+        diff < 1e-6,
+        "Rotated vector deviated from expected direction: diff = {diff}"
+    );
 }
