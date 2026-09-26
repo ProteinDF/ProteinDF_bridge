@@ -835,3 +835,79 @@ fn test_hydrogenation_non_amino_acid_ligand_with_n_retains_hydrogens() {
         "Hydrogen 'HN1' bonded to 'N' in non-amino-acid ligand should be added"
     );
 }
+
+// 14. Regression test: Non-amino-acid template that happens to contain an atom named "OXT" does NOT
+// trigger the conformational distortion guard in detect_distorted_terminal_atoms (guard is restricted
+// to standard amino acid backbones containing N, CA, and C).
+#[test]
+fn test_hydrogenation_non_amino_acid_template_with_oxt_does_not_trigger_distortion_guard() {
+    use proteindf_bridge::ccd_templates::{CcdAtom, CcdBondTemplate};
+
+    // Construct a synthetic non-amino-acid template "LIG2" with atoms "C", "O", "OXT", "C2" (no "N" or "CA")
+    // and hydrogen "H2" bonded to "C2".
+    let lig_template = CcdBondTemplate {
+        comp_id: "LG2".to_string(),
+        atoms: vec![
+            CcdAtom {
+                name: "C".to_string(),
+                element: "C".to_string(),
+                ideal_xyz: Some((0.0, 0.0, 0.0)),
+            },
+            CcdAtom {
+                name: "O".to_string(),
+                element: "O".to_string(),
+                ideal_xyz: Some((0.0, 1.2, 0.0)),
+            },
+            CcdAtom {
+                name: "OXT".to_string(),
+                element: "O".to_string(),
+                ideal_xyz: Some((1.2, -0.5, 0.0)),
+            },
+            CcdAtom {
+                name: "C2".to_string(),
+                element: "C".to_string(),
+                ideal_xyz: Some((-1.2, -0.5, 0.0)),
+            },
+            CcdAtom {
+                name: "H2".to_string(),
+                element: "H".to_string(),
+                ideal_xyz: Some((-2.0, -0.5, 0.0)),
+            },
+        ],
+        bonds: vec![
+            ("C".to_string(), "O".to_string(), 2),
+            ("C".to_string(), "OXT".to_string(), 1),
+            ("C".to_string(), "C2".to_string(), 1),
+            ("C2".to_string(), "H2".to_string(), 1),
+        ],
+    };
+
+    // Actual component has "C", "O", and "C2", but lacks "OXT"
+    let mut lig_actual = AtomGroup::with_name("LG2");
+    lig_actual.set_atom(
+        "C",
+        Atom::new_with_pos("C", Position::new(0.0, 0.0, 0.0)).unwrap(),
+    );
+    lig_actual.set_atom(
+        "O",
+        Atom::new_with_pos("O", Position::new(0.0, 1.2, 0.0)).unwrap(),
+    );
+    lig_actual.set_atom(
+        "C2",
+        Atom::new_with_pos("C", Position::new(-1.2, -0.5, 0.0)).unwrap(),
+    );
+
+    // If distortion guard incorrectly triggered because "OXT" was missing in LG2, it would exclude
+    // "O" from the fit set, leaving only 2 heavy atoms ("C" and "C2"), which would fail with
+    // "Insufficient common heavy atoms (2 found, at least 3 required)".
+    // Because the guard is restricted to amino acid backbones, "O" must NOT be excluded, allowing
+    // all 3 heavy atoms to be used for superposition, and the call must succeed.
+    let result = add_hydrogens_to_component(&lig_actual, &lig_template);
+    assert!(
+        result.is_ok(),
+        "Hydrogenation of LG2 should succeed using C, O, C2 without excluding O: {:?}",
+        result.err()
+    );
+    let hydrogenated = result.unwrap();
+    assert!(hydrogenated.has_atom("H2"));
+}

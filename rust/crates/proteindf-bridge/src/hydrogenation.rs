@@ -75,18 +75,14 @@ pub struct HydrogenationReport {
     pub added_atom_names: Vec<String>,
 }
 
-/// Helper: finds an atom in a component with fast O(1) direct lookup,
-/// falling back to recursive pickup_atoms if needed.
+/// Helper: finds an atom in a component with direct O(1) lookup.
 fn find_component_atom(component: &AtomGroup, name: &str) -> Option<Atom> {
-    component
-        .get_atom(name)
-        .cloned()
-        .or_else(|| component.pickup_atoms(name).into_iter().next())
+    component.get_atom(name).cloned()
 }
 
-/// Helper: checks if a component contains an atom matching the given name.
+/// Helper: checks if a component contains an atom matching the given name directly.
 fn component_has_atom(component: &AtomGroup, name: &str) -> bool {
-    component.has_atom(name) || !component.pickup_atoms(name).is_empty()
+    component.has_atom(name)
 }
 
 /// Adds missing hydrogens to a single component (residue or ligand) using a CCD bond template.
@@ -315,6 +311,17 @@ fn detect_distorted_terminal_atoms(
     component: &AtomGroup,
     template: &CcdBondTemplate,
 ) -> HashSet<String> {
+    // Protein-specific distortion guard scope:
+    // Only amino acid templates possessing a standard backbone (N, CA, C) have the
+    // C-terminal carboxylate vs peptide-bond carbonyl 'O' dihedral distortion.
+    // Non-amino-acid ligands that happen to contain an atom named "OXT" are not subject to this guard.
+    let is_amino_acid_template = template.get_atom("N").is_some()
+        && template.get_atom("CA").is_some()
+        && template.get_atom("C").is_some();
+    if !is_amino_acid_template {
+        return HashSet::new();
+    }
+
     let mut distorted = HashSet::new();
 
     // 1. Build adjacency map for heavy atoms in the template: atom_name -> Vec<neighbor_name>
