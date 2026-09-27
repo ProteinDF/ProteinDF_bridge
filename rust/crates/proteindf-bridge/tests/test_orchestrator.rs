@@ -142,8 +142,181 @@ fn test_hydrogenate_partial_existing_hydrogens() {
     assert_eq!(final_h, 394);
 }
 
+/// Regression test for Bug 1: Water molecules (HOH) have only 1 heavy atom ('O') in CCD templates,
+/// which is less than MIN_SUPERPOSE_HEAVY_ATOMS (3).
+/// The orchestrator must not propagate this error and abort the whole structure; instead, it must
+/// record HOH into `skipped_residues` and successfully hydrogenate other residues.
 #[test]
-fn test_skip_unknown_residues() {
+fn test_hydrogenate_water_hoh_resilient() {
+    let db = CcdTemplateDb::global();
+
+    let mut chain = AtomGroup::with_name("A");
+    chain.set_path("/model_1/A/".to_string());
+
+    // Residue 1: ALA (standard amino acid)
+    let mut res_ala = AtomGroup::with_name("ALA");
+    res_ala.set_atom(
+        "N",
+        Atom::new_with_pos("N", Position::new(0.0, 0.0, 0.0)).unwrap(),
+    );
+    res_ala.set_atom(
+        "CA",
+        Atom::new_with_pos("C", Position::new(1.46, 0.0, 0.0)).unwrap(),
+    );
+    res_ala.set_atom(
+        "C",
+        Atom::new_with_pos("C", Position::new(2.0, 1.4, 0.0)).unwrap(),
+    );
+    res_ala.set_atom(
+        "O",
+        Atom::new_with_pos("O", Position::new(3.2, 1.5, 0.0)).unwrap(),
+    );
+    res_ala.set_atom(
+        "CB",
+        Atom::new_with_pos("C", Position::new(2.0, -0.7, 1.2)).unwrap(),
+    );
+    chain.set_group("1", res_ala);
+
+    // Residue 2: HOH (water molecule with single 'O' heavy atom)
+    let mut res_hoh = AtomGroup::with_name("HOH");
+    res_hoh.set_atom(
+        "O",
+        Atom::new_with_pos("O", Position::new(10.0, 10.0, 10.0)).unwrap(),
+    );
+    chain.set_group("2", res_hoh);
+
+    let report = chain
+        .add_missing_hydrogens(db)
+        .expect("Hydrogenation must not abort when encountering HOH water molecules");
+
+    // ALA should be hydrogenated
+    let res1 = chain.get_group("1").unwrap();
+    assert!(res1.has_atom("H1"));
+    assert!(res1.has_atom("HA"));
+    assert_eq!(report.hydrogenated_residues, 1);
+    assert!(report.residue_reports.contains_key("/model_1/A/1/"));
+
+    // HOH must be recorded in skipped_residues (not in residue_reports)
+    assert_eq!(report.skipped_residues.len(), 1);
+    let (skipped_path, reason) = &report.skipped_residues[0];
+    assert_eq!(skipped_path, "/model_1/A/2/");
+    assert!(
+        reason.contains("common heavy atoms") || reason.contains("Sidechain/general hydrogenation"),
+        "Reason should explain heavy atom deficiency: {reason}"
+    );
+    assert!(!report.residue_reports.contains_key("/model_1/A/2/"));
+}
+
+/// Regression test for Bug 1 on real fixture: adding crystal waters to 1hls.pdb
+/// ensures real protein structures with water molecules complete without error.
+#[test]
+fn test_1hls_with_crystal_waters() {
+    let pdb_path = test_data_dir().join("1hls.pdb");
+    let pdb = Pdb::from_file(&pdb_path, None).expect("Failed to read 1hls.pdb");
+    let mut structure = pdb
+        .get_atomgroup(None, None)
+        .expect("Failed to convert to AtomGroup");
+    let db = CcdTemplateDb::global();
+
+    // Add simulated HOH water molecule under model_1
+    let model = if structure.has_group("model_1") {
+        structure.get_group_mut("model_1").unwrap()
+    } else {
+        structure.get_group_mut("1").unwrap()
+    };
+
+    let mut water_chain = AtomGroup::with_name("W");
+    water_chain.set_path("/model_1/W/".to_string());
+    let mut hoh1 = AtomGroup::with_name("HOH");
+    hoh1.set_atom(
+        "O",
+        Atom::new_with_pos("O", Position::new(50.0, 50.0, 50.0)).unwrap(),
+    );
+    water_chain.set_group("1", hoh1);
+    model.set_group("W", water_chain);
+
+    // Strip all hydrogens
+    strip_all_hydrogens(&mut structure);
+
+    let report = structure
+        .add_missing_hydrogens(db)
+        .expect("Hydrogenation must succeed on 1hls with crystal waters");
+
+    // All 51 protein residues must be hydrogenated (394 hydrogens)
+    assert_eq!(report.hydrogenated_residues, 51);
+    assert_eq!(report.total_added_hydrogens, 394);
+
+    // The water molecule must be in skipped_residues and not in residue_reports
+    assert_eq!(report.skipped_residues.len(), 1);
+    assert_eq!(report.skipped_residues[0].0, "/model_1/W/1/");
+    assert!(!report.residue_reports.contains_key("/model_1/W/1/"));
+}
+
+/// Regression test for Bug 2: Test that a completely unmodified residue (e.g. unknown ligand with no CCD template)
+/// is recorded in `skipped_residues` and NEVER appears in `residue_reports`.
+#[test]
+fn test_unmodified_unknown_ligand_recorded_in_skipped_only() {
+    let db = CcdTemplateDb::global();
+
+    let mut chain = AtomGroup::with_name("A");
+    chain.set_path("/model_1/A/".to_string());
+
+    // Residue 1: ALA (known amino acid)
+    let mut res_ala = AtomGroup::with_name("ALA");
+    res_ala.set_atom(
+        "N",
+        Atom::new_with_pos("N", Position::new(0.0, 0.0, 0.0)).unwrap(),
+    );
+    res_ala.set_atom(
+        "CA",
+        Atom::new_with_pos("C", Position::new(1.46, 0.0, 0.0)).unwrap(),
+    );
+    res_ala.set_atom(
+        "C",
+        Atom::new_with_pos("C", Position::new(2.0, 1.4, 0.0)).unwrap(),
+    );
+    res_ala.set_atom(
+        "O",
+        Atom::new_with_pos("O", Position::new(3.2, 1.5, 0.0)).unwrap(),
+    );
+    res_ala.set_atom(
+        "CB",
+        Atom::new_with_pos("C", Position::new(2.0, -0.7, 1.2)).unwrap(),
+    );
+    chain.set_group("1", res_ala);
+
+    // Residue 2: LIG (unknown ligand with no N/CA backbone atoms and no CCD template)
+    let mut res_lig = AtomGroup::with_name("LIG");
+    res_lig.set_atom(
+        "C1",
+        Atom::new_with_pos("C", Position::new(20.0, 20.0, 20.0)).unwrap(),
+    );
+    res_lig.set_atom(
+        "C2",
+        Atom::new_with_pos("C", Position::new(21.4, 20.0, 20.0)).unwrap(),
+    );
+    chain.set_group("2", res_lig);
+
+    let report = chain
+        .add_missing_hydrogens(db)
+        .expect("Hydrogenation should proceed with unknown ligand");
+
+    // LIG was not modified: must be in skipped_residues, must NOT be in residue_reports
+    assert_eq!(report.skipped_residues.len(), 1);
+    let (skipped_path, reason) = &report.skipped_residues[0];
+    assert_eq!(skipped_path, "/model_1/A/2/");
+    assert!(reason.contains("No CCD template found for residue 'LIG'"));
+    assert!(!report.residue_reports.contains_key("/model_1/A/2/"));
+
+    // ALA was modified: must be in residue_reports, must NOT be in skipped_residues
+    assert_eq!(report.hydrogenated_residues, 1);
+    assert!(report.residue_reports.contains_key("/model_1/A/1/"));
+}
+
+/// Regression test for Bug 2: Test that an unknown amino acid residue with backbone N/CA
+/// that has backbone hydrogens added is recorded in `residue_reports` and NEVER in `skipped_residues`.
+#[test]
+fn test_partially_modified_unknown_residue_recorded_in_reports_only() {
     let db = CcdTemplateDb::global();
 
     let mut chain = AtomGroup::with_name("A");
@@ -173,7 +346,7 @@ fn test_skip_unknown_residues() {
     );
     chain.set_group("1", res_ala);
 
-    // Residue 2: UNK (unknown)
+    // Residue 2: UNK (unknown amino acid: has N, CA, C so backbone H is added, but no CCD template for sidechain)
     let mut res_unk = AtomGroup::with_name("UNK");
     res_unk.set_atom(
         "N",
@@ -189,44 +362,24 @@ fn test_skip_unknown_residues() {
     );
     chain.set_group("2", res_unk);
 
-    // Residue 3: GLY (known)
-    let mut res_gly = AtomGroup::with_name("GLY");
-    res_gly.set_atom(
-        "N",
-        Atom::new_with_pos("N", Position::new(4.0, 5.0, 0.0)).unwrap(),
-    );
-    res_gly.set_atom(
-        "CA",
-        Atom::new_with_pos("C", Position::new(5.4, 5.2, 0.0)).unwrap(),
-    );
-    res_gly.set_atom(
-        "C",
-        Atom::new_with_pos("C", Position::new(6.0, 6.6, 0.0)).unwrap(),
-    );
-    res_gly.set_atom(
-        "O",
-        Atom::new_with_pos("O", Position::new(7.2, 6.7, 0.0)).unwrap(),
-    );
-    chain.set_group("3", res_gly);
-
     let report = chain
         .add_missing_hydrogens(db)
-        .expect("Hydrogenation should proceed even with unknown residue");
+        .expect("Hydrogenation should proceed with unknown residue");
 
-    // UNK should be recorded in skipped_residues
-    assert_eq!(report.skipped_residues.len(), 1);
-    let (skipped_path, reason) = &report.skipped_residues[0];
-    assert!(skipped_path.contains("2"));
-    assert!(reason.contains("UNK"));
-
-    // Residue 1 (ALA) and Residue 3 (GLY) should still be hydrogenated
-    let res1 = chain.get_group("1").unwrap();
-    assert!(res1.has_atom("H1")); // N-terminus
-    assert!(res1.has_atom("HA")); // Sidechain
-
-    let res3 = chain.get_group("3").unwrap();
-    assert!(res3.has_atom("H")); // Internal backbone
-    assert!(res3.has_atom("HA2") || res3.has_atom("HA3")); // GLY alpha hydrogens
+    // UNK had backbone H added (modified): must be in residue_reports, must NOT be in skipped_residues
+    let res_unk_after = chain.get_group("2").unwrap();
+    assert!(res_unk_after.has_atom("H"));
+    assert!(
+        report.residue_reports.contains_key("/model_1/A/2/"),
+        "Modified UNK residue must be recorded in residue_reports"
+    );
+    assert!(
+        !report
+            .skipped_residues
+            .iter()
+            .any(|(p, _)| p == "/model_1/A/2/"),
+        "Modified UNK residue must NEVER appear in skipped_residues (no double-counting)"
+    );
 }
 
 #[test]

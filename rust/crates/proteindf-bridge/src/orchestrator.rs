@@ -33,9 +33,13 @@ pub struct OverallHydrogenationReport {
     pub total_added_hydrogens: usize,
     /// Total number of hydrogens (or spurious atoms) removed across all residues/components.
     pub total_removed_hydrogens: usize,
-    /// Number of residues/components that were successfully hydrogenated (at least partially).
+    /// Number of residues/components that were modified (at least one hydrogen added or removed).
     pub hydrogenated_residues: usize,
-    /// Residues/components that were skipped (e.g. unknown CCD code), with reason: `(path, reason)`.
+    /// Residues/components where NO changes were made (completely skipped due to missing CCD
+    /// template, insufficient heavy atoms such as HOH water, or geometric failure), with reason: `(path, reason)`.
+    ///
+    /// Note: A residue will appear in either [`residue_reports`](Self::residue_reports) (if modified)
+    /// or [`skipped_residues`](Self::skipped_residues) (if unmodified), but never in both.
     pub skipped_residues: Vec<(String, String)>,
     /// Detailed per-residue hydrogenation reports, keyed by residue path.
     pub residue_reports: HashMap<String, HydrogenationReport>,
@@ -57,7 +61,7 @@ impl OverallHydrogenationReport {
         self.residue_reports.insert(path, report);
     }
 
-    /// Records a skipped residue or component.
+    /// Records a skipped residue or component where no modifications occurred.
     pub fn record_skipped(&mut self, path: String, reason: String) {
         self.skipped_residues.push((path, reason));
     }
@@ -87,6 +91,11 @@ fn is_plausible_peptide_bond(prev_res: &AtomGroup, curr_res: &AtomGroup) -> bool
 /// 2. Step 2: Sidechain / general hydrogen addition via CCD template.
 ///
 /// If not an amino acid (e.g. ligand, water, cofactor), performs only Step 2.
+///
+/// Failures on individual residues (such as lack of CCD template, insufficient common
+/// heavy atoms for rigid superposition like HOH water molecules, or coordinate degeneracy)
+/// do not abort structure-wide processing; instead, they are recorded in `report` and
+/// traversal continues.
 fn hydrogenate_single_residue(
     residue: &mut AtomGroup,
     prev_residue: Option<&AtomGroup>,
@@ -102,43 +111,68 @@ fn hydrogenate_single_residue(
         removed_atom_names: Vec::new(),
     };
 
+    let mut step1_err = None;
+    let mut step2_err = None;
+
     // Step 1: Backbone hydrogenation for amino acid residues
     if is_aa {
-        let bb_report = add_backbone_hydrogens_to_residue_in_place(residue, prev_residue)?;
-        combined_report.added_hydrogens += bb_report.added_hydrogens;
-        combined_report
-            .added_atom_names
-            .extend(bb_report.added_atom_names);
-        combined_report.removed_hydrogens += bb_report.removed_hydrogens;
-        combined_report
-            .removed_atom_names
-            .extend(bb_report.removed_atom_names);
+        match add_backbone_hydrogens_to_residue_in_place(residue, prev_residue) {
+            Ok(bb_report) => {
+                combined_report.added_hydrogens += bb_report.added_hydrogens;
+                combined_report
+                    .added_atom_names
+                    .extend(bb_report.added_atom_names);
+                combined_report.removed_hydrogens += bb_report.removed_hydrogens;
+                combined_report
+                    .removed_atom_names
+                    .extend(bb_report.removed_atom_names);
+            }
+            Err(e) => {
+                step1_err = Some(format!("Backbone hydrogenation error: {e}"));
+            }
+        }
     }
 
     // Step 2: CCD-reference-based sidechain and general hydrogen addition
     if let Some(template) = db.lookup(&residue.name) {
         let options = HydrogenationOptions::default();
-        let sc_report =
-            add_hydrogens_to_component_in_place_with_options(residue, template, &options)?;
-        combined_report.added_hydrogens += sc_report.added_hydrogens;
-        combined_report
-            .added_atom_names
-            .extend(sc_report.added_atom_names);
-        combined_report.removed_hydrogens += sc_report.removed_hydrogens;
-        combined_report
-            .removed_atom_names
-            .extend(sc_report.removed_atom_names);
+        match add_hydrogens_to_component_in_place_with_options(residue, template, &options) {
+            Ok(sc_report) => {
+                combined_report.added_hydrogens += sc_report.added_hydrogens;
+                combined_report
+                    .added_atom_names
+                    .extend(sc_report.added_atom_names);
+                combined_report.removed_hydrogens += sc_report.removed_hydrogens;
+                combined_report
+                    .removed_atom_names
+                    .extend(sc_report.removed_atom_names);
+            }
+            Err(e) => {
+                // E.g., HOH water has only 1 heavy atom ('O'), failing MIN_SUPERPOSE_HEAVY_ATOMS (3).
+                // Do not propagate error; record failure and continue.
+                step2_err = Some(format!("Sidechain/general hydrogenation error: {e}"));
+            }
+        }
+    } else {
+        step2_err = Some(format!(
+            "No CCD template found for residue '{}'",
+            residue.name
+        ));
+    }
 
+    let has_modifications =
+        combined_report.added_hydrogens > 0 || combined_report.removed_hydrogens > 0;
+
+    if has_modifications {
+        // The residue was modified (e.g. backbone hydrogens added even if sidechain failed, or full success).
+        // Record into residue_reports only; do not contaminate skipped_residues.
         report.record_residue(res_path, combined_report);
     } else {
-        // Record skipped residue if CCD template is not available
-        let reason = format!("No CCD template found for residue '{}'", residue.name);
-        report.record_skipped(res_path.clone(), reason);
-
-        // Even if sidechain template is missing, if backbone hydrogens were added/removed, record it
-        if combined_report.added_hydrogens > 0 || combined_report.removed_hydrogens > 0 {
-            report.record_residue(res_path, combined_report);
-        }
+        // No modifications occurred for this residue (fully skipped or failed).
+        let reason = step2_err
+            .or(step1_err)
+            .unwrap_or_else(|| "No hydrogens added or removed".to_string());
+        report.record_skipped(res_path, reason);
     }
 
     Ok(())
