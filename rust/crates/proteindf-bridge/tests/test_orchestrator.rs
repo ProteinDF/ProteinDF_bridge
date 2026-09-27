@@ -456,3 +456,129 @@ fn test_chain_break_handling() {
     assert!(r2.has_atom("H3"));
     assert!(!r2.has_atom("H"));
 }
+
+/// Regression test for Round 2 Bug 1: Running hydrogenation on an already fully hydrogenated structure
+/// must NOT record residues as skipped/failed; they must be treated as successful (with 0 additions)
+/// in `residue_reports`, and `skipped_residues` must remain empty.
+#[test]
+fn test_idempotent_hydrogenation_already_complete() {
+    let pdb_path = test_data_dir().join("1hls.pdb");
+    let pdb = Pdb::from_file(&pdb_path, None).expect("Failed to read 1hls.pdb");
+    let mut structure = pdb
+        .get_atomgroup(None, None)
+        .expect("Failed to convert to AtomGroup");
+    let db = CcdTemplateDb::global();
+
+    // 1st run: adds missing hydrogens
+    let report1 = structure
+        .add_missing_hydrogens(db)
+        .expect("1st hydrogenation should succeed");
+    assert_eq!(report1.skipped_residues.len(), 0);
+    assert_eq!(report1.step_errors.len(), 0);
+
+    // 2nd run: already fully hydrogenated
+    let report2 = structure
+        .add_missing_hydrogens(db)
+        .expect("2nd hydrogenation should succeed");
+
+    // Must have 0 additions and 0 removals
+    assert_eq!(report2.total_added_hydrogens, 0);
+    assert_eq!(report2.total_removed_hydrogens, 0);
+
+    // Critically: must NOT treat residues as skipped or failed!
+    assert_eq!(
+        report2.skipped_residues.len(),
+        0,
+        "Already hydrogenated residues must not be marked as skipped: {:?}",
+        report2.skipped_residues
+    );
+    assert_eq!(report2.step_errors.len(), 0);
+
+    // All 51 residues must be present in residue_reports as completed
+    assert_eq!(report2.residue_reports.len(), 51);
+}
+
+/// Regression test for Round 2 Bug 2: When Step 1 (backbone) succeeds and modifies a residue,
+/// but Step 2 (sidechain/general) fails, the error information must NOT be swallowed;
+/// it must be preserved in `step_errors` while the backbone addition is preserved in `residue_reports`.
+#[test]
+fn test_step2_error_recorded_when_step1_succeeds() {
+    let db = CcdTemplateDb::global();
+
+    let mut chain = AtomGroup::with_name("A");
+    chain.set_path("/model_1/A/".to_string());
+
+    // Residue 1: ALA (standard preceding residue)
+    let mut res1 = AtomGroup::with_name("ALA");
+    res1.set_atom(
+        "N",
+        Atom::new_with_pos("N", Position::new(0.0, 0.0, 0.0)).unwrap(),
+    );
+    res1.set_atom(
+        "CA",
+        Atom::new_with_pos("C", Position::new(1.46, 0.0, 0.0)).unwrap(),
+    );
+    res1.set_atom(
+        "C",
+        Atom::new_with_pos("C", Position::new(2.0, 1.4, 0.0)).unwrap(),
+    );
+    res1.set_atom(
+        "O",
+        Atom::new_with_pos("O", Position::new(3.2, 1.5, 0.0)).unwrap(),
+    );
+    res1.set_atom(
+        "CB",
+        Atom::new_with_pos("C", Position::new(2.0, -0.7, 1.2)).unwrap(),
+    );
+    chain.set_group("1", res1);
+
+    // Residue 2: ALA with only N and CA (missing C, O, CB).
+    // - Step 1: has N and CA, distance C_prev(2.0, 1.4, 0.0) to N(2.0, 2.7, 0.0) is 1.3 A (valid peptide bond).
+    //   -> Backbone amide 'H' is successfully added!
+    // - Step 2: ALA CCD template requires at least MIN_SUPERPOSE_HEAVY_ATOMS (3) heavy atoms, but only 2 (N, CA) exist.
+    //   -> Step 2 fails with common_heavy_atoms error.
+    let mut res2 = AtomGroup::with_name("ALA");
+    res2.set_atom(
+        "N",
+        Atom::new_with_pos("N", Position::new(2.0, 2.7, 0.0)).unwrap(),
+    );
+    res2.set_atom(
+        "CA",
+        Atom::new_with_pos("C", Position::new(3.0, 3.5, 0.0)).unwrap(),
+    );
+    chain.set_group("2", res2);
+
+    let report = chain
+        .add_missing_hydrogens(db)
+        .expect("Overall traversal must succeed even with partial residue failure");
+
+    // 1. Backbone amide 'H' was added to residue 2
+    let res2_after = chain.get_group("2").unwrap();
+    assert!(
+        res2_after.has_atom("H"),
+        "Backbone amide H must have been added to residue 2"
+    );
+
+    // 2. Residue 2 must be recorded in residue_reports because it was modified
+    assert!(
+        report.residue_reports.contains_key("/model_1/A/2/"),
+        "Residue 2 must be recorded in residue_reports"
+    );
+
+    // 3. Critically: Step 2 failure must NOT be silenced! It must be recorded in step_errors.
+    let step2_err = report
+        .step_errors
+        .iter()
+        .find(|(path, _)| path == "/model_1/A/2/");
+    assert!(
+        step2_err.is_some(),
+        "Step 2 error for residue 2 must be recorded in step_errors: {:?}",
+        report.step_errors
+    );
+    let err_msg = &step2_err.unwrap().1;
+    assert!(
+        err_msg.contains("common heavy atoms")
+            || err_msg.contains("Sidechain/general hydrogenation"),
+        "Error message must describe the superposition failure: {err_msg}"
+    );
+}
