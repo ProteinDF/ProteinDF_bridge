@@ -144,7 +144,7 @@ wwPDB Chemical Component Dictionary (CCD, https://www.wwpdb.org/data/ccd) は、
 
 CCDの理想化座標(`pdbx_model_Cartn_*_ideal`)は単体コンポーネントの計算幾何であり、実際の(非理想的な)実験構造の重原子配置にそのまま重ね合わせることはできない。水素付加には、重原子の混成状態(sp3/sp2/sp、CCDのトポロジー情報から導出可能)に応じた幾何学的なH配置計算が必要になる(`hydrogen_bond.rs`のPhase 8実装にある主鎖疑似H座標計算——直前残基のC・現残基のN/CA座標からH位置を幾何学的に算出する手法——が同種のアプローチの前例になる。側鎖版はこれよりバリエーションが多く難易度が高い)。プロトネーション状態(pHによる荷電残基の水素数の違い等)の扱いも別途検討が必要。
 
-→ **実装方針・PR分割を§3.16に具体化済み(2026-09-24、計画中・未着手)。**
+→ **実装方針・PR分割を§3.16に具体化(2026-09-24)、PR#37〜PR#40完了、developにマージ済み(2026-09-27)。**
 
 #### スコープ外(当面)
 
@@ -320,7 +320,7 @@ OpenBabel・RDKit・ASEの`natural_cutoffs`・Jmol/PyMOL等、主要な構造化
    - `cargo test --workspace`: 全テスト成功。
    - `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`: 警告・エラーなし。
 
-### 3.16 CCD参照構造による水素付加(計画中、未着手)
+### 3.16 CCD参照構造による水素付加(完了: 2026-09-27、developにマージ済み)
 
 #### 背景
 
@@ -421,7 +421,7 @@ CCDの理想化座標をそのまま使える水素と、使えない水素が�
 - **検証**: 実PDBフィクスチャ(`1hls.pdb`)、標準アミノ酸でのアミドH構築、N末端でのNH3+構築(角度・直交性を数値検証)、プロリンの除外・特殊扱いを検証済み。`cargo test --workspace`・`cargo clippy`・`cargo fmt`とも問題なし。
 - **既知の限界**: N末端プロリンのH1/H2方位角が不定(§3.16参照)、`C_prev`-`N`間の隣接性検証は距離ヒューリスティック(0.8〜2.5Å)に留まり真の配列上の隣接性は保証しない(PR#40のオーケストレーターが本来担うべき検証)、`AtomGroup::get_atom`のaltLoc非対応(既存の`AtomGroup`自体の挙動)。
 
-##### PR#40: 統合エントリポイント(PR#38・PR#39完了後)
+##### PR#40: 統合エントリポイント(PR#38・PR#39完了後) (完了: 2026-09-27、developにマージ済み)
 
 1. `AtomGroup`(鎖/モデル全体)を走査し、各residueレベルグループについて、CCDジオメトリテンプレートDBから該当コンポーネントを検索し、PR#38(汎用エンジン)またはPR#39(主鎖アミドH、鎖内タンパク質残基の場合のみ)を適切に使い分けて水素を付加する統合関数(例: `AtomGroup::add_missing_hydrogens(&mut self, db: &CcdGeometryDb) -> Result<HydrogenationReport>`)。
 2. `HydrogenationReport`(仮称)には、付加した水素の総数、テンプレートが見つからず付加できなかった残基のリスト等、呼び出し側が結果を検査できる情報を含める(サイレントなスキップをしない、既存の結合解決レポート的な設計方針との整合を取る)。
@@ -431,6 +431,18 @@ CCDの理想化座標をそのまま使える水素と、使えない水素が�
 1. 実PDBフィクスチャ(`1hls.pdb`、水素なし)全体に対して`add_missing_hydrogens`を実行し、期待される水素総数(独立に計算した基準値)と一致することを検証する。
 2. CCDテンプレートが存在しない残基(合成データ、未知の3文字コード)を含む構造で、その残基がレポートに「付加できなかった」として正しく記録され、他の残基への水素付加は継続されることを検証する。
 3. `cargo clippy`/`cargo fmt`を通すこと。
+
+**実施内容・検証 (2026-09-27完了、5回のレビューラウンドを経て収束)**:
+実装はagy、レビューはClaudeが担当した(`docs/tasks/TASK_ccd-hydrogenation.md`参照)。新規`orchestrator.rs`に`hydrogenate_atomgroup`/`hydrogenate_chain`/`hydrogenate_single_residue`と`OverallHydrogenationReport`を実装し、`AtomGroup::add_missing_hydrogens(&mut self, db: &CcdTemplateDb) -> Result<OverallHydrogenationReport>`として公開した。
+
+- **階層走査**: `AtomGroup`ツリー(Root/Model/Chain/Residue)を、子グループの形状(子が葉かどうか)から自動判定して再帰的に走査する。子が全て葉(原子を直接持つ残基/コンポーネント)であるグループを「鎖」として扱い、鎖内では`sort_nicely`でソートした順に残基を処理する。
+- **鎖の隣接性判定(§3.16 PR#40の要求通り、距離だけに頼らない)**: 前残基の受け渡しは、実際の鎖走査順序(直前に処理した残基)を基本とし、`is_plausible_peptide_bond`(`C_prev`-`N`間距離0.8〜2.5Å)は「配列上前だと判定された残基同士が本当にペプチド結合を形成しているか」を確認する二次的なフィルタとして使う(距離だけを根拠に前残基を探索するわけではない)。非アミノ酸残基または主鎖`C`を欠く残基に遭遇すると鎖の連続性が切れたとみなし、以降の前残基参照をリセットする。
+- **処理順序**: 各残基についてStep1(主鎖アミドH、PR#39の`add_backbone_hydrogens_to_residue_in_place`)→Step2(側鎖/CA-H等、PR#38の`add_hydrogens_to_component_in_place_with_options`)の順で処理し、§3.16の方針通りとした。
+- **個々の残基の失敗が構造全体の処理を止めない**: 当初の実装はStep1/Step2の`Err`を`?`でそのまま伝播させており、結晶水(`HOH`、重原子`O`1個のみで`MIN_SUPERPOSE_HEAVY_ATOMS`未満になり必ず失敗する)を含む、ほぼ全ての実X線構造で構造全体の処理が異常終了するバグがあった(レビュー1回目で発見)。最終的には、Step1・Step2それぞれの結果を`match`で捕捉し、失敗しても`OverallHydrogenationReport`に記録した上で走査を継続する設計に修正した。
+- **レポートの設計**: `OverallHydrogenationReport`は`total_added_hydrogens`/`total_removed_hydrogens`/`hydrogenated_residues`/`skipped_residues`(何も変更されず失敗・未対応だった残基、理由付き)/`step_errors`(Step1・Step2で発生したエラー、想定内のテンプレート未検出とテンプレートはあるが処理失敗の両方を含む)/`residue_reports`(残基ごとの詳細)を持つ。「変更の有無」(`has_modifications`)と「エラーの有無」(`has_errors`)を独立した2軸として扱い、両方を組み合わせて記録先を決定する設計に収束した(既に水素化済みで変更0件だが成功、テンプレート未検出だが主鎖側は成功、等のケースを区別して正しく記録する)。
+- **検証**: `1hls.pdb`全体への適用、結晶水(`HOH`)を含む構造での耐性、冪等性(同一構造への2回連続適用)、未知残基(テンプレート未検出)の記録、Step1成功・Step2失敗時のエラー保持、鎖切断の処理等を`test_orchestrator.rs`(9テスト)で検証済み。`cargo test --workspace`・`cargo clippy`・`cargo fmt`とも問題なし。
+- **既知の限界**: `is_plausible_peptide_bond`の距離チェック(0.8〜2.5Å)は実際のペプチド結合長(~1.33Å)に対して幅があり、真の隣接性の完全な保証ではない(PR#39から継続、実データでは鎖走査順序と組み合わせているため実害は小さいと判断)。PR#38・PR#39それぞれの既知の限界(回転可能水素の局所最適化なし、核酸リン酸基の歪み検知未対応、N末端プロリンのH1/H2方位角不定等)はそのまま引き継がれる。
+- **設計上の技術的負債(対応不要、将来の参考)**: エラー記録が「Step1/Step2の`Err`分岐で即座に記録する経路」と「関数末尾でまとめて判定する経路」の2系統に分かれており、レビュー2〜4回目で「片方を直すともう片方が壊れる」系の不具合が複数回発生した。将来同種の変更をする際は、`record_error`の即時呼び出しをやめ、関数末尾の判定ブロックに記録を一元化する設計への整理を検討する価値がある。
 
 ##### Pythonバインディング
 
