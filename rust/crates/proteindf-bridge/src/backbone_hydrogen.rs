@@ -54,15 +54,19 @@ pub const STANDARD_NTERM_NH_BOND_LENGTH: f64 = 1.00;
 
 /// Helper: removes all atoms matching `target_name` by inspecting atom names
 /// and removing via their actual storage keys (which may be `"{serial}_{name}"` in PDB structures).
-fn remove_atoms_by_name(residue: &mut AtomGroup, target_name: &str) {
-    let keys_to_remove: Vec<String> = residue
+/// Returns the list of removed atom names.
+fn remove_atoms_by_name(residue: &mut AtomGroup, target_name: &str) -> Vec<String> {
+    let keys_to_remove: Vec<(String, String)> = residue
         .atoms()
         .filter(|(_, atom)| atom.name.trim() == target_name)
-        .map(|(key, _)| key.clone())
+        .map(|(key, atom)| (key.clone(), atom.name.clone()))
         .collect();
-    for key in keys_to_remove {
+    let mut removed_names = Vec::new();
+    for (key, name) in keys_to_remove {
         residue.remove_atom(&key);
+        removed_names.push(name);
     }
+    removed_names
 }
 
 /// Calculates the position of the peptide backbone amide hydrogen (`H`) for a residue
@@ -163,16 +167,20 @@ pub fn add_backbone_hydrogens_to_residue_in_place(
     prev_residue: Option<&AtomGroup>,
 ) -> Result<HydrogenationReport> {
     let mut staged = Vec::new();
+    let mut removed_atom_names = Vec::new();
 
     if let Some(prev) = prev_residue {
         // Internal peptide residue
         // Proline has a tertiary amine ring nitrogen in peptide chains and carries NO amide hydrogen.
         if residue.name == "PRO" {
             // Purge any spurious existing H atom (using name-based key lookup)
-            remove_atoms_by_name(residue, "H");
+            let removed = remove_atoms_by_name(residue, "H");
+            let removed_hydrogens = removed.len();
             return Ok(HydrogenationReport {
                 added_hydrogens: 0,
                 added_atom_names: Vec::new(),
+                removed_hydrogens,
+                removed_atom_names: removed,
             });
         }
 
@@ -226,12 +234,13 @@ pub fn add_backbone_hydrogens_to_residue_in_place(
         // For N-terminal PRO (secondary amine), purge any spurious existing H3 by atom name
         // only after fallible hydrogen construction succeeds to preserve atomicity.
         if residue.name == "PRO" {
-            remove_atoms_by_name(residue, "H3");
+            removed_atom_names = remove_atoms_by_name(residue, "H3");
         }
     }
 
     let added_atom_names: Vec<String> = staged.iter().map(|(name, _)| name.clone()).collect();
     let added_hydrogens = staged.len();
+    let removed_hydrogens = removed_atom_names.len();
 
     // Apply atomically
     for (name, atom) in staged {
@@ -241,6 +250,8 @@ pub fn add_backbone_hydrogens_to_residue_in_place(
     Ok(HydrogenationReport {
         added_hydrogens,
         added_atom_names,
+        removed_hydrogens,
+        removed_atom_names,
     })
 }
 

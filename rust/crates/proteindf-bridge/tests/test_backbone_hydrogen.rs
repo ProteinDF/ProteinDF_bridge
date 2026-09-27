@@ -201,6 +201,15 @@ fn test_backbone_hydrogen_proline_skipped() {
         report.added_hydrogens, 0,
         "Proline must NOT receive a backbone amide hydrogen"
     );
+    assert_eq!(
+        report.removed_hydrogens, 1,
+        "Spurious H must be recorded in removed_hydrogens"
+    );
+    assert_eq!(
+        report.removed_atom_names,
+        vec!["H".to_string()],
+        "Spurious H must be recorded in removed_atom_names"
+    );
     assert!(
         !pro_copy.has_atom("H"),
         "Spurious H with key '1234_H' must be purged on internal PRO"
@@ -291,6 +300,15 @@ fn test_backbone_hydrogen_n_terminal_proline() {
     assert_eq!(
         report.added_hydrogens, 2,
         "N-terminal PRO should receive 2 hydrogens"
+    );
+    assert_eq!(
+        report.removed_hydrogens, 1,
+        "Spurious H3 must be recorded in removed_hydrogens"
+    );
+    assert_eq!(
+        report.removed_atom_names,
+        vec!["H3".to_string()],
+        "Spurious H3 must be recorded in removed_atom_names"
     );
     assert!(pro.has_atom("H1"));
     assert!(pro.has_atom("H2"));
@@ -444,9 +462,13 @@ fn test_add_backbone_hydrogens_immutable_and_build_nterm() {
 fn test_arbitary_rotate_matrix_rodrigues_formula() {
     let modeling = Modeling::new().expect("Modeling should initialize");
 
-    // Choose two general non-axial 3D vectors:
-    let v_src = Position::new(1.0, 2.0, 3.0);
-    let v_dst = Position::new(3.0, -1.0, 2.0);
+    // Choose two general non-axial 3D vectors with distinct cross product components (nx != ny != nz != 0):
+    // v_src = (0.5, 0.7, 0.3), v_dst = (0.1, 0.9, 0.2)
+    // Cross product: n = v_src x v_dst = (-0.13, -0.07, 0.38)
+    // Here nx != ny != nz != 0, so the buggy formula (using nx*nz instead of ny*nz) produces
+    // an erroneous (1, 2) entry and violates matrix orthogonality (R * R^T != I).
+    let v_src = Position::new(0.5, 0.7, 0.3);
+    let v_dst = Position::new(0.1, 0.9, 0.2);
 
     let rot = modeling
         .arbitary_rotate_matrix(v_src, v_dst)
