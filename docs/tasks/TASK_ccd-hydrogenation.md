@@ -555,3 +555,27 @@
 7回目の指摘(`HydrogenationReport`への削除記録、`arbitary_rotate_matrix`の厳密なテスト)はいずれも解消を確認した。特にテストについては、直交性・行列式・写像方向を検証する厳密なテストが追加され、実際に機能していることを確認済み。**新たな実バグは見つからなかった。** 残りの指摘は全て、これまでのラウンドで繰り返し記録してきた低優先度項目(プロリン名の未トリム比較、`Modeling::new()`の毎回構築、`remove_atoms_by_name`のAtomGroup API格上げ、stagingパターンの過剰な複雑さ等)の継続であり、追加対応は求めない。
 
 **PR#39はこれで収束したと判断し、`develop`にマージする。**
+
+## PR#40 レビュー結果(1回目、2026-09-27、要修正)
+
+`feature/hydrogenation-pr40`(`orchestrator.rs`新規、`AtomGroup::add_missing_hydrogens`)を`/code-review`(high)でレビューした。**実コードを直接読んで検証済みの重大な実バグ1件と、レポートの整合性に関わる実バグ1件が見つかった。** どちらも既存テスト(`test_orchestrator.rs`、`1hls.pdb`フィクスチャ)では検出できない(フィクスチャに該当ケースが含まれないため)。
+
+### 実バグ(要修正、最重要)
+
+1. **結晶水(`HOH`)を含む構造で、水素付加処理全体が異常終了し、それまでに処理済みの残基の変更だけが構造に残ったまま`Err`が返る。** (`orchestrator.rs:122`、`hydrogenate_single_residue`のStep 2)
+   - `db.lookup("HOH")`は組み込みテンプレート(重原子は`O`1個のみ)にヒットするが、`add_hydrogens_to_component_in_place_with_options`は`matched_count < MIN_SUPERPOSE_HEAVY_ATOMS`(3、`hydrogenation.rs:39,189-190`)で`common_heavy_atoms`エラーを返す。このエラーが`orchestrator.rs:122`の`?`でそのまま`hydrogenate_single_residue`→`hydrogenate_chain`→`traverse_and_hydrogenate`→`hydrogenate_atomgroup`(および`AtomGroup::add_missing_hydrogens`)まで無条件に伝播し、呼び出し全体が`Err`になる。
+   - **結果として二重に問題がある**: (a) 結晶水はX線構造にほぼ必ず含まれるため、実質的にどんな実データに対しても本機能全体が失敗する。(b) `&mut AtomGroup`は呼び出し元の参照であり、`HOH`に到達するまでに処理済みの残基は既に水素が追加された状態のまま残る。`Err`を受け取った呼び出し元は「何も変更されていない」と誤解しうるが、実際には構造が部分的に(そして`OverallHydrogenationReport`という説明可能な形を伴わずに)変更されている。
+   - **再現手順**: `HOH`を含む任意の実PDB/mmCIF構造(現行の`1hls.pdb`フィクスチャには`HOH`行が無いため、既存テストでは再現しない)に対し`add_missing_hydrogens`を呼ぶ。
+   - **修正方針**: 個々の残基の水素付加失敗を、構造全体の走査を中断する理由にしないこと。`hydrogenate_single_residue`のStep 2(および必要ならStep 1も)で、`add_hydrogens_to_component_in_place_with_options`の`Err`を`?`で伝播させず、`report.record_skipped(res_path, <エラー内容>)`として記録し処理を継続する設計に変更する(§3.16 PR#40の完了の定義2「テンプレートが見つからず付加できなかった残基のリスト等」の精神を、"テンプレートはあるが構造的にフィットできない"ケースにも一貫して適用する)。`HOH`のように重原子1個しかない既知のテンプレートを`MIN_SUPERPOSE_HEAVY_ATOMS`未満として扱うこと自体の妥当性(水を`is_amino_acid_component`と同様に特別視して水素付加自体をスキップする設計にするか)も合わせて検討し、判断根拠をコメントに残すこと。
+
+2. **`skipped_residues`と`residue_reports`/`hydrogenated_residues`/`total_added_hydrogens`の両方に同一残基が二重計上されうる。** (`orchestrator.rs:133-141`)
+   - Step 2で`db.lookup`が失敗した`else`分岐(133〜141行目)は、無条件に`report.record_skipped(...)`(136行目)を呼んだ後、`combined_report.added_hydrogens > 0`(Step 1の主鎖アミドHが加わっている場合)なら追加で`report.record_residue(...)`(140行目)も呼ぶ。
+   - **再現手順**: 主鎖`N`/`CA`は持つがCCDテンプレートが見つからない残基(非標準/修飾アミノ酸、`UNK`等)。主鎖アミドHはStep 1で追加されるが、Step 2のCCDルックアップは失敗する。この残基は`skipped_residues`(スキップされた=何も変更されていないという含意)と`residue_reports`/`hydrogenated_residues`(水素付加された)の両方に記録される。
+   - **修正方針**: 「スキップされた」の意味を「この残基について一切変更が行われなかった」に統一するか、「CCD側は未対応だった」という意味に統一するかを決め、両方の記録先に同時に入らないようにする。前者を選ぶなら`combined_report.added_hydrogens > 0 || combined_report.removed_hydrogens > 0`の場合は`record_skipped`を呼ばない(またはメッセージを「主鎖のみ付加、側鎖は未対応」等に変えた上で`record_residue`のみ呼ぶ)、後者を選ぶなら`skipped_residues`と`residue_reports`が同一パスを指す場合の扱いをドキュメントに明記する。
+
+### 完了の定義(修正後、再レビュー依頼前に確認すること)
+
+1. 実バグ1について、`HOH`(または重原子がテンプレートの`MIN_SUPERPOSE_HEAVY_ATOMS`未満の任意の残基)を含む構造で、構造全体の処理が中断されず、当該残基が(スキップ理由付きで)レポートに記録され、他の残基への水素付加が継続されることを検証する回帰テストを追加すること。
+2. 実バグ2について、`skipped_residues`と`residue_reports`が同一残基パスで同時に汚染されない(選んだ設計方針の下で一貫している)ことを検証する回帰テストを追加すること。
+3. `cargo test --workspace`・`cargo clippy`・`cargo fmt`を通すこと。
+4. 修正後、同じ`feature/hydrogenation-pr40`ブランチに追加コミットし、再度ユーザー経由でClaudeにレビュー依頼すること。
