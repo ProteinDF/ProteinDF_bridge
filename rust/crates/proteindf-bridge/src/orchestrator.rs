@@ -38,13 +38,13 @@ pub struct OverallHydrogenationReport {
     /// Residues/components where NO changes were made (completely skipped due to missing CCD
     /// template, insufficient heavy atoms such as HOH water, or geometric failure), with reason: `(path, reason)`.
     pub skipped_residues: Vec<(String, String)>,
-    /// Genuine processing or geometric errors encountered during Step 1 (backbone) or Step 2 (sidechain/CCD)
-    /// processing (such as coordinate degeneracy, insufficient heavy atoms, or superposition failure),
+    /// Processing failures, geometric errors, or missing sidechain templates on partially modified residues,
     /// with context: `(path, error_message)`.
     ///
-    /// Expected non-presence of CCD templates for uncataloged ligands/waters is recorded in
-    /// [`skipped_residues`](Self::skipped_residues) rather than here, keeping this list focused on
-    /// genuine structural anomalies.
+    /// For completely unmodified components (such as uncataloged ligands or waters), missing templates
+    /// are recorded in [`skipped_residues`](Self::skipped_residues) to avoid noise. However, if a residue
+    /// was partially modified (e.g. backbone added but sidechain template missing), the issue is guaranteed
+    /// to be recorded here so partial failures are never silenced.
     pub step_errors: Vec<(String, String)>,
     /// Detailed per-residue hydrogenation reports, keyed by residue path.
     pub residue_reports: HashMap<String, HydrogenationReport>,
@@ -186,9 +186,18 @@ fn hydrogenate_single_residue(
         // Even if 0 hydrogens were added/removed (already fully hydrogenated), record into residue_reports.
         report.record_residue(res_path, combined_report);
     } else if has_modifications {
-        // At least one step encountered an error, but the other step succeeded and modified the residue.
-        // Record the modifications into residue_reports (the error is already recorded in step_errors).
-        report.record_residue(res_path, combined_report);
+        // At least one step encountered an error or missing template, but another step succeeded and modified the residue.
+        // Record the modifications into residue_reports:
+        report.record_residue(res_path.clone(), combined_report);
+
+        // If step2 failed due to missing template on this partially modified residue,
+        // it was not recorded during lookup (to avoid polluting step_errors for unmodified ligands).
+        // Record it now so that partial hydrogenation on a modified residue is never silenced.
+        if let Some(ref err) = step2_err {
+            if !report.step_errors.iter().any(|(p, _)| p == &res_path) {
+                report.record_error(res_path, err.clone());
+            }
+        }
     } else {
         // No modifications occurred AND errors/missing templates occurred: completely skipped.
         let reason = step2_err

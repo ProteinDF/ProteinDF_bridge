@@ -386,6 +386,23 @@ fn test_partially_modified_unknown_residue_recorded_in_reports_only() {
             .any(|(p, _)| p == "/model_1/A/2/"),
         "Modified UNK residue must NEVER appear in skipped_residues (no double-counting)"
     );
+
+    // Critically (Round 4 regression): UNK was modified (backbone H), but its sidechain template
+    // was missing. This partial failure must NOT be silenced; it must be recorded in step_errors!
+    let step2_err = report
+        .step_errors
+        .iter()
+        .find(|(p, _)| p == "/model_1/A/2/");
+    assert!(
+        step2_err.is_some(),
+        "Missing CCD template on modified UNK residue must be recorded in step_errors: {:?}",
+        report.step_errors
+    );
+    let err_msg = &step2_err.unwrap().1;
+    assert!(
+        err_msg.contains("No CCD template found for residue 'UNK'"),
+        "step_errors must mention missing template for UNK: {err_msg}"
+    );
 }
 
 #[test]
