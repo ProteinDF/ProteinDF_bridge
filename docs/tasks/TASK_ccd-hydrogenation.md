@@ -579,3 +579,26 @@
 2. 実バグ2について、`skipped_residues`と`residue_reports`が同一残基パスで同時に汚染されない(選んだ設計方針の下で一貫している)ことを検証する回帰テストを追加すること。
 3. `cargo test --workspace`・`cargo clippy`・`cargo fmt`を通すこと。
 4. 修正後、同じ`feature/hydrogenation-pr40`ブランチに追加コミットし、再度ユーザー経由でClaudeにレビュー依頼すること。
+
+## PR#40 レビュー結果(2回目、2026-09-27、要修正)
+
+1回目の指摘(実バグ1〜2、HOH全体異常終了・レポート二重計上)への対応コミット(`fix(hydrogenation): address PR#40 review findings on HOH resilience and report double-counting`)を`/code-review`(high)で再レビューした。**HOHでの全体異常終了・二重計上ともに解消を確認したが、その対応(`has_modifications`による`skipped_residues`/`residue_reports`の振り分け)自体が新たな実バグ2件を持ち込んでいる。** 実コードを直接確認して検証済み。
+
+### 実バグ(要修正)
+
+1. **既に水素が付加済みの残基(追加・削除が0件で両ステップとも成功)が、成功ではなく「スキップ(失敗)」として記録される。**(`orchestrator.rs:163-176`)
+   - `has_modifications`は`combined_report.added_hydrogens > 0 || combined_report.removed_hydrogens > 0`のみで判定される(163〜164行目)。両ステップが成功しても、追加・削除すべき原子が実際に0件(=既に完全に水素化済み)であれば`has_modifications`は`false`になり、`skipped_residues`に理由`"No hydrogens added or removed"`(174行目)で記録されてしまう。
+   - これは`OverallHydrogenationReport::skipped_residues`自身のdocコメント(38〜39行目、「missing CCD template, insufficient heavy atoms ... or geometric failure」)が定義する意味と矛盾する。成功して何もすることが無かったケースは、失敗でもスキップでもない。
+   - **再現手順(実際に検証済み)**: `1hls.pdb`に対し`add_missing_hydrogens`を2回連続で呼ぶ(1回目で全残基が水素化される)。2回目の呼び出しでは、全残基が既に水素を持つため追加・削除とも0件になり、レポートは`hydrogenated_residues=0`・`skipped_residues.len()=51`(=構造の全残基)になる。何も失敗していないのに、全残基が「失敗扱い」で報告される。
+   - **修正方針**: 「成功したが変更が0件だった(既に完全)」と「失敗・テンプレート未検出等で処理できなかった」を区別すること。例えば`step1_err`/`step2_err`のいずれかが`Some`である場合にのみ`skipped_residues`に入れ、両ステップとも成功していれば(変更が0件でも)`residue_reports`に記録する、という判定に変更する。
+2. **Step 1(主鎖)は成功して残基が変更されたが、Step 2(CCD側鎖付加)が(HOHのような想定内のケースではなく)本物のエラー(例: 縮退座標による`Superposer::new`の失敗)で失敗した場合、そのエラー情報が完全に握りつぶされる。**(`orchestrator.rs:150-155`、および`step2_err`が使われるのは`has_modifications == false`の場合のみという163〜176行目の分岐構造)
+   - `step2_err`(153行目)はローカル変数に代入されるが、`has_modifications`が`true`(Step 1で変更があった)の場合は166〜169行目の`record_residue`分岐に入り、`step2_err`は一切参照されない。`HydrogenationReport`自体にエラー情報を格納するフィールドも無い(`hydrogenation.rs`の定義を確認済み、`added_hydrogens`/`added_atom_names`/`removed_hydrogens`/`removed_atom_names`のみ)。
+   - **再現手順**: 主鎖`N`/`CA`/`C`は正常(Step 1が主鎖アミドHを追加して成功)だが、側鎖の座標が破損/縮退しているような残基(Step 2が`Superposer::new`の共線/縮退ガード等で`Err`を返す)。呼び出し元は`residue_reports`にこの残基のエントリを見つけ、主鎖Hの追加だけが記録された結果を受け取るが、「側鎖の水素付加を試みて失敗した」という情報はレポート上どこにも残らない。**修正前(1回目の実装)はこのケースは`?`で全体が異常終了していた(それ自体はバグだったが、少なくともエラーは見えていた)。今回の修正でこのケースが完全にサイレントになった点は、1回目のバグとは別方向の後退。**
+   - **修正方針**: `HydrogenationReport`(または`OverallHydrogenationReport`の集計時)に、Step 1・Step 2それぞれの部分的失敗を記録できるフィールド(例: `step_errors: Vec<String>`)を追加し、`has_modifications`が`true`であっても発生したエラーを握りつぶさずレポートに残すこと。指摘1の修正と合わせて、「変更の有無」と「エラーの有無」を独立した2軸として扱う設計に整理することを推奨する。
+
+### 完了の定義(修正後、再レビュー依頼前に確認すること)
+
+1. 実バグ1について、既に水素化済みの構造(または残基)に対し`add_missing_hydrogens`を実行した場合、`skipped_residues`に入らず(理想的には成功として)扱われることを検証する回帰テストを追加すること(例: `1hls.pdb`への2回連続呼び出し、または人為的に事前水素化した合成データ)。
+2. 実バグ2について、Step 1が成功しStep 2が(HOH以外の理由で)失敗するケースを合成データで再現し、そのエラー情報がレポートのどこかに残ることを検証する回帰テストを追加すること。
+3. `cargo test --workspace`・`cargo clippy`・`cargo fmt`を通すこと。
+4. 修正後、同じ`feature/hydrogenation-pr40`ブランチに追加コミットし、再度ユーザー経由でClaudeにレビュー依頼すること。
