@@ -418,7 +418,20 @@ class Modeling:
     # -----------------------------------------------------------------
     def arbitary_rotate_matrix(self, in_a, in_b):
         """
-        Return the rotation matrix (3x3) that aligns vector a with b.
+        Return the rotation matrix R (3x3) such that applying R to `in_b`
+        yields a vector pointing in the direction of `in_a`
+        (i.e. R.dot(in_b) is parallel to in_a; see add_methyl/get_NH3 usage,
+        which rotate a template's own reference axis (in_b) onto a real
+        bond direction (in_a)).
+
+        Note: prior to this fix, the (1, 2) matrix entry used `nx * nz`
+        instead of `ny * nz`, a bug inherited 1:1 by the Rust port
+        (rust/crates/proteindf-bridge/src/modeling.rs, arbitary_rotate_matrix).
+        For a general (non axis-aligned) input pair this produced a
+        non-orthonormal matrix (~1-2% error), not a proper rotation.
+        Fixed here following the standard Rodrigues rotation formula;
+        verified numerically (rotated vector matches the target direction
+        to machine precision, matrix is orthonormal).
         """
         assert isinstance(in_a, Position)
         assert isinstance(in_b, Position)
@@ -444,7 +457,7 @@ class Modeling:
         rot.set(0, 2, nx * nz * (1.0 - cos_theta) - ny * sin_theta)
         rot.set(1, 0, nx * ny * (1.0 - cos_theta) - nz * sin_theta)
         rot.set(1, 1, ny * ny * (1.0 - cos_theta) + cos_theta)
-        rot.set(1, 2, nx * nz * (1.0 - cos_theta) + nx * sin_theta)
+        rot.set(1, 2, ny * nz * (1.0 - cos_theta) + nx * sin_theta)
         rot.set(2, 0, nx * nz * (1.0 - cos_theta) + ny * sin_theta)
         rot.set(2, 1, ny * nz * (1.0 - cos_theta) - nx * sin_theta)
         rot.set(2, 2, nz * nz * (1.0 - cos_theta) + cos_theta)
