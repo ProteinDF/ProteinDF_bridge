@@ -617,3 +617,20 @@
 
 1. 上記1に対応する場合は、`cargo test --workspace`・`cargo clippy`・`cargo fmt`を通すこと。
 2. 対応してもしなくても、この時点でPR#40は実バグの観点からは収束したと判断してよい。修正した場合は同じブランチに追加コミットし、再度ユーザー経由でClaudeにレビュー依頼すること。対応しない場合はその旨をユーザーに報告すること。
+
+## PR#40 レビュー結果(4回目、2026-09-27、要修正)
+
+3回目の軽微な指摘(「テンプレート未検出」を`step_errors`から除外する)への対応コミット(`refactor(hydrogenation): exclude expected missing templates from step_errors`)を`/code-review`(high)で再レビューした。**その対応自体が、Step1(主鎖)が成功してStep2(CCDルックアップ)が「テンプレート未検出」で失敗し、かつ残基が変更されている場合に、そのエラー情報が完全に消失するという実バグを持ち込んでいる。** 独立した検証エージェントが実際にテストを計装して`step_errors`が空になることを実証済み。実コードを直接読んで確認した。
+
+### 実バグ(要修正)
+
+1. **「テンプレート未検出」の`step2_err`を`step_errors`に記録しないよう変更した(`orchestrator.rs`のStep2の`else`分岐、`db.lookup`が`None`のケース)が、`has_modifications`が`true`(Step1で主鎖Hが追加された)の分岐(`else if has_modifications { ... }`)は「the error is already recorded in step_errors」という前提コメントのまま変更されていない。** このため、Step1が成功し変更があり、かつStep2がテンプレート未検出で失敗した残基は、`step_errors`(今回の変更で除外)にも`skipped_residues`(`has_modifications`が真なのでこの分岐に入らない)にも記録されず、`HydrogenationReport`自体にもエラーフィールドが無いため、**エラー情報がどこにも残らず完全に消える。**
+   - **再現手順(既存テストで再現可能)**: `test_orchestrator.rs`の既存テスト`test_partially_modified_unknown_residue_recorded_in_reports_only`(324行目〜)がまさにこのシナリオ(主鎖`N`/`CA`/`C`を持つが`UNK`のような未知の残基名でCCDテンプレートが無い)を構築している。ただしこのテスト自体は`step_errors`を一切アサートしていないため、回帰を検出できない。このテストに計装を入れて確認したところ、`step_errors`は空(`[]`)になることを確認済み。
+   - **根本原因**: `step2_err: Option<String>`が「想定内のテンプレート未検出」と「本物の処理失敗」という意味的に異なる2つのケースを1つの変数で扱っており、3回目の対応はその一方(テンプレート未検出)の記録先だけを変更したが、`has_modifications`分岐側の「エラーは既にstep_errorsに記録済み」という前提を更新し忘れている。
+   - **修正方針**: `has_modifications`かつ`has_errors`の分岐(`else if has_modifications`)で、`step_errors`に記録されなかった理由(今回のテンプレート未検出のケース)も含め、呼び出し側が確認できる形にすること。例えば、テンプレート未検出の場合でも`has_modifications`が`true`なら(3回目の方針通り`step_errors`には入れないとしても)`skipped_residues`とは別の何らかの手段—`HydrogenationReport`へのフィールド追加、または`OverallHydrogenationReport`に「部分成功だがCCD側は未対応だった残基」用の第3のリストを設ける等—で、この情報が失われないようにすること。判断が難しければユーザー経由でClaudeに相談すること。
+
+### 完了の定義(修正後、再レビュー依頼前に確認すること)
+
+1. 実バグ1について、`test_partially_modified_unknown_residue_recorded_in_reports_only`(または新規テスト)に、テンプレート未検出という事実がレポートのどこかから確認できることを検証するアサーションを追加すること。
+2. `cargo test --workspace`・`cargo clippy`・`cargo fmt`を通すこと。
+3. 修正後、同じ`feature/hydrogenation-pr40`ブランチに追加コミットし、再度ユーザー経由でClaudeにレビュー依頼すること。
