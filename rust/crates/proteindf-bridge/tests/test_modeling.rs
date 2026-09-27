@@ -459,3 +459,71 @@ fn test_get_ace_and_nme_all_conformers_fail_error_context() {
         "Error must contain underlying failure details: {nme_err}"
     );
 }
+
+#[test]
+fn test_add_methyl_and_capping_non_axis_aligned_geometry() {
+    let m = Modeling::new().unwrap();
+
+    // 1. Direct add_methyl test on non-axis-aligned coordinates (mirroring Python test_modeling.py)
+    // Ethane template H11 position in Modeling::get_ethane is (-0.85617, -0.58901, -0.35051)
+    let template_ch_dist = Position::new(-0.85617, -0.58901, -0.35051).length();
+
+    let c1 = Atom::new_with_pos("C", Position::new(1.0, 2.0, 3.0)).unwrap();
+    let c2 = Atom::new_with_pos("C", Position::new(2.2, 2.6, 3.9)).unwrap();
+
+    let methyl = m.add_methyl(&c1, &c2).unwrap();
+    assert_eq!(methyl.get_number_of_atoms(), 3);
+    for name in ["H11", "H12", "H13"] {
+        let h = methyl.get_atom(name).unwrap();
+        let dist = (h.xyz - c1.xyz).length();
+        assert!(
+            (dist - template_ch_dist).abs() < 1e-4,
+            "C1-{name} bond length was {dist}, expected {template_ch_dist}"
+        );
+    }
+
+    // 2. get_ACE_simple / get_NME_simple on non-axis-aligned residue
+    let mut ala = AtomGroup::with_name("ALA");
+    ala.set_atom(
+        "CA",
+        Atom::new_with_pos("C", Position::new(1.0, 2.0, 3.0)).unwrap(),
+    );
+    ala.set_atom(
+        "C",
+        Atom::new_with_pos("C", Position::new(2.2, 2.6, 3.9)).unwrap(),
+    );
+    ala.set_atom(
+        "O",
+        Atom::new_with_pos("O", Position::new(2.8, 3.4, 3.2)).unwrap(),
+    );
+    ala.set_atom(
+        "N",
+        Atom::new_with_pos("N", Position::new(0.3, 1.1, 2.5)).unwrap(),
+    );
+    ala.set_atom(
+        "H",
+        Atom::new_with_pos("H", Position::new(0.5, 0.2, 2.1)).unwrap(),
+    );
+
+    let ace = m.get_ACE_simple(&ala).unwrap();
+    let ace_ca = ace.get_atom("CA").unwrap();
+    for name in ["H11", "H12", "H13"] {
+        let h = ace.get_atom(name).unwrap();
+        let dist = (h.xyz - ace_ca.xyz).length();
+        assert!(
+            (dist - template_ch_dist).abs() < 1e-4,
+            "ACE CA-{name} bond length was {dist}, expected {template_ch_dist}"
+        );
+    }
+
+    let nme = m.get_NME_simple(&ala).unwrap();
+    let nme_ca = nme.get_atom("CA").unwrap();
+    for name in ["H11", "H12", "H13"] {
+        let h = nme.get_atom(name).unwrap();
+        let dist = (h.xyz - nme_ca.xyz).length();
+        assert!(
+            (dist - template_ch_dist).abs() < 1e-4,
+            "NME CA-{name} bond length was {dist}, expected {template_ch_dist}"
+        );
+    }
+}

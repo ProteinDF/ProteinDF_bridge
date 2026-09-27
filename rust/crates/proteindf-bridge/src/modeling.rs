@@ -437,7 +437,13 @@ impl Modeling {
         Ok(answer)
     }
 
-    /// Computes the 3x3 rotation matrix that aligns vector `in_a` with `in_b`.
+    /// Computes the 3x3 rotation matrix `R` such that applying `R` to `in_b` yields
+    /// a vector pointing in the direction of `in_a` (i.e. `R * in_b` is parallel to `in_a`).
+    ///
+    /// # Note on parity with Python implementation
+    /// Prior to ProteinDF_bridge 2026.9.3, the (1, 2) matrix entry used `nx * nz` instead
+    /// of `ny * nz` in both Python and Rust implementations. Following the standard Rodrigues
+    /// rotation formula, this bug was corrected in both codebases (Python 2026.9.3 and Rust).
     pub fn arbitary_rotate_matrix(&self, in_a: Position, in_b: Position) -> Result<Matrix> {
         let mut a = in_a;
         let mut b = in_b;
@@ -460,7 +466,7 @@ impl Modeling {
         rot.set(0, 2, nx * nz * (1.0 - cos_theta) - ny * sin_theta);
         rot.set(1, 0, nx * ny * (1.0 - cos_theta) - nz * sin_theta);
         rot.set(1, 1, ny * ny * (1.0 - cos_theta) + cos_theta);
-        rot.set(1, 2, nx * nz * (1.0 - cos_theta) + nx * sin_theta);
+        rot.set(1, 2, ny * nz * (1.0 - cos_theta) + nx * sin_theta);
         rot.set(2, 0, nx * nz * (1.0 - cos_theta) + ny * sin_theta);
         rot.set(2, 1, ny * nz * (1.0 - cos_theta) - nx * sin_theta);
         rot.set(2, 2, nz * nz * (1.0 - cos_theta) + cos_theta);

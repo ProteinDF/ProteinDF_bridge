@@ -66,13 +66,17 @@ impl<'a> Default for HydrogenationOptions<'a> {
     }
 }
 
-/// Result summary of hydrogen addition to a component.
+/// Result summary of hydrogen addition (and removal) to a component.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HydrogenationReport {
     /// Number of hydrogens added.
     pub added_hydrogens: usize,
     /// Names of the added hydrogen atoms.
     pub added_atom_names: Vec<String>,
+    /// Number of hydrogens (or spurious atoms) removed.
+    pub removed_hydrogens: usize,
+    /// Names of the removed hydrogen atoms.
+    pub removed_atom_names: Vec<String>,
 }
 
 /// Helper: finds an atom in a component with direct O(1) lookup.
@@ -292,6 +296,8 @@ pub fn add_hydrogens_to_component_in_place_with_options(
     Ok(HydrogenationReport {
         added_hydrogens,
         added_atom_names,
+        removed_hydrogens: 0,
+        removed_atom_names: Vec::new(),
     })
 }
 

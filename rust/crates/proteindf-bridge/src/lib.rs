@@ -4,6 +4,7 @@
 pub mod amino_acid;
 pub mod atom;
 pub mod atom_group;
+pub mod backbone_hydrogen;
 pub mod bond;
 pub mod brd;
 pub mod ccd_templates;
@@ -30,6 +31,11 @@ pub mod vector;
 pub use amino_acid::AminoAcid;
 pub use atom::Atom;
 pub use atom_group::{AtomGroup, BondRecord, SchemaViolation, Selector};
+pub use backbone_hydrogen::{
+    add_backbone_hydrogens_to_residue, add_backbone_hydrogens_to_residue_in_place,
+    build_backbone_amide_hydrogen, build_nterm_hydrogens, STANDARD_AMIDE_NH_BOND_LENGTH,
+    STANDARD_NTERM_NH_BOND_LENGTH,
+};
 pub use bond::Bond;
 pub use brd::{
     load_atomgroup, load_brd_yui, load_msgpack, save_atomgroup, save_brd_yui, save_msgpack,

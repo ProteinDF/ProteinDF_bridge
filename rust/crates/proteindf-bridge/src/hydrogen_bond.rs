@@ -29,6 +29,13 @@ impl HydrogenBond {
     }
 }
 
+/// Standard bond length for backbone amide N-H in Angstroms (1.01 A).
+///
+/// Source: Engh, R. A. & Huber, R. (1991). Accurate bond and angle parameters for X-ray
+/// protein structure refinement. Acta Cryst. A47, 392-400. Also matches the DSSP /
+/// Kabsch & Sander (1983) electrostatic model used across structural bioinformatics.
+pub const STANDARD_AMIDE_NH_BOND_LENGTH: f64 = 1.01;
+
 /// Calculates the pseudo amide hydrogen coordinate for residue `i` given
 /// the C atom of residue `i-1`, the N atom of residue `i`, and the CA atom of residue `i`.
 ///
@@ -37,7 +44,7 @@ impl HydrogenBond {
 /// vec_cn  = normalize(N(i) - C(i-1))
 /// vec_can = normalize(N(i) - CA(i))
 /// vec_nh  = normalize(vec_cn + vec_can)
-/// H(i)    = N(i) + 1.01 * vec_nh
+/// H(i)    = N(i) + STANDARD_AMIDE_NH_BOND_LENGTH * vec_nh
 /// ```
 pub fn calc_pseudo_hydrogen(
     c_prev: &Position,
@@ -63,7 +70,7 @@ pub fn calc_pseudo_hydrogen(
     }
 
     let vec_nh = sum_vec / len_sum;
-    Some(*n_curr + vec_nh * 1.01)
+    Some(*n_curr + vec_nh * STANDARD_AMIDE_NH_BOND_LENGTH)
 }
 
 /// Calculates the Kabsch-Sander electrostatic interaction energy (in kcal/mol)
