@@ -45,6 +45,13 @@ use crate::position::Position;
 /// must satisfy $\cos(\text{angle}) = -\cos(109.47^\circ) = 1/3$, yielding $\arccos(1/3) \approx 70.53^\circ$.
 pub const NH3_TETRAHEDRAL_HALF_ANGLE: f64 = 1.230_959_417_340_774_7; // (1.0_f64 / 3.0).acos()
 
+/// Standard bond length for N-terminal ammonium N-H in Angstroms (1.00 A).
+///
+/// Source: Engh, R. A. & Huber, R. (1991). Accurate bond and angle parameters for X-ray
+/// protein structure refinement. Acta Cryst. A47, 392-400 (matches standard sp3 ammonium N-H
+/// parameters used in CHARMM and AMBER force fields).
+pub const STANDARD_NTERM_NH_BOND_LENGTH: f64 = 1.00;
+
 /// Helper: removes all atoms matching `target_name` by inspecting atom names
 /// and removing via their actual storage keys (which may be `"{serial}_{name}"` in PDB structures).
 fn remove_atoms_by_name(residue: &mut AtomGroup, target_name: &str) {
@@ -99,8 +106,8 @@ pub fn build_nterm_hydrogens(residue: &AtomGroup) -> Result<Vec<(String, Atom)>>
 
     // Standard tetrahedral NH3 geometry from Modeling::get_NH3:
     // angle = arccos(1/3) (~70.53 deg) so that the resulting H-N-CA angle is tetrahedral (109.47 deg).
-    // length = 1.0 A
-    let nh3 = modeling.get_NH3(NH3_TETRAHEDRAL_HALF_ANGLE, 1.0)?;
+    // length = STANDARD_NTERM_NH_BOND_LENGTH (1.00 A)
+    let nh3 = modeling.get_NH3(NH3_TETRAHEDRAL_HALF_ANGLE, STANDARD_NTERM_NH_BOND_LENGTH)?;
 
     // Align NH3 local frame: In get_NH3, N is at (0,0,0) and the 3 hydrogens point generally towards +Z.
     // In the residue, the ammonium group points away from CA (vector CA -> N).

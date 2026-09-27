@@ -8,7 +8,7 @@ use proteindf_bridge::atom_group::AtomGroup;
 use proteindf_bridge::backbone_hydrogen::{
     add_backbone_hydrogens_to_residue, add_backbone_hydrogens_to_residue_in_place,
     build_backbone_amide_hydrogen, build_nterm_hydrogens, NH3_TETRAHEDRAL_HALF_ANGLE,
-    STANDARD_AMIDE_NH_BOND_LENGTH,
+    STANDARD_AMIDE_NH_BOND_LENGTH, STANDARD_NTERM_NH_BOND_LENGTH,
 };
 use proteindf_bridge::format::Pdb;
 use proteindf_bridge::modeling::Modeling;
@@ -248,8 +248,8 @@ fn test_backbone_hydrogen_n_terminus() {
         let h = gly_stripped.get_atom(h_name).unwrap();
         let bond_len = distance(&n.xyz, &h.xyz);
         assert!(
-            (bond_len - 1.0).abs() < 1e-4,
-            "N-{h_name} bond length was {bond_len}, expected 1.0 A"
+            (bond_len - STANDARD_NTERM_NH_BOND_LENGTH).abs() < 1e-4,
+            "N-{h_name} bond length was {bond_len}, expected {STANDARD_NTERM_NH_BOND_LENGTH} A"
         );
 
         let ang = angle_rad(&h.xyz, &n.xyz, &ca.xyz);
@@ -414,7 +414,7 @@ fn test_add_backbone_hydrogens_immutable_and_build_nterm() {
     let ideal_tet_angle = (-1.0_f64 / 3.0).acos(); // ~109.47 deg
     for (_name, h) in &h_vec {
         let bond_len = distance(&n, &h.xyz);
-        assert!((bond_len - 1.0).abs() < 1e-4);
+        assert!((bond_len - STANDARD_NTERM_NH_BOND_LENGTH).abs() < 1e-4);
         let ang = angle_rad(&h.xyz, &n, &ca);
         assert!(
             (ang - ideal_tet_angle).abs() < 0.02,

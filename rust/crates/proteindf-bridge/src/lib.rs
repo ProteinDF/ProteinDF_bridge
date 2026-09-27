@@ -34,6 +34,7 @@ pub use atom_group::{AtomGroup, BondRecord, SchemaViolation, Selector};
 pub use backbone_hydrogen::{
     add_backbone_hydrogens_to_residue, add_backbone_hydrogens_to_residue_in_place,
     build_backbone_amide_hydrogen, build_nterm_hydrogens, STANDARD_AMIDE_NH_BOND_LENGTH,
+    STANDARD_NTERM_NH_BOND_LENGTH,
 };
 pub use bond::Bond;
 pub use brd::{
