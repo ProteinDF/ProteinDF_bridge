@@ -298,6 +298,26 @@ fn test_backbone_hydrogen_n_terminal_proline() {
         !pro.has_atom("H3"),
         "Spurious H3 keyed as '5678_H3' must be purged on N-terminal PRO"
     );
+
+    // Atomicity regression test: If build_nterm_hydrogens fails (e.g. missing CA),
+    // spurious H3 must NOT be removed from the caller's AtomGroup.
+    let mut pro_err = AtomGroup::with_name("PRO");
+    pro_err.set_atom(
+        "N",
+        Atom::new_with_pos("N", Position::new(0.0, 0.0, 0.0)).unwrap(),
+    );
+    let mut spurious_h3_err = Atom::new_with_pos("H", Position::new(0.0, 1.0, 0.0)).unwrap();
+    spurious_h3_err.name = "H3".to_string();
+    pro_err.set_atom("5678_H3", spurious_h3_err);
+    assert!(pro_err.has_atom("H3"));
+
+    // Missing CA causes build_nterm_hydrogens to fail
+    let err_result = add_backbone_hydrogens_to_residue_in_place(&mut pro_err, None);
+    assert!(err_result.is_err(), "Must fail when CA is missing");
+    assert!(
+        pro_err.has_atom("H3"),
+        "Spurious H3 must NOT be removed if hydrogenation fails (atomicity violation)"
+    );
 }
 
 // 6. Degenerate, missing coordinate, and distance error handling:
@@ -326,14 +346,44 @@ fn test_backbone_hydrogen_error_handling() {
     let empty_prev = AtomGroup::with_name("GLY");
     assert!(add_backbone_hydrogens_to_residue_in_place(&mut curr, Some(&empty_prev)).is_err());
 
-    // Case C: Coincident/degenerate coordinates (C_prev == N)
+    // Case C: Coincident coordinates (C_prev == N, caught by distance check < 0.8 A)
     prev.set_atom(
         "C",
         Atom::new_with_pos("C", Position::new(0.0, 0.0, 0.0)).unwrap(),
     );
     assert!(add_backbone_hydrogens_to_residue_in_place(&mut curr, Some(&prev)).is_err());
 
-    // Case D: Disconnected / out-of-bounds peptide bond distance (> 2.5 A)
+    // Case D: Collinear coordinates with valid peptide bond distance (1.33 A):
+    // C_prev at (-1.33, 0, 0), N at (0, 0, 0), CA at (1.40, 0, 0) -> strictly collinear.
+    // Distance C_prev-N is 1.33 A (passes distance guard 0.8-2.5 A), but vectors are opposite,
+    // so vec_cn + vec_can = (0, 0, 0) and build_backbone_amide_hydrogen returns None.
+    let mut collinear_curr = AtomGroup::with_name("ALA");
+    collinear_curr.set_atom(
+        "N",
+        Atom::new_with_pos("N", Position::new(0.0, 0.0, 0.0)).unwrap(),
+    );
+    collinear_curr.set_atom(
+        "CA",
+        Atom::new_with_pos("C", Position::new(1.40, 0.0, 0.0)).unwrap(),
+    );
+    let mut collinear_prev = AtomGroup::with_name("GLY");
+    collinear_prev.set_atom(
+        "C",
+        Atom::new_with_pos("C", Position::new(-1.33, 0.0, 0.0)).unwrap(),
+    );
+    let collinear_err =
+        add_backbone_hydrogens_to_residue_in_place(&mut collinear_curr, Some(&collinear_prev));
+    assert!(
+        collinear_err.is_err(),
+        "Must reject collinear C_prev, N, CA geometry"
+    );
+    let err_msg = collinear_err.unwrap_err().to_string();
+    assert!(
+        err_msg.contains("degenerate backbone geometry"),
+        "Error message should mention degenerate geometry, got: {err_msg}"
+    );
+
+    // Case E: Disconnected / out-of-bounds peptide bond distance (> 2.5 A)
     let mut far_prev = AtomGroup::with_name("GLY");
     far_prev.set_atom(
         "C",

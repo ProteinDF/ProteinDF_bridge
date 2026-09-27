@@ -209,16 +209,17 @@ pub fn add_backbone_hydrogens_to_residue_in_place(
         }
     } else {
         // True N-terminal residue
-        // For N-terminal PRO (secondary amine), purge any spurious existing H3 by atom name
-        if residue.name == "PRO" {
-            remove_atoms_by_name(residue, "H3");
-        }
-
         let nterm_hydrogens = build_nterm_hydrogens(residue)?;
         for (h_name, atom) in nterm_hydrogens {
             if !residue.has_atom(&h_name) {
                 staged.push((h_name, atom));
             }
+        }
+
+        // For N-terminal PRO (secondary amine), purge any spurious existing H3 by atom name
+        // only after fallible hydrogen construction succeeds to preserve atomicity.
+        if residue.name == "PRO" {
+            remove_atoms_by_name(residue, "H3");
         }
     }
 
