@@ -38,11 +38,13 @@ pub struct OverallHydrogenationReport {
     /// Residues/components where NO changes were made (completely skipped due to missing CCD
     /// template, insufficient heavy atoms such as HOH water, or geometric failure), with reason: `(path, reason)`.
     pub skipped_residues: Vec<(String, String)>,
-    /// Errors or warnings encountered during Step 1 (backbone) or Step 2 (sidechain/CCD) processing,
+    /// Genuine processing or geometric errors encountered during Step 1 (backbone) or Step 2 (sidechain/CCD)
+    /// processing (such as coordinate degeneracy, insufficient heavy atoms, or superposition failure),
     /// with context: `(path, error_message)`.
     ///
-    /// Even if a residue was partially modified (e.g. backbone added but sidechain failed),
-    /// the step failure is guaranteed to be recorded here and never silenced.
+    /// Expected non-presence of CCD templates for uncataloged ligands/waters is recorded in
+    /// [`skipped_residues`](Self::skipped_residues) rather than here, keeping this list focused on
+    /// genuine structural anomalies.
     pub step_errors: Vec<(String, String)>,
     /// Detailed per-residue hydrogenation reports, keyed by residue path.
     pub residue_reports: HashMap<String, HydrogenationReport>,
@@ -166,9 +168,13 @@ fn hydrogenate_single_residue(
             }
         }
     } else {
-        let err_msg = format!("No CCD template found for residue '{}'", residue.name);
-        report.record_error(res_path.clone(), err_msg.clone());
-        step2_err = Some(err_msg);
+        // Missing CCD template is expected for uncataloged ligands, waters, or metal ions.
+        // It is recorded in `skipped_residues` (if unmodified) rather than `step_errors`
+        // so that `step_errors` exclusively contains genuine processing/geometric failures.
+        step2_err = Some(format!(
+            "No CCD template found for residue '{}'",
+            residue.name
+        ));
     }
 
     let has_errors = step1_err.is_some() || step2_err.is_some();

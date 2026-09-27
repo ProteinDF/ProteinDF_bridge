@@ -307,6 +307,12 @@ fn test_unmodified_unknown_ligand_recorded_in_skipped_only() {
     assert_eq!(skipped_path, "/model_1/A/2/");
     assert!(reason.contains("No CCD template found for residue 'LIG'"));
     assert!(!report.residue_reports.contains_key("/model_1/A/2/"));
+    // Missing CCD template is an expected skip and must NOT pollute step_errors
+    assert_eq!(
+        report.step_errors.len(),
+        0,
+        "Missing CCD template must not be recorded in step_errors"
+    );
 
     // ALA was modified: must be in residue_reports, must NOT be in skipped_residues
     assert_eq!(report.hydrogenated_residues, 1);
