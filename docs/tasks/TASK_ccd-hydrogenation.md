@@ -555,3 +555,96 @@
 7回目の指摘(`HydrogenationReport`への削除記録、`arbitary_rotate_matrix`の厳密なテスト)はいずれも解消を確認した。特にテストについては、直交性・行列式・写像方向を検証する厳密なテストが追加され、実際に機能していることを確認済み。**新たな実バグは見つからなかった。** 残りの指摘は全て、これまでのラウンドで繰り返し記録してきた低優先度項目(プロリン名の未トリム比較、`Modeling::new()`の毎回構築、`remove_atoms_by_name`のAtomGroup API格上げ、stagingパターンの過剰な複雑さ等)の継続であり、追加対応は求めない。
 
 **PR#39はこれで収束したと判断し、`develop`にマージする。**
+
+## PR#40 レビュー結果(1回目、2026-09-27、要修正)
+
+`feature/hydrogenation-pr40`(`orchestrator.rs`新規、`AtomGroup::add_missing_hydrogens`)を`/code-review`(high)でレビューした。**実コードを直接読んで検証済みの重大な実バグ1件と、レポートの整合性に関わる実バグ1件が見つかった。** どちらも既存テスト(`test_orchestrator.rs`、`1hls.pdb`フィクスチャ)では検出できない(フィクスチャに該当ケースが含まれないため)。
+
+### 実バグ(要修正、最重要)
+
+1. **結晶水(`HOH`)を含む構造で、水素付加処理全体が異常終了し、それまでに処理済みの残基の変更だけが構造に残ったまま`Err`が返る。** (`orchestrator.rs:122`、`hydrogenate_single_residue`のStep 2)
+   - `db.lookup("HOH")`は組み込みテンプレート(重原子は`O`1個のみ)にヒットするが、`add_hydrogens_to_component_in_place_with_options`は`matched_count < MIN_SUPERPOSE_HEAVY_ATOMS`(3、`hydrogenation.rs:39,189-190`)で`common_heavy_atoms`エラーを返す。このエラーが`orchestrator.rs:122`の`?`でそのまま`hydrogenate_single_residue`→`hydrogenate_chain`→`traverse_and_hydrogenate`→`hydrogenate_atomgroup`(および`AtomGroup::add_missing_hydrogens`)まで無条件に伝播し、呼び出し全体が`Err`になる。
+   - **結果として二重に問題がある**: (a) 結晶水はX線構造にほぼ必ず含まれるため、実質的にどんな実データに対しても本機能全体が失敗する。(b) `&mut AtomGroup`は呼び出し元の参照であり、`HOH`に到達するまでに処理済みの残基は既に水素が追加された状態のまま残る。`Err`を受け取った呼び出し元は「何も変更されていない」と誤解しうるが、実際には構造が部分的に(そして`OverallHydrogenationReport`という説明可能な形を伴わずに)変更されている。
+   - **再現手順**: `HOH`を含む任意の実PDB/mmCIF構造(現行の`1hls.pdb`フィクスチャには`HOH`行が無いため、既存テストでは再現しない)に対し`add_missing_hydrogens`を呼ぶ。
+   - **修正方針**: 個々の残基の水素付加失敗を、構造全体の走査を中断する理由にしないこと。`hydrogenate_single_residue`のStep 2(および必要ならStep 1も)で、`add_hydrogens_to_component_in_place_with_options`の`Err`を`?`で伝播させず、`report.record_skipped(res_path, <エラー内容>)`として記録し処理を継続する設計に変更する(§3.16 PR#40の完了の定義2「テンプレートが見つからず付加できなかった残基のリスト等」の精神を、"テンプレートはあるが構造的にフィットできない"ケースにも一貫して適用する)。`HOH`のように重原子1個しかない既知のテンプレートを`MIN_SUPERPOSE_HEAVY_ATOMS`未満として扱うこと自体の妥当性(水を`is_amino_acid_component`と同様に特別視して水素付加自体をスキップする設計にするか)も合わせて検討し、判断根拠をコメントに残すこと。
+
+2. **`skipped_residues`と`residue_reports`/`hydrogenated_residues`/`total_added_hydrogens`の両方に同一残基が二重計上されうる。** (`orchestrator.rs:133-141`)
+   - Step 2で`db.lookup`が失敗した`else`分岐(133〜141行目)は、無条件に`report.record_skipped(...)`(136行目)を呼んだ後、`combined_report.added_hydrogens > 0`(Step 1の主鎖アミドHが加わっている場合)なら追加で`report.record_residue(...)`(140行目)も呼ぶ。
+   - **再現手順**: 主鎖`N`/`CA`は持つがCCDテンプレートが見つからない残基(非標準/修飾アミノ酸、`UNK`等)。主鎖アミドHはStep 1で追加されるが、Step 2のCCDルックアップは失敗する。この残基は`skipped_residues`(スキップされた=何も変更されていないという含意)と`residue_reports`/`hydrogenated_residues`(水素付加された)の両方に記録される。
+   - **修正方針**: 「スキップされた」の意味を「この残基について一切変更が行われなかった」に統一するか、「CCD側は未対応だった」という意味に統一するかを決め、両方の記録先に同時に入らないようにする。前者を選ぶなら`combined_report.added_hydrogens > 0 || combined_report.removed_hydrogens > 0`の場合は`record_skipped`を呼ばない(またはメッセージを「主鎖のみ付加、側鎖は未対応」等に変えた上で`record_residue`のみ呼ぶ)、後者を選ぶなら`skipped_residues`と`residue_reports`が同一パスを指す場合の扱いをドキュメントに明記する。
+
+### 完了の定義(修正後、再レビュー依頼前に確認すること)
+
+1. 実バグ1について、`HOH`(または重原子がテンプレートの`MIN_SUPERPOSE_HEAVY_ATOMS`未満の任意の残基)を含む構造で、構造全体の処理が中断されず、当該残基が(スキップ理由付きで)レポートに記録され、他の残基への水素付加が継続されることを検証する回帰テストを追加すること。
+2. 実バグ2について、`skipped_residues`と`residue_reports`が同一残基パスで同時に汚染されない(選んだ設計方針の下で一貫している)ことを検証する回帰テストを追加すること。
+3. `cargo test --workspace`・`cargo clippy`・`cargo fmt`を通すこと。
+4. 修正後、同じ`feature/hydrogenation-pr40`ブランチに追加コミットし、再度ユーザー経由でClaudeにレビュー依頼すること。
+
+## PR#40 レビュー結果(2回目、2026-09-27、要修正)
+
+1回目の指摘(実バグ1〜2、HOH全体異常終了・レポート二重計上)への対応コミット(`fix(hydrogenation): address PR#40 review findings on HOH resilience and report double-counting`)を`/code-review`(high)で再レビューした。**HOHでの全体異常終了・二重計上ともに解消を確認したが、その対応(`has_modifications`による`skipped_residues`/`residue_reports`の振り分け)自体が新たな実バグ2件を持ち込んでいる。** 実コードを直接確認して検証済み。
+
+### 実バグ(要修正)
+
+1. **既に水素が付加済みの残基(追加・削除が0件で両ステップとも成功)が、成功ではなく「スキップ(失敗)」として記録される。**(`orchestrator.rs:163-176`)
+   - `has_modifications`は`combined_report.added_hydrogens > 0 || combined_report.removed_hydrogens > 0`のみで判定される(163〜164行目)。両ステップが成功しても、追加・削除すべき原子が実際に0件(=既に完全に水素化済み)であれば`has_modifications`は`false`になり、`skipped_residues`に理由`"No hydrogens added or removed"`(174行目)で記録されてしまう。
+   - これは`OverallHydrogenationReport::skipped_residues`自身のdocコメント(38〜39行目、「missing CCD template, insufficient heavy atoms ... or geometric failure」)が定義する意味と矛盾する。成功して何もすることが無かったケースは、失敗でもスキップでもない。
+   - **再現手順(実際に検証済み)**: `1hls.pdb`に対し`add_missing_hydrogens`を2回連続で呼ぶ(1回目で全残基が水素化される)。2回目の呼び出しでは、全残基が既に水素を持つため追加・削除とも0件になり、レポートは`hydrogenated_residues=0`・`skipped_residues.len()=51`(=構造の全残基)になる。何も失敗していないのに、全残基が「失敗扱い」で報告される。
+   - **修正方針**: 「成功したが変更が0件だった(既に完全)」と「失敗・テンプレート未検出等で処理できなかった」を区別すること。例えば`step1_err`/`step2_err`のいずれかが`Some`である場合にのみ`skipped_residues`に入れ、両ステップとも成功していれば(変更が0件でも)`residue_reports`に記録する、という判定に変更する。
+2. **Step 1(主鎖)は成功して残基が変更されたが、Step 2(CCD側鎖付加)が(HOHのような想定内のケースではなく)本物のエラー(例: 縮退座標による`Superposer::new`の失敗)で失敗した場合、そのエラー情報が完全に握りつぶされる。**(`orchestrator.rs:150-155`、および`step2_err`が使われるのは`has_modifications == false`の場合のみという163〜176行目の分岐構造)
+   - `step2_err`(153行目)はローカル変数に代入されるが、`has_modifications`が`true`(Step 1で変更があった)の場合は166〜169行目の`record_residue`分岐に入り、`step2_err`は一切参照されない。`HydrogenationReport`自体にエラー情報を格納するフィールドも無い(`hydrogenation.rs`の定義を確認済み、`added_hydrogens`/`added_atom_names`/`removed_hydrogens`/`removed_atom_names`のみ)。
+   - **再現手順**: 主鎖`N`/`CA`/`C`は正常(Step 1が主鎖アミドHを追加して成功)だが、側鎖の座標が破損/縮退しているような残基(Step 2が`Superposer::new`の共線/縮退ガード等で`Err`を返す)。呼び出し元は`residue_reports`にこの残基のエントリを見つけ、主鎖Hの追加だけが記録された結果を受け取るが、「側鎖の水素付加を試みて失敗した」という情報はレポート上どこにも残らない。**修正前(1回目の実装)はこのケースは`?`で全体が異常終了していた(それ自体はバグだったが、少なくともエラーは見えていた)。今回の修正でこのケースが完全にサイレントになった点は、1回目のバグとは別方向の後退。**
+   - **修正方針**: `HydrogenationReport`(または`OverallHydrogenationReport`の集計時)に、Step 1・Step 2それぞれの部分的失敗を記録できるフィールド(例: `step_errors: Vec<String>`)を追加し、`has_modifications`が`true`であっても発生したエラーを握りつぶさずレポートに残すこと。指摘1の修正と合わせて、「変更の有無」と「エラーの有無」を独立した2軸として扱う設計に整理することを推奨する。
+
+### 完了の定義(修正後、再レビュー依頼前に確認すること)
+
+1. 実バグ1について、既に水素化済みの構造(または残基)に対し`add_missing_hydrogens`を実行した場合、`skipped_residues`に入らず(理想的には成功として)扱われることを検証する回帰テストを追加すること(例: `1hls.pdb`への2回連続呼び出し、または人為的に事前水素化した合成データ)。
+2. 実バグ2について、Step 1が成功しStep 2が(HOH以外の理由で)失敗するケースを合成データで再現し、そのエラー情報がレポートのどこかに残ることを検証する回帰テストを追加すること。
+3. `cargo test --workspace`・`cargo clippy`・`cargo fmt`を通すこと。
+4. 修正後、同じ`feature/hydrogenation-pr40`ブランチに追加コミットし、再度ユーザー経由でClaudeにレビュー依頼すること。
+
+## PR#40 レビュー結果(3回目、2026-09-27、軽微な指摘のみ・収束)
+
+2回目の指摘(実バグ1〜2、冪等性の誤判定・Step2エラーの握りつぶし)への対応コミット(`fix(hydrogenation): address PR#40 2nd-round review on idempotency and error tracking`)を`/code-review`(high)で再レビューした。実コードを直接確認し(`hydrogenate_single_residue`全体・呼び出し元・`OverallHydrogenationReport`を精読)、`cargo test -p proteindf-bridge --test test_orchestrator`(9件、新規回帰テスト2件含む全件成功)・`cargo clippy`(警告なし)を実行して検証した。**新たな実バグは見つからなかった。** `!has_errors`/`has_modifications`による3分岐(成功・部分成功・完全スキップ)は論理的に妥当で、2回目の指摘2件を正しく解消しており、`residue_reports`/`skipped_residues`の相互排他性(前回追記のdocコメント通り)も壊れていない。
+
+### 今回のPRで直すとよい軽微な指摘(必須ではない)
+
+1. **「CCDテンプレートが見つからない」(`db.lookup`が`None`)という、非標準リガンド・金属イオン等では想定内・頻出の条件が、`step_errors`(新設フィールド)に、座標縮退等の本物の処理失敗と区別なく記録される。**(`orchestrator.rs:161-164`付近)
+   - `step_errors`のdocコメント(43〜46行目)は「Even if a residue was partially modified... guaranteed to be recorded here and never silenced」と述べており、呼び出し側に「注意が必要な警告」として扱われることを想定した文言になっている。しかし実データ(多数の結晶水・金属イオンを含む構造)では、大半の`step_errors`エントリが単に「CCD DBにエントリが無い、想定内のスキップ」であり、`skipped_residues`と内容が大きく重複する。呼び出し側が`step_errors`を「本当に見るべき異常」のシグナルとして使おうとすると、大量の無害なエントリに埋もれる可能性がある。
+   - **対応する場合の方針**: 「テンプレート未検出」(想定内、§3.16 PR#40完了の定義2が要求する『付加できなかった残基のリスト』そのもの)と、「テンプレートはあるが処理中に失敗した」(想定外、縮退座標等)を、`step_errors`と`skipped_residues`のどちらか一方にのみ計上する(現状`skipped_residues`に確実に載っている情報なので、`step_errors`側からは除外する)か、`step_errors`のdocコメントを「skipped_residuesの理由も含む」旨に修正するかのいずれかで整理する。対応しない場合も、この重複の存在自体は認識しておくこと。
+
+### 完了の定義(対応する場合)
+
+1. 上記1に対応する場合は、`cargo test --workspace`・`cargo clippy`・`cargo fmt`を通すこと。
+2. 対応してもしなくても、この時点でPR#40は実バグの観点からは収束したと判断してよい。修正した場合は同じブランチに追加コミットし、再度ユーザー経由でClaudeにレビュー依頼すること。対応しない場合はその旨をユーザーに報告すること。
+
+## PR#40 レビュー結果(4回目、2026-09-27、要修正)
+
+3回目の軽微な指摘(「テンプレート未検出」を`step_errors`から除外する)への対応コミット(`refactor(hydrogenation): exclude expected missing templates from step_errors`)を`/code-review`(high)で再レビューした。**その対応自体が、Step1(主鎖)が成功してStep2(CCDルックアップ)が「テンプレート未検出」で失敗し、かつ残基が変更されている場合に、そのエラー情報が完全に消失するという実バグを持ち込んでいる。** 独立した検証エージェントが実際にテストを計装して`step_errors`が空になることを実証済み。実コードを直接読んで確認した。
+
+### 実バグ(要修正)
+
+1. **「テンプレート未検出」の`step2_err`を`step_errors`に記録しないよう変更した(`orchestrator.rs`のStep2の`else`分岐、`db.lookup`が`None`のケース)が、`has_modifications`が`true`(Step1で主鎖Hが追加された)の分岐(`else if has_modifications { ... }`)は「the error is already recorded in step_errors」という前提コメントのまま変更されていない。** このため、Step1が成功し変更があり、かつStep2がテンプレート未検出で失敗した残基は、`step_errors`(今回の変更で除外)にも`skipped_residues`(`has_modifications`が真なのでこの分岐に入らない)にも記録されず、`HydrogenationReport`自体にもエラーフィールドが無いため、**エラー情報がどこにも残らず完全に消える。**
+   - **再現手順(既存テストで再現可能)**: `test_orchestrator.rs`の既存テスト`test_partially_modified_unknown_residue_recorded_in_reports_only`(324行目〜)がまさにこのシナリオ(主鎖`N`/`CA`/`C`を持つが`UNK`のような未知の残基名でCCDテンプレートが無い)を構築している。ただしこのテスト自体は`step_errors`を一切アサートしていないため、回帰を検出できない。このテストに計装を入れて確認したところ、`step_errors`は空(`[]`)になることを確認済み。
+   - **根本原因**: `step2_err: Option<String>`が「想定内のテンプレート未検出」と「本物の処理失敗」という意味的に異なる2つのケースを1つの変数で扱っており、3回目の対応はその一方(テンプレート未検出)の記録先だけを変更したが、`has_modifications`分岐側の「エラーは既にstep_errorsに記録済み」という前提を更新し忘れている。
+   - **修正方針**: `has_modifications`かつ`has_errors`の分岐(`else if has_modifications`)で、`step_errors`に記録されなかった理由(今回のテンプレート未検出のケース)も含め、呼び出し側が確認できる形にすること。例えば、テンプレート未検出の場合でも`has_modifications`が`true`なら(3回目の方針通り`step_errors`には入れないとしても)`skipped_residues`とは別の何らかの手段—`HydrogenationReport`へのフィールド追加、または`OverallHydrogenationReport`に「部分成功だがCCD側は未対応だった残基」用の第3のリストを設ける等—で、この情報が失われないようにすること。判断が難しければユーザー経由でClaudeに相談すること。
+
+### 完了の定義(修正後、再レビュー依頼前に確認すること)
+
+1. 実バグ1について、`test_partially_modified_unknown_residue_recorded_in_reports_only`(または新規テスト)に、テンプレート未検出という事実がレポートのどこかから確認できることを検証するアサーションを追加すること。
+2. `cargo test --workspace`・`cargo clippy`・`cargo fmt`を通すこと。
+3. 修正後、同じ`feature/hydrogenation-pr40`ブランチに追加コミットし、再度ユーザー経由でClaudeにレビュー依頼すること。
+
+## PR#40 レビュー結果(5回目、2026-09-27、軽微な指摘のみ・収束)
+
+4回目の指摘(テンプレート未検出+部分変更で情報が消える件)への対応コミット(`fix(hydrogenation): preserve missing sidechain template in step_errors on modified residues (PR#40 round 4)`)を`/code-review`(high)で再レビューした。実コードを直接確認し、`step1`/`step2`の成功・失敗・テンプレート未検出と`has_modifications`の全組み合わせを手動でトレースして、追加された重複防止ガード(`!report.step_errors.iter().any(|(p, _)| p == &res_path)`)が全ての到達可能な経路で正しく機能する(消失も二重記録もしない)ことを確認した。**新たな実バグは見つからなかった。** `cargo test`全件成功も確認済み。
+
+### 今回のPRで直すとよい軽微な指摘(必須ではない、対応不要と判断しても良い)
+
+1. **重複防止ガードが`step_errors`ベクタ全体を毎回線形スキャンしている**(`orchestrator.rs:197`付近)。現状は1残基あたり高々1エントリしか自分自身のパスを追加しないため実害は無いが、大規模構造でテンプレート未検出かつ部分変更の残基が多数ある場合、全体としてO(n^2)になりうる。ローカルな`bool`フラグ(Step2の本物のエラー記録時にセットする)で置き換えれば自明にO(1)になる。
+2. **(設計メモ)** 今回の一連のラウンド(2〜4回目)で見えてきた通り、エラー記録が「Step1/Step2それぞれの`Err`分岐で即座に`record_error`する経路」と「Step2のテンプレート未検出は関数末尾でまとめて判定する経路」の2種類に分かれていること自体が、今回のような「片方を直すともう片方が壊れる」系の不具合の温床になっている。将来同種の変更(第3のエラー原因の追加等)をする際は、`record_error`の即時呼び出しを全てやめ、`step1_err`/`step2_err`を設定するだけに留め、関数末尾の判定ブロック(`has_modifications`/`has_errors`に基づく分岐)だけで`step_errors`への記録を一元的に行う設計に整理すると、今回のような重複防止ガードが不要になり、この種の不具合のクラス自体が構造的に起きなくなる。本PRでの対応は必須ではないが、次にこのあたりを触る際に検討する価値がある。
+
+### 完了の定義(対応する場合)
+
+1. 上記1・2のいずれかに対応する場合は、`cargo test --workspace`・`cargo clippy`・`cargo fmt`を通すこと。
+2. 対応してもしなくても、この時点でPR#40は実バグの観点から収束したと判断する。マージ判断に進んでよい。
