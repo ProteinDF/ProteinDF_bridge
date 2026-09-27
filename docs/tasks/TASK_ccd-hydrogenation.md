@@ -602,3 +602,18 @@
 2. 実バグ2について、Step 1が成功しStep 2が(HOH以外の理由で)失敗するケースを合成データで再現し、そのエラー情報がレポートのどこかに残ることを検証する回帰テストを追加すること。
 3. `cargo test --workspace`・`cargo clippy`・`cargo fmt`を通すこと。
 4. 修正後、同じ`feature/hydrogenation-pr40`ブランチに追加コミットし、再度ユーザー経由でClaudeにレビュー依頼すること。
+
+## PR#40 レビュー結果(3回目、2026-09-27、軽微な指摘のみ・収束)
+
+2回目の指摘(実バグ1〜2、冪等性の誤判定・Step2エラーの握りつぶし)への対応コミット(`fix(hydrogenation): address PR#40 2nd-round review on idempotency and error tracking`)を`/code-review`(high)で再レビューした。実コードを直接確認し(`hydrogenate_single_residue`全体・呼び出し元・`OverallHydrogenationReport`を精読)、`cargo test -p proteindf-bridge --test test_orchestrator`(9件、新規回帰テスト2件含む全件成功)・`cargo clippy`(警告なし)を実行して検証した。**新たな実バグは見つからなかった。** `!has_errors`/`has_modifications`による3分岐(成功・部分成功・完全スキップ)は論理的に妥当で、2回目の指摘2件を正しく解消しており、`residue_reports`/`skipped_residues`の相互排他性(前回追記のdocコメント通り)も壊れていない。
+
+### 今回のPRで直すとよい軽微な指摘(必須ではない)
+
+1. **「CCDテンプレートが見つからない」(`db.lookup`が`None`)という、非標準リガンド・金属イオン等では想定内・頻出の条件が、`step_errors`(新設フィールド)に、座標縮退等の本物の処理失敗と区別なく記録される。**(`orchestrator.rs:161-164`付近)
+   - `step_errors`のdocコメント(43〜46行目)は「Even if a residue was partially modified... guaranteed to be recorded here and never silenced」と述べており、呼び出し側に「注意が必要な警告」として扱われることを想定した文言になっている。しかし実データ(多数の結晶水・金属イオンを含む構造)では、大半の`step_errors`エントリが単に「CCD DBにエントリが無い、想定内のスキップ」であり、`skipped_residues`と内容が大きく重複する。呼び出し側が`step_errors`を「本当に見るべき異常」のシグナルとして使おうとすると、大量の無害なエントリに埋もれる可能性がある。
+   - **対応する場合の方針**: 「テンプレート未検出」(想定内、§3.16 PR#40完了の定義2が要求する『付加できなかった残基のリスト』そのもの)と、「テンプレートはあるが処理中に失敗した」(想定外、縮退座標等)を、`step_errors`と`skipped_residues`のどちらか一方にのみ計上する(現状`skipped_residues`に確実に載っている情報なので、`step_errors`側からは除外する)か、`step_errors`のdocコメントを「skipped_residuesの理由も含む」旨に修正するかのいずれかで整理する。対応しない場合も、この重複の存在自体は認識しておくこと。
+
+### 完了の定義(対応する場合)
+
+1. 上記1に対応する場合は、`cargo test --workspace`・`cargo clippy`・`cargo fmt`を通すこと。
+2. 対応してもしなくても、この時点でPR#40は実バグの観点からは収束したと判断してよい。修正した場合は同じブランチに追加コミットし、再度ユーザー経由でClaudeにレビュー依頼すること。対応しない場合はその旨をユーザーに報告すること。
