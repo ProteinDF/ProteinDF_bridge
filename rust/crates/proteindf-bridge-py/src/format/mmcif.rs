@@ -105,24 +105,22 @@ impl PySimpleMmcif {
     #[pyo3(signature = (
         atomgroup,
         data_block_name = "structure",
-        charge_to_b_factor = false,
-        is_charge2tempfactor = false
+        charge_to_b_factor = false
     ))]
     pub fn set_by_atomgroup(
         &mut self,
         atomgroup: &PyAtomGroup,
         data_block_name: &str,
         charge_to_b_factor: bool,
-        is_charge2tempfactor: bool,
     ) -> PyResult<()> {
         let opts = MmcifWriteOptions {
             data_block_name: data_block_name.to_string(),
-            charge_to_b_factor: charge_to_b_factor || is_charge2tempfactor,
+            charge_to_b_factor,
         };
         validate_for_mmcif_write(&atomgroup.inner, &opts).map_err(to_py_err)?;
         self.atomgroup = Some(atomgroup.clone());
         self.data_block_name = data_block_name.to_string();
-        self.charge_to_b_factor = charge_to_b_factor || is_charge2tempfactor;
+        self.charge_to_b_factor = charge_to_b_factor;
         Ok(())
     }
 
@@ -130,8 +128,7 @@ impl PySimpleMmcif {
         file_path,
         atomgroup = None,
         data_block_name = None,
-        charge_to_b_factor = None,
-        is_charge2tempfactor = None
+        charge_to_b_factor = None
     ))]
     pub fn save(
         &self,
@@ -139,7 +136,6 @@ impl PySimpleMmcif {
         atomgroup: Option<&PyAtomGroup>,
         data_block_name: Option<&str>,
         charge_to_b_factor: Option<bool>,
-        is_charge2tempfactor: Option<bool>,
     ) -> PyResult<()> {
         let ag = match (atomgroup, &self.atomgroup) {
             (Some(ag), _) => &ag.inner,
@@ -151,9 +147,7 @@ impl PySimpleMmcif {
                 )));
             }
         };
-        let c2b = charge_to_b_factor
-            .or(is_charge2tempfactor)
-            .unwrap_or(self.charge_to_b_factor);
+        let c2b = charge_to_b_factor.unwrap_or(self.charge_to_b_factor);
         let block_name = data_block_name
             .map(|s| s.to_string())
             .unwrap_or_else(|| self.data_block_name.clone());
@@ -169,19 +163,17 @@ impl PySimpleMmcif {
         atomgroup,
         file_path,
         data_block_name = "structure",
-        charge_to_b_factor = false,
-        is_charge2tempfactor = false
+        charge_to_b_factor = false
     ))]
     pub fn save_structure(
         atomgroup: &PyAtomGroup,
         file_path: &str,
         data_block_name: &str,
         charge_to_b_factor: bool,
-        is_charge2tempfactor: bool,
     ) -> PyResult<()> {
         let opts = MmcifWriteOptions {
             data_block_name: data_block_name.to_string(),
-            charge_to_b_factor: charge_to_b_factor || is_charge2tempfactor,
+            charge_to_b_factor,
         };
         CoreSimpleMmcif::save_structure(&atomgroup.inner, file_path, &opts).map_err(to_py_err)
     }
@@ -190,18 +182,16 @@ impl PySimpleMmcif {
     #[pyo3(signature = (
         atomgroup,
         data_block_name = "structure",
-        charge_to_b_factor = false,
-        is_charge2tempfactor = false
+        charge_to_b_factor = false
     ))]
     pub fn write_structure(
         atomgroup: &PyAtomGroup,
         data_block_name: &str,
         charge_to_b_factor: bool,
-        is_charge2tempfactor: bool,
     ) -> PyResult<String> {
         let opts = MmcifWriteOptions {
             data_block_name: data_block_name.to_string(),
-            charge_to_b_factor: charge_to_b_factor || is_charge2tempfactor,
+            charge_to_b_factor,
         };
         let mut buf = Vec::new();
         CoreSimpleMmcif::write_structure(&atomgroup.inner, &mut buf, &opts).map_err(to_py_err)?;

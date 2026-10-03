@@ -31,7 +31,7 @@ DATA_DIR = os.path.abspath(
 )
 
 
-class TestRsPhase44MmcifWriter(unittest.TestCase):
+class TestRsMmcifWriter(unittest.TestCase):
     """Tests for mmCIF structure writing in PySimpleMmcif (PR#44)."""
 
     def setUp(self):
@@ -240,7 +240,7 @@ class TestRsPhase44MmcifWriter(unittest.TestCase):
         self.assertEqual(str(cif_obj), text_stateful)
 
     def test_charge_to_b_factor_options(self):
-        """Test charge_to_b_factor and is_charge2tempfactor keyword options."""
+        """Test charge_to_b_factor keyword option."""
         # Create hierarchy with partial charge
         root = rs_br.AtomGroup("root")
         model = rs_br.AtomGroup("1")
@@ -268,16 +268,47 @@ class TestRsPhase44MmcifWriter(unittest.TestCase):
         self.assertIn("-0.4285", text)
         self.assertIn("?", text)  # pdbx_formal_charge is ?
 
-        # With is_charge2tempfactor=True (PyPdb parameter compatibility)
-        text2 = rs_br.SimpleMmcif.write_structure(
-            root, is_charge2tempfactor=True
-        )
-        self.assertEqual(text, text2)
-
         # In set_by_atomgroup
         cif = rs_br.SimpleMmcif()
         cif.set_by_atomgroup(root, charge_to_b_factor=True)
         self.assertIn("-0.4285", cif.get_text())
+
+    def test_unknown_kwarg_is_charge2tempfactor_raises_type_error(self):
+        """Test that passing removed is_charge2tempfactor keyword raises TypeError."""
+        root = rs_br.AtomGroup("root")
+        model = rs_br.AtomGroup("1")
+        chain = rs_br.AtomGroup("A")
+        res = rs_br.AtomGroup("1")
+        res.name = "ALA"
+
+        atom = rs_br.Atom()
+        atom.name = "CA"
+        atom.atomic_number = 6
+        atom.position = rs_br.Position(1.0, 2.0, 3.0)
+
+        res.set_atom("CA", atom)
+        chain.set_group("1", res)
+        model.set_group("A", chain)
+        root.set_group("model_1", model)
+
+        cif = rs_br.SimpleMmcif()
+        out_path = self._get_tmp_path()
+
+        # write_structure should raise TypeError on is_charge2tempfactor
+        with self.assertRaises(TypeError):
+            rs_br.SimpleMmcif.write_structure(root, is_charge2tempfactor=True)
+
+        # save_structure should raise TypeError on is_charge2tempfactor
+        with self.assertRaises(TypeError):
+            rs_br.SimpleMmcif.save_structure(root, out_path, is_charge2tempfactor=True)
+
+        # set_by_atomgroup should raise TypeError on is_charge2tempfactor
+        with self.assertRaises(TypeError):
+            cif.set_by_atomgroup(root, is_charge2tempfactor=True)
+
+        # save should raise TypeError on is_charge2tempfactor
+        with self.assertRaises(TypeError):
+            cif.save(out_path, atomgroup=root, is_charge2tempfactor=True)
 
     # --------------------------------------------------------------------------
     # 3. Error propagation (TASK PR#44 Completion Definition #2)
