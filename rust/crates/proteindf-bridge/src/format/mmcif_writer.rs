@@ -15,12 +15,36 @@ use crate::atom_group::AtomGroup;
 use crate::error::{BridgeError, Result};
 use crate::periodic_table::PeriodicTable;
 
+/// Standard amino acids (20) defined in the wwPDB CCD.
+pub const STANDARD_AMINO_ACIDS: &[&str] = &[
+    "ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY", "HIS", "ILE", "LEU", "LYS", "MET",
+    "PHE", "PRO", "SER", "THR", "TRP", "TYR", "VAL",
+];
+
+/// Standard nucleic acids (8) defined in the wwPDB CCD (4 DNA + 4 RNA).
+pub const STANDARD_NUCLEIC_ACIDS: &[&str] = &["DA", "DC", "DG", "DT", "A", "C", "G", "U"];
+
 /// Standard amino acids (20) and nucleic acids (8) defined in the wwPDB CCD.
 /// Residues in this set are classified as `ATOM`; all other residues are `HETATM`.
 pub const STANDARD_RESIDUES: &[&str] = &[
     "ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY", "HIS", "ILE", "LEU", "LYS", "MET",
     "PHE", "PRO", "SER", "THR", "TRP", "TYR", "VAL", "DA", "DC", "DG", "DT", "A", "C", "G", "U",
 ];
+
+/// Checks if a residue name corresponds to a standard amino acid.
+pub fn is_standard_amino_acid(res_name: &str) -> bool {
+    STANDARD_AMINO_ACIDS.contains(&res_name)
+}
+
+/// Checks if a residue name corresponds to a standard nucleic acid.
+pub fn is_standard_nucleic_acid(res_name: &str) -> bool {
+    STANDARD_NUCLEIC_ACIDS.contains(&res_name)
+}
+
+/// Checks if a residue name corresponds to a standard amino acid or nucleic acid.
+pub fn is_standard_residue(res_name: &str) -> bool {
+    STANDARD_RESIDUES.contains(&res_name)
+}
 
 /// Options for writing an mmCIF structure.
 #[derive(Debug, Clone, PartialEq)]
@@ -47,11 +71,6 @@ impl Default for MmcifWriteOptions {
             charge_to_b_factor: false,
         }
     }
-}
-
-/// Checks if a residue name corresponds to a standard amino acid or nucleic acid.
-pub fn is_standard_residue(res_name: &str) -> bool {
-    STANDARD_RESIDUES.contains(&res_name)
 }
 
 /// CIF quotation style for a data value.
@@ -242,6 +261,221 @@ pub fn parse_model_key(model_key: &str) -> Result<usize> {
     Ok(num)
 }
 
+/// Represents an exported connection record in `_struct_conn`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StructConnExport {
+    pub id: String,
+    pub conn_type_id: String,
+    pub pdbx_value_order: String,
+    pub ptnr1_label_asym_id: String,
+    pub ptnr1_label_comp_id: String,
+    pub ptnr1_label_seq_id: String,
+    pub ptnr1_label_atom_id: String,
+    pub pdbx_ptnr1_ins_code: Option<String>,
+    pub ptnr1_auth_asym_id: String,
+    pub ptnr1_auth_seq_id: i32,
+    pub ptnr2_label_asym_id: String,
+    pub ptnr2_label_comp_id: String,
+    pub ptnr2_label_seq_id: String,
+    pub ptnr2_label_atom_id: String,
+    pub pdbx_ptnr2_ins_code: Option<String>,
+    pub ptnr2_auth_asym_id: String,
+    pub ptnr2_auth_seq_id: i32,
+}
+
+/// Resolves chain key, residue key, atom name, and residue name from a hierarchical atom path.
+fn resolve_atom_path_components(
+    root: &AtomGroup,
+    path: &str,
+) -> Result<(String, String, String, String)> {
+    let parts = AtomGroup::divide_path(path);
+    if parts.len() < 4 {
+        return Err(BridgeError::input_error(
+            "struct_conn.atom_path",
+            format!(
+                "atom path '{path}' does not conform to protein schema (/model_N/chain/res/atom)"
+            ),
+        ));
+    }
+    let model_key = &parts[0];
+    let chain_key = &parts[1];
+    let res_key = &parts[2];
+    let atom_key = &parts[3];
+
+    let model = root.get_group(model_key).ok_or_else(|| {
+        BridgeError::input_error(
+            "struct_conn.atom_path",
+            format!("model '{model_key}' not found for path '{path}'"),
+        )
+    })?;
+    let chain = model.get_group(chain_key).ok_or_else(|| {
+        BridgeError::input_error(
+            "struct_conn.atom_path",
+            format!("chain '{chain_key}' not found for path '{path}'"),
+        )
+    })?;
+    let residue = chain.get_group(res_key).ok_or_else(|| {
+        BridgeError::input_error(
+            "struct_conn.atom_path",
+            format!("residue '{res_key}' not found for path '{path}'"),
+        )
+    })?;
+    let atom = residue.get_atom(atom_key).ok_or_else(|| {
+        BridgeError::input_error(
+            "struct_conn.atom_path",
+            format!("atom '{atom_key}' not found for path '{path}'"),
+        )
+    })?;
+
+    Ok((
+        chain_key.clone(),
+        res_key.clone(),
+        atom.name.clone(),
+        residue.name.clone(),
+    ))
+}
+
+/// Collects and validates inter-residue bonds from the first model for mmCIF `_struct_conn` export.
+///
+/// **Known Limitations**:
+/// - `_struct_conn` records do not support per-model connectivity in mmCIF. Only bonds
+///   from the first model are exported (all models are assumed to share identical bond topology).
+/// - Classification into metal coordination (`metalc`) is out of scope. Covalent heuristic bonds
+///   between metal ions and coordinating residues are exported as `covale`.
+pub fn collect_struct_conn_records(ag: &AtomGroup) -> Result<Vec<StructConnExport>> {
+    let Some((_first_model_key, first_model)) = ag.groups().next() else {
+        return Ok(Vec::new());
+    };
+
+    let all_bonds = first_model.get_bond_list_ref();
+    let mut disulf_records = Vec::new();
+    let mut covale_records = Vec::new();
+    let mut seen_pairs = std::collections::HashSet::new();
+
+    for bond in all_bonds {
+        let (c1, r1_key, a1_name, r1_name) = resolve_atom_path_components(ag, &bond.atom1_path)?;
+        let (c2, r2_key, a2_name, r2_name) = resolve_atom_path_components(ag, &bond.atom2_path)?;
+
+        // Skip intra-residue bonds
+        if c1 == c2 && r1_key == r2_key {
+            continue;
+        }
+
+        // Avoid duplicate bonds in undirected graph
+        let pair_key = if bond.atom1_path <= bond.atom2_path {
+            (bond.atom1_path.clone(), bond.atom2_path.clone())
+        } else {
+            (bond.atom2_path.clone(), bond.atom1_path.clone())
+        };
+        if !seen_pairs.insert(pair_key) {
+            continue;
+        }
+
+        // Exclude standard peptide bonds (C of standard amino acid to N of standard amino acid)
+        let is_peptide = is_standard_amino_acid(&r1_name)
+            && is_standard_amino_acid(&r2_name)
+            && ((a1_name == "C" && a2_name == "N") || (a1_name == "N" && a2_name == "C"));
+        if is_peptide {
+            continue;
+        }
+
+        // Exclude standard nucleic acid backbone bonds (O3' of standard nucleic acid to P of standard nucleic acid)
+        let is_nucleic_backbone = is_standard_nucleic_acid(&r1_name)
+            && is_standard_nucleic_acid(&r2_name)
+            && ((a1_name == "O3'" && a2_name == "P") || (a1_name == "P" && a2_name == "O3'"));
+        if is_nucleic_backbone {
+            continue;
+        }
+
+        let is_disulf = r1_name == "CYS" && a1_name == "SG" && r2_name == "CYS" && a2_name == "SG";
+        let conn_type_id = if is_disulf { "disulf" } else { "covale" };
+
+        let (auth_seq_1, ins_1) = parse_residue_key(&r1_key)?;
+        let (auth_seq_2, ins_2) = parse_residue_key(&r2_key)?;
+
+        let label_seq_1 = if is_standard_residue(&r1_name) {
+            auth_seq_1.to_string()
+        } else {
+            ".".to_string()
+        };
+        let label_seq_2 = if is_standard_residue(&r2_name) {
+            auth_seq_2.to_string()
+        } else {
+            ".".to_string()
+        };
+
+        let label_asym_1 = if c1 == "_" { "." } else { c1.as_str() };
+        let label_asym_2 = if c2 == "_" { "." } else { c2.as_str() };
+        let auth_asym_1 = label_asym_1;
+        let auth_asym_2 = label_asym_2;
+
+        let value_order = match bond.order {
+            1 => "sing",
+            2 => "doub",
+            3 => "trip",
+            4 => "quad",
+            _ => "sing",
+        };
+
+        // Validate CIF quote kinds for all textual fields
+        if label_asym_1 != "." {
+            determine_cif_quote_kind(label_asym_1)?;
+        }
+        determine_cif_quote_kind(&r1_name)?;
+        determine_cif_quote_kind(&a1_name)?;
+        if let Some(ins) = ins_1 {
+            determine_cif_quote_kind(ins)?;
+        }
+
+        if label_asym_2 != "." {
+            determine_cif_quote_kind(label_asym_2)?;
+        }
+        determine_cif_quote_kind(&r2_name)?;
+        determine_cif_quote_kind(&a2_name)?;
+        if let Some(ins) = ins_2 {
+            determine_cif_quote_kind(ins)?;
+        }
+
+        let rec = StructConnExport {
+            id: String::new(),
+            conn_type_id: conn_type_id.to_string(),
+            pdbx_value_order: value_order.to_string(),
+            ptnr1_label_asym_id: label_asym_1.to_string(),
+            ptnr1_label_comp_id: r1_name.to_string(),
+            ptnr1_label_seq_id: label_seq_1,
+            ptnr1_label_atom_id: a1_name.to_string(),
+            pdbx_ptnr1_ins_code: ins_1.map(|s| s.to_string()),
+            ptnr1_auth_asym_id: auth_asym_1.to_string(),
+            ptnr1_auth_seq_id: auth_seq_1,
+            ptnr2_label_asym_id: label_asym_2.to_string(),
+            ptnr2_label_comp_id: r2_name.to_string(),
+            ptnr2_label_seq_id: label_seq_2,
+            ptnr2_label_atom_id: a2_name.to_string(),
+            pdbx_ptnr2_ins_code: ins_2.map(|s| s.to_string()),
+            ptnr2_auth_asym_id: auth_asym_2.to_string(),
+            ptnr2_auth_seq_id: auth_seq_2,
+        };
+
+        if is_disulf {
+            disulf_records.push(rec);
+        } else {
+            covale_records.push(rec);
+        }
+    }
+
+    // Assign IDs: disulf1, disulf2, ... then covale1, covale2, ...
+    for (i, rec) in disulf_records.iter_mut().enumerate() {
+        rec.id = format!("disulf{}", i + 1);
+    }
+    for (i, rec) in covale_records.iter_mut().enumerate() {
+        rec.id = format!("covale{}", i + 1);
+    }
+
+    let mut result = disulf_records;
+    result.extend(covale_records);
+    Ok(result)
+}
+
 /// Validates the entire [`AtomGroup`] tree for mmCIF writing prior to emitting any bytes.
 ///
 /// Guarantees that [`write_structure`] will not fail mid-stream due to invalid keys,
@@ -306,6 +540,9 @@ pub fn validate_for_mmcif_write(ag: &AtomGroup, opts: &MmcifWriteOptions) -> Res
         }
     }
 
+    // 4. Inter-residue bond validation for _struct_conn
+    collect_struct_conn_records(ag)?;
+
     Ok(())
 }
 
@@ -317,6 +554,7 @@ pub fn write_structure(ag: &AtomGroup, w: &mut impl Write, opts: &MmcifWriteOpti
     // 1. Full pre-validation (atomic error guarantee: no partial output written if error)
     validate_for_mmcif_write(ag, opts)?;
     let block_name = validate_data_block_name(&opts.data_block_name)?;
+    let struct_conns = collect_struct_conn_records(ag)?;
 
     // 2. Data block header
     writeln!(w, "data_{block_name}")
@@ -469,6 +707,112 @@ pub fn write_structure(ag: &AtomGroup, w: &mut impl Write, opts: &MmcifWriteOpti
     }
 
     writeln!(w, "#").map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+
+    // 3. _struct_conn loop (if any inter-residue bonds exist)
+    if !struct_conns.is_empty() {
+        writeln!(w, "loop_").map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+        writeln!(w, "_struct_conn.id")
+            .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+        writeln!(w, "_struct_conn.conn_type_id")
+            .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+        writeln!(w, "_struct_conn.pdbx_value_order")
+            .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+        writeln!(w, "_struct_conn.ptnr1_label_asym_id")
+            .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+        writeln!(w, "_struct_conn.ptnr1_label_comp_id")
+            .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+        writeln!(w, "_struct_conn.ptnr1_label_seq_id")
+            .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+        writeln!(w, "_struct_conn.ptnr1_label_atom_id")
+            .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+        writeln!(w, "_struct_conn.pdbx_ptnr1_PDB_ins_code")
+            .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+        writeln!(w, "_struct_conn.ptnr1_auth_asym_id")
+            .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+        writeln!(w, "_struct_conn.ptnr1_auth_seq_id")
+            .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+        writeln!(w, "_struct_conn.ptnr2_label_asym_id")
+            .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+        writeln!(w, "_struct_conn.ptnr2_label_comp_id")
+            .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+        writeln!(w, "_struct_conn.ptnr2_label_seq_id")
+            .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+        writeln!(w, "_struct_conn.ptnr2_label_atom_id")
+            .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+        writeln!(w, "_struct_conn.pdbx_ptnr2_PDB_ins_code")
+            .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+        writeln!(w, "_struct_conn.ptnr2_auth_asym_id")
+            .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+        writeln!(w, "_struct_conn.ptnr2_auth_seq_id")
+            .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+
+        for conn in &struct_conns {
+            write!(
+                w,
+                "{} {} {} ",
+                conn.id, conn.conn_type_id, conn.pdbx_value_order
+            )
+            .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+
+            if conn.ptnr1_label_asym_id == "." {
+                write!(w, ". ").map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+            } else {
+                write_cif_value(w, &conn.ptnr1_label_asym_id)?;
+                write!(w, " ").map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+            }
+            write_cif_value(w, &conn.ptnr1_label_comp_id)?;
+            write!(w, " {} ", conn.ptnr1_label_seq_id)
+                .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+            write_cif_value(w, &conn.ptnr1_label_atom_id)?;
+            write!(w, " ").map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+
+            if let Some(ins) = &conn.pdbx_ptnr1_ins_code {
+                write_cif_value(w, ins)?;
+                write!(w, " ").map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+            } else {
+                write!(w, "? ").map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+            }
+
+            if conn.ptnr1_auth_asym_id == "." {
+                write!(w, ". ").map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+            } else {
+                write_cif_value(w, &conn.ptnr1_auth_asym_id)?;
+                write!(w, " ").map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+            }
+            write!(w, "{} ", conn.ptnr1_auth_seq_id)
+                .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+
+            if conn.ptnr2_label_asym_id == "." {
+                write!(w, ". ").map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+            } else {
+                write_cif_value(w, &conn.ptnr2_label_asym_id)?;
+                write!(w, " ").map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+            }
+            write_cif_value(w, &conn.ptnr2_label_comp_id)?;
+            write!(w, " {} ", conn.ptnr2_label_seq_id)
+                .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+            write_cif_value(w, &conn.ptnr2_label_atom_id)?;
+            write!(w, " ").map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+
+            if let Some(ins) = &conn.pdbx_ptnr2_ins_code {
+                write_cif_value(w, ins)?;
+                write!(w, " ").map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+            } else {
+                write!(w, "? ").map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+            }
+
+            if conn.ptnr2_auth_asym_id == "." {
+                write!(w, ". ").map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+            } else {
+                write_cif_value(w, &conn.ptnr2_auth_asym_id)?;
+                write!(w, " ").map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+            }
+            writeln!(w, "{}", conn.ptnr2_auth_seq_id)
+                .map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+        }
+        writeln!(w, "#").map_err(|e| BridgeError::input_error("write", e.to_string()))?;
+    }
+
     Ok(())
 }
 

@@ -976,6 +976,62 @@ impl AtomGroup {
         bond_list
     }
 
+    /// Recursively returns the list of all bonds in this group and its subgroups
+    /// using an immutable reference (`&self`).
+    ///
+    /// Unlike [`get_bond_list`], this does not require `&mut self` and avoids mutating
+    /// internal paths or cloning large hierarchies (e.g. 1,000,000-atom structures).
+    pub fn get_bond_list_ref(&self) -> Vec<BondRecord> {
+        let mut bond_list = Vec::new();
+        let base_path = if self.path.ends_with('/') && self.path.len() > 1 {
+            &self.path[..self.path.len() - 1]
+        } else if self.path == "/" {
+            ""
+        } else {
+            &self.path
+        };
+        self.collect_bond_list_with_prefix(base_path, &mut bond_list);
+        bond_list
+    }
+
+    fn collect_bond_list_with_prefix(&self, current_prefix: &str, bond_list: &mut Vec<BondRecord>) {
+        for (key, group) in &self.groups {
+            let next_prefix = if current_prefix.is_empty() || current_prefix == "/" {
+                format!("/{}", key)
+            } else {
+                format!("{}/{}", current_prefix, key)
+            };
+            group.collect_bond_list_with_prefix(&next_prefix, bond_list);
+        }
+        for b in &self.bonds {
+            let path1 = if b.atom1_path.starts_with('/') {
+                b.atom1_path.clone()
+            } else {
+                let p = if current_prefix == "/" {
+                    ""
+                } else {
+                    current_prefix
+                };
+                format!("{}/{}", p, b.atom1_path.trim_start_matches('/'))
+            };
+            let path2 = if b.atom2_path.starts_with('/') {
+                b.atom2_path.clone()
+            } else {
+                let p = if current_prefix == "/" {
+                    ""
+                } else {
+                    current_prefix
+                };
+                format!("{}/{}", p, b.atom2_path.trim_start_matches('/'))
+            };
+            bond_list.push(BondRecord {
+                atom1_path: path1,
+                atom2_path: path2,
+                order: b.order,
+            });
+        }
+    }
+
     fn collect_bond_list(&self, bond_list: &mut Vec<BondRecord>) {
         for group in self.groups.values() {
             group.collect_bond_list(bond_list);
