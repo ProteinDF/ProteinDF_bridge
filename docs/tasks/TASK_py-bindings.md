@@ -138,3 +138,16 @@
 **PR#47以降で踏襲する方針**: `AtomGroup`のような大きな構造は、アクセスのたびにコピーせず同じオブジェクトを返す。結果の一覧(リスト・辞書)は、外からの変更でレポートが変わらないよう、アクセスのたびに新しいコンテナを返す(中の個々の結果オブジェクトは共有してよい)。
 
 ユーザー承認のうえ、2026-10-03にdevelopへマージした(`7557c84`)。**PR#46は完了。** 次はPR#47。
+
+## PR#47 レビュー結果(1回目、2026-10-03、収束・マージ済み)
+
+`feature/py-bindings-pr47`(`cb9f1eb`・`d42394c`)をレビューした。指摘なし。
+
+- 基準値の引用元(`test_hydrogen_bond.rs`・`test_interaction_set.rs`・`test_ch_pi.rs`・`test_secondary_structure.rs`・`test_sidechain_hydrogen_bond.rs`)の該当行に実際にその値があることを、Claudeが抜き取りで確認した。
+- 結果の一覧はアクセスのたびに新しいコンテナを返し、主鎖の水素結合の順序が決定的であることもテストされている。`apply_secondary_structure`は呼び出したオブジェクト自身を変更し、部分木のコピーでは元の木が変わらない。
+- 1hlsで`InteractionSet.detect_all`が`total=38(disulfide 3, salt_bridge 0, hydrogen_bond 28, ch_pi 7)`になること、CH-πの閾値を省略した場合と既定値(4.5Å・40°)を明示した場合の結果が一致することをClaudeが確認した。
+- コアのクレートは変更なし。`cargo test --workspace`(318 passed)、clippy、fmt、Pythonテスト一式(180件)をClaudeが確認した。
+
+**参考(コア側の既知の限界、対応不要)**: CH-πの閾値に負の距離などを渡してもエラーにならず、結果が空になる(コア側に閾値の検証がない)。
+
+ユーザー承認のうえ、2026-10-03にdevelopへマージした(`5e0fb4c`)。**PR#47は完了。** 次はPR#48。
