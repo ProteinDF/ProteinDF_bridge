@@ -683,6 +683,15 @@ impl SimpleMmcif {
         self.get_structure_atomgroup_for_block(first_block, select_model, select_altloc)
     }
 
+    /// Extracts all `StructConnRecord` entries from the first data block.
+    pub fn get_struct_conn_records(&self) -> Vec<StructConnRecord> {
+        self.data
+            .values()
+            .next()
+            .map(|b| b.get_struct_conn_records())
+            .unwrap_or_default()
+    }
+
     /// Writes an `AtomGroup` structure to the given `std::io::Write` stream in mmCIF format.
     pub fn write_structure(
         ag: &AtomGroup,

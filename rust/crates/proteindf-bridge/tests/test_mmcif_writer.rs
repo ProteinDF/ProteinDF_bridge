@@ -964,3 +964,539 @@ fn test_is_standard_residue() {
     assert!(!is_standard_residue("LIG"));
     assert!(!is_standard_residue("UNK"));
 }
+
+// ============================================================================
+// PR#43: _struct_conn writing and reader covale support tests
+// ============================================================================
+
+/// Helper to normalize an atom path to `/{model}/{chain}/{res}/{atom_name}` without serial ID prefix.
+fn normalize_atom_path(ag: &AtomGroup, path: &str) -> String {
+    let parts = AtomGroup::divide_path(path);
+    if parts.len() < 4 {
+        return path.to_string();
+    }
+    let model_key = &parts[0];
+    let chain_key = &parts[1];
+    let res_key = &parts[2];
+    let atom_key = &parts[3];
+
+    let atom_name = ag
+        .get_group(model_key)
+        .and_then(|m| m.get_group(chain_key))
+        .and_then(|c| c.get_group(res_key))
+        .and_then(|r| r.get_atom(atom_key))
+        .map(|a| a.name.as_str())
+        .unwrap_or(atom_key);
+
+    format!("/{model_key}/{chain_key}/{res_key}/{atom_name}")
+}
+
+/// Helper to extract normalized inter-residue bonds `(min_path, max_path, order)` from an AtomGroup.
+fn get_inter_residue_bonds(ag: &AtomGroup) -> Vec<(String, String, usize)> {
+    let mut bonds = Vec::new();
+    let all = ag.get_bond_list_ref();
+    for b in all {
+        let parts1 = AtomGroup::divide_path(&b.atom1_path);
+        let parts2 = AtomGroup::divide_path(&b.atom2_path);
+        if parts1.len() >= 4 && parts2.len() >= 4 {
+            // Check if they belong to different residues (different chain or different residue key)
+            if parts1[1] != parts2[1] || parts1[2] != parts2[2] {
+                let norm1 = normalize_atom_path(ag, &b.atom1_path);
+                let norm2 = normalize_atom_path(ag, &b.atom2_path);
+                let pair = if norm1 <= norm2 {
+                    (norm1, norm2, b.order)
+                } else {
+                    (norm2, norm1, b.order)
+                };
+                bonds.push(pair);
+            }
+        }
+    }
+    bonds.sort();
+    bonds.dedup();
+    bonds
+}
+
+/// PR#43 Criterion 1: Real data reading test with covale connections.
+///
+/// Fixture entry: 1WCT (Conotoxin derivative with O-glycosylation and modified residues)
+/// Acquisition date: 2026-10-03
+/// Source URL: https://files.rcsb.org/download/1WCT.cif
+/// Baseline values counted directly from 1WCT.cif via grep:
+///   grep -c -E "^covale[0-9]+" tests/data/1WCT.cif => 8 covale records
+///   grep -c -E "^disulf[0-9]+" tests/data/1WCT.cif => 2 disulf records
+/// Expected inter-residue bond pairs:
+///   covale1: /model_1/A/1/C    - /model_1/A/2/N    (CGU 1 to CYS 2, order 1)
+///   covale2: /model_1/A/3/C    - /model_1/A/4/N    (CYS 3 to CGU 4, order 1)
+///   covale3: /model_1/A/4/C    - /model_1/A/5/N    (CGU 4 to ASP 5, order 1)
+///   covale4: /model_1/A/6/C    - /model_1/A/7/N    (GLY 6 to BTR 7, order 1)
+///   covale5: /model_1/A/7/C    - /model_1/A/8/N    (BTR 7 to CYS 8, order 1)
+///   covale6: /model_1/A/10/OG1 - /model_1/B/1/C1   (THR 10 to NGA 1 O-Glycosylation, order 1)
+///   covale7: /model_1/A/12/C   - /model_1/A/13/N   (ALA 12 to HYP 13, order 1)
+///   covale8: /model_1/B/1/O3   - /model_1/B/2/C1   (NGA 1 to GAL 2 glycan bond, order 1)
+///   disulf1: /model_1/A/2/SG   - /model_1/A/8/SG   (CYS 2 to CYS 8, order 1)
+///   disulf2: /model_1/A/3/SG   - /model_1/A/9/SG   (CYS 3 to CYS 9, order 1)
+#[test]
+fn test_real_covale_loading_1wct() {
+    let cif_path = test_data_dir().join("1WCT.cif");
+    let cif = SimpleMmcif::from_file(&cif_path).expect("failed to load 1WCT.cif");
+
+    // 1. Verify StructConnRecord parsing from table
+    let records = cif.get_struct_conn_records();
+    let covale_records: Vec<_> = records
+        .iter()
+        .filter(|r| r.conn_type_id == "covale")
+        .collect();
+    let disulf_records: Vec<_> = records
+        .iter()
+        .filter(|r| r.conn_type_id == "disulf")
+        .collect();
+
+    assert_eq!(
+        covale_records.len(),
+        8,
+        "covale record count mismatch against baseline"
+    );
+    assert_eq!(
+        disulf_records.len(),
+        2,
+        "disulf record count mismatch against baseline"
+    );
+
+    // Verify pdbx_value_order parsing
+    let covale6 = covale_records
+        .iter()
+        .find(|r| r.id == "covale6")
+        .expect("covale6 not found");
+    assert_eq!(covale6.pdbx_value_order.as_deref(), Some("sing"));
+    assert_eq!(covale6.bond_order(), 1);
+
+    let covale8 = covale_records
+        .iter()
+        .find(|r| r.id == "covale8")
+        .expect("covale8 not found");
+    assert_eq!(covale8.pdbx_value_order.as_deref(), Some("sing"));
+    assert_eq!(covale8.bond_order(), 1);
+
+    // 2. Verify AtomGroup bond linking
+    let ag = cif
+        .get_structure_atomgroup(Some(1), None)
+        .expect("failed to get AtomGroup for 1WCT");
+    let inter_bonds = get_inter_residue_bonds(&ag);
+    assert_eq!(
+        inter_bonds.len(),
+        10,
+        "total inter-residue bond count (8 covale + 2 disulf) mismatch"
+    );
+
+    // Verify O-glycosylation bond exists (THR 10 OG1 - NGA 1 C1)
+    let has_glyco = inter_bonds.iter().any(|(p1, p2, order)| {
+        *order == 1
+            && ((p1 == "/model_1/A/10/OG1" && p2 == "/model_1/B/1/C1")
+                || (p2 == "/model_1/A/10/OG1" && p1 == "/model_1/B/1/C1"))
+    });
+    assert!(
+        has_glyco,
+        "O-glycosylation bond (THR 10 OG1 - NGA 1 C1) not found in AtomGroup"
+    );
+
+    // Verify glycan-glycan bond exists (NGA 1 O3 - GAL 2 C1)
+    let has_glycan_link = inter_bonds.iter().any(|(p1, p2, order)| {
+        *order == 1
+            && ((p1 == "/model_1/B/1/O3" && p2 == "/model_1/B/2/C1")
+                || (p2 == "/model_1/B/1/O3" && p1 == "/model_1/B/2/C1"))
+    });
+    assert!(
+        has_glycan_link,
+        "glycan-glycan bond (NGA 1 O3 - GAL 2 C1) not found in AtomGroup"
+    );
+
+    // Verify disulfide bonds exist
+    let has_ss1 = inter_bonds.iter().any(|(p1, p2, _)| {
+        (p1 == "/model_1/A/2/SG" && p2 == "/model_1/A/8/SG")
+            || (p2 == "/model_1/A/2/SG" && p1 == "/model_1/A/8/SG")
+    });
+    let has_ss2 = inter_bonds.iter().any(|(p1, p2, _)| {
+        (p1 == "/model_1/A/3/SG" && p2 == "/model_1/A/9/SG")
+            || (p2 == "/model_1/A/3/SG" && p1 == "/model_1/A/9/SG")
+    });
+    assert!(has_ss1, "disulfide bond CYS 2 - CYS 8 not found");
+    assert!(has_ss2, "disulfide bond CYS 3 - CYS 9 not found");
+}
+
+/// PR#43 Criterion 2: Coexistence of file-derived inter-residue bonds with ag.setup().
+///
+/// Verifies for 1WCT.cif, 1HLS.cif, and 2FB4.cif that:
+/// - File-derived inter-residue bonds are strictly preserved without duplication.
+/// - CCD templates add intra-residue chemical bonds, increasing total bond count.
+#[test]
+fn test_setup_coexistence_with_file_bonds() {
+    let test_cases = ["1WCT.cif", "1HLS.cif", "2FB4.cif"];
+
+    for filename in test_cases {
+        let cif_path = test_data_dir().join(filename);
+        let cif = SimpleMmcif::from_file(&cif_path)
+            .unwrap_or_else(|e| panic!("failed to load {filename}: {e}"));
+        let mut ag = cif
+            .get_structure_atomgroup(Some(1), None)
+            .unwrap_or_else(|e| panic!("failed to get structure atomgroup for {filename}: {e}"));
+
+        let initial_inter_bonds = get_inter_residue_bonds(&ag);
+        let initial_total_bonds = ag.get_bond_list_ref().len();
+
+        // Perform setup()
+        ag.setup()
+            .unwrap_or_else(|e| panic!("ag.setup() failed for {filename}: {e}"));
+
+        let post_inter_bonds = get_inter_residue_bonds(&ag);
+        let post_total_bonds = ag.get_bond_list_ref().len();
+
+        // 1. Total bond count must increase (CCD templates add intra-residue bonds)
+        assert!(
+            post_total_bonds > initial_total_bonds,
+            "{filename}: setup() should add intra-residue bonds (initial={initial_total_bonds}, post={post_total_bonds})"
+        );
+
+        // 2. All initial file-derived inter-residue bonds must still be present with identical order
+        for init_bond in &initial_inter_bonds {
+            assert!(
+                post_inter_bonds.contains(init_bond),
+                "{filename}: file-derived bond {:?} was lost after setup()",
+                init_bond
+            );
+        }
+
+        // 3. No duplicate bonds between any atom pair
+        let all_post_bonds = ag.get_bond_list_ref();
+        let mut seen_pairs = std::collections::HashSet::new();
+        for b in &all_post_bonds {
+            let key = if b.atom1_path <= b.atom2_path {
+                (b.atom1_path.clone(), b.atom2_path.clone())
+            } else {
+                (b.atom2_path.clone(), b.atom1_path.clone())
+            };
+            assert!(
+                seen_pairs.insert(key.clone()),
+                "{filename}: duplicate bond found for atom pair {:?}",
+                key
+            );
+        }
+    }
+}
+
+/// PR#43 Criterion 3: Roundtrip test for inter-residue bonds in 1WCT.cif (covale + disulf).
+#[test]
+fn test_roundtrip_inter_residue_bonds_1wct() {
+    let cif_path = test_data_dir().join("1WCT.cif");
+    let cif = SimpleMmcif::from_file(&cif_path).expect("failed to load 1WCT.cif");
+    let ag = cif
+        .get_structure_atomgroup(Some(1), None)
+        .expect("failed to get AtomGroup");
+
+    let orig_inter_bonds = get_inter_residue_bonds(&ag);
+    assert_eq!(orig_inter_bonds.len(), 10);
+
+    // Write to memory buffer
+    let mut buf = Vec::new();
+    let opts = MmcifWriteOptions::default();
+    SimpleMmcif::write_structure(&ag, &mut buf, &opts).expect("failed to write 1WCT mmCIF");
+
+    let text = String::from_utf8(buf).expect("invalid utf-8 output");
+    assert!(
+        text.contains("_struct_conn.id"),
+        "_struct_conn loop should be present"
+    );
+    assert!(text.contains("disulf1"));
+    assert!(text.contains("covale1"));
+
+    // Reload mmCIF from text
+    let reloaded_cif = SimpleMmcif::from_str(&text).expect("failed to reload written mmCIF");
+    let reloaded_ag = reloaded_cif
+        .get_structure_atomgroup(Some(1), None)
+        .expect("failed to get reloaded AtomGroup");
+
+    let reloaded_inter_bonds = get_inter_residue_bonds(&reloaded_ag);
+
+    assert_eq!(
+        orig_inter_bonds.len(),
+        reloaded_inter_bonds.len(),
+        "roundtrip inter-residue bond count mismatch"
+    );
+
+    for (p1, p2, order) in &orig_inter_bonds {
+        let found = reloaded_inter_bonds.iter().any(|(rp1, rp2, rorder)| {
+            *rorder == *order && ((rp1 == p1 && rp2 == p2) || (rp1 == p2 && rp2 == p1))
+        });
+        assert!(
+            found,
+            "original bond ({p1}, {p2}, order {order}) missing in reloaded structure"
+        );
+    }
+}
+
+/// PR#43 Criterion 3: Roundtrip test for disulfide bonds in 1HLS.cif (NMR 20 models, disulf).
+#[test]
+fn test_roundtrip_disulf_1hls() {
+    let cif_path = test_data_dir().join("1HLS.cif");
+    let cif = SimpleMmcif::from_file(&cif_path).expect("failed to load 1HLS.cif");
+    let ag = cif
+        .get_structure_atomgroup(None, None)
+        .expect("failed to get AtomGroup");
+
+    let orig_inter_bonds = get_inter_residue_bonds(&ag);
+    assert_eq!(
+        orig_inter_bonds.len(),
+        60,
+        "1HLS has 20 models with 3 disulfide bonds each = 60 bonds"
+    );
+
+    let mut buf = Vec::new();
+    let opts = MmcifWriteOptions::default();
+    SimpleMmcif::write_structure(&ag, &mut buf, &opts).expect("failed to write 1HLS mmCIF");
+
+    let text = String::from_utf8(buf).expect("invalid utf-8 output");
+    assert!(text.contains("_struct_conn.id"));
+    assert!(text.contains("disulf1"));
+
+    let reloaded_cif = SimpleMmcif::from_str(&text).expect("failed to reload 1HLS mmCIF");
+    let reloaded_ag = reloaded_cif
+        .get_structure_atomgroup(None, None)
+        .expect("failed to get reloaded AtomGroup");
+
+    let reloaded_inter_bonds = get_inter_residue_bonds(&reloaded_ag);
+    assert_eq!(orig_inter_bonds, reloaded_inter_bonds);
+}
+
+/// PR#43 Criterion 3: Roundtrip test for disulfide bonds in 2FB4.cif (insertion codes, disulf).
+#[test]
+fn test_roundtrip_disulf_2fb4() {
+    let cif_path = test_data_dir().join("2FB4.cif");
+    let cif = SimpleMmcif::from_file(&cif_path).expect("failed to load 2FB4.cif");
+    let ag = cif
+        .get_structure_atomgroup(None, None)
+        .expect("failed to get AtomGroup");
+
+    let orig_inter_bonds = get_inter_residue_bonds(&ag);
+    assert_eq!(orig_inter_bonds.len(), 6, "2FB4 has 6 disulfide bonds");
+
+    let mut buf = Vec::new();
+    let opts = MmcifWriteOptions::default();
+    SimpleMmcif::write_structure(&ag, &mut buf, &opts).expect("failed to write 2FB4 mmCIF");
+
+    let text = String::from_utf8(buf).expect("invalid utf-8 output");
+    assert!(text.contains("_struct_conn.id"));
+    assert!(text.contains("disulf1"));
+
+    let reloaded_cif = SimpleMmcif::from_str(&text).expect("failed to reload 2FB4 mmCIF");
+    let reloaded_ag = reloaded_cif
+        .get_structure_atomgroup(None, None)
+        .expect("failed to get reloaded AtomGroup");
+
+    let reloaded_inter_bonds = get_inter_residue_bonds(&reloaded_ag);
+    assert_eq!(orig_inter_bonds, reloaded_inter_bonds);
+}
+
+/// PR#43 Criterion 4: Synthetic data test:
+/// - Standard peptide bonds (ALA C - GLY N) are excluded from _struct_conn.
+/// - Standard nucleic backbone bonds (DA O3' - DT P) are excluded from _struct_conn.
+/// - Intra-residue bonds (CA - CB) are excluded from _struct_conn.
+/// - Double bond (order: 2) between different residues is exported as `doub` and preserved on roundtrip.
+/// - Non-standard residue covalent bond is exported as `covale`.
+#[test]
+fn test_synthetic_struct_conn_filtering_and_order() {
+    let mut root = AtomGroup::new();
+    let mut model = AtomGroup::new();
+    let mut chain_a = AtomGroup::new();
+
+    // Residue 1: ALA (standard amino acid)
+    let mut r1 = AtomGroup::new();
+    r1.name = "ALA".to_string();
+    let mut a1_ca = Atom::new();
+    a1_ca.name = "CA".to_string();
+    a1_ca.xyz = Position::new(0.0, 0.0, 0.0);
+    let mut a1_c = Atom::new();
+    a1_c.name = "C".to_string();
+    a1_c.xyz = Position::new(1.0, 0.0, 0.0);
+    r1.set_atom("1_CA", a1_ca.clone());
+    r1.set_atom("1_C", a1_c.clone());
+    // Intra-residue bond CA-C
+    r1.add_bond(&a1_ca, &a1_c, 1);
+
+    // Residue 2: GLY (standard amino acid)
+    let mut r2 = AtomGroup::new();
+    r2.name = "GLY".to_string();
+    let mut a2_n = Atom::new();
+    a2_n.name = "N".to_string();
+    a2_n.xyz = Position::new(2.0, 0.0, 0.0);
+    let mut a2_ca = Atom::new();
+    a2_ca.name = "CA".to_string();
+    a2_ca.xyz = Position::new(3.0, 0.0, 0.0);
+    r2.set_atom("2_N", a2_n.clone());
+    r2.set_atom("2_CA", a2_ca.clone());
+
+    // Residue 3: DA (standard DNA nucleotide)
+    let mut r3 = AtomGroup::new();
+    r3.name = "DA".to_string();
+    let mut a3_o3 = Atom::new();
+    a3_o3.name = "O3'".to_string();
+    a3_o3.xyz = Position::new(4.0, 0.0, 0.0);
+    r3.set_atom("3_O3'", a3_o3.clone());
+
+    // Residue 4: DT (standard DNA nucleotide)
+    let mut r4 = AtomGroup::new();
+    r4.name = "DT".to_string();
+    let mut a4_p = Atom::new();
+    a4_p.name = "P".to_string();
+    a4_p.xyz = Position::new(5.0, 0.0, 0.0);
+    r4.set_atom("4_P", a4_p.clone());
+
+    // Residue 5: LIG (non-standard ligand) with a double bond to GLY CA
+    let mut r5 = AtomGroup::new();
+    r5.name = "LIG".to_string();
+    let mut a5_x = Atom::new();
+    a5_x.name = "X1".to_string();
+    a5_x.xyz = Position::new(6.0, 0.0, 0.0);
+    r5.set_atom("5_X1", a5_x.clone());
+
+    chain_a.set_group("1", r1);
+    chain_a.set_group("2", r2);
+    chain_a.set_group("3", r3);
+    chain_a.set_group("4", r4);
+    chain_a.set_group("5", r5);
+
+    model.set_group("A", chain_a);
+    root.set_group("model_1", model);
+
+    // Add inter-residue bonds using atoms resolved from the hierarchy (so their paths are populated)
+    let a1_c = root.get_atom_by_path("/model_1/A/1/1_C").unwrap().clone();
+    let a2_n = root.get_atom_by_path("/model_1/A/2/2_N").unwrap().clone();
+    let a3_o3 = root.get_atom_by_path("/model_1/A/3/3_O3'").unwrap().clone();
+    let a4_p = root.get_atom_by_path("/model_1/A/4/4_P").unwrap().clone();
+    let a2_ca = root.get_atom_by_path("/model_1/A/2/2_CA").unwrap().clone();
+    let a5_x = root.get_atom_by_path("/model_1/A/5/5_X1").unwrap().clone();
+
+    let model_mut = root.get_group_mut("model_1").unwrap();
+
+    // 1. Peptide bond: ALA 1 C - GLY 2 N (should be excluded from _struct_conn)
+    model_mut.add_bond(&a1_c, &a2_n, 1);
+
+    // 2. Nucleic backbone bond: DA 3 O3' - DT 4 P (should be excluded from _struct_conn)
+    model_mut.add_bond(&a3_o3, &a4_p, 1);
+
+    // 3. Inter-residue double bond: GLY 2 CA - LIG 5 X1 (order: 2, should be exported as covale with doub)
+    model_mut.add_bond(&a2_ca, &a5_x, 2);
+
+    let mut buf = Vec::new();
+    let opts = MmcifWriteOptions::default();
+    SimpleMmcif::write_structure(&root, &mut buf, &opts)
+        .expect("failed to write synthetic structure");
+
+    let text = String::from_utf8(buf).expect("invalid utf-8");
+
+    // Extract the _struct_conn section from the written CIF text
+    let struct_conn_section = if let Some((_, conn_part)) = text.split_once("_struct_conn.id") {
+        conn_part
+    } else {
+        panic!("_struct_conn section not found in written output:\n{text}");
+    };
+
+    // Peptide bond (ALA C - GLY N) and nucleic backbone (O3' - P) must NOT be in _struct_conn
+    assert!(
+        !struct_conn_section.contains("ALA"),
+        "peptide bond should be excluded from _struct_conn"
+    );
+    assert!(
+        !struct_conn_section.contains("O3'"),
+        "nucleic backbone bond should be excluded from _struct_conn"
+    );
+
+    // The double bond must be present as covale1 and doub
+    assert!(
+        struct_conn_section.contains("covale1 covale doub"),
+        "expected 'covale1 covale doub' in _struct_conn section:\n{struct_conn_section}"
+    );
+    assert!(struct_conn_section.contains("LIG"));
+
+    // Reload and verify bond order is preserved as 2 (doub)
+    let reloaded_cif = SimpleMmcif::from_str(&text).expect("failed to reload synthetic mmCIF");
+    let reloaded_ag = reloaded_cif
+        .get_structure_atomgroup(Some(1), None)
+        .expect("failed to get reloaded synthetic AtomGroup");
+
+    let inter_bonds = get_inter_residue_bonds(&reloaded_ag);
+    assert_eq!(
+        inter_bonds.len(),
+        1,
+        "only the LIG-GLY bond should exist as an inter-residue bond"
+    );
+    assert_eq!(inter_bonds[0].2, 2, "bond order 2 (doub) must be preserved");
+}
+
+/// Verifies AtomGroup::get_bond_list_ref produces identical records to get_bond_list.
+#[test]
+fn test_get_bond_list_ref_matches_get_bond_list() {
+    let cif_path = test_data_dir().join("1WCT.cif");
+    let cif = SimpleMmcif::from_file(&cif_path).expect("failed to load 1WCT.cif");
+    let mut ag = cif
+        .get_structure_atomgroup(Some(1), None)
+        .expect("failed to get AtomGroup");
+
+    let ref_bonds = ag.get_bond_list_ref();
+    let mut_bonds = ag.get_bond_list();
+
+    assert_eq!(ref_bonds, mut_bonds);
+}
+
+/// PR#42 / PR#43 invariant: If validation fails before writing (e.g., due to invalid characters in struct_conn),
+/// nothing should be written to the writer and it remains empty.
+#[test]
+fn test_struct_conn_validation_failure_leaves_buffer_empty() {
+    let mut root = AtomGroup::new();
+    root.name = "root".to_string();
+    let mut model = AtomGroup::new();
+    model.name = "model_1".to_string();
+    let mut chain = AtomGroup::new();
+    chain.name = "A".to_string();
+    let mut r1 = AtomGroup::new();
+    r1.name = "RES1".to_string();
+    let mut r2 = AtomGroup::new();
+    r2.name = "RES2".to_string();
+
+    let mut a1 = Atom::new();
+    a1.name = "CA".to_string();
+    a1.set_atomic_number(6);
+    a1.xyz = Position::new(0.0, 0.0, 0.0);
+
+    // Introduce mixed quotes (' and ") in the atom name which cannot be safely quoted in mmCIF
+    let mut a2 = Atom::new();
+    a2.name = "N'\"BAD".to_string();
+    a2.set_atomic_number(7);
+    a2.xyz = Position::new(1.0, 0.0, 0.0);
+
+    r1.set_atom("1_CA", a1);
+    r2.set_atom("2_N'\"BAD", a2);
+    chain.set_group("1", r1);
+    chain.set_group("2", r2);
+    model.set_group("A", chain);
+    root.set_group("model_1", model);
+
+    let a1_ref = root.get_atom_by_path("/model_1/A/1/1_CA").unwrap().clone();
+    let a2_ref = root
+        .get_atom_by_path("/model_1/A/2/2_N'\"BAD")
+        .unwrap()
+        .clone();
+    root.get_group_mut("model_1")
+        .unwrap()
+        .add_bond(&a1_ref, &a2_ref, 1);
+
+    let mut buf = Vec::new();
+    let result = SimpleMmcif::write_structure(&root, &mut buf, &MmcifWriteOptions::default());
+    assert!(
+        result.is_err(),
+        "validation should fail due to mixed quotes in atom name for struct_conn"
+    );
+    assert!(
+        buf.is_empty(),
+        "buffer must remain completely empty on validation failure"
+    );
+}
