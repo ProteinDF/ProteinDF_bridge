@@ -27,3 +27,16 @@
 1. 実データまたは合成データで、相手原子がaltLocの選択によって除外されるケースを作り、その結合が報告されることをテストで確認する。
 2. 既存の実データ(1HLS・2FB4・1WCT等)では、解決できない結合が0件であることを確認する。
 3. `cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check`が通る。
+
+## レビュー結果(1回目、2026-10-03、要修正・軽微)
+
+`fix/struct-conn-unresolved`(`66df2f7`・`792b9f4`)をレビューした。実バグはない。解決できなかった結合を`MmcifStructureReport.unresolved_struct_conns`として返し(理由は鎖・残基・原子のどれが見つからなかったかまで分類)、既存の`get_structure_atomgroup`(`Result<AtomGroup>`)はそれを呼ぶ形にしてシグネチャを保っている。エラーではなく報告にした判断は妥当(altLocによる除外は実データで普通に起こる)。`cargo test --workspace`(317 passed)、clippy、fmt、Pythonテスト(phase2・mmcif_writer)をClaudeが確認した。
+
+### 修正依頼
+
+1. **【テスト不足】鎖IDが空の結合の解決方法の変更をテストで固定する。** `resolve_struct_conn_partner`は、`_struct_conn`の鎖IDが空(`.`/`?`から変換された空文字、または空白)のとき鎖キー`_`を探すようになった。これにより、PR#43の書き出しが鎖キー`_`の結合を`.`として書き出したものを、読み込み側が正しく解決できるようになった(以前は黙って捨てていた)。完了報告にこの変更が書かれておらず、テストもない。Claudeが一時テストで確認したところ、鎖キー`_`のCYS同士のSG-SG結合を書き出して読み直すと、結合1本が復元され、解決できない結合は0件だった。**この往復(書き出し→`get_structure_atomgroup_with_report`での再読み込み→結合が復元され、未解決が0件)をテストとして追加する**(ユーザー判断、2026-10-03)。
+
+### 完了の定義(修正後)
+
+1. 上記1のテストを同じブランチに追加コミットする。
+2. `cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check`が通る。
