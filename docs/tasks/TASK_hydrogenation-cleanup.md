@@ -59,3 +59,7 @@
 
 1. 上記2点を同じブランチに追加コミットする。
 2. `cargo test --workspace`と`cargo fmt --all -- --check`が通ること。clippyは**PR#41に限り** `cargo clippy -p proteindf-bridge --all-targets -- -D warnings`(コアのクレートのみ)で確認する。`--workspace`での失敗はdevelopに元からあるもので、上記の別タスクで解消する。
+
+## PR#41 レビュー結果(2回目、2026-10-03、収束・マージ済み)
+
+修正コミット`8ccd53b`を確認した。`proteindf-bridge-py`への変更はなくなり、空のテストは説明コメントに置き換わった。`cargo test --workspace`(全件成功)、`cargo clippy -p proteindf-bridge --all-targets -- -D warnings`、`cargo fmt --check`をClaudeが確認した。ユーザー承認のうえ、2026-10-03にdevelopへマージした(`77af040`)。**PR#41は完了。** 次はpyo3の警告対応(`TASK_pyo3-from-py-object.md`)とmmCIF書き出し(`TASK_mmcif-writer.md`のPR#42)。
