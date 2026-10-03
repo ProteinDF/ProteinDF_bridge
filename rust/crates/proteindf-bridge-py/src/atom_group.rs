@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::atom::PyAtom;
+use crate::ccd_templates::PyCcdTemplateDb;
 use crate::error::to_py_err;
 use crate::matrix::PyMatrix;
 use crate::position::PyPosition;
+use crate::schema::PySchemaViolation;
 use proteindf_bridge::atom_group::{AtomGroup as CoreAtomGroup, Selector};
 use proteindf_bridge::position::Position;
-use pyo3::exceptions::{PyKeyError, PyTypeError};
+use proteindf_bridge::secondary_structure::SsCode;
+use pyo3::exceptions::{PyKeyError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -101,6 +104,67 @@ impl PyAtomGroup {
     #[setter]
     pub fn set_path(&mut self, val: String) {
         self.inner.set_path(val);
+    }
+
+    /// Returns the path depth of this group in the hierarchy.
+    pub fn path_depth(&self) -> usize {
+        self.inner.path_depth()
+    }
+
+    /// Returns whether this group is at the model level (path depth 1).
+    pub fn is_model_level(&self) -> bool {
+        self.inner.is_model_level()
+    }
+
+    /// Returns whether this group is at the chain level (path depth 2).
+    pub fn is_chain_level(&self) -> bool {
+        self.inner.is_chain_level()
+    }
+
+    /// Returns whether this group is at the residue level (path depth 3).
+    pub fn is_residue_level(&self) -> bool {
+        self.inner.is_residue_level()
+    }
+
+    /// Validates this AtomGroup hierarchy against the standard protein schema (/model_N/chain_id/res_key/atom_key).
+    pub fn validate_schema(&self) -> Vec<PySchemaViolation> {
+        self.inner
+            .validate_schema()
+            .into_iter()
+            .map(PySchemaViolation::from)
+            .collect()
+    }
+
+    /// Returns the secondary structure code ('H', 'E', '-', or None) for this group.
+    #[getter]
+    pub fn secondary_structure(&self) -> Option<String> {
+        self.inner.secondary_structure().map(|ss| ss.to_string())
+    }
+
+    /// Sets the secondary structure code ('H', 'E', '-', or None) for this group.
+    #[setter]
+    pub fn set_secondary_structure(&mut self, val: Option<&str>) -> PyResult<()> {
+        match val {
+            None => {
+                self.inner.set_secondary_structure(None);
+                Ok(())
+            }
+            Some("H") => {
+                self.inner.set_secondary_structure(Some(SsCode::Helix));
+                Ok(())
+            }
+            Some("E") => {
+                self.inner.set_secondary_structure(Some(SsCode::Strand));
+                Ok(())
+            }
+            Some("-") => {
+                self.inner.set_secondary_structure(Some(SsCode::Loop));
+                Ok(())
+            }
+            Some(other) => Err(PyValueError::new_err(format!(
+                "Invalid secondary structure code '{other}', expected 'H', 'E', '-', or None"
+            ))),
+        }
     }
 
     pub fn get_number_of_atoms(&self) -> usize {
@@ -363,6 +427,22 @@ impl PyAtomGroup {
             .into_iter()
             .map(|b| (b.atom1_path, b.atom2_path, b.order))
             .collect()
+    }
+
+    /// Sets up chemical bonds using embedded CCD templates and covalent radius heuristics.
+    ///
+    /// Modifies this AtomGroup in place. Note that calling this on a subtree copy does not
+    /// affect the original tree.
+    pub fn setup(&mut self) -> PyResult<()> {
+        self.inner.setup().map_err(to_py_err)
+    }
+
+    /// Sets up chemical bonds using the provided CCD template database and covalent radius heuristics.
+    ///
+    /// Modifies this AtomGroup in place. Note that calling this on a subtree copy does not
+    /// affect the original tree.
+    pub fn setup_with_db(&mut self, db: &PyCcdTemplateDb) -> PyResult<()> {
+        self.inner.setup_with_db(&db.inner).map_err(to_py_err)
     }
 
     pub fn shift_by(&mut self, dir: &Bound<'_, PyAny>) -> PyResult<()> {
