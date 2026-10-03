@@ -42,3 +42,20 @@
 2. 既存の`test_orchestrator.rs`の9テストを含め、`cargo test --workspace`がすべて成功する。
 3. `cargo clippy --workspace --all-targets -- -D warnings`と`cargo fmt --all -- --check`で警告・エラーが出ない。
 4. 完了したら、ブランチ名と完了内容をユーザー経由でClaudeに報告する。
+
+## PR#41 レビュー結果(1回目、2026-10-03、要修正・軽微)
+
+`feature/hydrogenation-cleanup-pr41`(`bc8e189`・`37fc18e`・`c638937`)をレビューした。**リファクタリング本体に実バグはない。**
+
+- 追加された組み合わせテスト(`test_orchestrator.rs`、計24件)を、リファクタリング前のコミット`bc8e189`で実行しても全件成功することをClaudeが実際に確認した。コードを読んで、`step_errors`への記録順(Step1 → Step2)、記録先、`skipped_residues`の理由の選び方が元と同じであることも確認した。削除した重複防止ガードが効いていたのは到達不能な組み合わせだけである。
+- `cargo test --workspace`・`cargo fmt --check`の成功もClaudeが確認した。
+
+### 修正依頼
+
+1. **`proteindf-bridge-py/src/lib.rs`の`#![allow(deprecated)]`を削除すること(スコープ外の変更)。** developでは元々、pyo3 0.29の非推奨警告(`FromPyObject`のopt-in化、27件)で`cargo clippy --workspace --all-targets -- -D warnings`が失敗している。これはClaudeがTASKの完了条件に`--workspace`を書いたことによる見落としである。クレート全体の非推奨警告をまとめて黙らせると、今後の非推奨にも気づけなくなる。pyo3の警告は、別タスク`docs/tasks/TASK_pyo3-from-py-object.md`で、`#[pyclass(from_py_object)]`などを付ける正式な方法で直す(ユーザー判断、2026-10-03)。
+2. **`test_unreachable_step_outcome_combinations`の`#[test]`を外すこと。** 中身がコメントだけで何も検証していない。到達不能な4パターンの説明は、テストモジュール内のコメントとして残す。
+
+### 完了の定義(修正後)
+
+1. 上記2点を同じブランチに追加コミットする。
+2. `cargo test --workspace`と`cargo fmt --all -- --check`が通ること。clippyは**PR#41に限り** `cargo clippy -p proteindf-bridge --all-targets -- -D warnings`(コアのクレートのみ)で確認する。`--workspace`での失敗はdevelopに元からあるもので、上記の別タスクで解消する。
