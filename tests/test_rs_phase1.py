@@ -354,6 +354,11 @@ class TestRsPhase1(unittest.TestCase):
         self.assertEqual(rs_root.get_atom_kinds_count(), py_root.get_atom_kinds_count())
 
         # Bond setup
+        # Note on bond detection difference (§3.10):
+        # Python's Bond.setup uses a van der Waals radii heuristic (r <= vdw_a + vdw_b + 0.4),
+        # which erroneously considers N-C (~2.44 Å) to be bonded, resulting in 3 bonds (N-CA, CA-C, N-C).
+        # In contrast, Rust's Bond::setup uses Cordero et al. (2008) covalent radii + 0.45 Å tolerance (§3.10),
+        # correctly identifying only the 2 chemically valid covalent bonds: N-CA (1.45 Å) and CA-C (~1.51 Å).
         py_bond = PyBond()
         py_bond.setup(py_root)
 
@@ -362,8 +367,17 @@ class TestRsPhase1(unittest.TestCase):
 
         self.assertEqual(rs_root.get_number_of_bonds(), py_root.get_number_of_bonds())
         rs_bonds = rs_root.get_bond_list()
-        py_bonds = py_root.get_bond_list()
-        self.assertEqual(len(rs_bonds), len(py_bonds))
+        self.assertEqual(len(rs_bonds), 2)
+        bond_pairs = {frozenset([b[0], b[1]]) for b in rs_bonds}
+        expected_pairs = {
+            frozenset(["/ALA_1/N", "/ALA_1/CA"]),
+            frozenset(["/ALA_1/CA", "/ALA_1/C"]),
+        }
+        self.assertEqual(bond_pairs, expected_pairs)
+        self.assertEqual(
+            rs_bonds,
+            [("/ALA_1/N", "/ALA_1/CA", 1), ("/ALA_1/CA", "/ALA_1/C", 1)],
+        )
 
     # --------------------------------------------------------------------------
     # 8. AtomGroup Set Operations (&, |, ^)
