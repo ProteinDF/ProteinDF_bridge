@@ -87,7 +87,7 @@ class TestRsHydrogenation(unittest.TestCase):
           3. Total added = 15, total removed = 0.
           4. 15 residues modified (e.g. GLU A4 receives HE2).
           5. Final total hydrogen count across all 51 residues = 394.
-          6. Saving to mmCIF and reloading retains exact hydrogen count 394 and all atoms.
+          6. Saving to mmCIF and reloading retains exact hydrogen count (test_mmcif_writer.rs line 306) matching the 394 hydrogens baseline (test_orchestrator.rs line 142) and all atoms.
         """
         structure = self._load_1hls()
 
@@ -138,10 +138,17 @@ class TestRsHydrogenation(unittest.TestCase):
         reloaded_struct = reloaded_cif.get_structure_atomgroup()
 
         reloaded_h = count_all_hydrogens(reloaded_struct)
+        # 394 total hydrogens baseline from test_orchestrator.rs line 142;
+        # roundtrip equality between saved and reloaded structure verified per test_mmcif_writer.rs line 306
+        self.assertEqual(
+            reloaded_h,
+            final_h,
+            "Reloaded mmCIF structure must preserve all hydrogens (test_mmcif_writer.rs line 306)",
+        )
         self.assertEqual(
             reloaded_h,
             394,
-            "Reloaded mmCIF structure must preserve all 394 hydrogens (test_mmcif_writer.rs line 306)",
+            "Total hydrogens must match 394 baseline from test_orchestrator.rs line 142",
         )
         self.assertEqual(
             reloaded_struct.get_number_of_all_atoms(),
@@ -324,12 +331,13 @@ class TestRsHydrogenation(unittest.TestCase):
         )
         self.assertIn("No CCD template found for residue 'UNK'", unk_errors[0])
 
-    def test_hydrogenation_reports_identity_and_properties(self):
+    def test_hydrogenation_reports_immutability_and_protection(self):
         """
-        PR#45 Review Revision Rule:
-        Report collections (residue_reports, skipped_residues, step_errors) must return
-        the identical Python object on repeated accesses without reallocating copies.
-        Also verifies all read-only properties and repr() of reports.
+        PR#46 Review Revision 1, Item 2:
+        External mutation protection for report collections:
+        Mutating skipped_residues, step_errors, or residue_reports externally
+        must not modify the report's internal state.
+        Also verifies read-only properties, shared per-residue objects, and repr().
         """
         chain = rs_br.AtomGroup(name="A")
         chain.path = "/model_1/A/"
@@ -375,38 +383,110 @@ class TestRsHydrogenation(unittest.TestCase):
 
         report = chain.add_missing_hydrogens()
 
-        # 1. Identity on repeated access
-        self.assertIs(
-            report.residue_reports,
-            report.residue_reports,
-            "report.residue_reports must return identical dict instance across accesses",
-        )
-        self.assertIs(
-            report.skipped_residues,
-            report.skipped_residues,
-            "report.skipped_residues must return identical list instance across accesses",
-        )
-        self.assertIs(
-            report.step_errors,
-            report.step_errors,
-            "report.step_errors must return identical list instance across accesses",
+        # 1. Protection against external mutation of skipped_residues
+        skipped = report.skipped_residues
+        self.assertEqual(len(skipped), 1)
+        skipped.append(("/fake/path/", "fake reason"))
+        self.assertEqual(len(skipped), 2)
+        # Internal state must remain untouched on subsequent access
+        self.assertEqual(
+            len(report.skipped_residues),
+            1,
+            "Mutating returned skipped_residues list must not affect the report",
         )
 
-        # 2. Overall repr
+        # 2. Protection against external mutation of step_errors
+        init_err_len = len(report.step_errors)
+        errors = report.step_errors
+        errors.append(("/fake/path/", "fake error"))
+        self.assertEqual(len(errors), init_err_len + 1)
+        self.assertEqual(
+            len(report.step_errors),
+            init_err_len,
+            "Mutating returned step_errors list must not affect the report",
+        )
+
+        # 3. Protection against external mutation of residue_reports
+        reports_dict = report.residue_reports
+        self.assertIn("/model_1/A/1/", reports_dict)
+        reports_dict["/fake/path/"] = "fake"
+        reports_dict.clear()
+        self.assertEqual(len(reports_dict), 0)
+        # Internal state must remain untouched on subsequent access
+        fresh_dict = report.residue_reports
+        self.assertIn(
+            "/model_1/A/1/",
+            fresh_dict,
+            "Clearing returned residue_reports dict must not affect the report",
+        )
+
+        # 4. Shared instance for individual per-residue HydrogenationReport objects
+        rep1 = report.residue_reports["/model_1/A/1/"]
+        rep2 = report.residue_reports["/model_1/A/1/"]
+        self.assertIs(
+            rep1,
+            rep2,
+            "Per-residue HydrogenationReport instances must be shared across dictionary accesses",
+        )
+
+        # 5. Overall and per-residue repr
         rep_str = repr(report)
         self.assertIn("OverallHydrogenationReport(", rep_str)
         self.assertIn("added=", rep_str)
         self.assertIn("skipped=1", rep_str)
 
-        # 3. Per-residue report inspection
-        res_rep = report.residue_reports["/model_1/A/1/"]
-        self.assertGreater(res_rep.added_hydrogens, 0)
-        self.assertIn("H1", res_rep.added_atom_names)
-        self.assertEqual(res_rep.removed_hydrogens, 0)
-        self.assertEqual(res_rep.removed_atom_names, [])
+        self.assertGreater(rep1.added_hydrogens, 0)
+        self.assertIn("H1", rep1.added_atom_names)
+        self.assertEqual(rep1.removed_hydrogens, 0)
+        self.assertEqual(rep1.removed_atom_names, [])
+        self.assertIn("HydrogenationReport(added=", repr(rep1))
 
-        res_rep_str = repr(res_rep)
-        self.assertIn("HydrogenationReport(added=", res_rep_str)
+    def test_residue_reports_deterministic_ordering(self):
+        """
+        PR#46 Review Revision 1, Item 1:
+        Determinism of residue_reports dictionary key order across accesses and runs.
+        Keys must be sorted deterministically in natural residue path order (sort_nicely).
+        """
+        # Run 1 on 1hls
+        structure1 = self._load_1hls()
+        structure1.setup()
+        report1 = structure1.add_missing_hydrogens()
+
+        keys1_a = list(report1.residue_reports.keys())
+        keys1_b = list(report1.residue_reports.keys())
+
+        # 1. Repeated accesses on the same report object must yield identical ordering
+        self.assertEqual(
+            keys1_a,
+            keys1_b,
+            "Repeated accesses to report.residue_reports must yield identical key order",
+        )
+
+        # Run 2 on fresh 1hls load
+        structure2 = self._load_1hls()
+        structure2.setup()
+        report2 = structure2.add_missing_hydrogens()
+
+        keys2 = list(report2.residue_reports.keys())
+
+        # 2. Separate runs must yield identical ordering
+        self.assertEqual(
+            keys1_a,
+            keys2,
+            "Two distinct hydrogenation runs must produce identical residue_reports key order",
+        )
+
+        # 3. Keys must follow natural path order (e.g. /model_1/A/1/ before /model_1/A/2/ before /model_1/A/10/)
+        # Check chain A sequence order
+        chain_a_keys = [k for k in keys1_a if "/model_1/A/" in k]
+        self.assertGreater(len(chain_a_keys), 1)
+        # Extract residue numbers as integers
+        res_nums = [int(k.split("/")[3]) for k in chain_a_keys]
+        self.assertEqual(
+            res_nums,
+            sorted(res_nums),
+            f"Residue keys must be sorted naturally by sequence number: {res_nums}",
+        )
 
     def test_subtree_copy_independence(self):
         """

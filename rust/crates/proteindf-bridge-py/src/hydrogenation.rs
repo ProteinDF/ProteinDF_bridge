@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: The ProteinDF development team
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use proteindf_bridge::brd::sort_nicely;
 use proteindf_bridge::hydrogenation::HydrogenationReport as CoreHydrogenationReport;
 use proteindf_bridge::orchestrator::OverallHydrogenationReport as CoreOverallHydrogenationReport;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList};
+use pyo3::types::PyDict;
 
 /// Per-residue or per-component report of hydrogen addition and removal.
 #[pyclass(
@@ -67,29 +68,31 @@ pub struct PyOverallHydrogenationReport {
     total_added_hydrogens: usize,
     total_removed_hydrogens: usize,
     hydrogenated_residues: usize,
-    skipped_residues: Py<PyList>,
-    step_errors: Py<PyList>,
-    residue_reports: Py<PyDict>,
+    skipped_residues: Vec<(String, String)>,
+    step_errors: Vec<(String, String)>,
+    residue_reports: Vec<(String, Py<PyHydrogenationReport>)>,
 }
 
 impl PyOverallHydrogenationReport {
-    pub fn new(py: Python<'_>, report: CoreOverallHydrogenationReport) -> PyResult<Self> {
-        let skipped_list = PyList::new(py, report.skipped_residues)?;
-        let errors_list = PyList::new(py, report.step_errors)?;
+    pub fn new(py: Python<'_>, mut report: CoreOverallHydrogenationReport) -> PyResult<Self> {
+        let mut keys: Vec<String> = report.residue_reports.keys().cloned().collect();
+        sort_nicely(&mut keys);
 
-        let reports_dict = PyDict::new(py);
-        for (path, res_rep) in report.residue_reports {
-            let py_rep = Py::new(py, PyHydrogenationReport::from_core(res_rep))?;
-            reports_dict.set_item(path, py_rep)?;
+        let mut ordered_reports = Vec::with_capacity(keys.len());
+        for key in keys {
+            if let Some(res_rep) = report.residue_reports.remove(&key) {
+                let py_rep = Py::new(py, PyHydrogenationReport::from_core(res_rep))?;
+                ordered_reports.push((key, py_rep));
+            }
         }
 
         Ok(Self {
             total_added_hydrogens: report.total_added_hydrogens,
             total_removed_hydrogens: report.total_removed_hydrogens,
             hydrogenated_residues: report.hydrogenated_residues,
-            skipped_residues: skipped_list.unbind(),
-            step_errors: errors_list.unbind(),
-            residue_reports: reports_dict.unbind(),
+            skipped_residues: report.skipped_residues,
+            step_errors: report.step_errors,
+            residue_reports: ordered_reports,
         })
     }
 }
@@ -118,33 +121,38 @@ impl PyOverallHydrogenationReport {
     /// template, insufficient heavy atoms such as HOH water, or geometric failure),
     /// returned as a list of `(path, reason)` tuples.
     #[getter]
-    pub fn skipped_residues(&self, py: Python<'_>) -> Py<PyList> {
-        self.skipped_residues.clone_ref(py)
+    pub fn skipped_residues(&self) -> Vec<(String, String)> {
+        self.skipped_residues.clone()
     }
 
     /// Processing failures, geometric errors, or missing sidechain templates on partially modified residues,
     /// returned as a list of `(path, error_message)` tuples.
     #[getter]
-    pub fn step_errors(&self, py: Python<'_>) -> Py<PyList> {
-        self.step_errors.clone_ref(py)
+    pub fn step_errors(&self) -> Vec<(String, String)> {
+        self.step_errors.clone()
     }
 
     /// Detailed per-residue hydrogenation reports, keyed by residue path.
+    ///
+    /// Returns a new dictionary sorted deterministically by residue path on each access.
+    /// The individual per-residue `HydrogenationReport` objects are shared.
     #[getter]
-    pub fn residue_reports(&self, py: Python<'_>) -> Py<PyDict> {
-        self.residue_reports.clone_ref(py)
+    pub fn residue_reports<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new(py);
+        for (key, py_rep) in &self.residue_reports {
+            dict.set_item(key, py_rep.clone_ref(py))?;
+        }
+        Ok(dict)
     }
 
-    pub fn __repr__(&self, py: Python<'_>) -> String {
-        let skipped_len = self.skipped_residues.bind(py).len();
-        let errors_len = self.step_errors.bind(py).len();
+    pub fn __repr__(&self) -> String {
         format!(
             "OverallHydrogenationReport(added={}, removed={}, residues={}, skipped={}, errors={})",
             self.total_added_hydrogens,
             self.total_removed_hydrogens,
             self.hydrogenated_residues,
-            skipped_len,
-            errors_len
+            self.skipped_residues.len(),
+            self.step_errors.len()
         )
     }
 }
