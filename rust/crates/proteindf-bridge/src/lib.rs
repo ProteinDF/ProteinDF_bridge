@@ -48,7 +48,9 @@ pub use ch_pi::{
     DEFAULT_MAX_ANGLE_DEG, DEFAULT_MAX_DISTANCE,
 };
 pub use error::{BridgeError, Result};
-pub use format::{AmberPrmtop, Format, Pdb, SimpleGro, SimpleMmcif, SimpleMol2, Xyz};
+pub use format::{
+    AmberPrmtop, Format, MmcifWriteOptions, Pdb, SimpleGro, SimpleMmcif, SimpleMol2, Xyz,
+};
 pub use hydrogen_bond::{
     calc_backbone_hbonds, calc_kabsch_sander_energy, calc_pseudo_hydrogen, calc_sidechain_hbonds,
     calc_sidechain_hbonds_with_options, HydrogenBond, SidechainAtomType, SidechainHydrogenBond,
