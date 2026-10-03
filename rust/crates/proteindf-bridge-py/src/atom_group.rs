@@ -254,6 +254,10 @@ impl PyAtomGroup {
             .collect()
     }
 
+    pub fn get_group_list(&self) -> Vec<String> {
+        self.inner.get_group_list()
+    }
+
     pub fn get_atom_list(&self) -> Vec<PyAtom> {
         self.inner
             .get_atom_list()
