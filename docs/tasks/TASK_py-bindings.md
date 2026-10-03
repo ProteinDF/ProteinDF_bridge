@@ -151,3 +151,9 @@
 **参考(コア側の既知の限界、対応不要)**: CH-πの閾値に負の距離などを渡してもエラーにならず、結果が空になる(コア側に閾値の検証がない)。
 
 ユーザー承認のうえ、2026-10-03にdevelopへマージした(`5e0fb4c`)。**PR#47は完了。** 次はPR#48。
+
+## PR#48 レビュー結果(1回目、2026-10-03、収束・マージ済み)
+
+`feature/py-bindings-pr48`(`63c101a`・`9733c9c`・`790def4`)をレビューした。指摘なし。`get_ACE`・`get_NME`は原子数と座標(小数4桁)を、`Neutralize`は1hls(782→792原子)の原子名と座標を純Python版と照合している。`.brd`は純Python版との相互読み書きを確認している。意図した違い(`Neutralize`の`_exempt_list`、2026.9.3で修正済みの`arbitary_rotate_matrix`)は根拠とともにテストに書かれている。`Neutralize.neutralized`は同じオブジェクトを返し、存在しないファイルの読み込みは`BrError`になる。`modeling.rs`の`#![allow(non_snake_case)]`は純Python版のメソッド名(`get_ACE`など)に合わせるためのもので妥当。コアのクレートは変更なし。`cargo test --workspace`(318 passed)、clippy、fmt、Pythonテスト一式(196件)をClaudeが確認した。ユーザー承認のうえ、2026-10-03にdevelopへマージした(`6df79ae`)。
+
+**PR#45〜48はすべて完了。** `RUST_PORT_SPEC.md` §4.3に実施内容・既知の限界を、`docs/rust-port-handoff.md`に記録した。

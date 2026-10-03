@@ -584,7 +584,7 @@ proteindf-bridge = { git = "https://github.com/<org>/ProteinDF_bridge", tag = "v
   - 既存のPythonスクリプトや計算バッチ処理の高速化・移行が目的の場合は **`proteindf_bridge_rs`** を使用する。
   - YUIの可視化機能やUI・レンダラーと連動するアプリケーションやプラグインを開発する場合は **`yui`** を使用する。
 
-### 4.3 Pythonバインディングの拡充(計画: 2026-10-03)
+### 4.3 Pythonバインディングの拡充(完了: 2026-10-03、developにマージ済み)
 
 #### 背景
 
@@ -616,6 +616,18 @@ proteindf-bridge = { git = "https://github.com/<org>/ProteinDF_bridge", tag = "v
 6. **コアクレートは原則として変更しない。** バインディングのためにコア側の変更が必要になった場合は、変更内容と理由を完了報告に書き、レビューで判断する。
 
 実行チェックリスト・完了の定義は`docs/tasks/TASK_py-bindings.md`を参照。
+
+#### 実施内容・検証 (2026-10-03完了)
+
+実装はagy、レビューはClaudeが担当した(`docs/tasks/TASK_py-bindings.md`参照)。コアのクレート(`proteindf-bridge`)は4つのPRを通じて変更していない。
+
+- **PR#45(基盤・結合解決)**: `AtomGroup.setup()`・`setup_with_db()`、`CcdTemplateDb`(`builtin()`・`add_from_file()`・`lookup()`など)、`CcdBondTemplate`・`CcdAtom`、`validate_schema()`・`SchemaViolation`・`is_*_level()`、`secondary_structure`プロパティ、`SimpleMmcif.get_structure_atomgroup_with_report()`・`MmcifStructureReport`。レビューで、レポートの`atomgroup`がアクセスのたびにコピーを返し`setup()`の結果が失われる不具合と、`add_from_file()`が壊れたブロックを黙って無視する不具合を修正した。
+- **PR#46(水素付加)**: `AtomGroup.add_missing_hydrogens(db=None)`、`OverallHydrogenationReport`・`HydrogenationReport`。Pythonから「読み込み → `setup()` → 水素付加 → mmCIF書き出し」が通る(1hlsで水素379→394、Rust側の基準値と一致)。レビューで、`residue_reports`の順序を決定的にし、結果の一覧を外から書き換えられないようにした。
+- **PR#47(解析)**: `calc_backbone_hbonds`・`calc_sidechain_hbonds(_with_options)`・`HydrogenBond`・`SidechainHydrogenBond`、`calc_secondary_structure`・`apply_secondary_structure`・`SecondaryStructure`、`calc_ch_pi_interactions(_with_thresholds)`・`ChPiInteraction`、`InteractionSet`(`detect_all`、MessagePack・YAMLの読み書き)・`Interaction`。
+- **PR#48(既存Python機能の移行)**: `load_atomgroup`・`save_atomgroup`(プレーンな`.brd`)、`load_brd_yui`・`save_brd_yui`(YUIヘッダー形式)、`Modeling`(純Python版と同じメソッド名)、`Neutralize`、`AtomGroup.get_group_list()`。純Python版と1対1で比較し、`.brd`は純Python版との相互読み書きを確認した。
+- **確立した方針**: `AtomGroup`のような大きな構造は、アクセスのたびにコピーせず同じオブジェクトを返す。結果の一覧(リスト・辞書)はアクセスのたびに新しいコンテナを返し、順序は決定的にする。テストファイル名・クラス名にPR番号を使わない。
+- **検証**: `cargo test --workspace`(318件)、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --check`、Pythonテスト一式(`python -m unittest discover -s tests`、196件。純Python版のテストと`tests/test_rs_*.py`)が通ることをClaudeが確認した。
+- **既知の限界**: `spatial.rs`(`CellList`)などの低レベルAPIと、`hydrogenation.rs`・`backbone_hydrogen.rs`の単一残基向けの内部APIは公開していない。`ag["A"]`などが部分木のコピーを返す既存の挙動は変えていない(構造を変更するメソッドは呼び出したオブジェクト自身を変更し、部分木のコピーでは元の木が変わらない旨をdocstringに明記)。CH-πの閾値に負の値などを渡してもエラーにならない(コア側に検証がない)。
 
 ## 5. ライセンス
 
