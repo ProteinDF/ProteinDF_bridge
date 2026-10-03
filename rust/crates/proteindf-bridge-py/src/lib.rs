@@ -7,6 +7,7 @@ pub mod amino_acid;
 pub mod atom;
 pub mod atom_group;
 pub mod bond;
+pub mod brd;
 pub mod ccd_templates;
 pub mod ch_pi;
 pub mod error;
@@ -16,6 +17,8 @@ pub mod hydrogenation;
 pub mod interaction_set;
 pub mod ion_pair;
 pub mod matrix;
+pub mod modeling;
+pub mod neutralize;
 pub mod periodic_table;
 pub mod position;
 pub mod ramachandran;
@@ -144,6 +147,18 @@ fn proteindf_bridge_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // InteractionSet
     m.add_class::<interaction_set::PyInteraction>()?;
     m.add_class::<interaction_set::PyInteractionSet>()?;
+
+    // .brd MessagePack & YUI format I/O (PR#48)
+    m.add_function(wrap_pyfunction!(brd::load_atomgroup, m)?)?;
+    m.add_function(wrap_pyfunction!(brd::save_atomgroup, m)?)?;
+    m.add_function(wrap_pyfunction!(brd::load_brd_yui, m)?)?;
+    m.add_function(wrap_pyfunction!(brd::save_brd_yui, m)?)?;
+
+    // Modeling (PR#48)
+    m.add_class::<modeling::PyModeling>()?;
+
+    // Neutralize (PR#48)
+    m.add_class::<neutralize::PyNeutralize>()?;
 
     Ok(())
 }
