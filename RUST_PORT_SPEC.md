@@ -442,7 +442,7 @@ CCDの理想化座標をそのまま使える水素と、使えない水素が�
 - **レポートの設計**: `OverallHydrogenationReport`は`total_added_hydrogens`/`total_removed_hydrogens`/`hydrogenated_residues`/`skipped_residues`(何も変更されず失敗・未対応だった残基、理由付き)/`step_errors`(Step1・Step2で発生したエラー、想定内のテンプレート未検出とテンプレートはあるが処理失敗の両方を含む)/`residue_reports`(残基ごとの詳細)を持つ。「変更の有無」(`has_modifications`)と「エラーの有無」(`has_errors`)を独立した2軸として扱い、両方を組み合わせて記録先を決定する設計に収束した(既に水素化済みで変更0件だが成功、テンプレート未検出だが主鎖側は成功、等のケースを区別して正しく記録する)。
 - **検証**: `1hls.pdb`全体への適用、結晶水(`HOH`)を含む構造での耐性、冪等性(同一構造への2回連続適用)、未知残基(テンプレート未検出)の記録、Step1成功・Step2失敗時のエラー保持、鎖切断の処理等を`test_orchestrator.rs`(9テスト)で検証済み。`cargo test --workspace`・`cargo clippy`・`cargo fmt`とも問題なし。
 - **既知の限界**: `is_plausible_peptide_bond`の距離チェック(0.8〜2.5Å)は実際のペプチド結合長(~1.33Å)に対して幅があり、真の隣接性の完全な保証ではない(PR#39から継続、実データでは鎖走査順序と組み合わせているため実害は小さいと判断)。PR#38・PR#39それぞれの既知の限界(回転可能水素の局所最適化なし、核酸リン酸基の歪み検知未対応、N末端プロリンのH1/H2方位角不定等)はそのまま引き継がれる。
-- **設計上の技術的負債(対応不要、将来の参考)**: エラー記録が「Step1/Step2の`Err`分岐で即座に記録する経路」と「関数末尾でまとめて判定する経路」の2系統に分かれており、レビュー2〜4回目で「片方を直すともう片方が壊れる」系の不具合が複数回発生した。将来同種の変更をする際は、`record_error`の即時呼び出しをやめ、関数末尾の判定ブロックに記録を一元化する設計への整理を検討する価値がある。
+- **設計上の技術的負債(対応不要、将来の参考)**: エラー記録が「Step1/Step2の`Err`分岐で即座に記録する経路」と「関数末尾でまとめて判定する経路」の2系統に分かれており、レビュー2〜4回目で「片方を直すともう片方が壊れる」系の不具合が複数回発生した。将来同種の変更をする際は、`record_error`の即時呼び出しをやめ、関数末尾の判定ブロックに記録を一元化する設計への整理を検討する価値がある。 → **PR#41で対応予定(2026-10-03計画、`docs/tasks/TASK_hydrogenation-cleanup.md`)。**
 
 ##### Pythonバインディング
 
@@ -454,6 +454,80 @@ Phase 8/9と同様、本機能のスコープには含めない。PR#40完了後
 - プロトン化状態・互変異性体のpH依存推定(PROPKA等によるpKa推定)。
 - CCDエントリが存在しないコンポーネントへのフォールバック水素付加(ヒューリスティックな推定は行わない。テンプレートが無ければ明示的にスキップし、その旨をレポートする)。
 - Pythonバインディング(上記参照)。
+
+### 3.17 PDBx/mmCIF構造の書き出し(計画: 2026-10-03)
+
+#### 背景
+
+§3.1でPDBx/mmCIFをRust版の主力フォーマットと定めたが、現状`format/mmcif.rs`は**読み込み専用**であり、`AtomGroup`をmmCIFとして書き出す手段がない。書き出し可能なのはPDB(`Pdb::save`)・XYZ・MOL2のみで、PDB形式には原子数99,999・残基番号9,999等のカラム桁数上限がある。§3.16で実装した水素付加(`AtomGroup::add_missing_hydrogens`)の結果をProteinDF側へ渡すパイプライン(mmCIF読み込み → `setup()` → 水素付加 → **書き出し**)を、大規模構造でも途切れずに通すため、mmCIF書き出しを実装する。
+
+#### スコープに関する方針決定(ユーザー確認済み、2026-10-03)
+
+- **結合情報**: 残基をまたぐ結合を`_struct_conn`に書き出す。SG-SG(CYS同士)は`disulf`、それ以外(ペプチド結合・核酸骨格のO3'-P結合を除く)は`covale`とする。読み込み側も`covale`を読むよう拡張し、**書き出し→読み込みで結合が元に戻ること**を保証する。残基内の結合は書き出さない(CCDテンプレートまたは`setup()`で復元する前提、§3.13〜3.15)。
+- **Pythonバインディング**: Rust側の実装完了後に別PRとして追加する。
+- **役割分担**: 従来どおりagyが実装し、Claudeがレビューする。
+
+#### 設計
+
+**API(名前は実装時に判断してよい)**: 巨大な文字列を作らないよう`std::io::Write`へ逐次書き出す関数を中核にし、パス指定版と書き出しオプションを用意する。
+
+```rust
+pub struct MmcifWriteOptions {
+    pub data_block_name: String,      // `data_<name>`。既定値は実装時に決める
+    pub charge_to_b_factor: bool,     // Pdb::set_by_atomgroupのis_charge2tempfactorに相当
+}
+SimpleMmcif::write_structure(ag: &AtomGroup, w: &mut impl Write, opts: &MmcifWriteOptions) -> Result<()>
+SimpleMmcif::save_structure(ag: &AtomGroup, path: impl AsRef<Path>, opts: &MmcifWriteOptions) -> Result<()>
+```
+
+**入力構造の前提**: §9(PR#28)のprotein schema(`/model_N/chain_id/res_key/atom_key`)に従うこと。書き出し前に`validate_schema()`で検査し、違反があればエラーにする(黙って一部を捨てたり平坦化したりしない)。
+
+**`_atom_site`の各項目**:
+
+| 項目 | 書き出す値 | 備考 |
+| --- | --- | --- |
+| `group_PDB` | 標準アミノ酸20種・核酸8種(組み込みCCDテンプレートからHOHを除いた28種)は`ATOM`、それ以外は`HETATM` | |
+| `id` | ファイル全体で1から連番 | 読み込み時の原子キー(`{id}_{name}`)は保存されない。往復テストでは原子キーではなく残基内の原子名で比較する |
+| `type_symbol` | `atomic_number`から求めた元素記号 | |
+| `label_atom_id` / `auth_atom_id` | `atom.name` | |
+| `label_alt_id` | `.` | 読み込み時にaltLocを1つに絞っているため情報がない |
+| `label_comp_id` / `auth_comp_id` | 残基グループの`name` | |
+| `label_asym_id` / `auth_asym_id` | 鎖キー(`_`は空の鎖IDを表すので、その扱いを読み込み側と揃える) | |
+| `label_entity_id` | `?` | entity情報を持たないため |
+| `label_seq_id` | `ATOM`は`auth_seq_id`と同じ値、`HETATM`は`.` | **既知の限界**: `entity_poly_seq`に基づく本来の連番ではない。読み込み側は`auth_*`を優先するので往復には影響しない |
+| `auth_seq_id` / `pdbx_PDB_ins_code` | 残基キーを「符号付き整数+挿入コード」として分解 | **分解できないキーはエラー**(既存`Pdb::set_by_atomgroup`の`unwrap_or(0)`は踏襲しない。教訓13) |
+| `Cartn_x/y/z` | 小数点以下3桁 | |
+| `occupancy` | `1.00` | 情報を持たないため |
+| `B_iso_or_equiv` | `0.00`。`charge_to_b_factor`が真なら`atom.charge` | |
+| `pdbx_formal_charge` | `atom.charge`が整数値ならその値。**整数でない電荷(部分電荷)はエラー**にし、`charge_to_b_factor`の利用を促すメッセージを出す。`charge_to_b_factor`が真の場合は`?` | 部分電荷を黙って丸めたり捨てたりしない |
+| `pdbx_PDB_model_num` | モデルキー`model_N`のN | 分解できないキーはエラー |
+
+**CIFの値のクォート**: 空文字列・空白を含む値・`_` `#` `$` `'` `"` `[` `]` `;`で始まる値・予約語(`data_` `loop_` `save_` `global_` `stop_`、大文字小文字を区別しない)は引用符で囲む。値に`'`が含まれる場合(核酸の`O5'`等)は`"`で囲む(RCSB配布ファイルと同じ書き方)。**既存の読み込み側トークナイザ(`SimpleMmcif::tokenize`)は、引用符の直後が空白かどうかを見ずに最初の同じ引用符で値を終わらせる**ため、書き出し側は「囲む引用符と同じ文字を値の中に含めない」ことを必ず守る。`'`と`"`の両方を含む値はエラーにする。
+
+**`_struct_conn`(PR#43)**:
+- 対象は異なる残基に属する2原子間の結合。ペプチド結合(アミノ酸残基の`C`と次のアミノ酸残基の`N`)と核酸骨格(`O3'`-`P`)は除外する。CYSの`SG`同士は`disulf`、それ以外は`covale`。
+- 書き出す項目: `id`(`disulf1`, `covale1`, …)、`conn_type_id`、`ptnr{1,2}_label_{asym,comp,seq,atom}_id`、`ptnr{1,2}_auth_{asym,seq}_id`、`pdbx_ptnr{1,2}_PDB_ins_code`、`pdbx_value_order`(`sing`/`doub`/`trip`/`quad`)。
+- `_struct_conn`にはモデル番号がない。読み込み側は全モデルに同じ結合を適用しているので、書き出しは**最初のモデルの結合だけ**を対象にする。モデルごとに結合が異なる構造はこの形式では表現できない(既知の限界)。
+- 読み込み側の拡張: `conn_type_id`が`covale`の行も読み、`pdbx_value_order`を結合次数として反映する(値がない場合は1)。`metalc`・`hydrog`は引き続き読まない。**実RCSBファイルの読み込み結果が変わる**(糖鎖結合や共有結合リガンドなどの結合が増える)ので、§3.8・§3.13〜3.15の結合解決(`ag.setup()`)がファイル由来の残基間結合と共存して正しく動くことを確認する。
+- 金属配位(`metalc`)への分類はスコープ外。`setup()`のヒューリスティックで作られた金属-配位子の結合も`covale`として書き出される(既知の限界としてdocコメントに書く)。
+
+**性能**: 100万原子規模で書き出せること。`BufWriter`で逐次書き出し、原子ごとの不要な文字列確保を避ける。`get_bond_list()`は`&mut self`(内部で`update_paths()`を呼ぶ)なので、`&AtomGroup`を受け取る書き出し関数から結合を集める方法を実装時に決める(100万原子の`AtomGroup`を丸ごと`clone`するのは避ける)。
+
+#### 対象(PR分割)
+
+- **PR#42**: `_atom_site`の書き出し(上記API、クォート処理、検証)
+- **PR#43**: `_struct_conn`の書き出し(disulf + covale)と、読み込み側の`covale`対応
+- **PR#44**: Pythonバインディング(`PySimpleMmcif`への書き出しメソッド追加)
+
+実行チェックリスト・完了の定義は`docs/tasks/TASK_mmcif-writer.md`を参照。
+
+#### スコープ外(当面)
+
+- `entity`・`entity_poly`・`entity_poly_seq`・`struct_asym`等のカテゴリの生成(entity情報を持たないため)。これに伴い`label_seq_id`は本来の値にならない(上表参照)。
+- altLoc・占有率・B因子の保持(`AtomGroup`にフィールドがないため)。
+- `metalc`・`hydrog`の書き出し/読み込み。
+- 残基内の結合(`_chem_comp_bond`)の書き出し。
+- 読み込み側トークナイザを厳密なCIF仕様に合わせる修正(引用符の直後が空白でなければ値の終わりとみなさない規則)。
 
 ## 4. 多言語バインディング方針
 
