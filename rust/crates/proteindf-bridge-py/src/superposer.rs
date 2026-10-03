@@ -8,7 +8,11 @@ use crate::position::PyPosition;
 use proteindf_bridge::superposer::Superposer as CoreSuperposer;
 use pyo3::prelude::*;
 
-#[pyclass(name = "Superposer", module = "proteindf_bridge_rs")]
+#[pyclass(
+    name = "Superposer",
+    module = "proteindf_bridge_rs",
+    skip_from_py_object
+)]
 #[derive(Clone)]
 pub struct PySuperposer {
     pub(crate) inner: CoreSuperposer,

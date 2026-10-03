@@ -6,7 +6,11 @@ use crate::error::to_py_err;
 use proteindf_bridge::format::mol2::SimpleMol2 as CoreSimpleMol2;
 use pyo3::prelude::*;
 
-#[pyclass(name = "SimpleMol2", module = "proteindf_bridge_rs")]
+#[pyclass(
+    name = "SimpleMol2",
+    module = "proteindf_bridge_rs",
+    skip_from_py_object
+)]
 #[derive(Clone, Default)]
 pub struct PySimpleMol2 {
     pub(crate) inner: CoreSimpleMol2,

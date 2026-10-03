@@ -7,7 +7,11 @@ use crate::position::PyPosition;
 use proteindf_bridge::format::amber_prmtop::AmberPrmtop as CoreAmberPrmtop;
 use pyo3::prelude::*;
 
-#[pyclass(name = "AmberPrmtop", module = "proteindf_bridge_rs")]
+#[pyclass(
+    name = "AmberPrmtop",
+    module = "proteindf_bridge_rs",
+    skip_from_py_object
+)]
 #[derive(Clone, Default)]
 pub struct PyAmberPrmtop {
     pub(crate) inner: CoreAmberPrmtop,

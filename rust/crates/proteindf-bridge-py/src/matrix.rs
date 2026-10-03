@@ -7,7 +7,7 @@ use proteindf_bridge::matrix::{Matrix as CoreMatrix, SymmetricMatrix as CoreSymm
 use pyo3::exceptions::{PyIndexError, PyTypeError};
 use pyo3::prelude::*;
 
-#[pyclass(name = "Matrix", module = "proteindf_bridge_rs")]
+#[pyclass(name = "Matrix", module = "proteindf_bridge_rs", from_py_object)]
 #[derive(Clone)]
 pub struct PyMatrix {
     pub(crate) inner: CoreMatrix,
@@ -276,7 +276,11 @@ impl PyMatrix {
     }
 }
 
-#[pyclass(name = "SymmetricMatrix", module = "proteindf_bridge_rs")]
+#[pyclass(
+    name = "SymmetricMatrix",
+    module = "proteindf_bridge_rs",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PySymmetricMatrix {
     pub(crate) inner: CoreSymmetricMatrix,
