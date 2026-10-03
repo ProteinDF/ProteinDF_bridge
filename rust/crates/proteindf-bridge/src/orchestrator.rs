@@ -94,6 +94,19 @@ fn is_plausible_peptide_bond(prev_res: &AtomGroup, curr_res: &AtomGroup) -> bool
     }
 }
 
+/// Outcome of a single hydrogenation step (Step 1 backbone or Step 2 sidechain/general).
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum StepOutcome {
+    /// Step was not applicable (e.g. Step 1 on a non-amino-acid component).
+    NotApplicable,
+    /// Step completed successfully.
+    Success,
+    /// Step encountered a genuine processing or geometric failure.
+    Failed(String),
+    /// CCD template was not found (expected for uncataloged ligands/waters/ions).
+    TemplateMissing(String),
+}
+
 /// Adds missing hydrogens to a single residue or component.
 ///
 /// If `is_amino_acid` is true, performs:
@@ -121,11 +134,8 @@ fn hydrogenate_single_residue(
         removed_atom_names: Vec::new(),
     };
 
-    let mut step1_err = None;
-    let mut step2_err = None;
-
     // Step 1: Backbone hydrogenation for amino acid residues
-    if is_aa {
+    let step1_outcome = if is_aa {
         match add_backbone_hydrogens_to_residue_in_place(residue, prev_residue) {
             Ok(bb_report) => {
                 combined_report.added_hydrogens += bb_report.added_hydrogens;
@@ -136,17 +146,16 @@ fn hydrogenate_single_residue(
                 combined_report
                     .removed_atom_names
                     .extend(bb_report.removed_atom_names);
+                StepOutcome::Success
             }
-            Err(e) => {
-                let err_msg = format!("Backbone hydrogenation error: {e}");
-                report.record_error(res_path.clone(), err_msg.clone());
-                step1_err = Some(err_msg);
-            }
+            Err(e) => StepOutcome::Failed(format!("Backbone hydrogenation error: {e}")),
         }
-    }
+    } else {
+        StepOutcome::NotApplicable
+    };
 
     // Step 2: CCD-reference-based sidechain and general hydrogen addition
-    if let Some(template) = db.lookup(&residue.name) {
+    let step2_outcome = if let Some(template) = db.lookup(&residue.name) {
         let options = HydrogenationOptions::default();
         match add_hydrogens_to_component_in_place_with_options(residue, template, &options) {
             Ok(sc_report) => {
@@ -158,51 +167,69 @@ fn hydrogenate_single_residue(
                 combined_report
                     .removed_atom_names
                     .extend(sc_report.removed_atom_names);
+                StepOutcome::Success
             }
             Err(e) => {
                 // E.g., HOH water has only 1 heavy atom ('O'), failing MIN_SUPERPOSE_HEAVY_ATOMS (3),
-                // or degenerate coordinates. Record step failure and continue.
-                let err_msg = format!("Sidechain/general hydrogenation error: {e}");
-                report.record_error(res_path.clone(), err_msg.clone());
-                step2_err = Some(err_msg);
+                // or degenerate coordinates.
+                StepOutcome::Failed(format!("Sidechain/general hydrogenation error: {e}"))
             }
         }
     } else {
         // Missing CCD template is expected for uncataloged ligands, waters, or metal ions.
-        // It is recorded in `skipped_residues` (if unmodified) rather than `step_errors`
-        // so that `step_errors` exclusively contains genuine processing/geometric failures.
-        step2_err = Some(format!(
+        StepOutcome::TemplateMissing(format!(
             "No CCD template found for residue '{}'",
             residue.name
-        ));
-    }
+        ))
+    };
 
-    let has_errors = step1_err.is_some() || step2_err.is_some();
+    let has_errors = matches!(step1_outcome, StepOutcome::Failed(_))
+        || matches!(
+            step2_outcome,
+            StepOutcome::Failed(_) | StepOutcome::TemplateMissing(_)
+        );
     let has_modifications =
         combined_report.added_hydrogens > 0 || combined_report.removed_hydrogens > 0;
 
     if !has_errors {
-        // Both steps succeeded without any errors.
+        // Both steps succeeded without any errors (or Step 1 was not applicable and Step 2 succeeded).
         // Even if 0 hydrogens were added/removed (already fully hydrogenated), record into residue_reports.
         report.record_residue(res_path, combined_report);
     } else if has_modifications {
         // At least one step encountered an error or missing template, but another step succeeded and modified the residue.
-        // Record the modifications into residue_reports:
+        // 1. Record the modifications into residue_reports:
         report.record_residue(res_path.clone(), combined_report);
 
-        // If step2 failed due to missing template on this partially modified residue,
-        // it was not recorded during lookup (to avoid polluting step_errors for unmodified ligands).
-        // Record it now so that partial hydrogenation on a modified residue is never silenced.
-        if let Some(ref err) = step2_err {
-            if !report.step_errors.iter().any(|(p, _)| p == &res_path) {
-                report.record_error(res_path, err.clone());
+        // 2. Record all encountered errors into step_errors so partial modifications are never silenced.
+        // Missing template on a modified residue is also recorded here (unlike unmodified ligands).
+        // Since we record at most once per step here, no linear scan or deduplication is needed (O(1)).
+        if let StepOutcome::Failed(err) = step1_outcome {
+            report.record_error(res_path.clone(), err);
+        }
+        match step2_outcome {
+            StepOutcome::Failed(err) | StepOutcome::TemplateMissing(err) => {
+                report.record_error(res_path, err);
             }
+            _ => {}
         }
     } else {
         // No modifications occurred AND errors/missing templates occurred: completely skipped.
-        let reason = step2_err
-            .or(step1_err)
-            .unwrap_or_else(|| "No hydrogens added or removed".to_string());
+        // 1. Record genuine processing failures in step_errors.
+        // Missing templates on completely unmodified components are intentionally excluded
+        // from step_errors to avoid noise for standard uncataloged ligands/waters.
+        if let StepOutcome::Failed(ref err) = step1_outcome {
+            report.record_error(res_path.clone(), err.clone());
+        }
+        if let StepOutcome::Failed(ref err) = step2_outcome {
+            report.record_error(res_path.clone(), err.clone());
+        }
+
+        // 2. Record in skipped_residues with the primary skip/failure reason (Step 2 preferred).
+        let reason = match (&step2_outcome, &step1_outcome) {
+            (StepOutcome::Failed(err), _) | (StepOutcome::TemplateMissing(err), _) => err.clone(),
+            (_, StepOutcome::Failed(err)) => err.clone(),
+            _ => "No hydrogens added or removed".to_string(),
+        };
         report.record_skipped(res_path, reason);
     }
 
