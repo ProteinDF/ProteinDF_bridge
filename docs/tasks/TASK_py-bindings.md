@@ -111,3 +111,22 @@
 **残っている軽微な点**: `repr(MmcifStructureReport)`が常に`atoms=0`と表示される(最上位に直接ある原子の数を作成時点で数えているため)。→ PR#46で、全原子数をその時点の値で表示するよう修正する。
 
 ユーザー承認のうえ、2026-10-03にdevelopへマージした(`5211af2`)。**PR#45は完了。** 次はPR#46。
+
+## PR#46 レビュー結果(1回目、2026-10-03、要修正・軽微)
+
+`feature/py-bindings-pr46`(`5a1e80e`・`0d42d03`・`9a9551d`)をレビューした。agyは最終検証の途中で利用上限に達し、完了報告は出なかったため、Claudeが直接検証した。実バグはない。
+
+- Pythonから`1hls.pdb` → `setup()` → `add_missing_hydrogens()` → mmCIF書き出し → 再読み込みが通り、水素の数(元379 → 15追加 → 394)が`test_orchestrator.rs`の基準値と一致する(Rust側に該当のアサートがあることを確認した)。
+- `repr(MmcifStructureReport)`が全原子数(1WCTで`atoms=218`)を表示するようになった。
+- コアのクレートは変更なし。`cargo test --workspace`(318 passed)、clippy、fmt、Pythonテスト一式(164件)をClaudeが確認した。
+
+### 修正依頼(ユーザー判断により、agyが対応する)
+
+1. **【軽微】`residue_reports`の並び順が実行ごとに変わる。** Rust側の`HashMap`の順序をそのまま使っているため(`docs/rust-port-handoff.md`教訓5「コレクションの順序決定性」)。キー(残基パス)で決定的にソートした順で辞書を作る。2回実行して順序が同じであることをテストする。
+2. **【軽微】`skipped_residues`・`step_errors`・`residue_reports`が外から書き換えられる。** Claudeが`rep.skipped_residues.append(...)`を試したところ、レポートの中身が変わった。§4.3「共通の設計方針」3(読み取り専用)に従い、`skipped_residues`・`step_errors`は`(path, reason)`のタプルのタプル(または毎回新しいリスト)、`residue_reports`は毎回新しい辞書(中の`HydrogenationReport`は共有してよい)を返す。外から変更してもレポートが変わらないことをテストする。なお「大きなオブジェクトはコピーせず同じものを返す」というPR#45の方針は`AtomGroup`のような大きな構造が対象で、これらの小さな一覧には当てはまらない。
+3. **【軽微】`tests/test_rs_hydrogenation.py`のコメントが、`test_mmcif_writer.rs`の306行目に394という値があると書いているが、実際にはない**(394は`test_orchestrator.rs`の値。`test_mmcif_writer.rs`は再読み込み前後の水素数が等しいことを確認している)。引用元を正しく書き直す。
+
+### 完了の定義(修正後)
+
+1. 上記1〜3に対応し、同じブランチに追加コミットする。
+2. 全PR共通の完了の定義1〜4を満たす。
