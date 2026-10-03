@@ -1162,28 +1162,28 @@ mod step_outcome_pinning_tests {
             .contains("Backbone hydrogenation error"));
     }
 
-    /// Explains and tests why 4 of the 18 combinations are structurally unreachable.
-    #[test]
-    fn test_unreachable_step_outcome_combinations() {
-        // Pattern 03: (Step1: NA, Step2: Err, Modified: true)
-        // - Step 1 is not applicable (0 modifications).
-        // - Step 2 fails with Err. In-place hydrogenation is atomic (it only commits modifications
-        //   on Ok). Therefore, 0 modifications occur on Err.
-        // - Consequently, Modified: true cannot be reached.
-
-        // Pattern 05: (Step1: NA, Step2: Missing, Modified: true)
-        // - Step 1 is not applicable (0 modifications).
-        // - Step 2 finds no template and does nothing (0 modifications).
-        // - Consequently, Modified: true cannot be reached.
-
-        // Pattern 15: (Step1: Err, Step2: Err, Modified: true)
-        // - Step 1 returns Err (atomic, 0 modifications).
-        // - Step 2 returns Err (atomic, 0 modifications).
-        // - Consequently, Modified: true cannot be reached when both steps fail.
-
-        // Pattern 17: (Step1: Err, Step2: Missing, Modified: true)
-        // - Step 1 returns Err (0 modifications).
-        // - Step 2 finds no template (0 modifications).
-        // - Consequently, Modified: true cannot be reached.
-    }
+    // ========================================================================
+    // Structurally Unreachable Combinations (4 out of 18 combinations)
+    // ========================================================================
+    //
+    // Pattern 03: (Step1: NA, Step2: Err, Modified: true)
+    // - Step 1 is not applicable (0 modifications).
+    // - Step 2 fails with Err. In-place hydrogenation is atomic (it only commits modifications
+    //   on Ok). Therefore, 0 modifications occur on Err.
+    // - Consequently, Modified: true cannot be reached.
+    //
+    // Pattern 05: (Step1: NA, Step2: Missing, Modified: true)
+    // - Step 1 is not applicable (0 modifications).
+    // - Step 2 finds no template and does nothing (0 modifications).
+    // - Consequently, Modified: true cannot be reached.
+    //
+    // Pattern 15: (Step1: Err, Step2: Err, Modified: true)
+    // - Step 1 returns Err (atomic, 0 modifications).
+    // - Step 2 returns Err (atomic, 0 modifications).
+    // - Consequently, Modified: true cannot be reached when both steps fail.
+    //
+    // Pattern 17: (Step1: Err, Step2: Missing, Modified: true)
+    // - Step 1 returns Err (0 modifications).
+    // - Step 2 finds no template (0 modifications).
+    // - Consequently, Modified: true cannot be reached.
 }

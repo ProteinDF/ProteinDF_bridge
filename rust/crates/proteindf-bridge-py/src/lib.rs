@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: The ProteinDF development team
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#![allow(deprecated)]
-
 use pyo3::prelude::*;
 
 pub mod amino_acid;
