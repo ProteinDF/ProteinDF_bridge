@@ -12,7 +12,9 @@ pub mod xyz;
 pub use amber_prmtop::PyAmberPrmtop;
 pub use format_util::PyFormat;
 pub use gro::PySimpleGro;
-pub use mmcif::PySimpleMmcif;
+pub use mmcif::{
+    PyMmcifStructureReport, PySimpleMmcif, PyStructConnPartnerUnresolved, PyUnresolvedStructConn,
+};
 pub use mol2::PySimpleMol2;
 pub use pdb::PyPdb;
 pub use xyz::PyXyz;
