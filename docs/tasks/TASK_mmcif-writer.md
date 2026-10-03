@@ -1,0 +1,155 @@
+# TASK: PDBx/mmCIF構造の書き出し (PR#42〜44)
+
+> mmCIFは§3.1でRust版の主力フォーマットとしたが、現状は読み込みしかできない。水素付加(§3.16)の結果を、PDB形式の桁数上限(原子数99,999等)に縛られずに書き出せるようにする。設計の根拠・スコープの判断は`RUST_PORT_SPEC.md` §3.17にある(ユーザー確認済み、2026-10-03)。**着手前に§3.17を必ず精読すること。** 本ファイルは実行チェックリストである。
+
+## 役割分担・ブランチ運用(MUST)
+
+- 実装はagy、レビューはClaude(`/code-review`)が担当する。
+- **PR#41(`TASK_hydrogenation-cleanup.md`)がdevelopにマージされてから着手する。** 着手順はPR#42 → PR#43 → PR#44。各PRは前のPRがレビューで承認されてから始める。
+- `develop`から`feature/mmcif-writer-prNN`(名前はagyの判断でよい)を切って作業する。
+- **`develop`へは自分でマージしない。** 完了したら、ブランチ名と完了内容をユーザー経由でClaudeに報告し、レビュー承認を待つこと。
+- **共有ワークツリー注意(MUST)**: 作業開始前に`git status`と`git branch --show-current`を確認する(`docs/rust-port-handoff.md` §1.4)。
+
+## PR#42: `_atom_site`の書き出し
+
+### 対象
+
+1. `format/mmcif.rs`(大きくなりすぎる場合は`format/mmcif_writer.rs`などに分けてよい)に、`std::io::Write`へ逐次書き出す関数と、パス指定版・`MmcifWriteOptions`を実装する(§3.17「API」)。
+2. 書き出し前に`validate_schema()`で入力を検査し、違反があればエラーにする。
+3. 各項目の値は§3.17の表に従う。特に次の3点は**エラーにすること**(黙って0や`?`にしない。`docs/rust-port-handoff.md`の教訓13):
+   - 残基キーを「符号付き整数+挿入コード」に分解できない
+   - モデルキーから番号を取り出せない
+   - `charge_to_b_factor`が偽のときに、整数でない電荷がある
+4. CIFの値のクォート処理(§3.17「CIFの値のクォート」)。読み込み側トークナイザの制約(引用符の直後が空白かどうかを見ない)に合わせ、囲む引用符と同じ文字を値の中に含めない。
+
+### 完了の定義
+
+1. **往復テスト(実データ)**: `tests/data/1HLS.cif`・`2FB4.cif`(挿入コードあり)・`2MGO.cif`(1HLS・2MGOはNMR構造で20モデルを持つので、全モデルの往復を確認する)・`3I3Z.cif`を読み込み → 書き出し → 再読み込みし、モデル・鎖・残基キー・残基名・残基内の原子名・元素・座標(誤差1e-3Å以内)・電荷が一致することを確認する。原子キー(`{id}_{name}`)は連番が振り直されるので比較しない。
+2. **水素付加パイプラインの往復テスト**: `1hls.pdb`を読み込み → `setup()` → `add_missing_hydrogens` → mmCIF書き出し → 再読み込みし、水素の数と水素の座標が保たれていることを確認する。これが今回の目的そのものなので必須とする。
+3. **合成データのテスト**:
+   - 負の残基番号(`-1`など)と挿入コードの組み合わせ
+   - `'`を含む原子名(核酸の`O5'`など)・空白を含む値・予約語と同じ値のクォートと往復
+   - `'`と`"`の両方を含む値がエラーになる
+   - schema違反の入力・分解できない残基キー・整数でない電荷がそれぞれエラーになる。`charge_to_b_factor`を真にすると、整数でない電荷でも書き出せて`B_iso_or_equiv`に入る
+   - `ATOM`/`HETATM`が§3.17の規則どおりに振り分けられる
+4. **PDB形式の上限を超える構造**: 原子数100,000超(残基番号も9,999超)の合成構造を書き出し → 再読み込みして原子数と最後の原子の座標が一致することを確認する通常のテスト。あわせて、100万原子の書き出し時間を計測する`#[ignore]`付きのベンチマークを用意し、リリースビルドでの実測値を完了報告に書く。
+5. **外部ツールでの読み込み確認(手動、CIには入れない)**: 書き出した1HLSのファイルを、外部のmmCIF実装(例: `uv run --with gemmi python -c "import gemmi; gemmi.read_structure('out.cif')"`)で読み込めることを確認し、使ったツール・バージョン・結果を完了報告に書く。警告が出た場合はその内容も書く。
+6. `cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check`がすべて通る。
+
+## PR#43: `_struct_conn`の書き出しと読み込み側の`covale`対応
+
+### 対象
+
+1. **書き出し**: 異なる残基に属する原子間の結合を`_struct_conn`に書き出す。ペプチド結合(アミノ酸残基の`C`-次のアミノ酸残基の`N`)と核酸骨格(`O3'`-`P`)は除外し、CYSの`SG`同士は`disulf`、それ以外は`covale`とする。書き出す項目と、最初のモデルの結合だけを対象にする理由は§3.17を参照。
+2. **結合の集め方**: `get_bond_list()`は`&mut self`である。`&AtomGroup`を受け取る書き出し関数から、100万原子の`AtomGroup`を`clone`せずに残基間の結合を集める方法を決める(例: パスを更新しない読み取り専用の走査を用意する)。採用した方法と理由を完了報告に書く。
+3. **読み込み**: `get_structure_atomgroup_for_block`で`conn_type_id`が`covale`の行も読み、`pdbx_value_order`(`sing`/`doub`/`trip`/`quad`、値がない・不明な場合は1)を結合次数にする。`StructConnRecord`に必要なフィールドを追加する。`metalc`・`hydrog`は引き続き読まない。
+
+### 完了の定義
+
+1. **実データの読み込みテスト**: 現在の`tests/data/*.cif`には`covale`の行がない。`covale`を含む小さめの実エントリ(糖鎖が付いたタンパク質や共有結合リガンドなど)を1つ選んで`tests/data/`に追加し、出典(PDB ID・取得日・取得元URL)をテストのコメントに書く。そのエントリの`covale`結合が読み込まれることを確認する。**`covale`行の数・原子の組は、テストコードとは別にファイルを直接見て数え、その基準値と比較すること。**
+2. **既存の結合解決への影響確認**: 上記エントリと既存の`1HLS.cif`・`2FB4.cif`について、`ag.setup()`(§3.13〜3.15)がファイル由来の残基間結合と共存して正しく動くこと(残基間結合が重複して登録されない、CCDテンプレートの残基内結合も付く)をテストで確認する。
+3. **往復テスト**: ジスルフィド結合を含む`1HLS.cif`・`2FB4.cif`と、上記の`covale`を含むエントリを読み込み → 書き出し → 再読み込みし、残基間結合の組と結合次数が一致することを確認する。
+4. **合成データのテスト**: ペプチド結合とO3'-P結合が書き出されないこと、残基内の結合が書き出されないこと、二重結合が`doub`で往復すること。
+5. `cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check`がすべて通る。
+
+## PR#44: Pythonバインディング
+
+### 対象
+
+1. `proteindf-bridge-py`の`PySimpleMmcif`に、PR#42・43の書き出し機能を公開する(メソッド名・引数は既存の`PyPdb`の書き出し系メソッドに合わせる)。
+2. `MmcifWriteOptions`の各項目はキーワード引数で指定できるようにする。
+
+### 完了の定義
+
+1. 既存のPythonバインディングのテストと同じ仕組みで、Pythonからの書き出し → Rustでの再読み込み(または`proteindf_bridge_rs`での再読み込み)の往復テストを追加する。
+2. Rust側のエラー(schema違反、整数でない電荷など)がPythonの例外(`BrError`系)として届くことを確認する。
+3. `cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check`と、Python側のテストがすべて通る。
+
+## 全PR完了後
+
+- `RUST_PORT_SPEC.md` §3.17に「実施内容・検証」と既知の限界を追記する(§3.16と同じ形式)。
+- `docs/rust-port-handoff.md` §5に記録する。
+
+## PR#42 レビュー結果(1回目、2026-10-03、要修正)
+
+`feature/mmcif-writer-pr42`(`31c13ab`・`e006d5e`)をレビューした。設計(§3.17)どおりに実装されており、往復テストの比較(モデル・鎖・残基・原子名・元素・座標・電荷)も十分に厳密である。Claudeが次を実際に確認した。
+
+- `cargo test --workspace`(301 passed、0 failed、2 ignored)、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --check`がすべて通る。
+- 100万原子の書き出しはリリースビルドで約0.87秒。
+- 書き出した1HLS(20モデル)をgemmi 0.7.5で読み込めた。
+- 空の鎖ID(キー`_`)は`.`として書き出され、読み直すと`_`に戻る(ただし、これを確かめるテストがない。下記3)。
+
+### 修正依頼
+
+1. **【実バグ】途中でエラーになると、書きかけの出力が残る。** 整数でない電荷・分解できない残基キー・両方の引用符を含む値などのエラーは、原子を書いている途中で発生する。Claudeが確認したところ、2原子目に部分電荷がある構造を`save_structure`すると、`Err`は返るが、ヘッダーと1原子目だけを含み末尾の`#`もないファイルがディスクに残る。これは正しいmmCIFとして読めてしまう(1原子だけの構造として黙って読み込まれる)。§3.17・教訓13の「黙って不完全な結果を作らない」方針に反する。
+   - `write_structure`: 何かを書き出す前に、全原子について検証(モデルキー・残基キーの分解、電荷、元素記号、値のクォート可否)を済ませる。エラーなら何も書かずに`Err`を返す。
+   - `save_structure`: 書き込み中のI/Oエラーも考慮し、同じディレクトリの一時ファイルに書いてから`rename`する(または失敗時にファイルを削除する)。エラー時に指定パスにファイルが残らない(既存ファイルがあれば上書きされずに残る)ようにする。
+   - テスト: エラーになるケースで、書き出し先のバッファが空であること、ファイルが作られない(既存ファイルが変更されない)ことを確認する。
+2. **【軽微】`charge_to_b_factor`で部分電荷の桁が落ちる。** `{:.2}`で書いているため、`-0.8341`が`-0.83`になる(Claude確認済み)。PDBは列幅の制約で小数2桁だが、mmCIFにはその制約がない。部分電荷を書き出すための機能なので、桁を増やす(小数4桁程度。根拠をdocコメントに書く)。
+3. **【テスト不足】空の鎖ID(`_`)の往復テストを追加する。**
+4. **【軽微】`data_block_name`の検証がない。** 空文字や空白を含む名前を渡すと、壊れたヘッダー(`data_` / `data_a b`)を書き出す。データブロック名は引用符で囲めないので、エラーにする。
+5. **【整理】`quote_cif_value`と`write_cif_value`で、クォートが必要かどうかの判定ロジックがまるごと重複している。** 判定を1つの関数にまとめる。
+6. **【軽微】往復テストの補助関数`assert_atomgroups_match_roundtrip`は原子を名前で`HashMap`に入れるため、同じ残基に同名の原子があると黙って1つにまとめられる。** 元の残基の原子名が一意であること(`HashMap`の件数と残基の原子数が等しいこと)もアサートする。
+
+### 完了報告について
+
+1回目の完了報告にあった「`cargo test --workspace`のテスト件数」の一覧には、**存在しないテストファイル**(`test_atom.rs`、`test_bond.rs`、`test_gro.rs`、`test_amber_prmtop.rs`、`test_atom_group.rs`)が含まれ、実在するファイル(`test_bond_resolution.rs`など)が抜けていた。`test_mmcif_writer.rs`の件数も実際(19 passed、1 ignored)と違っていた(報告は20 passed)。次回からは、コマンドの出力を要約せずにそのまま貼ること。
+
+### 完了の定義(修正後)
+
+1. 上記1〜6に対応し、同じブランチに追加コミットする。
+2. `cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check`が通る。
+
+## PR#42 レビュー結果(2回目、2026-10-03、収束・マージ済み)
+
+修正コミット`2c5c67f`を確認した。修正依頼1〜6すべてに対応済み。
+
+1. 書き出し前に全体を検証する`validate_for_mmcif_write`を追加し、`save_structure`は一時ファイルに書いてから`rename`する形になった。エラー時に出力バッファが空のままであること・既存ファイルが変更されないことをテストで確認している。
+2. `charge_to_b_factor`は小数4桁になった。
+3. 空の鎖IDの往復テストを追加。
+4. データブロック名の検証を追加。
+5. クォート判定を`determine_cif_quote_kind`に一本化。
+6. 往復テストの補助関数に原子名の一意性のアサートを追加。
+
+`cargo test --workspace`(306 passed、0 failed、2 ignored。うち`test_mmcif_writer`は24 passed、1 ignored)、clippy、fmtをClaudeが確認した。
+
+**残っている軽微な点(対応不要)**: `save_structure`で事前検証が2回走る(100万原子で約0.87秒→約1.01秒)。書き込み途中のI/Oエラー時に一時ファイルが消える経路はテストされていない。
+
+ユーザー承認のうえ、2026-10-03にdevelopへマージした(`72be69c`)。**PR#42は完了。** 次はPR#43。
+
+## PR#43 レビュー結果(1回目、2026-10-03、収束・マージ済み)
+
+`feature/mmcif-writer-pr43`(`ebea5c1`・`9967f89`)をレビューした。実バグはない。
+
+- 結合の集め方: `&self`で結合を集める`AtomGroup::get_bond_list_ref`を追加(巨大な構造を`clone`しない)。既存の`get_bond_list`と結果が一致することをテストで確認している。グループのパスは`set_group`で自動設定されるため、パスに依存していても問題ないことをClaudeが確認した。
+- 書き出し: ペプチド結合(標準アミノ酸同士のC-N)と核酸骨格(O3'-P)を除外し、CYSのSG-SGを`disulf`、それ以外を`covale`とする。`_struct_conn`の収集も書き出し前の全体検証に組み込まれている。
+- 実データ: 1WCT(糖鎖・修飾残基を含む)を追加。`covale` 8件・`disulf` 2件の基準値をClaudeが独立に数え直して一致を確認した。修飾残基とのペプチド結合が`covale`として残る点はRCSBの元ファイルと同じ扱い。
+- 既存データへの影響: 既存のテストデータ(1HLS・2FB4・2MGO・3I3Z・ALA)に`covale`行がないことをClaudeが確認した。`setup()`後もファイル由来の結合が消えず重複もしないことを、原子の組ごとにテストで確認している。
+- `cargo test --workspace`(314 passed、0 failed、2 ignored)、clippy、fmtをClaudeが確認した。
+- 性能: 100万原子・結合90万本の構造の書き出しが約2.15秒(結合なしでは約1.0秒)であることをClaudeが計測した。
+
+**残っている軽微な点**:
+1. 読み込み時、`_struct_conn`の相手原子が見つからない結合(altLocで除外された原子など)を黙って捨てる。`disulf`では元からあった挙動だが`covale`にも広がった。→ `docs/tasks/TASK_struct-conn-unresolved.md`で別途対応する(ユーザー承認、2026-10-03)。
+2. `_struct_conn`の収集が検証と書き出しで2〜3回走り、残基内の結合のパスまで毎回解決している。必要になったら最適化する(対応不要)。
+
+ユーザー承認のうえ、2026-10-03にdevelopへマージした(`2f4e72f`)。**PR#43は完了。** 次はPR#44。
+
+## PR#44 レビュー結果(1回目、2026-10-03、要修正)
+
+`feature/mmcif-writer-pr44`(`1372556`・`ce5dd71`)をレビューした。変更はPythonバインディングのクレートとテストのみで、コアのクレートは変更されていない。既存のPython比較テスト(phase1・2・3・7、10・16・16・4件)と新しいテスト8件、`cargo test --workspace`(314 passed)、clippy、fmtが通ることをClaudeが確認した。
+
+### 修正依頼
+
+1. **【不具合】部分電荷を書き出すオプションに`charge_to_b_factor`と`is_charge2tempfactor`の2つの名前があり、メソッドによって解釈が食い違う。** Claudeが確認したところ、`charge_to_b_factor=False, is_charge2tempfactor=True`を渡すと、`write_structure`・`save_structure`・`set_by_atomgroup`は成功し(OR扱い)、`save`だけがエラーになる(`charge_to_b_factor`を優先)。原因は、TASKに「PyPdbに合わせる」と「`MmcifWriteOptions`の項目をキーワード引数にする」の両方を書いたことにある。**ユーザー判断(2026-10-03)により、mmCIFのほうは`charge_to_b_factor`だけにする。** すべてのメソッドから`is_charge2tempfactor`を削除する。メソッド名(`set_by_atomgroup`・`save`など)はPyPdbに合わせたままにする。
+2. **【軽微】テストファイル名`tests/test_rs_phase44.py`を、内容に合った名前(`tests/test_rs_mmcif_writer.py`など)に変える。** 既存のphase番号は開発段階の番号で、44はPR番号を流用していて紛らわしい。
+
+### 完了の定義(修正後)
+
+1. 上記1・2に対応し、同じブランチに追加コミットする。`is_charge2tempfactor`を渡すとPythonの`TypeError`(未知のキーワード引数)になることをテストで確認する。
+2. Pythonテスト(phase1・2・3・7と新しいテスト)、`cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check`が通る。
+
+## PR#44 レビュー結果(2回目、2026-10-03、収束・マージ済み)
+
+修正コミット`a365d39`を確認した。`is_charge2tempfactor`はすべてのメソッドから削除され、渡すと`TypeError`になることをテストで確認している。部分電荷を持つ構造で4つのメソッドを同じ引数で試し、`charge_to_b_factor=True`ではすべて成功、`False`ではすべて`BrInputError`になる(食い違いが解消した)ことをClaudeが確認した。テストファイルは`tests/test_rs_mmcif_writer.py`に改名された。Pythonテスト(phase1・2・3・7:10・16・16・4件、mmcif_writer:9件)、`cargo test --workspace`(314 passed)、clippy、fmtをClaudeが確認した。ユーザー承認のうえ、2026-10-03にdevelopへマージした(`9d188f1`)。
+
+**PR#42〜44はすべて完了。** `RUST_PORT_SPEC.md` §3.17に実施内容・既知の限界を、`docs/rust-port-handoff.md`に記録した。

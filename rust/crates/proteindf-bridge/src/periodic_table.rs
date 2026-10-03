@@ -35,6 +35,110 @@ pub const VDW: &[f64] = &[
     1.98, 2.16,
 ];
 
+/// Covalent atomic radii in Angstroms from:
+/// Cordero, B. et al. "Covalent radii revisited." Dalton Trans. 2008, 2832–2838.
+/// DOI: 10.1039/B801115J
+/// Indexed by atomic number (index 0 is dummy 'X' with value 0.0).
+pub const COVALENT_RADIUS: &[f64] = &[
+    0.0,  // X (dummy)
+    0.31, // 1: H
+    0.28, // 2: He
+    1.28, // 3: Li
+    0.96, // 4: Be
+    0.84, // 5: B
+    0.76, // 6: C
+    0.71, // 7: N
+    0.66, // 8: O
+    0.57, // 9: F
+    0.58, // 10: Ne
+    1.66, // 11: Na
+    1.41, // 12: Mg
+    1.21, // 13: Al
+    1.11, // 14: Si
+    1.07, // 15: P
+    1.05, // 16: S
+    1.02, // 17: Cl
+    1.06, // 18: Ar
+    2.03, // 19: K
+    1.76, // 20: Ca
+    1.70, // 21: Sc
+    1.60, // 22: Ti
+    1.53, // 23: V
+    1.39, // 24: Cr
+    1.39, // 25: Mn
+    1.32, // 26: Fe
+    1.26, // 27: Co
+    1.24, // 28: Ni
+    1.32, // 29: Cu
+    1.22, // 30: Zn
+    1.22, // 31: Ga
+    1.20, // 32: Ge
+    1.19, // 33: As
+    1.20, // 34: Se
+    1.20, // 35: Br
+    1.16, // 36: Kr
+    2.20, // 37: Rb
+    1.95, // 38: Sr
+    1.90, // 39: Y
+    1.75, // 40: Zr
+    1.64, // 41: Nb
+    1.54, // 42: Mo
+    1.47, // 43: Tc
+    1.46, // 44: Ru
+    1.42, // 45: Rh
+    1.39, // 46: Pd
+    1.45, // 47: Ag
+    1.44, // 48: Cd
+    1.42, // 49: In
+    1.39, // 50: Sn
+    1.39, // 51: Sb
+    1.38, // 52: Te
+    1.39, // 53: I
+    1.40, // 54: Xe
+    2.44, // 55: Cs
+    2.15, // 56: Ba
+    2.07, // 57: La
+    2.04, // 58: Ce
+    2.03, // 59: Pr
+    2.01, // 60: Nd
+    1.99, // 61: Pm
+    1.98, // 62: Sm
+    1.98, // 63: Eu
+    1.96, // 64: Gd
+    1.94, // 65: Tb
+    1.92, // 66: Dy
+    1.92, // 67: Ho
+    1.89, // 68: Er
+    1.90, // 69: Tm
+    1.87, // 70: Yb
+    1.87, // 71: Lu
+    1.75, // 72: Hf
+    1.70, // 73: Ta
+    1.62, // 74: W
+    1.51, // 75: Re
+    1.44, // 76: Os
+    1.41, // 77: Ir
+    1.36, // 78: Pt
+    1.36, // 79: Au
+    1.32, // 80: Hg
+    1.45, // 81: Tl
+    1.46, // 82: Pb
+    1.48, // 83: Bi
+    1.40, // 84: Po
+    1.50, // 85: At
+    1.50, // 86: Rn
+    2.60, // 87: Fr
+    2.21, // 88: Ra
+    2.15, // 89: Ac
+    2.06, // 90: Th
+    2.00, // 91: Pa
+    1.96, // 92: U
+    1.90, // 93: Np
+    1.87, // 94: Pu
+    1.80, // 95: Am
+    1.69, // 96: Cm
+];
+
 /// Helper trait to accept either an atomic number (usize) or a symbol (&str) as an atom identifier.
 pub trait IntoAtomId {
     fn to_atomic_number(self) -> Result<usize>;
@@ -114,6 +218,20 @@ impl PeriodicTable {
         VDW.get(num)
             .copied()
             .ok_or(BridgeError::VdwRadiusNotFound(num))
+    }
+
+    /// Returns the covalent radius in Angstroms for a given atom (atomic number or symbol).
+    ///
+    /// Values are from Cordero et al., Dalton Trans. 2008, 2832–2838 (DOI: 10.1039/B801115J).
+    pub fn covalent_radius(atom: impl IntoAtomId) -> Result<f64> {
+        let num = atom.to_atomic_number()?;
+        if num == 0 {
+            return Err(BridgeError::CovalentRadiusNotFound(0));
+        }
+        COVALENT_RADIUS
+            .get(num)
+            .copied()
+            .ok_or(BridgeError::CovalentRadiusNotFound(num))
     }
 
     /// Returns the atomic weight for a given atom (atomic number or symbol).

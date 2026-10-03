@@ -13,6 +13,8 @@ use crate::error::{BridgeError, Result};
 use crate::periodic_table::PeriodicTable;
 use crate::position::Position;
 
+pub use super::mmcif_writer::MmcifWriteOptions;
+
 /// Represents a CIF data block containing key-value pairs and loop tables.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct MmcifDataBlock {
@@ -201,17 +203,20 @@ impl AtomSiteRecord {
     }
 }
 
-/// Represents a connection record from `_struct_conn` (e.g. disulfide bonds).
+/// Represents a connection record from `_struct_conn` (e.g. disulfide bonds, covalent linkages).
 #[derive(Debug, Clone, PartialEq)]
 pub struct StructConnRecord {
     pub id: String,
     pub conn_type_id: String,
     pub ptnr1_asym_id: String,
     pub ptnr1_seq_id: Option<i32>,
+    pub ptnr1_ins_code: String,
     pub ptnr1_atom_id: String,
     pub ptnr2_asym_id: String,
     pub ptnr2_seq_id: Option<i32>,
+    pub ptnr2_ins_code: String,
     pub ptnr2_atom_id: String,
+    pub pdbx_value_order: Option<String>,
 }
 
 impl StructConnRecord {
@@ -236,6 +241,11 @@ impl StructConnRecord {
                 row.get("_struct_conn.ptnr1_label_seq_id")
                     .and_then(|s| s.parse::<i32>().ok())
             });
+        let ptnr1_ins_code = row
+            .get("_struct_conn.pdbx_ptnr1_PDB_ins_code")
+            .filter(|s| *s != "." && *s != "?")
+            .cloned()
+            .unwrap_or_default();
         let ptnr1_atom_id = row
             .get("_struct_conn.ptnr1_label_atom_id")
             .cloned()
@@ -257,21 +267,178 @@ impl StructConnRecord {
                 row.get("_struct_conn.ptnr2_label_seq_id")
                     .and_then(|s| s.parse::<i32>().ok())
             });
+        let ptnr2_ins_code = row
+            .get("_struct_conn.pdbx_ptnr2_PDB_ins_code")
+            .filter(|s| *s != "." && *s != "?")
+            .cloned()
+            .unwrap_or_default();
         let ptnr2_atom_id = row
             .get("_struct_conn.ptnr2_label_atom_id")
             .cloned()
             .unwrap_or_default();
+
+        let pdbx_value_order = row
+            .get("_struct_conn.pdbx_value_order")
+            .filter(|s| *s != "." && *s != "?")
+            .cloned();
 
         Some(Self {
             id,
             conn_type_id,
             ptnr1_asym_id,
             ptnr1_seq_id,
+            ptnr1_ins_code,
             ptnr1_atom_id,
             ptnr2_asym_id,
             ptnr2_seq_id,
+            ptnr2_ins_code,
             ptnr2_atom_id,
+            pdbx_value_order,
         })
+    }
+
+    /// Returns the bond order as an integer (1 for sing, 2 for doub, 3 for trip, 4 for quad).
+    /// Defaults to 1 if unspecified or unknown.
+    pub fn bond_order(&self) -> usize {
+        match self.pdbx_value_order.as_deref() {
+            Some(s) if s.eq_ignore_ascii_case("sing") => 1,
+            Some(s) if s.eq_ignore_ascii_case("doub") => 2,
+            Some(s) if s.eq_ignore_ascii_case("trip") => 3,
+            Some(s) if s.eq_ignore_ascii_case("quad") => 4,
+            _ => 1,
+        }
+    }
+}
+
+/// Describes why a partner atom in a `_struct_conn` record could not be resolved.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StructConnPartnerUnresolved {
+    /// Residue sequence number was missing or unparseable.
+    MissingSeqId,
+    /// Chain was not found in the model.
+    ChainNotFound { chain_id: String },
+    /// Residue was not found in the chain.
+    ResidueNotFound { chain_id: String, res_key: String },
+    /// Atom was not found in the residue (e.g. filtered out by altLoc or missing in data).
+    AtomNotFound {
+        chain_id: String,
+        res_key: String,
+        atom_name: String,
+    },
+}
+
+impl std::fmt::Display for StructConnPartnerUnresolved {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MissingSeqId => write!(f, "missing residue sequence number"),
+            Self::ChainNotFound { chain_id } => write!(f, "chain '{chain_id}' not found"),
+            Self::ResidueNotFound { chain_id, res_key } => {
+                write!(f, "residue '{res_key}' in chain '{chain_id}' not found")
+            }
+            Self::AtomNotFound {
+                chain_id,
+                res_key,
+                atom_name,
+            } => write!(
+                f,
+                "atom '{atom_name}' in residue '{chain_id}/{res_key}' not found"
+            ),
+        }
+    }
+}
+
+/// Information about a `_struct_conn` record that could not be resolved into a bond.
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnresolvedStructConn {
+    /// Name of the model in which the bond failed to resolve (e.g. "model_1").
+    pub model_name: String,
+    /// The `_struct_conn.id` identifier.
+    pub conn_id: String,
+    /// The `_struct_conn.conn_type_id` (e.g. "disulf", "covale").
+    pub conn_type_id: String,
+    /// Unresolved reason for partner 1, if it could not be found.
+    pub ptnr1_unresolved: Option<StructConnPartnerUnresolved>,
+    /// Unresolved reason for partner 2, if it could not be found.
+    pub ptnr2_unresolved: Option<StructConnPartnerUnresolved>,
+    /// Human-readable explanation of why the connection could not be resolved.
+    pub message: String,
+    /// The original `_struct_conn` record.
+    pub record: StructConnRecord,
+}
+
+impl std::fmt::Display for UnresolvedStructConn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "_struct_conn '{}' ({}) in {}: {}",
+            self.conn_id, self.conn_type_id, self.model_name, self.message
+        )
+    }
+}
+
+/// Result of parsing macromolecular structure from mmCIF, containing the atom hierarchy
+/// and any `_struct_conn` records that could not be resolved.
+#[derive(Debug, Clone)]
+pub struct MmcifStructureReport {
+    /// The loaded atom hierarchy.
+    pub atomgroup: AtomGroup,
+    /// Connections from `_struct_conn` that could not be resolved in the model.
+    pub unresolved_struct_conns: Vec<UnresolvedStructConn>,
+}
+
+impl MmcifStructureReport {
+    /// Returns `true` if there are any unresolved `_struct_conn` records.
+    pub fn has_unresolved(&self) -> bool {
+        !self.unresolved_struct_conns.is_empty()
+    }
+}
+
+#[inline]
+pub(crate) fn build_residue_key(res_seq: i32, ins_code: &str) -> String {
+    format!("{res_seq}{}", ins_code.trim())
+}
+
+fn resolve_struct_conn_partner(
+    model: &AtomGroup,
+    asym_id: &str,
+    seq_id: Option<i32>,
+    ins_code: &str,
+    atom_id: &str,
+) -> std::result::Result<Atom, StructConnPartnerUnresolved> {
+    let seq = match seq_id {
+        Some(s) => s,
+        None => return Err(StructConnPartnerUnresolved::MissingSeqId),
+    };
+    let chain_key = if asym_id.is_empty() || asym_id == " " {
+        "_"
+    } else {
+        asym_id
+    };
+    let chain = match model.get_group(chain_key) {
+        Some(c) => c,
+        None => {
+            return Err(StructConnPartnerUnresolved::ChainNotFound {
+                chain_id: asym_id.to_string(),
+            })
+        }
+    };
+    let res_key = build_residue_key(seq, ins_code);
+    let residue = match chain.get_group(&res_key) {
+        Some(r) => r,
+        None => {
+            return Err(StructConnPartnerUnresolved::ResidueNotFound {
+                chain_id: asym_id.to_string(),
+                res_key,
+            })
+        }
+    };
+    match residue.get_atom(atom_id) {
+        Some(a) => Ok(a.clone()),
+        None => Err(StructConnPartnerUnresolved::AtomNotFound {
+            chain_id: asym_id.to_string(),
+            res_key,
+            atom_name: atom_id.to_string(),
+        }),
     }
 }
 
@@ -396,8 +563,19 @@ impl SimpleMmcif {
     }
 
     /// Returns a specific data block by name.
+    ///
+    /// Accepts both exact block names (e.g. `"data_ALA"`) and unprefixed component names (e.g. `"ALA"`).
     pub fn get_data_block(&self, name: &str) -> Option<&MmcifDataBlock> {
-        self.data.get(name)
+        self.data
+            .get(name)
+            .or_else(|| {
+                let prefixed = format!("data_{name}");
+                self.data.get(&prefixed)
+            })
+            .or_else(|| {
+                name.strip_prefix("data_")
+                    .and_then(|stripped| self.data.get(stripped))
+            })
     }
 
     /// Constructs an `AtomGroup` from the given data block name.
@@ -405,12 +583,29 @@ impl SimpleMmcif {
     /// If the block contains `_atom_site` data, parses full structure coordinates.
     /// Otherwise, parses as Chemical Component Dictionary (CCD) data.
     pub fn get_atomgroup(&self, name: &str) -> Result<AtomGroup> {
-        let block = self.data.get(name).ok_or_else(|| {
-            BridgeError::input_error(name, format!("Invalid mmcif data: name={}", name))
-        })?;
+        let (block_name, block) = self
+            .data
+            .get_key_value(name)
+            .map(|(k, v)| (k.as_str(), v))
+            .or_else(|| {
+                let prefixed = format!("data_{name}");
+                self.data
+                    .get_key_value(&prefixed)
+                    .map(|(k, v)| (k.as_str(), v))
+            })
+            .or_else(|| {
+                name.strip_prefix("data_").and_then(|stripped| {
+                    self.data
+                        .get_key_value(stripped)
+                        .map(|(k, v)| (k.as_str(), v))
+                })
+            })
+            .ok_or_else(|| {
+                BridgeError::input_error(name, format!("Invalid mmcif data: name={}", name))
+            })?;
 
         if block.has_atom_site() {
-            return self.get_structure_atomgroup_for_block(name, None, None);
+            return self.get_structure_atomgroup_for_block(block_name, None, None);
         }
 
         let mut ag = AtomGroup::new();
@@ -421,11 +616,11 @@ impl SimpleMmcif {
         }
 
         // Check key-values and tables for atoms and component name
-        Self::extract_atoms_and_name(&block.key_values, &mut ag);
+        Self::extract_atoms_and_name(&block.key_values, &mut ag)?;
 
         for table in &block.tables {
             for row in table {
-                Self::extract_atoms_and_name(row, &mut ag);
+                Self::extract_atoms_and_name(row, &mut ag)?;
             }
         }
 
@@ -441,12 +636,7 @@ impl SimpleMmcif {
                             .get("_chem_comp_bond.value_order")
                             .map(|s| s.as_str())
                             .unwrap_or("");
-                        let bond_order = match bond_order_str {
-                            "SING" => 1,
-                            "DOUB" => 2,
-                            "TRIP" => 3,
-                            _ => 0,
-                        };
+                        let bond_order = parse_chem_comp_bond_order(bond_order_str);
 
                         let atom1_opt = ag.get_atom(atom1_name).cloned();
                         let atom2_opt = ag.get_atom(atom2_name).cloned();
@@ -461,19 +651,25 @@ impl SimpleMmcif {
         Ok(ag)
     }
 
-    /// Builds an `AtomGroup` hierarchy representing the mmCIF structure for the specified data block.
+    /// Parses an mmCIF CCD `_chem_comp_bond.value_order` string into an integer bond order.
+    pub fn parse_chem_comp_bond_order(bond_order_str: &str) -> usize {
+        parse_chem_comp_bond_order(bond_order_str)
+    }
+
+    /// Builds an `AtomGroup` hierarchy representing the mmCIF structure for the specified data block,
+    /// returning both the atom group and any unresolved `_struct_conn` connection records.
     ///
     /// The resulting hierarchy matches `Pdb::get_atomgroup`:
     /// `root -> model_<serial> -> <chain_id> -> <res_seq> -> <serial>_<name>`
     ///
     /// If `select_model` is `None`, all models are included.
     /// Alternate location atoms matching `select_altloc` (default: "A") or blank are retained.
-    pub fn get_structure_atomgroup_for_block(
+    pub fn get_structure_atomgroup_for_block_with_report(
         &self,
         block_name: &str,
         select_model: Option<usize>,
         select_altloc: Option<&str>,
-    ) -> Result<AtomGroup> {
+    ) -> Result<MmcifStructureReport> {
         let block = self.data.get(block_name).ok_or_else(|| {
             BridgeError::input_error(block_name, format!("Data block '{block_name}' not found"))
         })?;
@@ -504,6 +700,7 @@ impl SimpleMmcif {
         }
 
         let mut root = AtomGroup::new();
+        let mut unresolved_struct_conns = Vec::new();
 
         for (&model_serial, model_records) in &models_map {
             let model_name = format!("model_{model_serial}");
@@ -535,7 +732,7 @@ impl SimpleMmcif {
                 // Determine residue sequence key:
                 // Prioritize auth_seq_id for both ATOM and HETATM, fallback to label_seq_id, default to 1
                 let res_seq = item.auth_seq_id.or(item.label_seq_id).unwrap_or(1);
-                let res_key = format!("{res_seq}");
+                let res_key = build_residue_key(res_seq, &item.pdbx_pdb_ins_code);
 
                 let mut res_name = item.auth_comp_id.clone();
                 if matches!(res_name.as_str(), "HID" | "HIE" | "HIP") {
@@ -550,10 +747,7 @@ impl SimpleMmcif {
                     }
                 }
 
-                let mut element = item.type_symbol.clone();
-                if element == "D" {
-                    element = "H".to_string();
-                }
+                let element = normalize_element_symbol(&item.type_symbol);
 
                 let mut atom = Atom::new();
                 if let Ok(num) = PeriodicTable::get_atomic_number(&element) {
@@ -571,27 +765,62 @@ impl SimpleMmcif {
                 }
             }
 
-            // Link disulfide bonds from _struct_conn
+            // Link inter-residue bonds from _struct_conn (disulf, covale)
             for conn in &conns {
-                if conn.conn_type_id == "disulf" {
-                    if let (Some(seq1), Some(seq2)) = (conn.ptnr1_seq_id, conn.ptnr2_seq_id) {
-                        let res_key1 = format!("{seq1}");
-                        let res_key2 = format!("{seq2}");
+                if conn.conn_type_id == "disulf" || conn.conn_type_id == "covale" {
+                    let p1_res = resolve_struct_conn_partner(
+                        &model,
+                        &conn.ptnr1_asym_id,
+                        conn.ptnr1_seq_id,
+                        &conn.ptnr1_ins_code,
+                        &conn.ptnr1_atom_id,
+                    );
+                    let p2_res = resolve_struct_conn_partner(
+                        &model,
+                        &conn.ptnr2_asym_id,
+                        conn.ptnr2_seq_id,
+                        &conn.ptnr2_ins_code,
+                        &conn.ptnr2_atom_id,
+                    );
 
-                        let sg1_opt = model
-                            .get_group(&conn.ptnr1_asym_id)
-                            .and_then(|c| c.get_group(&res_key1))
-                            .and_then(|r| r.get_atom(&conn.ptnr1_atom_id))
-                            .cloned();
+                    match (p1_res, p2_res) {
+                        (Ok(a1), Ok(a2)) => {
+                            let order = conn.bond_order();
+                            model.add_bond(&a1, &a2, order);
+                        }
+                        (p1, p2) => {
+                            let ptnr1_unresolved = p1.err();
+                            let ptnr2_unresolved = p2.err();
+                            let message = match (&ptnr1_unresolved, &ptnr2_unresolved) {
+                                (Some(e1), Some(e2)) => {
+                                    format!("ptnr1 unresolved ({e1}); ptnr2 unresolved ({e2})")
+                                }
+                                (Some(e1), None) => {
+                                    format!("ptnr1 unresolved ({e1}); ptnr2 resolved")
+                                }
+                                (None, Some(e2)) => {
+                                    format!("ptnr1 resolved; ptnr2 unresolved ({e2})")
+                                }
+                                (None, None) => unreachable!(),
+                            };
 
-                        let sg2_opt = model
-                            .get_group(&conn.ptnr2_asym_id)
-                            .and_then(|c| c.get_group(&res_key2))
-                            .and_then(|r| r.get_atom(&conn.ptnr2_atom_id))
-                            .cloned();
+                            log::warn!(
+                                "Unresolved _struct_conn '{}' ({}) in {}: {}",
+                                conn.id,
+                                conn.conn_type_id,
+                                model_name,
+                                message
+                            );
 
-                        if let (Some(sg1), Some(sg2)) = (sg1_opt, sg2_opt) {
-                            model.add_bond(&sg1, &sg2, 1);
+                            unresolved_struct_conns.push(UnresolvedStructConn {
+                                model_name: model_name.clone(),
+                                conn_id: conn.id.clone(),
+                                conn_type_id: conn.conn_type_id.clone(),
+                                ptnr1_unresolved,
+                                ptnr2_unresolved,
+                                message,
+                                record: conn.clone(),
+                            });
                         }
                     }
                 }
@@ -600,7 +829,46 @@ impl SimpleMmcif {
             root.set_group(&model_name, model);
         }
 
-        Ok(root)
+        Ok(MmcifStructureReport {
+            atomgroup: root,
+            unresolved_struct_conns,
+        })
+    }
+
+    /// Builds an `AtomGroup` hierarchy representing the mmCIF structure for the specified data block.
+    ///
+    /// The resulting hierarchy matches `Pdb::get_atomgroup`:
+    /// `root -> model_<serial> -> <chain_id> -> <res_seq> -> <serial>_<name>`
+    ///
+    /// If `select_model` is `None`, all models are included.
+    /// Alternate location atoms matching `select_altloc` (default: "A") or blank are retained.
+    pub fn get_structure_atomgroup_for_block(
+        &self,
+        block_name: &str,
+        select_model: Option<usize>,
+        select_altloc: Option<&str>,
+    ) -> Result<AtomGroup> {
+        let report = self.get_structure_atomgroup_for_block_with_report(
+            block_name,
+            select_model,
+            select_altloc,
+        )?;
+        Ok(report.atomgroup)
+    }
+
+    /// Builds an `AtomGroup` hierarchy representing the mmCIF structure from the first data block,
+    /// returning both the atom group and any unresolved `_struct_conn` connection records.
+    pub fn get_structure_atomgroup_with_report(
+        &self,
+        select_model: Option<usize>,
+        select_altloc: Option<&str>,
+    ) -> Result<MmcifStructureReport> {
+        let first_block = self
+            .data
+            .keys()
+            .next()
+            .ok_or_else(|| BridgeError::input_error("mmCIF", "No data blocks found in file"))?;
+        self.get_structure_atomgroup_for_block_with_report(first_block, select_model, select_altloc)
     }
 
     /// Builds an `AtomGroup` hierarchy representing the mmCIF structure from the first data block.
@@ -609,15 +877,38 @@ impl SimpleMmcif {
         select_model: Option<usize>,
         select_altloc: Option<&str>,
     ) -> Result<AtomGroup> {
-        let first_block = self
-            .data
-            .keys()
-            .next()
-            .ok_or_else(|| BridgeError::input_error("mmCIF", "No data blocks found in file"))?;
-        self.get_structure_atomgroup_for_block(first_block, select_model, select_altloc)
+        let report = self.get_structure_atomgroup_with_report(select_model, select_altloc)?;
+        Ok(report.atomgroup)
     }
 
-    fn extract_atoms_and_name(dict: &IndexMap<String, String>, ag: &mut AtomGroup) {
+    /// Extracts all `StructConnRecord` entries from the first data block.
+    pub fn get_struct_conn_records(&self) -> Vec<StructConnRecord> {
+        self.data
+            .values()
+            .next()
+            .map(|b| b.get_struct_conn_records())
+            .unwrap_or_default()
+    }
+
+    /// Writes an `AtomGroup` structure to the given `std::io::Write` stream in mmCIF format.
+    pub fn write_structure(
+        ag: &AtomGroup,
+        w: &mut impl std::io::Write,
+        opts: &MmcifWriteOptions,
+    ) -> Result<()> {
+        super::mmcif_writer::write_structure(ag, w, opts)
+    }
+
+    /// Saves an `AtomGroup` structure to the specified path in mmCIF format.
+    pub fn save_structure(
+        ag: &AtomGroup,
+        path: impl AsRef<Path>,
+        opts: &MmcifWriteOptions,
+    ) -> Result<()> {
+        super::mmcif_writer::save_structure(ag, path, opts)
+    }
+
+    fn extract_atoms_and_name(dict: &IndexMap<String, String>, ag: &mut AtomGroup) -> Result<()> {
         if let Some(id) = dict.get("_chem_comp.id") {
             ag.name = id.clone();
         }
@@ -626,22 +917,29 @@ impl SimpleMmcif {
             let mut atom = Atom::new();
             atom.name = atom_id.clone();
 
-            let mut symbol = dict
-                .get("_chem_comp_atom.type_symbol")
-                .cloned()
-                .unwrap_or_else(|| "X".to_string());
-            if symbol == "D" {
-                symbol = "H".to_string();
-            }
+            let symbol = normalize_element_symbol(
+                &dict
+                    .get("_chem_comp_atom.type_symbol")
+                    .cloned()
+                    .unwrap_or_else(|| "X".to_string()),
+            );
             if let Ok(num) = PeriodicTable::get_atomic_number(&symbol) {
                 atom.set_atomic_number(num);
             }
 
-            let x = Self::get_coordinate("x", dict);
-            let y = Self::get_coordinate("y", dict);
-            let z = Self::get_coordinate("z", dict);
-            if let (Some(x), Some(y), Some(z)) = (x, y, z) {
-                atom.xyz = Position::new(x, y, z);
+            match resolve_chem_comp_atom_xyz(dict) {
+                Some((x, y, z)) => {
+                    atom.xyz = Position::new(x, y, z);
+                }
+                None => {
+                    return Err(BridgeError::input_error(
+                        atom_id,
+                        format!(
+                            "Missing or unparseable coordinates for atom '{}' in mmCIF CCD data",
+                            atom_id
+                        ),
+                    ));
+                }
             }
 
             if let Some(charge_str) = dict.get("_chem_comp_atom.charge") {
@@ -654,24 +952,8 @@ impl SimpleMmcif {
 
             ag.set_atom(atom_id, atom);
         }
-    }
 
-    /// Extracts a coordinate axis (x, y, or z) prioritizing ideal coordinates over model coordinates.
-    fn get_coordinate(axis: &str, dict: &IndexMap<String, String>) -> Option<f64> {
-        let ideal_key = format!("_chem_comp_atom.pdbx_model_Cartn_{}_ideal", axis);
-        let model_key = format!("_chem_comp_atom.model_Cartn_{}", axis);
-
-        if let Some(val) = dict.get(&ideal_key) {
-            if let Ok(v) = val.parse::<f64>() {
-                return Some(v);
-            }
-        }
-        if let Some(val) = dict.get(&model_key) {
-            if let Ok(v) = val.parse::<f64>() {
-                return Some(v);
-            }
-        }
-        None
+        Ok(())
     }
 
     /// Parses tokens into data blocks, key-values, and loop tables.
@@ -865,5 +1147,75 @@ impl FromStr for SimpleMmcif {
         let mut mmcif = Self::new();
         mmcif.load_from_str(s)?;
         Ok(mmcif)
+    }
+}
+
+/// Parses an mmCIF CCD `_chem_comp_bond.value_order` string into an integer bond order.
+///
+/// Supported values:
+/// - `"SING"` => 1
+/// - `"DOUB"` => 2
+/// - `"TRIP"` => 3
+/// - `"QUAD"` => 4
+/// - `"AROM"` => 1 (aromatic bonds are represented with bond order 1 following mol2 convention)
+/// - Any unhandled or unknown value falls back to 0 (representing undefined/no bond).
+pub fn parse_chem_comp_bond_order(bond_order_str: &str) -> usize {
+    match bond_order_str {
+        "SING" => 1,
+        "DOUB" => 2,
+        "TRIP" => 3,
+        "QUAD" => 4,
+        "AROM" => 1,
+        _ => 0,
+    }
+}
+
+/// Resolves idealized (falling back to model) Cartesian coordinates for a
+/// `_chem_comp_atom` mmCIF row.
+///
+/// The idealized (`pdbx_model_Cartn_{x,y,z}_ideal`) triple is resolved **atomically**:
+/// if any single axis is missing or unparseable, the whole idealized triple is
+/// discarded (never mixed axis-by-axis with model coordinates, which would produce a
+/// point that is not a valid position in either conformer) and the model
+/// (`model_Cartn_{x,y,z}`) triple is attempted as a whole instead.
+///
+/// Shared by [`SimpleMmcif`]'s own CCD-component `AtomGroup` construction and by
+/// [`crate::ccd_templates::CcdBondTemplate::from_mmcif_block`] (the CCD geometry
+/// template runtime-extension path, `RUST_PORT_SPEC.md` §3.16 PR#37).
+pub fn resolve_chem_comp_atom_xyz(dict: &IndexMap<String, String>) -> Option<(f64, f64, f64)> {
+    fn triple(
+        dict: &IndexMap<String, String>,
+        x_key: &str,
+        y_key: &str,
+        z_key: &str,
+    ) -> Option<(f64, f64, f64)> {
+        let x = dict.get(x_key)?.parse::<f64>().ok()?;
+        let y = dict.get(y_key)?.parse::<f64>().ok()?;
+        let z = dict.get(z_key)?.parse::<f64>().ok()?;
+        Some((x, y, z))
+    }
+
+    triple(
+        dict,
+        "_chem_comp_atom.pdbx_model_Cartn_x_ideal",
+        "_chem_comp_atom.pdbx_model_Cartn_y_ideal",
+        "_chem_comp_atom.pdbx_model_Cartn_z_ideal",
+    )
+    .or_else(|| {
+        triple(
+            dict,
+            "_chem_comp_atom.model_Cartn_x",
+            "_chem_comp_atom.model_Cartn_y",
+            "_chem_comp_atom.model_Cartn_z",
+        )
+    })
+}
+
+/// Normalizes an mmCIF/CCD element symbol, mapping deuterium (`"D"`) to hydrogen (`"H"`).
+pub fn normalize_element_symbol(symbol: &str) -> String {
+    if symbol == "D" {
+        "H".to_string()
+    } else {
+        symbol.to_string()
     }
 }

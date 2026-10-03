@@ -4,13 +4,18 @@
 pub mod amber_prmtop;
 pub mod gro;
 pub mod mmcif;
+pub mod mmcif_writer;
 pub mod mol2;
 pub mod pdb;
 pub mod xyz;
 
 pub use amber_prmtop::{AmberPrmtop, AMBER_CHARGE_FACTOR};
 pub use gro::SimpleGro;
-pub use mmcif::{MmcifDataBlock, SimpleMmcif};
+pub use mmcif::{
+    MmcifDataBlock, MmcifStructureReport, SimpleMmcif, StructConnPartnerUnresolved,
+    StructConnRecord, UnresolvedStructConn,
+};
+pub use mmcif_writer::MmcifWriteOptions;
 pub use mol2::SimpleMol2;
 pub use pdb::Pdb;
 pub use xyz::Xyz;

@@ -74,32 +74,75 @@ impl Modeling {
     // Capping: ACE and NME
     // -----------------------------------------------------------------
 
-    /// Builds an ACE capping group by fitting against the optimal reference conformer.
-    pub fn get_ACE(&self, res: &AtomGroup, next_aa: Option<&AtomGroup>) -> Result<AtomGroup> {
+    /// Evaluates all reference conformers using `match_fn`, tracking the best RMSD match
+    /// and collecting errors so full context is preserved if all conformers fail.
+    fn find_best_conformer<F>(
+        &self,
+        capping_name: &str,
+        res: &AtomGroup,
+        next_aa: Option<&AtomGroup>,
+        match_fn: F,
+    ) -> Result<AtomGroup>
+    where
+        F: Fn(&Self, &AtomGroup, &AtomGroup, Option<&AtomGroup>) -> Result<(AtomGroup, f64)>,
+    {
         let mut aan_best: Option<AtomGroup> = None;
-        let mut rmsd_min = 1000.0;
+        let mut rmsd_min = f64::MAX;
+        let mut errors: Vec<(String, String)> = Vec::new();
 
         for conformer in Self::CONFORMERS {
-            let ref_aan = self.ace_ala_nme.get(conformer).ok_or_else(|| {
-                BridgeError::general(format!("reference conformer {conformer} not found"))
-            })?;
-            let (matched, rmsd) = self.match_ace(ref_aan, res, next_aa)?;
-            if rmsd < rmsd_min {
-                rmsd_min = rmsd;
-                aan_best = Some(matched);
+            let ref_aan = match self.ace_ala_nme.get(conformer) {
+                Some(aan) => aan,
+                None => {
+                    errors.push((
+                        conformer.to_string(),
+                        format!("reference conformer {conformer} not found"),
+                    ));
+                    continue;
+                }
+            };
+            match match_fn(self, ref_aan, res, next_aa) {
+                Ok((matched, rmsd)) => {
+                    if rmsd < rmsd_min {
+                        rmsd_min = rmsd;
+                        aan_best = Some(matched);
+                    }
+                }
+                Err(err) => {
+                    log::warn!("{capping_name} conformer {conformer} match failed: {err}");
+                    errors.push((conformer.to_string(), err.to_string()));
+                }
             }
         }
 
-        if rmsd_min > 1.0 {
-            log::warn!("RMSD value is too large: {}", rmsd_min);
+        match aan_best {
+            Some(best) => {
+                if rmsd_min > 1.0 {
+                    log::warn!("{capping_name} RMSD value is too large: {rmsd_min}");
+                }
+                Ok(best)
+            }
+            None => {
+                let err_details = errors
+                    .into_iter()
+                    .map(|(conf, err)| format!("{conf}: {err}"))
+                    .collect::<Vec<_>>()
+                    .join("; ");
+                Err(BridgeError::general(format!(
+                    "no matching {capping_name} conformer found ({err_details})"
+                )))
+            }
         }
+    }
 
-        let best = aan_best.ok_or_else(|| BridgeError::general("no matching ACE conformer"))?;
+    /// Builds an ACE capping group by fitting against the optimal reference conformer.
+    pub fn get_ACE(&self, res: &AtomGroup, next_aa: Option<&AtomGroup>) -> Result<AtomGroup> {
+        let best = self.find_best_conformer("ACE", res, next_aa, Self::match_ace)?;
         let ace_group = best.get_group("1").ok_or_else(|| {
             BridgeError::general("ACE group '1' not found in reference structure")
         })?;
         let mut answer = ace_group.clone();
-        answer.set_path("/ACE".to_string());
+        answer.set_path_with_depth("/ACE".to_string(), 1);
         Ok(answer)
     }
 
@@ -146,30 +189,12 @@ impl Modeling {
 
     /// Builds an NME capping group by fitting against the optimal reference conformer.
     pub fn get_NME(&self, res: &AtomGroup, next_aa: Option<&AtomGroup>) -> Result<AtomGroup> {
-        let mut aan_best: Option<AtomGroup> = None;
-        let mut rmsd_min = 1000.0;
-
-        for conformer in Self::CONFORMERS {
-            let ref_aan = self.ace_ala_nme.get(conformer).ok_or_else(|| {
-                BridgeError::general(format!("reference conformer {conformer} not found"))
-            })?;
-            let (matched, rmsd) = self.match_nme(ref_aan, res, next_aa)?;
-            if rmsd < rmsd_min {
-                rmsd_min = rmsd;
-                aan_best = Some(matched);
-            }
-        }
-
-        if rmsd_min > 1.0 {
-            log::warn!("RMSD value is too large: {}", rmsd_min);
-        }
-
-        let best = aan_best.ok_or_else(|| BridgeError::general("no matching NME conformer"))?;
+        let best = self.find_best_conformer("NME", res, next_aa, Self::match_nme)?;
         let nme_group = best.get_group("3").ok_or_else(|| {
             BridgeError::general("NME group '3' not found in reference structure")
         })?;
         let mut answer = nme_group.clone();
-        answer.set_path("/NME".to_string());
+        answer.set_path_with_depth("/NME".to_string(), 1);
         Ok(answer)
     }
 
@@ -412,7 +437,13 @@ impl Modeling {
         Ok(answer)
     }
 
-    /// Computes the 3x3 rotation matrix that aligns vector `in_a` with `in_b`.
+    /// Computes the 3x3 rotation matrix `R` such that applying `R` to `in_b` yields
+    /// a vector pointing in the direction of `in_a` (i.e. `R * in_b` is parallel to `in_a`).
+    ///
+    /// # Note on parity with Python implementation
+    /// Prior to ProteinDF_bridge 2026.9.3, the (1, 2) matrix entry used `nx * nz` instead
+    /// of `ny * nz` in both Python and Rust implementations. Following the standard Rodrigues
+    /// rotation formula, this bug was corrected in both codebases (Python 2026.9.3 and Rust).
     pub fn arbitary_rotate_matrix(&self, in_a: Position, in_b: Position) -> Result<Matrix> {
         let mut a = in_a;
         let mut b = in_b;
@@ -435,7 +466,7 @@ impl Modeling {
         rot.set(0, 2, nx * nz * (1.0 - cos_theta) - ny * sin_theta);
         rot.set(1, 0, nx * ny * (1.0 - cos_theta) - nz * sin_theta);
         rot.set(1, 1, ny * ny * (1.0 - cos_theta) + cos_theta);
-        rot.set(1, 2, nx * nz * (1.0 - cos_theta) + nx * sin_theta);
+        rot.set(1, 2, ny * nz * (1.0 - cos_theta) + nx * sin_theta);
         rot.set(2, 0, nx * nz * (1.0 - cos_theta) + ny * sin_theta);
         rot.set(2, 1, ny * nz * (1.0 - cos_theta) - nx * sin_theta);
         rot.set(2, 2, nz * nz * (1.0 - cos_theta) + cos_theta);

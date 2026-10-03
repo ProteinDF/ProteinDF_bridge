@@ -40,10 +40,10 @@
 | `superposer_quaternion.py` | `superposer_quaternion.rs` | 四元数法（実験的） |
 | `xyz.py` | `format/xyz.rs` | |
 | `gro.py` (`SimpleGro`) | `format/gro.rs` | |
-| `mol2.py` (`SimpleMol2`) | `format/mol2.rs` | |
+| `mol2.py` (`SimpleMol2`) | `format/mol2.rs` | 読み込み対応・明示的結合情報をパース（3.8節参照） |
 | `mmcif.py` (`SimpleMmcif`) | `format/mmcif.rs` | **堅牢化が必要**（3章参照） |
-| `amber_prmtop.py` | `format/amber_prmtop.rs` | |
-| `biopdb.py` (`Pdb`) | `format/pdb.rs` | |
+| `amber_prmtop.py` | `format/amber_prmtop.rs` | 明示的結合情報をパース（3.8節参照） |
+| `biopdb.py` (`Pdb`) | `format/pdb.rs` | SSBONDに加えCONECTレコードをパース（3.8節参照） |
 | `functions.py`（YAML/MsgPack I/Oヘルパー） | `brd.rs` | ネイティブ `.brd` 往復フォーマット |
 
 `dbmanager.py`/`mail.py`（DB・メール送信のインフラ機能）は可視化・構造I/Oと無関係なため、Rust移植のスコープ外とする。
@@ -90,11 +90,499 @@ ProteinDF本体のC++ツール（`pdf-mkfld-dens`/`pdf-mkfld-mo`/`pdf-mkfld-esp`
 
 `*.QCLO.yaml` の `brd_select: /model_1/A/6/` のようなフラグメント選択パス文字列は、2章の `selector.rs`（`Select_Path_wildcard`/`Select_PathRegex`相当）でそのまま解決できる構文とする。QCLObot側の変更は不要。
 
+### 3.8 結合情報の優先順位方針（ファイル由来結合 vs VDWヒューリスティック）
+
+構造データが持つ明示的結合情報と、距離ベースの幾何学的結合推定（`Bond::setup()`）の優先順位について、以下の方針を確立する。
+
+> **方針**: ファイルに明示的な結合情報があればそれを優先して使用し、`Bond::setup()`（VDW半径ヒューリスティック）は呼ばない。ファイルに結合情報が存在しない場合のみ、`Bond::setup()` にフォールバックする。
+
+#### 各フォーマットの対応状況
+TASK_PR31〜PR33の実装により、明示的結合情報を持つ主要フォーマットのローダーは、パース時に結合トポロジーを構築して`AtomGroup`に格納した状態で返す:
+- **Tripos Mol2 (`format/mol2.rs`)**: `@<TRIPOS>BOND` セクションの結合ペア・結合次数をパースして`AtomGroup`に登録。
+- **Amber PRMTOP (`format/amber_prmtop.rs`)**: `%FLAG BONDS_WITHOUT_HYDROGEN` および `%FLAG BONDS_INC_HYDROGEN` の座標オフセット配列から原子インデックスを算出して`AtomGroup`に登録。
+- **PDB (`format/pdb.rs`)**: `SSBOND`（ジスルフィド結合）および `CONECT` レコードをパースして`AtomGroup`に登録。PDB仕様に基づく双方向冗長記述やSSBONDとの同一結合重複は自動的に排除（deduplication）される。
+
+#### 呼び出し側（「結 (YUI)」等）の推奨利用パターン
+§3.14で`AtomGroup::setup()`（賢いデフォルト）を、§3.15でローダーからの暗黙呼び出しの撤廃を確立した。各ローダーの `get_atomgroup()` は、ファイルをパースした生の結果（明示的結合情報があればそれを含む、無ければ結合ゼロの状態）をそのまま返す。呼び出し側は、結合解決が必要な場合に `ag.setup()` を1回呼び出す:
+
+```rust
+let mut ag = loader.get_atomgroup()?;
+ag.setup()?;
+// ag は結合解決済み（ファイル由来 > CCDテンプレート > ヒューリスティックの優先順位で）。
+```
+
+§3.11の拡張DBを使いたい場合は `ag.setup_with_db(&db)?` を呼び出す。純粋な幾何ヒューリスティックのみを行いたい場合（CCDテンプレートを適用しない場合）は、低レベルAPIの `Bond::setup_heuristic(&mut ag)?` を直接呼び出すことも可能である（詳細は§3.14・§3.15）。
+
+この方針により、MOL2/PRMTOP/PDB由来の正確な結合トポロジーがヒューリスティック判定で上書き・二重定義されることを防止し、かつ結合情報を持たないフォーマットに対しても自動補完を提供する。
+
+### 3.9 CCD結合テンプレートデータベースによる結合情報補完 (フェーズA完了: 2026-09-22)
+
+#### 背景
+
+§3.8の方針で、ファイルに明示的結合情報(CONECT/BONDS_*/@<TRIPOS>BOND等)があればそれを優先する仕組みは確立した。しかし、**標準アミノ酸・核酸・水などの「よくある」残基を含む通常のPDB/mmCIFファイルは、多くの場合これらの明示的結合情報を持たない**(レガシーPDBのCONECTは通常HETATM分にしか付与されず、標準残基間のペプチド結合や側鎖内結合はファイルに記載されない)。この場合、現状は`Bond::setup()`(VDW半径ヒューリスティック、距離のみで判定し**結合次数は常に1として登録される**)にフォールバックするしかなく、二重結合(C=O等)や芳香環の結合次数情報が失われる。
+
+wwPDB Chemical Component Dictionary (CCD, https://www.wwpdb.org/data/ccd) は、標準・非標準を問わずほぼ全ての残基/リガンドについて、正準原子名・結合トポロジー・結合次数(SING/DOUB/TRIP/QUAD/AROM)を定義済みである(`format/mmcif.rs`のCCDパース対応は2026-09-22時点で実装済み、§3.8参照)。これを**残基名をキーとするテンプレートデータベース**として整備し、構造データの結合情報を補完・是正するのに使う。RDKit・OpenBabel・PyMOL等の主要ツールが採用している標準的な「テンプレートベース結合推定」手法である。
+
+#### スコープ: フェーズA(結合次数補完)とフェーズB(水素付加)に分割する
+
+**フェーズA(結合次数補完)を先に、独立したタスクとして着手する。** フェーズBは幾何学的に大幅に難易度が高いため、フェーズA完了後に改めて計画する(本節では概要のみ記載)。
+
+##### フェーズA: 結合トポロジー・結合次数の補完 (完了: 2026-09-22)
+
+1. **テンプレートデータの抽出・同梱方針**: wwPDBの完全なCCD配布ファイル(`components.cif`)は数百MB規模で全実行時に読み込むのは非現実的なため、**標準アミノ酸20種・標準核酸(DNA/RNA各4種)・水(HOH)** の計29種を対象に、wwPDBの最新データ(`https://files.rcsb.org/ligands/view/{comp_id}.cif`)から抽出スクリプト(`scripts/build_ccd_bond_templates.py`)により抽出を実施した。データ形式はMessagePackバイナリ(`rust/crates/proteindf-bridge/src/data/ccd_bond_templates.msgpack`, 約9.2KB)として格納した。
+   **同梱方式は`include_bytes!`によるバイナリ直接埋め込み**を採用し、wasm32ターゲットやPyO3 wheel配布でのポータビリティを確保した。初回参照時に`std::sync::OnceLock`で遅延デシリアライズし、静的なルックアップテーブル(`CcdTemplateDb`)として保持する。
+2. **テンプレート構造体の設計**: `ccd_templates.rs`を新設し、`CcdBondTemplate { comp_id: String, atoms: Vec<String>, bonds: Vec<(String, String, usize)> }`および`CcdTemplateDb`(`global()`, `lookup()`)を実装した。
+3. **結合情報への適用**: `AtomGroup::apply_ccd_bond_templates(&mut self, db: &CcdTemplateDb)`を実装した。各residueレベルグループについて、その`name`(残基名)でテンプレートDBを引き、原子名の対応が取れる結合ペアについて結合次数を設定する。
+   **優先順位の保護**:
+   (1) ファイル由来の明示的結合(CONECT等、すでに存在する結合)
+   (2) CCDテンプレートによる結合(残基内の正準結合・結合次数)
+   (3) `Bond::setup()`の共有結合半径ヒューリスティック(残基間ペプチド結合・非標準構造向け)
+   CCDテンプレート適用時だけでなく、その後の`Bond::setup()`呼び出し時にも既存の結合ペア(`mol.get_bond_list()`)を事前収集して二重追加をスキップする仕様とし、重複登録や結合次数の不正な上書きを完全に防止した(§3.12参照)。
+4. **検証**: 実PDBフィクスチャ(`1hls.pdb`)を用いたテスト(`tests/test_ccd_templates.rs`)において、`Bond::setup()`単独では次数1にしかならないGLU側鎖(CD=OE1)や主鎖カルボニル(C=O)、ARGグアニジノ基(CZ=NH2)が正しく二重結合(order 2)として設定されること、および既存結合の上書き防止、未知残基の安全なスキップを確認した。さらに、その後に`Bond::setup()`を実行しても同一原子ペアのレコードが重複登録されないことを検証した。
+
+##### フェーズB: 水素付加(将来、フェーズA完了後に別途計画)
+
+CCDの理想化座標(`pdbx_model_Cartn_*_ideal`)は単体コンポーネントの計算幾何であり、実際の(非理想的な)実験構造の重原子配置にそのまま重ね合わせることはできない。水素付加には、重原子の混成状態(sp3/sp2/sp、CCDのトポロジー情報から導出可能)に応じた幾何学的なH配置計算が必要になる(`hydrogen_bond.rs`のPhase 8実装にある主鎖疑似H座標計算——直前残基のC・現残基のN/CA座標からH位置を幾何学的に算出する手法——が同種のアプローチの前例になる。側鎖版はこれよりバリエーションが多く難易度が高い)。プロトネーション状態(pHによる荷電残基の水素数の違い等)の扱いも別途検討が必要。
+
+→ **実装方針・PR分割を§3.16に具体化(2026-09-24)、PR#37〜PR#40完了、developにマージ済み(2026-09-27)。**
+
+#### スコープ外(当面)
+
+- CCD全件(`components.cif`全体)のデータベース化(非標準リガンド・稀少修飾残基まで含む網羅対応は、必要が生じた時点で個別追加する)。
+- 水素付加(フェーズB、§3.16参照)。
+- プロトネーション状態・互変異性体の推定。
+
+### 3.10 `Bond::setup()`のVDWヒューリスティックを共有結合半径ベースに変更 (完了: 2026-09-22)
+
+#### 背景
+
+`Bond::setup()`(`bond.rs`、Python版`bond.py`から1:1移植)の現行判定式は以下の通りであった:
+
+> `distance(p, q) <= vdw(p) + vdw(q) + 0.4Å`
+
+この`vdw()`はBondiのファンデルワールス半径(`periodic_table.rs`の`VDW`テーブル)であり、**本来「非結合の接触距離」を表す値であって、結合検出用ではない**。実際に数値を確認すると、例えばC-C原子ペアのカットオフは`1.70 + 1.70 + 0.4 = 3.8Å`になる。実際のC-C共有結合長は約1.5Å程度であり、この閾値は水素結合(~2.7〜3.5Å)や単なるVDW接触(側鎖パッキング等)まで「結合あり」と誤検出しうる範囲まで踏み込んでいた。
+
+OpenBabel・RDKit・ASEの`natural_cutoffs`・Jmol/PyMOL等、主要な構造化学ツールは、結合検出には**共有結合半径(covalent radius)の和+小さめの許容値**を用いるのが標準である。§3.9のCCDテンプレートが効くのは標準残基(名前でルックアップできるもの)に限られるため、テンプレートが無い残基・非標準構造・リガンド全般で使われ続ける`Bond::setup()`自体の精度を上げることは、CCDテンプレートと独立に価値がある。
+
+#### 実施内容 (2026-09-22完了)
+
+1. **共有結合半径テーブルの追加**: `periodic_table.rs`に`COVALENT_RADIUS`テーブル(HからCmまでの96元素)を新設した。値はpymatgen・ASE等で標準参照されている信頼性の高い文献値(Cordero et al., "Covalent radii revisited", *Dalton Trans.*, 2008, 2832–2838, DOI: 10.1039/B801115J)を採用した。また、`PeriodicTable::covalent_radius`および`Atom::covalent_radius`APIを追加した。
+2. **許容値(トレランス)の決定**: OpenBabel(`OBAtom::ConnectsTo`)の標準慣習に基づき、加算マージン`COVALENT_BOND_TOLERANCE = 0.45` Åを定数定義した。熱振動や実験誤差を許容しつつ、非結合のVDW接触や水素結合(>2.6Å)を明確に排除する。
+3. **`Bond::setup()`の判定式変更**: `distance(p, q) <= covalent_radius(p) + covalent_radius(q) + COVALENT_BOND_TOLERANCE`に変更。PR#35の`CellList`によるO(N)探索の動的セルサイズ計算も`2 * max_cov + COVALENT_BOND_TOLERANCE`に更新した。VDW半径テーブル・`PeriodicTable::vdw()`は将来の接触判定用途のため保持している。
+4. **Python版からの意図的な改善の明記**: 本変更はPython版`bond.py`からの意図的な改善であることをdocコメント・コミットに明記した。
+5. **検証**:
+   - `tests/test_covalent_bond_detection.rs`: 実PDB(`1hls.pdb`)での主鎖ペプチド結合(C-N)・残基内結合・ジスルフィド結合(S-S)の検出維持を検証。
+   - 旧VDW式では結合と誤判定されていた2.5ÅのC-Cペアや2.8Åの水素結合ペアが「結合なし」と正しく除外されることを検証。
+   - 100万原子ベンチマーク(`test_benchmark_1m_atoms`)が6.36秒で正常動作することを確認。
+
+#### スコープ外(当面)
+
+- 結合次数の判定(引き続き§3.9のCCDテンプレート、またはテンプレートが無い場合は次数1のまま)。
+- VDW半径テーブル自体の削除・置き換え(共有結合半径テーブルを追加するのみ)。
+
+### 3.11 CCD結合テンプレートDBの実行時拡張(ユーザー提供の外部CCDデータ) (完了: 2026-09-22)
+
+#### 背景
+
+§3.9フェーズAで実装した`CcdTemplateDb`は、標準アミノ酸20種・標準核酸8種・水の計29残基に固定された組み込みデータベースであり(`include_bytes!`でバイナリに埋め込み)、これはクレートが**常に**持っているべき最小限のデフォルトとして妥当な設計である(サイズが小さく、wasm32/PyO3配布でポータビリティを損なわない)。
+
+一方、wwPDBのCCD全件(`components.cif`、数百MB規模、非標準リガンド・修飾残基・補酵素等を含む数万コンポーネント)のような**任意選択・大容量のデータ**まで同じ方式でバイナリに焼き込むのは悪手である(ほとんどのユーザーが使わないデータで全員のバイナリを肥大化させる、wwPDB側の更新への追従に再ビルドが必須になる等)。この種のデータは、**ユーザー自身が管理する外部ファイルとして、実行時に明示的にロードする方式**が適切(RDKit・OpenBabel等、他の主要ツールもCCD全件を配布物には同梱していない)。
+
+既存の`format/mmcif.rs`の`SimpleMmcif`は、CCD全件ファイル(複数`data_`ブロック)を含め、CCD形式全般をパースできる機能を持っていた。本タスクにより、`SimpleMmcif`でパースした任意のCCDデータブロックから`CcdBondTemplate`を生成し、`CcdTemplateDb`に動的に登録・合成できる仕組みを整備した。
+
+#### 実施内容 (2026-09-22完了)
+
+1. **`SimpleMmcif`データブロックから`CcdBondTemplate`を組み立てる変換関数の新設**:
+   - `CcdBondTemplate::from_mmcif_block(block: &MmcifDataBlock, comp_id: &str) -> Result<CcdBondTemplate>`を`ccd_templates.rs`に実装。
+   - `format/mmcif.rs`から結合次数変換関数`parse_chem_comp_bond_order`を抽出し、`format/mmcif.rs`と`ccd_templates.rs`で共通利用(重複実装を排除)。
+   - `block.has_atom_site()`が`true`の場合はマクロ分子構造データと判定し、適切なエラーを返却。
+   - また、`SimpleMmcif::get_data_block`および`get_atomgroup`において、`data_`プレフィックスの有無にかかわらず柔軟にブロックを検索できるよう改善。
+2. **`CcdTemplateDb`への動的登録・マージ手段の追加**:
+   - `CcdTemplateDb::new()`: 空のテンプレートDBを生成。
+   - `CcdTemplateDb::insert(&mut self, template: CcdBondTemplate) -> Option<CcdBondTemplate>`: 1件追加(同名存在時は上書きし旧値を返却)。
+   - `CcdTemplateDb::merge(&mut self, other: &CcdTemplateDb)`: 複数DBを合成。同名重複時は`other`のエントリが優先される後勝ち(last-write-wins)仕様を明記。
+   - 組み込みの`CcdTemplateDb::global()`は不変(`&'static`)として保持し、ユーザーは`CcdTemplateDb::default()`(組み込み29種のクローン)または`new()`を起点に拡張する。
+3. **利用パターンのドキュメント化**:
+   - `ccd_templates.rs`のモジュールレベルdocコメントに、外部CCDファイルのロードからテンプレート変換・DB登録・`AtomGroup`への適用までの一連のコード実例を記載(doctestでコンパイル検証済み)。
+4. **検証**:
+   - `tests/data/ALA.cif`から抽出したテンプレートが、組み込みDBの`ALA`エントリ(13原子・12結合・C=O二重結合)と完全一致することを検証。
+   - 架空の合成リガンドCIF(`LIG`)を動的変換・登録し、`AtomGroup::apply_ccd_bond_templates`によって二重結合・単結合が正しく付与されることを検証。
+   - `1HLS.cif`等のマクロ分子構造ブロックが`from_mmcif_block`で適切に拒絶されることを検証。
+   - `merge`における後勝ち優先順位を検証。
+
+#### スコープ外(当面)
+
+- CCD全件の自動ダウンロード・キャッシュ機構(あくまでユーザーが自分でファイルを用意する前提。ネットワーク取得をクレートに組み込むことはしない)。
+- 組み込みデフォルトDB(29残基)自体の拡張(§3.9フェーズAのスコープ、変更しない)。
+
+### 3.12 `Bond::setup()`における既存結合の重複登録防止 (完了: 2026-09-22)
+
+#### 背景・課題
+
+§3.9でCCDテンプレートDBによる結合次数補完（C=Oの二重結合付与など）を導入し、続いて残基間ペプチド結合や非標準残基の補完として`Bond::setup()`を組み合わせるワークフローが確立された。
+しかし、`AtomGroup::add_bond`が無条件にレコードを追加する仕様であったため、CCDテンプレート適用後に`Bond::setup()`を呼ぶと、すでにCCDで登録されている結合ペア（例: GLUのC=O、次数2）に対してヒューリスティックでも同一ペアが検出され、次数1の`BondRecord`が重複して追加されてしまう問題が判明した。
+
+#### 実施内容 (2026-09-22完了)
+
+1. **`Bond::setup()`内での既存結合スキップ**:
+   - `Bond::setup(&mut self, mol: &mut AtomGroup)` の開始時に `mol.update_paths()` を呼び出し、`mol.get_bond_list()` から既存の原子パスペアを正規化（`atom1_path <= atom2_path`）した集合（`HashSet<(String, String)>`）を構築。
+   - `CellList` による近傍探索で共有結合判定を満たしたペアであっても、すでに集合に存在するペアはスキップし、未結合のペアのみを `mol.add_bond(..., 1)` で追加するよう改修した。
+   - これにより、一部の結合が既に登録されている状態（CCD適用後やCONECT等の一部のみが存在する場合）で `Bond::setup()` を呼んでも、不足分のみを補うヒューリスティックとして安全に機能するようになった。
+2. **検証**:
+   - `tests/test_ccd_templates.rs` の `test_apply_ccd_bond_templates_1hls_real_pdb` において、単なる `.find()` ではなく、該当原子ペア（GLU 4 C=O）の結合レコードがちょうど1件であり、かつ次数2を保持していること、および全体として重複結合が0件であることを厳密にアサート。
+   - 新規回帰テスト `test_bond_setup_after_ccd_does_not_duplicate_bonds` を追加し、CCD適用後に `Bond::setup()` を実行しても結合数が重複せず、CCDテンプレートの結合次数が維持されることを検証。
+
+### 3.13 結合解決の統合エントリポイント(ファイル由来 > CCDテンプレート > ヒューリスティック) (完了: 2026-09-22)
+
+#### 背景
+
+§3.8で確立した優先順位(ファイル由来結合 > CCDテンプレート > `Bond::setup()`ヒューリスティック)は、これまで呼び出し側が正しい順序で複数のAPIを個別に呼ぶ必要があった(`apply_ccd_bond_templates()` → `Bond::setup()`)。この2段階呼び出しを1回の呼び出しに統合し、`proteindf-bridge`を使うプログラム側の実装をシンプルにするために統合エントリポイントを整備した。
+
+`Bond::setup()`自体を「CCDテンプレートも内部で使う」ように変更することは行わない。理由:
+- `Bond::setup()`は「純粋な共有結合半径ヒューリスティックのみ」を行う関数としてドキュメント化・テストされており、その意味を保つ。
+- `bond.rs`は基礎プリミティブであり、高レベル機能(CCDテンプレートDB)に依存させないレイヤリングを維持する。
+
+代わりに、両方を正しい順序で組み合わせる統合メソッド `AtomGroup::resolve_bonds` を追加した。
+
+#### 実施内容 (2026-09-22完了)
+
+1. **`AtomGroup::resolve_bonds` の実装**:
+   - `AtomGroup::resolve_bonds(&mut self, db: &CcdTemplateDb) -> Result<()>` を `atom_group.rs` に追加。
+   - 内部で `self.apply_ccd_bond_templates(db)` を実行した後、`Bond::setup(self)` を呼び出す。
+   - 事前にファイル由来の明示的結合（CONECT、MOL2、PRMTOP等）が存在する場合も、既存結合の上書き防止および重複排除ロジック（§3.12）により、最優先で保護される。
+2. **`db` 引数による拡張性の担保**:
+   - 呼び出し側は組み込みデフォルトDB（`CcdTemplateDb::global()`）をそのまま渡すことも、§3.11 で拡張・マージした独自DBを渡すことも可能。
+3. **検証**:
+   - `tests/test_ccd_templates.rs` に `test_resolve_bonds_1hls_real_pdb` を追加。実PDB（`1hls.pdb`）に対して1回の呼び出しでCCD由来の二重結合（GLU 4 C=O、ARG 22 CZ=NH2等）とヒューリスティックによる残基間ペプチド結合の両方が重複なく得られることを検証。
+   - `test_resolve_bonds_preserves_existing_file_bonds` を追加。事前に登録されたファイル由来結合（CONECT等）が上書き・重複されず保持されることを検証。
+   - 既存の `Bond::setup()` 単体・`apply_ccd_bond_templates()` 単体のテストが全て引き続きパスすることを確認。
+
+### 3.14 `AtomGroup::setup()`を賢いデフォルトの結合解決エントリポイントにする (完了: 2026-09-22)
+
+#### 背景
+
+§3.13で`AtomGroup::resolve_bonds(db)`を追加したが、呼び出し側から見ると「結合を解決するなら`Bond::setup()`を呼べばよい」という直感に反し、低レベルの`Bond::setup()`（純ヒューリスティックのみ）と高レベルの`AtomGroup::resolve_bonds()`（CCD+ヒューリスティック）のどちらを呼ぶべきかが分かりにくい、というユーザーからの指摘があった。
+
+「`Bond::setup()`自体を賢くする」案（`bond.rs`が`ccd_templates.rs`に依存する形になり、§3.13で明示的に避けたレイヤリング崩壊を招く）ではなく、**「`setup`という名前を、高レベルAPIである`AtomGroup`側の賢いデフォルトに割り当てる」**方針を採用した。`bond.rs`は`ccd_templates.rs`に依存しないレイヤリングを維持する。
+
+さらに、「ファイルを読み込んだ時点で自動的に結合解決まで完了していてほしい」という要望に応え、**「ファイルローダーの読み込み完了」という自然な区切りに限定して暗黙実行する**設計とした。手動で`AtomGroup`をゼロから構築するケース（テストコード等）では、構築完了後に明示的に`setup()`を呼ぶ。
+
+#### 実施内容 (2026-09-22完了)
+
+1. **`bond.rs`のリネーム**:
+   - `Bond::setup()` を `Bond::setup_heuristic()` にリネーム（純粋な共有結合半径ヒューリスティックのみ、という意味を明確化）。
+   - `proteindf-bridge-py`（Pythonバインディング）の内部呼び出しを新名称に追従。
+2. **`AtomGroup`側APIの整備 (`atom_group.rs`)**:
+   - `AtomGroup::resolve_bonds` を `AtomGroup::setup_with_db(&mut self, db: &CcdTemplateDb)` にリネーム（§3.11の拡張DBを使う場合の明示的エントリポイント）。
+   - 新規に引数なしの `AtomGroup::setup(&mut self) -> Result<()>` を追加（内部で `self.setup_with_db(CcdTemplateDb::global())` を呼び出す薄いラッパー）。
+   - 結合を全消去して再検証可能な `AtomGroup::clear_bonds(&mut self)` を追加。
+3. **各フォーマットローダーでの暗黙実行**:
+   - `ag.get_bond_list().is_empty()` の場合のみ `ag.setup()?` を呼んでから返す暗黙実行を全主要ローダーに実装:
+     - `Pdb::get_atomgroup()`
+     - `SimpleMmcif::get_atomgroup()` / `get_structure_atomgroup_for_block()`
+     - `AmberPrmtop::get_atomgroup()`
+     - `SimpleGro::get_atomgroup()`
+     - `SimpleMol2::parse_str()`（`set_by_atomgroup` の直前）
+   - 明示的結合（CONECT、MOL2 BOND、PRMTOP BONDS等）を持つファイルでは `is_empty()` が false となり実行されないため、ファイル由来結合が最優先で保護される。
+4. **検証**:
+   - `test_atomgroup_setup_1hls_real_pdb`: `ag.setup()` を呼ぶだけでCCDテンプレート＋ヒューリスティックによる結合解決（二重結合・ペプチド結合等）が重複なく完了することを検証。
+   - `test_atomgroup_setup_with_db_custom`: `ag.setup_with_db(&db)` による独自テンプレートDBの適用を検証。
+   - `test_implicit_setup_loaders_without_bonds`: PDB・mmCIF・PRMTOP・GRO・MOL2 の全ローダーについて、明示的結合情報を持たない入力から `get_atomgroup()` を呼んだだけで結合が自動解決されることを検証。
+   - `test_implicit_setup_preserves_explicit_file_bonds`: 明示的結合情報を持つ入力（`sample.mol2`等）でファイル由来結合が上書き・重複されないことを検証。
+
+### 3.15 ローダーからの暗黙`setup()`呼び出しの撤廃 (完了: 2026-09-23)
+
+#### 背景
+
+§3.14で、各フォーマットローダーの `get_atomgroup()` が、明示的結合情報を持たない入力に対して内部で自動的に `AtomGroup::setup()` を呼ぶ仕様にした。しかし、この「暗黙実行」には以下の代償があることが分かった:
+
+- **責務の混在**: 「ファイルをパースする」はずの`get_atomgroup()`が、内部で見えない化学的処理（CCDテンプレート照合・近傍探索による結合検出）まで行うようになり、パースと結合解決という2つの異なる責務が1つの関数に混ざってしまった。
+- **テストの摩擦**: ローダーが常に結合解決済みの状態を返すようになったため、既存の「結合ゼロの生の状態」を前提とするテストが動かなくなり、それを回避するためだけの`AtomGroup::clear_bonds()`を新規追加する必要が生じた(§3.14)。これは暗黙実行が漏れのある抽象化になっている兆候である。
+- **柔軟性の低下**: 呼び出し側が「パース結果そのもの(結合解決前)」を見たい・検査したいケース(デバッグ、結合情報の有無の判定自体が目的のケース等)に対応しづらい。
+
+一方、§3.14で導入した `AtomGroup::setup()`（引数なしの薄いラッパー）自体は既に十分簡潔であり、「呼び忘れ防止」という暗黙実行が本来解決したかった問題に対して、`ag.setup()`という1行の明示呼び出しで既に十分実用的である。このため、**ローダー内部での暗黙呼び出しのみを撤廃し、`AtomGroup::setup()`/`AtomGroup::setup_with_db()`という明示APIはそのまま維持する**。
+
+#### 実施内容 (2026-09-23完了)
+
+1. **各フォーマットローダーからの暗黙`setup()`呼び出しの削除**:
+   - `format/pdb.rs`: `get_atomgroup()` 内の `root.setup()?` を削除。docコメントを明示呼び出し前提に更新。
+   - `format/mmcif.rs`: `get_atomgroup()` および `get_structure_atomgroup_for_block()` 内の暗黙呼び出しを削除。
+   - `format/amber_prmtop.rs`: `get_atomgroup()` 内の `atomgroup.setup()?` を削除。docコメントを更新。
+   - `format/gro.rs`: `get_atomgroup()` 内の `output.setup()?` を削除。
+   - `format/mol2.rs`: `parse_str()` 内の `ag.setup()?` を削除。docコメントを更新。
+2. **`AtomGroup::clear_bonds()` の撤廃**:
+   - 暗黙実行の摩擦回避のために追加されていた `clear_bonds()` を `atom_group.rs` から削除し、テストコード側の依存も完全に排除した。
+3. **明示APIの維持**:
+   - `AtomGroup::setup()`、`AtomGroup::setup_with_db()`、`Bond::setup_heuristic()` のロジックは一切変更せず維持。
+4. **検証**:
+   - `test_loaders_without_bonds_return_empty_bonds_until_setup`: PDB, mmCIF, PRMTOP, GRO, MOL2 の全5ローダーにおいて、明示的結合情報を持たない入力から得られた生の結果は結合ゼロ（`get_bond_list().is_empty()`）であり、明示的に `ag.setup()?` を呼んだ時点で初めて結合解決が行われることを検証。
+   - `test_loaders_preserve_explicit_file_bonds`: 明示的結合情報を持つファイル（`sample.mol2` の8本のBOND、`1HLS.cif` の20モデル×3本=60本の `_struct_conn` ジスルフィド結合等）が、暗黙`setup()`の撤廃後も正しくそのまま保持されることを検証。
+   - `cargo test --workspace`: 全テスト成功。
+   - `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`: 警告・エラーなし。
+
+### 3.16 CCD参照構造による水素付加(完了: 2026-09-27、developにマージ済み)
+
+#### 背景
+
+X線結晶構造解析由来の構造データ(通常のPDB/mmCIF)は、水素原子の電子密度が弱く通常の分解能では観測できないため、**水素座標を一切含まない**のが一般的である。ProteinDFでのDFT計算には全原子(水素含む)座標が必要であり、この欠落を埋める機能が必要とされている(§3.9で「フェーズB」として言及し、フェーズA(結合次数補完)完了後に計画すると保留していた項目の具体化)。
+
+既存資産との関係:
+- `modeling.rs`の`get_ACE`/`get_NME`(Phase 6)は、参照構造(ACE-ALA-NME)を`Superposer`で実構造の重原子に重ね合わせ、欠けている原子(水素含む)を転写するという、本機能の核となるアルゴリズムパターンを既に確立している。
+- `ccd_templates.rs`(§3.9〜3.11)のCCDテンプレートDB基盤(組み込み29残基 + ユーザー提供CCDファイルによる実行時拡張)が既にある。ただし現状`CcdBondTemplate`は原子名とボンド次数のみを保持し、**元素記号・3次元座標を持たない**。
+- `scripts/build_ccd_bond_templates.py`が取得元にしているRCSBのper-ligand CIF(`https://files.rcsb.org/ligands/view/{comp_id}.cif`)には`_chem_comp_atom.type_symbol`(元素記号)・`_chem_comp_atom.pdbx_model_Cartn_{x,y,z}_ideal`(理想化3次元座標、水素原子含む)が含まれているが、現在のビルドスクリプトはこれらを未使用のまま捨てている。
+
+#### スコープに関する方針決定(ユーザー確認済み、2026-09-24)
+
+- **対象コンポーネント**: 標準アミノ酸・核酸に限定せず、§3.11の実行時拡張機構(ユーザー提供CCDファイル)を座標付きに拡張し、任意のCCDコンポーネント(リガンド・HETATM含む)に水素付加できるようにする。
+- **回転可能な水素(側鎖のS-H/O-H/NH3+等)**: 局所的な水素結合・衝突を考慮した最適化は行わない。CCD理想配座をそのまま採用する(reduce/PyMOL等の一般的なツールも同様の単純配置を初期値とすることが多い)。**既知の限界として実装のdocコメント・本節に明記すること**。
+- **プロトン化状態(HIS/ASP/GLU/LYS等のpH依存タウトマー)**: v1では中性・標準タウトマーの固定デフォルトのみ対応する。pKa推定によるpH依存判定は将来の別タスクとしてスコープ外にする。
+
+#### 設計: 2種類の水素を区別して扱う
+
+CCDの理想化座標をそのまま使える水素と、使えない水素がある。
+
+1. **単一コンポーネント内で幾何が完結する水素**(側鎖のOH/SH/NH3+、リガンドの全水素、主鎖CA-Hなど): 当該残基/コンポーネント自身の重原子配置だけで位置が決まる。CCD理想配座の**剛体重ね合わせ**(共有する重原子名でマッチングし`Superposer`でKabsch法フィット、変換をH原子座標に適用)で対応できる。CA-Hについても、CCDの遊離アミノ酸エントリはN末端がNH3+/NH2型で鎖内アミド型と異なるが、フィットに使うのはN・CA・C・CB等の**重原子位置**のみであり、CA自身の局所的な四面体配置(3つの重原子隣接 + H)はN末端窒素のプロトン化状態に左右されないため、この方式で問題なく再現できる。
+2. **主鎖アミドN-H(ペプチド結合のN-H)**: CCDの遊離アミノ酸エントリはN末端型(NH3+/NH2、sp3、2〜3個のH)であり、鎖内残基の平面的アミドH(sp2、1個のみ、前残基のC=Oとの関係で決まる)とは化学的に異なる。**単一残基の剛体重ね合わせでは正しく再現できない**ため、これだけは独立した幾何計算(標準的なペプチド平面ジオメトリ: N-H結合長~1.01Å、前残基のC・自身のN・CAが張る平面内に配置)で構築する。N末端残基自身は既存の`get_NH3`を再利用する。PROは主鎖N上に水素を持たない(環状二級アミン)ため対象外。
+
+#### 対象(PR分割)
+
+##### PR#37: CCDジオメトリテンプレートのデータ基盤 (完了: 2026-09-24)
+
+1. `ccd_templates.rs`(または新設する姉妹モジュール、実装時に判断)に、原子ごとの元素記号・理想3次元座標を保持する構造体を追加する(例: `CcdAtomGeometry { name: String, element: String, ideal_xyz: (f64, f64, f64) }`を`CcdBondTemplate`に追加、または新規`CcdGeometryTemplate`型)。既存`CcdBondTemplate`のシリアライズ形式・呼び出し箇所への影響を実装時に精査し、後方互換性(既存の結合解決パス§3.8〜3.15が壊れないこと)を確認すること。
+2. `scripts/build_ccd_bond_templates.py`を拡張し、`_chem_comp_atom.type_symbol`・`pdbx_model_Cartn_{x,y,z}_ideal`を抽出して埋め込みMessagePackに含める。組み込み29テンプレート(標準アミノ酸20+核酸8+HOH)を再生成する。
+3. `CcdBondTemplate::from_mmcif_block`(§3.11のユーザー提供CCDファイルによる実行時拡張パス)も同様に元素記号・理想座標を抽出するよう拡張する。
+
+#### 実施内容 (2026-09-24完了)
+
+1. **構造体設計**: 既存`CcdBondTemplate`を拡張する方針を採用した(新規姉妹型は作らない)。`atoms`フィールドの型を`Vec<String>`から新設`CcdAtom { name: String, element: String, ideal_xyz: Option<(f64, f64, f64)> }`の`Vec`に変更した。`ideal_xyz`を`Option`にしたのは、座標列を持たない最小限のユーザー提供CCDファイル(名前・元素のみ)でも結合次数解決用途では引き続き使えるようにするため(後方互換性維持)。`atoms`フィールドは既存コード中では結合解決ロジック(`AtomGroup::apply_ccd_bond_templates`)から一切参照されていないことを事前に確認済みであり、型変更による既存動作への影響はない。
+2. **データ抽出**: `scripts/build_ccd_bond_templates.py`の`_chem_comp_atom`ループ処理に`type_symbol`・`pdbx_model_Cartn_{x,y,z}_ideal`(未解決時は`model_Cartn_{x,y,z}`にフォールバック)の抽出を追加し、組み込み29テンプレートを実際にRCSBから再取得して再生成した(`ccd_bond_templates.msgpack`、9.2KB→44.8KB)。重水素("D")は"H"に正規化する(既存`format/mmcif.rs`の`extract_atoms_and_name`と同じ規約)。
+3. **`from_mmcif_block`拡張**: 同様のideal優先・model フォールバック・D→H正規化ロジックを`CcdBondTemplate::atom_from_row`として実装した(`format/mmcif.rs`の`get_coordinate`と同じアルゴリズムを、型が異なる`IndexMap`引数向けに実装。共有可能な形へのリファクタリングは本PRのスコープ外とした)。
+
+**検証 (2026-09-24完了)**:
+1. `test_ccd_template_ala_hydrogen_ideal_coordinates`: ALAの全13原子(水素7個含む)の元素記号・理想座標を、RCSBの生CIF(`https://files.rcsb.org/ligands/view/ALA.cif`)から独立に手動で読み取った基準値と誤差1e-6以内で一致することを検証。
+2. `test_ccd_template_all_embedded_hydrogens_have_ideal_coordinates`: 組み込み29テンプレート全てについて、水素原子が最低1個存在し、水素・重原子とも`ideal_xyz`が解決済みであることを検証。
+3. `test_from_mmcif_block_ideal_priority_and_deuterium_normalization`(新規合成フィクスチャ): idealがmodelより優先されること、重水素("D")が"H"に正規化されること、idealが"?"(未解決)の場合はmodelにフォールバックすることを個別に検証。
+4. `test_from_mmcif_block_ala_cif_matches_embedded`(既存テスト): 実フィクスチャ`tests/data/ALA.cif`から`from_mmcif_block`で構築したテンプレートが、埋め込みDBのALAエントリと`atoms`(座標込み)・`bonds`とも完全一致することを確認(実行時拡張パスと組み込みパスの整合性検証)。
+5. `test_from_mmcif_block_synthetic_custom_ligand`(既存テスト、更新): 座標列を持たない最小限のCIF断片から構築したテンプレートで`ideal_xyz`が`None`になり、エラーにならないことを確認(後方互換性)。
+6. 既存の結合解決関連テスト(§3.8〜3.15、`test_ccd_templates.rs`の他16件・`cargo test --workspace`全件)がそのままパスすることを確認。
+7. `cargo clippy -p proteindf-bridge --all-targets -- -D warnings`・`cargo fmt --all -- --check`とも警告・エラーなし(`proteindf-bridge-py`クレートのpyo3 0.29関連の既存deprecation警告は本PRと無関係、developで先行して存在することを確認済み)。
+
+**レビュー指摘への対応 (2026-09-24)**:
+`/code-review develop...feature/hydrogenation-pr37` で3件の指摘を受け、いずれも修正した。
+
+1. **軸ごと独立解決によるハイブリッド座標のバグ(修正)**: 当初の実装はx/y/z各軸を独立に「ideal優先・model フォールバック」していたため、例えばy軸だけidealが"?"の場合、x/zはideal・yはmodelという、どちらの配座にも属さない無意味な座標が生成され得た。`format::mmcif::resolve_chem_comp_atom_xyz`としてx/y/z三つ組を**原子的に**(全軸揃って初めて採用、1軸でも欠ければ三つ組ごと棄却してmodel三つ組を試す)解決するよう修正した。`scripts/build_ccd_bond_templates.py`の`parse_xyz`は元々この三つ組原子性を持っていたため、Python側との整合も取れた。
+2. **`format/mmcif.rs`との実装重複(修正)**: `ccd_templates.rs`の座標解決・D→H正規化ロジックが、既存の`format/mmcif.rs`の`extract_atoms_and_name`/`get_coordinate`(CCD単体コンポーネントを`AtomGroup`として読み込む`SimpleMmcif::get_atomgroup`が使用)と実質的に重複していた。`format::mmcif::resolve_chem_comp_atom_xyz`/`normalize_element_symbol`を共有関数として`format/mmcif.rs`に新設し(上記の原子性バグもここで一度に修正)、`extract_atoms_and_name`と`ccd_templates.rs::atom_from_row`の両方がこれを呼ぶように統一した。`format/mmcif.rs`の私有`get_coordinate`メソッドは削除。
+3. **重複`atom_id`行の無言解決(修正)**: 同じ`atom_id`が複数行に現れた場合、従来(座標追加前のコードも含め)最初に現れた行を無条件に採用し残りを無言で捨てていた。元素・座標が全く同じ重複行は許容するが、異なる場合はエラーにする`push_atom_checked`ヘルパーを新設し、矛盾する重複行を無言で解決しないようにした。
+
+**追加検証**: `test_partial_ideal_coordinate_falls_back_to_full_model_triple`(`test_mmcif.rs`、新規)・`test_from_mmcif_block_ideal_priority_and_deuterium_normalization`への部分欠損ケース追加(`test_ccd_templates.rs`)・`test_from_mmcif_block_duplicate_atom_id_rows`(新規)。`cargo test --workspace`(140+件)・clippy・fmtとも再確認済み。
+
+##### PR#38: 汎用水素付加エンジン(単一コンポーネント内、PR#37完了後) (完了: 2026-09-26)
+
+1. 新規`hydrogenation.rs`。任意の単一コンポーネント(残基/リガンド)の`AtomGroup`とCCDジオメトリテンプレートを受け取り、以下を行う関数(例: `add_hydrogens_to_component(residue: &AtomGroup, template: &CcdGeometryTemplate) -> Result<AtomGroup>`、または`&mut AtomGroup`を直接更新する設計、実装時に判断):
+   - テンプレートと実構造で**名前が一致する重原子**を全て収集する(`modeling.rs`の`match_residues`のような固定リストではなく、共有する全重原子名を対象にする汎用マッチング)。共有重原子が不足する場合(フィットに必要な最小原子数、目安3点以上)はエラーを返す(サイレントなフォールバックにしないこと、これまでのレビュー方針§3.15コメント等と同じ考え方)。
+   - `Superposer`で共有重原子のみを使い剛体変換(回転+並進)を計算する。
+   - テンプレートに存在し実構造に存在しない原子(=欠けている水素、および必要なら欠けている重原子)を、計算した変換を適用した座標で実構造に追加する。原子名はCCDの正準名(`atom_id`)をそのまま採用する。
+2. `AtomGroup::pickup_atoms`等、既存APIの再利用で実装できるか確認し、新規ヘルパーが必要な場合は最小限にする。
+
+**完了の定義(想定)**:
+1. テンプレート自身を(自分自身に対して)フィットさせる恒等変換ケースで、追加される水素座標がテンプレートの理想座標と厳密に一致することを検証する単体テスト(フィッティングエンジン自体の正しさの検証)。
+2. 実PDBフィクスチャ(`1hls.pdb`、水素なし)の複数残基種について、剛体フィット後に追加された水素の結合長(重原子-H)が化学的に妥当な範囲(目安0.95〜1.15Å)に収まることを検証する回帰テスト。
+3. 共有重原子が不足するケース(人為的に重原子を間引いた合成データ)でエラーが返ることを検証する。
+4. `cargo clippy`/`cargo fmt`を通すこと。
+
+**スコープ変更(2026-09-24、レビュー4回目、ユーザー承認済み)**: 実装過程で、鎖内残基の主鎖カルボニルOが遊離アミノ酸CCDテンプレートと幾何が異なる問題(§3.16本文参照)への対策として`detect_distorted_terminal_atoms`(末端キャッピング原子の欠損を手がかりに、歪みうる兄弟原子をフィット対象から除外する機構)を追加実装した。タンパク質(`OXT`欠損→主鎖`O`除外)については実データ検証済みで正しく機能する。**核酸のリン酸基(`OP3`欠損→`OP1`/`OP2`/`O5'`の扱い)については、3回のレビューラウンドにわたり本質的に同種の誤判定(架橋酸素`O5'`の誤除外、次いで非架橋酸素`OP1`/`OP2`の誤除外)が繰り返し発生し、かつ核酸の実データ/合成テストフィクスチャが一切無い状態が続いた。** ユーザー判断により、**本PRでは`detect_distorted_terminal_atoms`をタンパク質(`OXT`)専用に縮小し、核酸のリン酸基への対応は行わない(既知の限界としてdocコメントに明記する)こととした。** 核酸のリン酸基周りの歪み検知は、実データ・合成フィクスチャを用意した上で改めて独立したタスクとして計画・着手すること。
+
+**実施内容・検証 (2026-09-26完了、8回のレビューラウンドを経て収束)**:
+実装はagy、レビューはClaudeが担当した(`docs/tasks/TASK_ccd-hydrogenation.md`参照)。最終的な実装は、`hydrogenation.rs`に`add_hydrogens_to_component`/`add_hydrogens_to_component_with_options`/`add_hydrogens_to_component_in_place`(および`_with_options`版)、`HydrogenationOptions`(`fit_heavy_atoms`・`auto_exclude_distorted_atoms`)、`HydrogenationReport`を実装した。主な設計上の到達点:
+- **主鎖N水素の除外は原子名ではなく結合構造で判定する**: テンプレートが標準アミノ酸主鎖(`N`・`CA`・`C`が存在)である場合、`N`に結合する水素は名前(`H`/`H2`/`H3`)を問わず一律に除外する。これにより、鎖内残基での過剰プロトン化(自由アミノ酸のNH2/NH3+を鎖内アミドに誤って付加)と、プロリンの環状N(鎖内では水素0個)の両方を1つの規則で正しく扱える。主鎖アミドH自体はPR#39が担当する(単一コンポーネントの情報だけでは、鎖内かN末端かを判定できないため)。
+- **末端キャッピング原子の欠損による歪み検知もタンパク質専用の同じ判定でガードする**: `detect_distorted_terminal_atoms`(`OXT`欠損時に主鎖カルボニル`O`をフィット対象から除外)も、同じ`is_amino_acid_template`判定で非タンパク質テンプレート(ユーザー提供CCDでたまたま`OXT`という名前の原子を持つ場合等)への誤発動を防ぐ。
+- `Superposer::new`に共線/縮退した適合点集合を検出するガード(`COLLINEARITY_TOLERANCE_ANGSTROM`)を追加した(既存の`modeling.rs`の`get_ACE`/`get_NME`等、他の呼び出し元にも安全側の恩恵がある)。これに伴い`modeling.rs`のコンフォーマー探索ループ(`find_best_conformer`)を、1コンフォーマーの失敗で全体を中断するのではなく、失敗したコンフォーマーはスキップして次を試す設計に変更した(全滅時のみエラー、個々の失敗理由も保持)。
+- 水素の親重原子(`template.bonds`から解決)が実構造に存在しない場合は水素を追加しない、ボンド情報が欠けた水素は安全側でスキップする、in-place系APIは一部成功・一部失敗という中間状態を作らず原子的に適用する、といった防御的な設計を採用した。
+- **検証**: 実PDBフィクスチャ(`1hls.pdb`)、標準アミノ酸20種全て(プロリン含む)での主鎖N水素除外の網羅テスト、非アミノ酸リガンド(たまたま`N`/`OXT`という名前を持つ合成テンプレート)でガードが誤発動しないことの確認、共線/縮退フィットの拒否、恒等変換での座標一致等を検証済み。`cargo test --workspace`(165件)・`cargo clippy`・`cargo fmt`とも問題なし。
+- **既知の限界**: 回転可能水素(側鎖OH/SH/NH3+)はCCD理想配座をそのまま採用(局所最適化なし)。核酸のリン酸基まわりの歪み検知は別タスク。ユーザー提供CCDテンプレートのボンド行に対する重複/矛盾検証は未実装(組み込み29テンプレートには影響しない)。
+
+##### PR#39: 主鎖アミドN-Hの幾何構築(PR#38完了後) (完了: 2026-09-26、developにマージ済み)
+
+1. 鎖内残基(PRO除く、N末端残基除く)について、前残基のC座標・自身のN/CA座標から標準的なペプチド平面ジオメトリでN-H位置を計算する関数を実装する(`modeling.rs`の`arbitary_rotate_matrix`等、既存の幾何ヘルパーの再利用を検討する)。標準パラメータ(N-H結合長・角度)は信頼できる文献値(例: 標準アミノ酸残基のジオメトリに関する文献、実装時に選定し出典をdocコメントに明記すること。**値を記憶・推測で埋めない**)を採用する。
+2. N末端残基は既存`Modeling::get_NH3`を再利用する(新規実装しない)。
+
+**完了の定義(想定)**:
+1. 手計算で独立に導出した基準値(標準的な文献値によるN-H結合長・角度)と、実装の出力が誤差許容内で一致することを検証する単体テスト。
+2. 水素を含む実構造(高分解能X線構造または中性子構造など、水素座標が実際に観測されているPDBエントリをフィクスチャとして選定する。実装時に具体的なエントリを選び、出典をテストコメントに明記すること)との比較で、構築したN-H方向が実験値と定性的に(結合長・角度のオーダーで)整合することを確認する。
+3. PROが正しく除外されること、N末端残基では`get_NH3`の結果が使われることを検証する。
+4. `cargo clippy`/`cargo fmt`を通すこと。
+
+**実施内容・検証 (2026-09-26完了、8回のレビューラウンドを経て収束)**:
+実装はagy、レビューはClaudeが担当した(`docs/tasks/TASK_ccd-hydrogenation.md`参照)。`backbone_hydrogen.rs`を新規実装し、`build_backbone_amide_hydrogen`(鎖内残基、`hydrogen_bond::calc_pseudo_hydrogen`に委譲)・`build_nterm_hydrogens`(N末端、`Modeling::get_NH3`を再利用)・`add_backbone_hydrogens_to_residue_in_place`(統合、`Option<&AtomGroup>`で内部/N末端を切り替え)を提供する。
+
+- **`Modeling::arbitary_rotate_matrix`の実バグを発見・修正**: (1,2)成分が`nx*nz`になっており(標準的なロドリゲスの回転公式では`ny*nz`であるべき)、一般の(軸に沿わない)ベクトル対では有効な回転行列にならないことを、実際にコードを実行して数値検証した上で修正した。**この修正はPython版`proteindf_bridge/modeling.py`にも同一のバグが存在したため、ユーザー指示によりClaudeが直接そちらも修正した(`hotfix/arbitary-rotate-matrix-typo`、`main`/`develop`にマージ、バージョン2026.9.3としてタグ付け)。** ただし、**現在の全呼び出し箇所(`Modeling::add_methyl`・`build_nterm_hydrogens`)は、第2引数が構造的に常にZ軸に沿っているため、このバグは実際にはどの呼び出し箇所の出力にも影響していなかったことが、後のレビューラウンドで判明した**(修正自体は一般には正しく必要だが、影響範囲は限定的だった)。
+- 水素の共有ロジック(主鎖アミドH)は、既存の`hydrogen_bond::calc_pseudo_hydrogen`(Phase 8のDSSP実装)に委譲する形で実装し、重複実装を避けた。
+- プロリンは主鎖アミドHを持たない(内部残基)、N末端では水素2個(`H1`/`H2`のみ)という化学的な特殊性に対応した。ただし、環内の実際の`CD`原子位置は参照せず方位角は不定という既知の限界がある(§3.16本文の設計上、単一残基の情報だけでは判定できない領域が残るため)。
+- **検証**: 実PDBフィクスチャ(`1hls.pdb`)、標準アミノ酸でのアミドH構築、N末端でのNH3+構築(角度・直交性を数値検証)、プロリンの除外・特殊扱いを検証済み。`cargo test --workspace`・`cargo clippy`・`cargo fmt`とも問題なし。
+- **既知の限界**: N末端プロリンのH1/H2方位角が不定(§3.16参照)、`C_prev`-`N`間の隣接性検証は距離ヒューリスティック(0.8〜2.5Å)に留まり真の配列上の隣接性は保証しない(PR#40のオーケストレーターが本来担うべき検証)、`AtomGroup::get_atom`のaltLoc非対応(既存の`AtomGroup`自体の挙動)。
+
+##### PR#40: 統合エントリポイント(PR#38・PR#39完了後) (完了: 2026-09-27、developにマージ済み)
+
+1. `AtomGroup`(鎖/モデル全体)を走査し、各residueレベルグループについて、CCDジオメトリテンプレートDBから該当コンポーネントを検索し、PR#38(汎用エンジン)またはPR#39(主鎖アミドH、鎖内タンパク質残基の場合のみ)を適切に使い分けて水素を付加する統合関数(例: `AtomGroup::add_missing_hydrogens(&mut self, db: &CcdGeometryDb) -> Result<HydrogenationReport>`)。
+2. `HydrogenationReport`(仮称)には、付加した水素の総数、テンプレートが見つからず付加できなかった残基のリスト等、呼び出し側が結果を検査できる情報を含める(サイレントなスキップをしない、既存の結合解決レポート的な設計方針との整合を取る)。
+3. **処理順序(2026-09-26、ユーザーとの議論で追記)**: 各残基について、**主鎖アミドH(PR#39)を先に決定してから、側鎖/CA-H等(PR#38)を処理すること。** これは正しさの必須条件ではない(PR#38はテンプレートのN結合水素を常に除外する契約になっており、呼び出し順序に依存しない設計になっている、PR#38のレビュー4〜6回目の議論を参照)。しかし、骨格を確定してから側鎖を決めるという処理の見通しの良さ、および将来的な拡張(側鎖の判断が主鎖の状態に依存するようになった場合への備え)の観点から、この順序を標準の実装方針とすること。
+
+**完了の定義(想定)**:
+1. 実PDBフィクスチャ(`1hls.pdb`、水素なし)全体に対して`add_missing_hydrogens`を実行し、期待される水素総数(独立に計算した基準値)と一致することを検証する。
+2. CCDテンプレートが存在しない残基(合成データ、未知の3文字コード)を含む構造で、その残基がレポートに「付加できなかった」として正しく記録され、他の残基への水素付加は継続されることを検証する。
+3. `cargo clippy`/`cargo fmt`を通すこと。
+
+**実施内容・検証 (2026-09-27完了、5回のレビューラウンドを経て収束)**:
+実装はagy、レビューはClaudeが担当した(`docs/tasks/TASK_ccd-hydrogenation.md`参照)。新規`orchestrator.rs`に`hydrogenate_atomgroup`/`hydrogenate_chain`/`hydrogenate_single_residue`と`OverallHydrogenationReport`を実装し、`AtomGroup::add_missing_hydrogens(&mut self, db: &CcdTemplateDb) -> Result<OverallHydrogenationReport>`として公開した。
+
+- **階層走査**: `AtomGroup`ツリー(Root/Model/Chain/Residue)を、子グループの形状(子が葉かどうか)から自動判定して再帰的に走査する。子が全て葉(原子を直接持つ残基/コンポーネント)であるグループを「鎖」として扱い、鎖内では`sort_nicely`でソートした順に残基を処理する。
+- **鎖の隣接性判定(§3.16 PR#40の要求通り、距離だけに頼らない)**: 前残基の受け渡しは、実際の鎖走査順序(直前に処理した残基)を基本とし、`is_plausible_peptide_bond`(`C_prev`-`N`間距離0.8〜2.5Å)は「配列上前だと判定された残基同士が本当にペプチド結合を形成しているか」を確認する二次的なフィルタとして使う(距離だけを根拠に前残基を探索するわけではない)。非アミノ酸残基または主鎖`C`を欠く残基に遭遇すると鎖の連続性が切れたとみなし、以降の前残基参照をリセットする。
+- **処理順序**: 各残基についてStep1(主鎖アミドH、PR#39の`add_backbone_hydrogens_to_residue_in_place`)→Step2(側鎖/CA-H等、PR#38の`add_hydrogens_to_component_in_place_with_options`)の順で処理し、§3.16の方針通りとした。
+- **個々の残基の失敗が構造全体の処理を止めない**: 当初の実装はStep1/Step2の`Err`を`?`でそのまま伝播させており、結晶水(`HOH`、重原子`O`1個のみで`MIN_SUPERPOSE_HEAVY_ATOMS`未満になり必ず失敗する)を含む、ほぼ全ての実X線構造で構造全体の処理が異常終了するバグがあった(レビュー1回目で発見)。最終的には、Step1・Step2それぞれの結果を`match`で捕捉し、失敗しても`OverallHydrogenationReport`に記録した上で走査を継続する設計に修正した。
+- **レポートの設計**: `OverallHydrogenationReport`は`total_added_hydrogens`/`total_removed_hydrogens`/`hydrogenated_residues`/`skipped_residues`(何も変更されず失敗・未対応だった残基、理由付き)/`step_errors`(Step1・Step2で発生したエラー、想定内のテンプレート未検出とテンプレートはあるが処理失敗の両方を含む)/`residue_reports`(残基ごとの詳細)を持つ。「変更の有無」(`has_modifications`)と「エラーの有無」(`has_errors`)を独立した2軸として扱い、両方を組み合わせて記録先を決定する設計に収束した(既に水素化済みで変更0件だが成功、テンプレート未検出だが主鎖側は成功、等のケースを区別して正しく記録する)。
+- **検証**: `1hls.pdb`全体への適用、結晶水(`HOH`)を含む構造での耐性、冪等性(同一構造への2回連続適用)、未知残基(テンプレート未検出)の記録、Step1成功・Step2失敗時のエラー保持、鎖切断の処理等を`test_orchestrator.rs`(9テスト)で検証済み。`cargo test --workspace`・`cargo clippy`・`cargo fmt`とも問題なし。
+- **既知の限界**: `is_plausible_peptide_bond`の距離チェック(0.8〜2.5Å)は実際のペプチド結合長(~1.33Å)に対して幅があり、真の隣接性の完全な保証ではない(PR#39から継続、実データでは鎖走査順序と組み合わせているため実害は小さいと判断)。PR#38・PR#39それぞれの既知の限界(回転可能水素の局所最適化なし、核酸リン酸基の歪み検知未対応、N末端プロリンのH1/H2方位角不定等)はそのまま引き継がれる。
+- **設計上の技術的負債**: エラー記録が「Step1/Step2の`Err`分岐で即座に記録する経路」と「関数末尾でまとめて判定する経路」の2系統に分かれており、レビュー2〜4回目で「片方を直すともう片方が壊れる」系の不具合が複数回発生した。将来同種の変更をする際は、`record_error`の即時呼び出しをやめ、関数末尾の判定ブロックに記録を一元化する設計への整理を検討する価値がある。 → **PR#41で解消完了(2026-10-03、`StepOutcome`列挙型の導入によりエラー記録を関数末尾に一元化、線形スキャンによる重複防止ガードを削除しO(1)化、全18通りの組み合わせをテストで固定)。**
+
+##### Pythonバインディング
+
+Phase 8/9と同様、本機能のスコープには含めない。PR#40完了後、必要であれば別途PRとして追加検討する。
+
+#### スコープ外(当面)
+
+- 側鎖回転可能水素の局所最適化(衝突回避・水素結合幾何最適化)。
+- プロトン化状態・互変異性体のpH依存推定(PROPKA等によるpKa推定)。
+- CCDエントリが存在しないコンポーネントへのフォールバック水素付加(ヒューリスティックな推定は行わない。テンプレートが無ければ明示的にスキップし、その旨をレポートする)。
+- Pythonバインディング(上記参照)。
+
+### 3.17 PDBx/mmCIF構造の書き出し(完了: 2026-10-03、developにマージ済み)
+
+#### 背景
+
+§3.1でPDBx/mmCIFをRust版の主力フォーマットと定めたが、現状`format/mmcif.rs`は**読み込み専用**であり、`AtomGroup`をmmCIFとして書き出す手段がない。書き出し可能なのはPDB(`Pdb::save`)・XYZ・MOL2のみで、PDB形式には原子数99,999・残基番号9,999等のカラム桁数上限がある。§3.16で実装した水素付加(`AtomGroup::add_missing_hydrogens`)の結果をProteinDF側へ渡すパイプライン(mmCIF読み込み → `setup()` → 水素付加 → **書き出し**)を、大規模構造でも途切れずに通すため、mmCIF書き出しを実装する。
+
+#### スコープに関する方針決定(ユーザー確認済み、2026-10-03)
+
+- **結合情報**: 残基をまたぐ結合を`_struct_conn`に書き出す。SG-SG(CYS同士)は`disulf`、それ以外(ペプチド結合・核酸骨格のO3'-P結合を除く)は`covale`とする。読み込み側も`covale`を読むよう拡張し、**書き出し→読み込みで結合が元に戻ること**を保証する。残基内の結合は書き出さない(CCDテンプレートまたは`setup()`で復元する前提、§3.13〜3.15)。
+- **Pythonバインディング**: Rust側の実装完了後に別PRとして追加する。
+- **役割分担**: 従来どおりagyが実装し、Claudeがレビューする。
+
+#### 設計
+
+**API(名前は実装時に判断してよい)**: 巨大な文字列を作らないよう`std::io::Write`へ逐次書き出す関数を中核にし、パス指定版と書き出しオプションを用意する。
+
+```rust
+pub struct MmcifWriteOptions {
+    pub data_block_name: String,      // `data_<name>`。既定値は実装時に決める
+    pub charge_to_b_factor: bool,     // Pdb::set_by_atomgroupのis_charge2tempfactorに相当
+}
+SimpleMmcif::write_structure(ag: &AtomGroup, w: &mut impl Write, opts: &MmcifWriteOptions) -> Result<()>
+SimpleMmcif::save_structure(ag: &AtomGroup, path: impl AsRef<Path>, opts: &MmcifWriteOptions) -> Result<()>
+```
+
+**入力構造の前提**: §9(PR#28)のprotein schema(`/model_N/chain_id/res_key/atom_key`)に従うこと。書き出し前に`validate_schema()`で検査し、違反があればエラーにする(黙って一部を捨てたり平坦化したりしない)。
+
+**`_atom_site`の各項目**:
+
+| 項目 | 書き出す値 | 備考 |
+| --- | --- | --- |
+| `group_PDB` | 標準アミノ酸20種・核酸8種(組み込みCCDテンプレートからHOHを除いた28種)は`ATOM`、それ以外は`HETATM` | |
+| `id` | ファイル全体で1から連番 | 読み込み時の原子キー(`{id}_{name}`)は保存されない。往復テストでは原子キーではなく残基内の原子名で比較する |
+| `type_symbol` | `atomic_number`から求めた元素記号 | |
+| `label_atom_id` / `auth_atom_id` | `atom.name` | |
+| `label_alt_id` | `.` | 読み込み時にaltLocを1つに絞っているため情報がない |
+| `label_comp_id` / `auth_comp_id` | 残基グループの`name` | |
+| `label_asym_id` / `auth_asym_id` | 鎖キー(`_`は空の鎖IDを表すので、その扱いを読み込み側と揃える) | |
+| `label_entity_id` | `?` | entity情報を持たないため |
+| `label_seq_id` | `ATOM`は`auth_seq_id`と同じ値、`HETATM`は`.` | **既知の限界**: `entity_poly_seq`に基づく本来の連番ではない。読み込み側は`auth_*`を優先するので往復には影響しない |
+| `auth_seq_id` / `pdbx_PDB_ins_code` | 残基キーを「符号付き整数+挿入コード」として分解 | **分解できないキーはエラー**(既存`Pdb::set_by_atomgroup`の`unwrap_or(0)`は踏襲しない。教訓13) |
+| `Cartn_x/y/z` | 小数点以下3桁 | |
+| `occupancy` | `1.00` | 情報を持たないため |
+| `B_iso_or_equiv` | `0.00`。`charge_to_b_factor`が真なら`atom.charge` | |
+| `pdbx_formal_charge` | `atom.charge`が整数値ならその値。**整数でない電荷(部分電荷)はエラー**にし、`charge_to_b_factor`の利用を促すメッセージを出す。`charge_to_b_factor`が真の場合は`?` | 部分電荷を黙って丸めたり捨てたりしない |
+| `pdbx_PDB_model_num` | モデルキー`model_N`のN | 分解できないキーはエラー |
+
+**CIFの値のクォート**: 空文字列・空白を含む値・`_` `#` `$` `'` `"` `[` `]` `;`で始まる値・予約語(`data_` `loop_` `save_` `global_` `stop_`、大文字小文字を区別しない)は引用符で囲む。値に`'`が含まれる場合(核酸の`O5'`等)は`"`で囲む(RCSB配布ファイルと同じ書き方)。**既存の読み込み側トークナイザ(`SimpleMmcif::tokenize`)は、引用符の直後が空白かどうかを見ずに最初の同じ引用符で値を終わらせる**ため、書き出し側は「囲む引用符と同じ文字を値の中に含めない」ことを必ず守る。`'`と`"`の両方を含む値はエラーにする。
+
+**`_struct_conn`(PR#43)**:
+- 対象は異なる残基に属する2原子間の結合。ペプチド結合(アミノ酸残基の`C`と次のアミノ酸残基の`N`)と核酸骨格(`O3'`-`P`)は除外する。CYSの`SG`同士は`disulf`、それ以外は`covale`。
+- 書き出す項目: `id`(`disulf1`, `covale1`, …)、`conn_type_id`、`ptnr{1,2}_label_{asym,comp,seq,atom}_id`、`ptnr{1,2}_auth_{asym,seq}_id`、`pdbx_ptnr{1,2}_PDB_ins_code`、`pdbx_value_order`(`sing`/`doub`/`trip`/`quad`)。
+- `_struct_conn`にはモデル番号がない。読み込み側は全モデルに同じ結合を適用しているので、書き出しは**最初のモデルの結合だけ**を対象にする。モデルごとに結合が異なる構造はこの形式では表現できない(既知の限界)。
+- 読み込み側の拡張: `conn_type_id`が`covale`の行も読み、`pdbx_value_order`を結合次数として反映する(値がない場合は1)。`metalc`・`hydrog`は引き続き読まない。**実RCSBファイルの読み込み結果が変わる**(糖鎖結合や共有結合リガンドなどの結合が増える)ので、§3.8・§3.13〜3.15の結合解決(`ag.setup()`)がファイル由来の残基間結合と共存して正しく動くことを確認する。
+- 金属配位(`metalc`)への分類はスコープ外。`setup()`のヒューリスティックで作られた金属-配位子の結合も`covale`として書き出される(既知の限界としてdocコメントに書く)。
+
+**性能**: 100万原子規模で書き出せること。`BufWriter`で逐次書き出し、原子ごとの不要な文字列確保を避ける。`get_bond_list()`は`&mut self`(内部で`update_paths()`を呼ぶ)なので、`&AtomGroup`を受け取る書き出し関数から結合を集める方法を実装時に決める(100万原子の`AtomGroup`を丸ごと`clone`するのは避ける)。
+
+#### 対象(PR分割)
+
+- **PR#42**: `_atom_site`の書き出し(上記API、クォート処理、検証)
+- **PR#43**: `_struct_conn`の書き出し(disulf + covale)と、読み込み側の`covale`対応
+- **PR#44**: Pythonバインディング(`PySimpleMmcif`への書き出しメソッド追加)
+
+実行チェックリスト・完了の定義は`docs/tasks/TASK_mmcif-writer.md`を参照。
+
+#### スコープ外(当面)
+
+- `entity`・`entity_poly`・`entity_poly_seq`・`struct_asym`等のカテゴリの生成(entity情報を持たないため)。これに伴い`label_seq_id`は本来の値にならない(上表参照)。
+- altLoc・占有率・B因子の保持(`AtomGroup`にフィールドがないため)。
+- `metalc`・`hydrog`の書き出し/読み込み。
+- 残基内の結合(`_chem_comp_bond`)の書き出し。
+- 読み込み側トークナイザを厳密なCIF仕様に合わせる修正(引用符の直後が空白でなければ値の終わりとみなさない規則)。
+
+#### 実施内容・検証 (2026-10-03完了)
+
+実装はagy、レビューはClaudeが担当した(`docs/tasks/TASK_mmcif-writer.md`参照)。
+
+- **PR#42(`_atom_site`の書き出し)**: `format/mmcif_writer.rs`を新設し、`SimpleMmcif::write_structure`(`std::io::Write`へ逐次書き出し)・`SimpleMmcif::save_structure`・`MmcifWriteOptions { data_block_name, charge_to_b_factor }`を実装した。書き出す前に構造全体を検証する`validate_for_mmcif_write`を通し、エラー時は何も書き出さない。`save_structure`は同じディレクトリの一時ファイルに書いてから`rename`するため、エラー時に指定パスへ不完全なファイルが残らない(レビュー1回目で、途中でエラーになると書きかけのファイルが残る不具合を発見して修正)。`charge_to_b_factor`は部分電荷を小数4桁で`B_iso_or_equiv`に書く。実データ(1HLS・2MGOの20モデル、2FB4の挿入コード、3I3Z)の往復、水素付加パイプライン(`1hls.pdb` → `setup()` → `add_missing_hydrogens` → 書き出し → 再読み込み)の往復、原子数100,000超の構造の往復をテストで確認した。100万原子の書き出しはリリースビルドで約1.0秒。書き出した1HLSをgemmi 0.7.5で読み込めることを確認した。
+- **PR#43(`_struct_conn`)**: 残基間の結合を`disulf`(CYSのSG-SG)・`covale`(それ以外。標準アミノ酸同士のペプチド結合と標準核酸同士のO3'-P結合は除外)として書き出す。結合は`&self`で集める`AtomGroup::get_bond_list_ref`を新設して集め、巨大な構造を`clone`しない。読み込み側は`covale`も読み、`pdbx_value_order`を結合次数にする。実データ1WCT(糖鎖・修飾残基を含む、`covale` 8件・`disulf` 2件)を追加し、読み込み・往復・`setup()`との共存(ファイル由来の結合が消えず重複もしない)を確認した。既存のテストデータには`covale`行がないため、既存の読み込み結果は変わらない。100万原子・結合90万本の構造の書き出しは約2.15秒。
+- **PR#44(Pythonバインディング)**: `proteindf_bridge_rs.SimpleMmcif`に`set_by_atomgroup`・`save`・`get_text`・`__str__`(PyPdbと同じ使い方)と、静的メソッド`write_structure`・`save_structure`を追加した。部分電荷のオプション名は`charge_to_b_factor`のみ(PyPdbの`is_charge2tempfactor`は受け付けない。レビュー1回目で、2つの名前の解釈がメソッドごとに食い違う不具合が見つかり、ユーザー判断で1つに統一)。
+- **検証**: `cargo test --workspace`(314件)、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --check`、Pythonの比較テスト(phase1・2・3・7)と`tests/test_rs_mmcif_writer.py`が通ることをClaudeが確認した。
+- **既知の限界**: 上記「設計」「スコープ外」に書いたもの(`label_seq_id`が本来の値でない、altLoc・占有率・B因子を保持しない、`metalc`も`covale`として書き出す、`_struct_conn`は最初のモデルの結合のみ)に加えて、次がある。
+  - ~~読み込み時、`_struct_conn`の相手原子が見つからない結合(altLocで除外された原子など)を黙って捨てる~~ → **解消済み(2026-10-03、`docs/tasks/TASK_struct-conn-unresolved.md`)**。`SimpleMmcif::get_structure_atomgroup_with_report`(および`_for_block_with_report`)が、解決できなかった結合を`MmcifStructureReport.unresolved_struct_conns`として理由付きで返す(altLocによる除外は実データで普通に起こるため、エラーではなく報告にした)。既存の`get_structure_atomgroup`は戻り値を変えず、解決できない結合があれば`log::warn!`で警告する。あわせて、鎖IDが空の`_struct_conn`(書き出し側が`.`と書く)を鎖キー`_`として解決するようになり、空の鎖IDの結合も往復するようになった。
+  - `_struct_conn`の収集が検証と書き出しで2〜3回走る(性能上の余地。必要になったら最適化する)。
+
 ## 4. 多言語バインディング方針
 
 - **Rust:** コアライブラリ本体。ネイティブクレートとしてYUIの `core`/`renderer-native` から直接利用する。
 - **C/C++:** `cdylib` + `cbindgen` によるヘッダー生成でC ABIを公開する。
 - **Python:** `PyO3` + `maturin` によるバインディングを提供し、既存 `ProteinDF_bridge`/`ProteinDF_pytools` ユーザーが最小コストで移行できるようにする（可能な限り既存Python APIの関数・クラス名を踏襲する）。パッケージ名は `proteindf_bridge_rs` とし、既存の純Python版 `proteindf_bridge` と共存インストールできるようにする。
+
+### 4.1 クレート配布方式の指針 (PR#36)
+
+現時点では crates.io への一般公開やプライベートレジストリでのバージョン管理は対応不要である。現状、「結 (YUI)」側はローカル開発環境における相対パス依存（`path = "../ProteinDF_bridge/rust/crates/proteindf-bridge"`）を前提にしている。
+
+#### 現実的な次の選択肢: GitHub git依存
+相対パス依存と crates.io 公開の中間の現実的な選択肢として、Cargoのgit依存機能が利用できる:
+```toml
+# リリース・特定タグを指定する場合
+proteindf-bridge = { git = "https://github.com/<org>/ProteinDF_bridge", tag = "v0.1.0" }
+
+# 特定のブランチやコミットを指定する場合
+# proteindf-bridge = { git = "https://github.com/<org>/ProteinDF_bridge", branch = "main" }
+```
+
+**git依存のトレードオフ:**
+- **メリット**: リポジトリ外部のプロジェクト（別PC環境やCI/CD）からも同一ディレクトリ配置を強制されることなくクレートを取得・ビルドできる。
+- **デメリット・制約**:
+  - crates.io のような SemVer に基づく柔軟なバージョン範囲解決やクレート単位の中央キャッシュ共有が効かず、指定したコミットやタグ単位での固定となる。
+  - プライベートリポジトリの場合、ローカルビルド環境やCI runnerにおいてGitHubアクセストークン（PAT）やSSH鍵等のgit認証設定が必要となる。
+
+**将来の移行判断基準:**
+外部の共同研究者・サードパーティ利用者が増加した場合、またはマルチリポジトリ構成のCI/CDパイプラインにおいて相対パス/git依存の管理コストが増大した段階で、crates.io公開（パブリッククレート化）またはプライベートCargoレジストリ（Cloudsmith、JFrog等）の導入を再検討する。
+
+### 4.2 Pythonバインディングの役割分担指針 (PR#36)
+
+将来的に `proteindf-bridge-py` と YUI 独自の `core-py`（`yui` パッケージ）が共存し得るため、その役割分担と使い分け指針を以下のように定める。
+
+- **`proteindf-bridge-py` (`proteindf_bridge_rs` パッケージ)**:
+  - **対象・目的**: 既存の純Python版 `ProteinDF_bridge` / `ProteinDF_pytools` を利用しているユーザー向けの移行パス、およびスクリプトベースのバッチ解析・量子化学計算前処理パイプライン。
+  - **責務**: 生体分子ファイルの高速パース/書き出し（PDB, mmCIF, Amber PRMTOP, MOL2等）、階層データモデル（`AtomGroup`）、結合判定、幾何重ね合わせ等、従来の `ProteinDF_bridge` の提供機能を高速化して提供する。既存Python APIの関数・クラス名を踏襲し、ユーザーが最小限の移行コストで高速化の恩恵を受けられるようにする。
+- **`core-py` (`yui` パッケージ)**:
+  - **対象・目的**: 「結 (YUI)」研究プラットフォーム向けの機能拡張、GUI/可視化連動、統合モデリングワークフロー。
+  - **責務**: YUIプラットフォーム独自の機能（レンダリングシーン制御、ビューア状態同期、対話的操作イベントハンドリング、GUIプラグイン機能等）を提供する。
+- **利用者の使い分け判断基準**:
+  - 既存のPythonスクリプトや計算バッチ処理の高速化・移行が目的の場合は **`proteindf_bridge_rs`** を使用する。
+  - YUIの可視化機能やUI・レンダラーと連動するアプリケーションやプラグインを開発する場合は **`yui`** を使用する。
 
 ## 5. ライセンス
 
@@ -115,4 +603,82 @@ GPLv3を継続する（本リポジトリと同一ライセンス）。
   → **決定（2026-09-14）**: 本リポジトリ内に `rust/` として同居させる。Python版との1:1移植であることを踏まえ、テスト移植時の参照・差分レビューを同一リポジトリ内で完結させる。
 - CH-π・水素結合検出の閾値パラメータのデフォルト値の最終決定（文献レビューが必要）
 - `hdf5-metno` クレートの実運用検証（ProteinDFが生成するHDF5ファイルとの互換性確認）
+
+## 9. 「結 (YUI)」からの要求リスト（2026-09-19、`yui`リポジトリ フェーズ6e調査より）
+
+「結 (YUI)」が本クレートの`AtomGroup`/`Bond`を実際に統合する（`ROADMAP.md`フェーズ6e）にあたり、
+YUI側の調査で見つかった、bridge側で対応してほしい項目。優先度順。
+
+- **[高] protein schemaの形式化と検証ヘルパー (PR#28対応)**:
+  タンパク質構造の標準パス階層規約を以下のように形式化する:
+  ```text
+  /model_N/chain_id/res_key/atom_key
+  ```
+  - **Level 0 (Root / Models)**: パス深さ0（例: `"/"`）。モデルグループ群を保持。直接の原子は不許可。
+  - **Level 1 (Model)**: パス深さ1（例: `"/model_1/"`）。`is_model_level()`で判定。チェイングループ群を保持。直接の原子は不許可。
+  - **Level 2 (Chain)**: パス深さ2（例: `"/model_1/A/"`）。`is_chain_level()`で判定。残基グループ群を保持。直接の原子は不許可。
+  - **Level 3 (Residue)**: パス深さ3（例: `"/model_1/A/6/"`）。`is_residue_level()`で判定。直接の原子を保持。サブグループは不許可。
+  - **Level 4 (Atom)**: パス深さ4（例: `"/model_1/A/6/CA"`）。葉ノード（原子）。
+
+  **位置的判定と構造的判定の区別**:
+  `AtomGroup`の`is_*_level()`は`path()`の深さに基づく「位置的」判定であり、`Format::is_chain`等の「構造的」判定（直下に原子がない・サブグループが要件を満たす）とは判定軸が異なる。
+  規約違反データ（残基ラッパーなしでchain直下に配置されたHETATMや水分子等）では、パス深さはchainレベル（深さ2）のまま構造的判定が失敗するという乖離が生じる。
+  この乖離および規約違反（非残基レベルの直接原子、残基内のサブグループ、深さ超過）を走査・検出するヘルパー`AtomGroup::validate_schema() -> Vec<SchemaViolation>`を提供する。
+- **[高] ファイル由来の明示的な結合トポロジーの読み込み (PR#31〜34対応済み、3.8節参照)**:
+  MOL2読み込み（PR#31）、PRMTOP `BONDS_*`パース（PR#32）、PDB `CONECT`レコードパース（PR#33）を
+  実装し、各ローダーが明示的結合情報付きの`AtomGroup`を返すよう拡張した。また、ファイル由来結合を
+  優先し、結合情報がない場合のみ`Bond::setup()`（VDW半径ヒューリスティック）にフォールバックする
+  利用優先順位を3.8節に確立した。
+- **[高] `Bond::setup()`のスケーラビリティ (PR#35対応済み)**: 従来は全原子ペアのO(n²)距離行列
+  （`SymmetricMatrix`）だったが、`spatial.rs`に一様セルリスト`CellList`を新設し、`Bond::setup()`を
+  動的セルサイズによるO(N)近傍探索に置き換えた。100万原子規模の合成構造で約3.4秒での完走を実測済み。
+  外部から効率的な近傍ペアクエリ（半径内の原子ペア列挙）を投げられる低レベルAPI
+  （`CellList::for_each_neighbor_pair`/`query_pairs_within`）も公開した。
+  2,000原子超では`distmat`/`bondmat`（従来のO(n²)密行列フィールド）は`None`になる
+  （`MAX_DENSE_MATRIX_ATOMS`定数、メモリ保護のため）。
+- **[高] 二次構造情報の`AtomGroup`への書き戻し (PR#29対応済み)**: 現状`calc_secondary_structure(chain: &AtomGroup) -> Vec<SecondaryStructure>`は結果を別のVecとして返すのみで、`AtomGroup`ツリー自体には反映されない
+  （`AtomGroup`に汎用メタデータフィールドが無いため）。一方`Bond::setup()`は`mol.add_bond(...)`で
+  結果を`AtomGroup`自体に書き戻す設計になっており、一貫していない。`bonds: Vec<BondRecord>`と
+  同格の、生物学的に意味の明確な専用フィールド（例: 各residueレベルの`AtomGroup`が持つ
+  `secondary_structure: Option<SsCode>`）を追加し、`calc_secondary_structure`と対になる
+  `apply_secondary_structure(chain: &mut AtomGroup)`のような書き戻し関数を提供してほしい
+  （汎用メタデータ袋ではなく、`bonds`と同じ「specific typed field」パターンを希望）。
+  YUI側はこれが無い間、residueのpath文字列をキーとする一時的なサイドマップで代替する
+  （フェーズ6e-ii、`atom_group.rs`/`selector.rs`と同様「bridge実装までの一時代替」と明記）。
+  → `secondary_structure: Option<SsCode>`フィールド（`bonds`と同様private、`secondary_structure()`/
+  `set_secondary_structure()`経由でのみアクセス）と、`apply_secondary_structure(chain: &mut AtomGroup)`
+  を実装済み。`merge`/`BitAnd`/`BitOr`/`BitXor`/`Clone`全てで正しくハンドリングされることをテストで検証済み。
+- **[中] パスベース`BondRecord`の効率的な解決 (PR#30対応済み)**: `BondRecord`の`atom1_path`/`atom2_path`が
+  文字列パスのため、大規模構造でこれを原子への参照へ解決するコストを確認したい。
+  パス文字列→原子への効率的なルックアップAPI（O(1)またはO(log n)）が既にあるか、
+  なければ追加してほしい。
+  → 計測の結果、`get_atom_by_path`は既に階層深さのみに依存するO(depth)（実質O(1)）であることを実証
+  （75,000原子まで探索時間が変化しないことをベンチマークで確認）。ゼロアロケーション最適化も実施。
+  利便性のため`AtomGroup::resolve_bond(&self, record: &BondRecord) -> Option<(&Atom, &Atom)>`を追加した。
+- **[中] wasm32ターゲット向けのデフォルト設定 (PR#27対応済み)**: `cargo check --target wasm32-unknown-unknown`は
+  `--no-default-features --features ruzstd`を指定すれば成功することを確認したが、これを消費側が
+  毎回指定するのではなく、`Cargo.toml`側で`[target.'cfg(target_arch = "wasm32")'.dependencies]`を
+  使い、wasm32ターゲットでは自動的に`ruzstd`が使われるよう構成してほしい（YUI自身の
+  `core/Cargo.toml`が`zstd`に対して既に行っているのと同じパターン）。
+  → `[target.'cfg(target_arch = "wasm32")'.dependencies]`でwasm32では`ruzstd`が自動選択されるよう構成し、
+  ネイティブターゲットでは従来通り`zstd`/`ruzstd`をfeatureで明示選択できる状態を維持した
+  （バージョン指定は`[workspace.dependencies]`に一元化し重複を排除）。
+- **[低・将来] クレート配布方式 (PR#36対応完了、4.1節参照)**: 現時点では対応不要。YUI側は相対パス依存を前提とし、次の現実的な選択肢としてGitHub git依存の指針・トレードオフを4.1節に明記した。
+- **[低・将来] Pythonバインディングの名前空間整理 (PR#36対応完了、4.2節参照)**: `proteindf-bridge-py`（`proteindf_bridge_rs`）とYUI独自の`core-py`（`yui`）の責務と使い分け判断基準を4.2節に明記した。
 - 内部数値計算（`Vector`/`Matrix`）を自前実装のまま保つか、`nalgebra`等の既存クレートに置き換えるかの最終判断（1:1移植完了後に検討）
+- **[中] `get_atomgroup()`系ローダーが挿入コード（insertion code）を無視している（2026-09-23、`yui`リポジトリ フェーズ6e-vii調査より、対応完了）**:
+  `src/format/pdb.rs`の`Pdb::get_atomgroup()`と`src/format/mmcif.rs`の対応する読み込み処理の両方で、
+  残基キーの構築が挿入コードを無視していた問題を修正した。
+  - `pdb.rs`: `build_residue_key(res_seq, i_code)` ヘルパーを新設し、ATOM/HETATMパース時の主経路および
+    SSBOND結合解決部分で共通利用。また `SsBondRecord` に `icode1`/`icode2` を追加してPDB Format v3.3のカラム22/36から
+    挿入コードをパースするように改修。さらに `set_by_atomgroup` 内でも残基キーから `i_code` を復元するよう対応。
+  - `mmcif.rs`: `build_residue_key(res_seq, ins_code)` ヘルパーを新設し、`_atom_site` パース時の主経路および
+    `_struct_conn` 結合解決部分で共通利用。`StructConnRecord` に `ptnr1_ins_code`/`ptnr2_ins_code` を追加して
+    `_struct_conn.pdbx_ptnr1_PDB_ins_code` / `_struct_conn.pdbx_ptnr2_PDB_ins_code` をパースするように改修。
+  - 回帰テスト: `tests/test_pdb.rs` に `test_pdb_insertion_code_residues` および `test_pdb_insertion_code_ssbond`、
+    `tests/test_mmcif.rs` に `test_mmcif_insertion_code_residues` および `test_mmcif_insertion_code_struct_conn` を追加し、
+    同一番号で異なる挿入コードを持つ残基の分離保持とSSBOND/`_struct_conn`結合の解決を検証。既存テスト全件パスを確認。
+  - `yui`側は`core::atom_group::parse_residue_key()`（フェーズ6e-iii）で挿入コード付き残基キー
+    （例: `"52A"` → `(52, Some('A'))`）を扱える設計に既になっているため、本修正と完全に整合する。
+  - **実データ検証 (2026-09-23完了)**: wwPDBから多数の挿入コード付き残基および両端が挿入コード付き残基であるSSBOND（CYS 101D - CYS 104B）を含む実エントリ `2FB4`（`2FB4.pdb`, `2FB4.cif`）を `tests/data/` に追加。`tests/test_pdb.rs` の `test_2fb4_real_pdb_insertion_codes_and_ssbond` および `tests/test_mmcif.rs` の `test_2fb4_real_mmcif_insertion_codes_and_struct_conn` において、同一`res_seq`（101A〜101D, 104A〜104D）の分離保持、原子数・残基名の正当性、およびSSBOND/`_struct_conn`結合の解決を実データ上で検証完了。
+  → 2026-09-23、`docs/tasks/TASK_residue-insertion-code-real-data.md`として実データ検証完了。

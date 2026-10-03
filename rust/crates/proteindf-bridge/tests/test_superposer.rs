@@ -195,3 +195,24 @@ fn test_superposer_no_common_atoms_error() {
     let result = Superposer::new(&ag1, &ag2);
     assert!(result.is_err());
 }
+
+#[test]
+fn test_superposer_collinear_tolerance_constant() {
+    assert_eq!(Superposer::COLLINEARITY_TOLERANCE_ANGSTROM, 1e-4);
+
+    // 3 points exactly collinear
+    let mut ag1 = AtomGroup::new();
+    ag1.set_atom("A1", make_atom("A1", Position::new(0.0, 0.0, 0.0)));
+    ag1.set_atom("A2", make_atom("A2", Position::new(1.0, 0.0, 0.0)));
+    ag1.set_atom("A3", make_atom("A3", Position::new(2.0, 0.0, 0.0)));
+
+    let mut ag2 = AtomGroup::new();
+    ag2.set_atom("A1", make_atom("A1", Position::new(0.0, 1.0, 0.0)));
+    ag2.set_atom("A2", make_atom("A2", Position::new(1.0, 1.0, 0.0)));
+    ag2.set_atom("A3", make_atom("A3", Position::new(2.0, 1.0, 0.0)));
+
+    let res = Superposer::new(&ag1, &ag2);
+    assert!(res.is_err());
+    let err_msg = res.err().unwrap().to_string();
+    assert!(err_msg.contains("collinear or degenerate"));
+}

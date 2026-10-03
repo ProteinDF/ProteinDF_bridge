@@ -55,8 +55,10 @@ impl Default for PdbRecord {
 pub struct SsBondRecord {
     pub chain_id1: String,
     pub seq_num1: i32,
+    pub icode1: String,
     pub chain_id2: String,
     pub seq_num2: i32,
+    pub icode2: String,
 }
 
 /// PDB file parser and serializer corresponding to `proteindf_bridge.biopdb.Pdb`.
@@ -64,6 +66,7 @@ pub struct SsBondRecord {
 pub struct Pdb {
     data: BTreeMap<usize, Vec<PdbRecord>>,
     ssbonds: Vec<SsBondRecord>,
+    conects: Vec<(usize, usize)>,
     mode: Option<String>,
 }
 
@@ -84,6 +87,7 @@ impl Pdb {
         Self {
             data,
             ssbonds: Vec::new(),
+            conects: Vec::new(),
             mode: mode.map(|m| m.to_ascii_uppercase()),
         }
     }
@@ -122,6 +126,11 @@ impl Pdb {
         &self.ssbonds
     }
 
+    /// Returns a reference to the parsed CONECT records as deduplicated `(serial1, serial2)` pairs.
+    pub fn conects(&self) -> &[(usize, usize)] {
+        &self.conects
+    }
+
     /// Renumbers atom serial numbers within each model starting from 1.
     pub fn renumber(&mut self) {
         for records in self.data.values_mut() {
@@ -147,6 +156,7 @@ impl Pdb {
     pub fn parse_str(&mut self, content: &str) -> Result<()> {
         self.data.clear();
         self.ssbonds.clear();
+        self.conects.clear();
 
         let mut model_serial: usize = 1;
         let mut chain_serial: usize = 0;
@@ -170,6 +180,7 @@ impl Pdb {
                     .map_err(|e| {
                         BridgeError::input_error("SSBOND seqNum1", format!("invalid integer: {e}"))
                     })?;
+                let icode1 = slice_chars(&chars, 21, 22);
                 let chain_id2 = slice_chars(&chars, 29, 30);
                 let seq_num2 = slice_chars(&chars, 31, 35)
                     .trim()
@@ -177,12 +188,15 @@ impl Pdb {
                     .map_err(|e| {
                         BridgeError::input_error("SSBOND seqNum2", format!("invalid integer: {e}"))
                     })?;
+                let icode2 = slice_chars(&chars, 35, 36);
 
                 self.ssbonds.push(SsBondRecord {
                     chain_id1,
                     seq_num1,
+                    icode1,
                     chain_id2,
                     seq_num2,
+                    icode2,
                 });
             } else if record_name == "ATOM  " || record_name == "HETATM" {
                 // Pad line to 80 characters with spaces if needed
@@ -328,6 +342,32 @@ impl Pdb {
                     charge: "  ".to_string(),
                 };
                 self.data.entry(model_serial).or_default().push(record);
+            } else if record_name == "CONECT" {
+                let serial_str = slice_chars(&chars, 6, 11);
+                let serial = serial_str.trim().parse::<usize>().map_err(|e| {
+                    BridgeError::input_error("CONECT serial", format!("invalid integer: {e}"))
+                })?;
+
+                // Up to 4 bonded partners in columns 12-16, 17-21, 22-26, 27-31
+                let partner_ranges = [(11, 16), (16, 21), (21, 26), (26, 31)];
+                for (start, end) in partner_ranges {
+                    let partner_str = slice_chars(&chars, start, end);
+                    let trimmed = partner_str.trim();
+                    if !trimmed.is_empty() {
+                        let partner = trimmed.parse::<usize>().map_err(|e| {
+                            BridgeError::input_error(
+                                "CONECT partner serial",
+                                format!("invalid integer: {e}"),
+                            )
+                        })?;
+                        if partner != serial {
+                            let bond_key = (serial.min(partner), serial.max(partner));
+                            if !self.conects.contains(&bond_key) {
+                                self.conects.push(bond_key);
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -338,6 +378,13 @@ impl Pdb {
     ///
     /// The resulting hierarchy is structured as:
     /// `root -> model_<serial> -> <chain_id> -> <res_seq> -> <serial>_<name>`
+    ///
+    /// If the PDB file contains `SSBOND` (disulfide bonds) or `CONECT` records, the returned
+    /// `AtomGroup` includes the explicit bond topology parsed from the file with deduplication.
+    /// According to the bond priority policy (see `RUST_PORT_SPEC.md` §3.8 & §3.15), explicit
+    /// file-derived bonds take precedence. If no explicit bond records exist in the file, the returned
+    /// `AtomGroup` has no bonds; call [`AtomGroup::setup`] to resolve bonds using CCD templates
+    /// and covalent radius heuristics.
     ///
     /// If `select_model` is `None`, all models are included.
     /// Alternate location atoms matching `select_altloc` (default: "A") or blank are retained.
@@ -359,6 +406,7 @@ impl Pdb {
             let model_name = format!("model_{model_serial}");
             let mut model = AtomGroup::new();
             model.name = model_name.clone();
+            let mut serial_to_atom = std::collections::HashMap::new();
 
             for item in model_items {
                 if item.record_name == "ATOM  " || item.record_name == "HETATM" {
@@ -373,7 +421,7 @@ impl Pdb {
                         model.set_group(&chain_id, chain);
                     }
 
-                    let res_key = format!("{}", item.res_seq);
+                    let res_key = build_residue_key(item.res_seq, &item.i_code);
                     if let Some(chain) = model.get_group_mut(&chain_id) {
                         if !chain.has_group(&res_key) {
                             let mut residue = AtomGroup::new();
@@ -397,16 +445,22 @@ impl Pdb {
                         if let Some(chain) = model.get_group_mut(&chain_id) {
                             if let Some(residue) = chain.get_group_mut(&res_key) {
                                 residue.set_atom(&atom_key, atom);
+                                if let Some(stored) = residue.get_atom(&atom_key) {
+                                    serial_to_atom.insert(item.serial, stored.clone());
+                                }
                             }
                         }
                     }
                 }
             }
 
+            // Track bonded atom path pairs to prevent duplicate bonds between SSBOND and CONECT
+            let mut existing_bonds = std::collections::HashSet::new();
+
             // Link SSBOND disulfide bonds
             for ssbond in &self.ssbonds {
-                let res_key1 = format!("{}", ssbond.seq_num1);
-                let res_key2 = format!("{}", ssbond.seq_num2);
+                let res_key1 = build_residue_key(ssbond.seq_num1, &ssbond.icode1);
+                let res_key2 = build_residue_key(ssbond.seq_num2, &ssbond.icode2);
 
                 let sg1_opt = model
                     .get_group(&ssbond.chain_id1)
@@ -421,7 +475,28 @@ impl Pdb {
                     .cloned();
 
                 if let (Some(sg1), Some(sg2)) = (sg1_opt, sg2_opt) {
-                    model.add_bond(&sg1, &sg2, 1);
+                    let pair = if sg1.path < sg2.path {
+                        (sg1.path.clone(), sg2.path.clone())
+                    } else {
+                        (sg2.path.clone(), sg1.path.clone())
+                    };
+                    if existing_bonds.insert(pair) {
+                        model.add_bond(&sg1, &sg2, 1);
+                    }
+                }
+            }
+
+            // Link CONECT bonds
+            for &(s1, s2) in &self.conects {
+                if let (Some(a1), Some(a2)) = (serial_to_atom.get(&s1), serial_to_atom.get(&s2)) {
+                    let pair = if a1.path < a2.path {
+                        (a1.path.clone(), a2.path.clone())
+                    } else {
+                        (a2.path.clone(), a1.path.clone())
+                    };
+                    if existing_bonds.insert(pair) {
+                        model.add_bond(a1, a2, 1);
+                    }
                 }
             }
 
@@ -464,6 +539,13 @@ impl Pdb {
                     let digits: String =
                         res_key.chars().take_while(|c| c.is_ascii_digit()).collect();
                     let res_seq = digits.parse::<i32>().unwrap_or(0);
+                    let i_code_str: String =
+                        res_key.chars().skip_while(|c| c.is_ascii_digit()).collect();
+                    let i_code = if i_code_str.is_empty() {
+                        " ".to_string()
+                    } else {
+                        i_code_str
+                    };
 
                     let res_name = residue.name.clone();
                     let mut has_oxt = false;
@@ -496,7 +578,7 @@ impl Pdb {
                             res_name: res_name.clone(),
                             chain_id: rec_chain_id.clone(),
                             res_seq,
-                            i_code: " ".to_string(),
+                            i_code: i_code.clone(),
                             coord: [atom.xyz.x, atom.xyz.y, atom.xyz.z],
                             occupancy: 1.0,
                             temp_factor,
@@ -516,7 +598,7 @@ impl Pdb {
                             res_name: res_name.clone(),
                             chain_id: rec_chain_id.clone(),
                             res_seq,
-                            i_code: " ".to_string(),
+                            i_code: i_code.clone(),
                             coord: [0.0, 0.0, 0.0],
                             occupancy: 0.0,
                             temp_factor: 0.0,
@@ -723,6 +805,11 @@ impl fmt::Display for Pdb {
 // ---------------------------------------------------------------------------
 // Helper functions for PDB fixed-column parsing and formatting
 // ---------------------------------------------------------------------------
+
+#[inline]
+pub(crate) fn build_residue_key(res_seq: i32, i_code: &str) -> String {
+    format!("{}{}", res_seq, i_code.trim())
+}
 
 fn slice_chars(chars: &[char], start: usize, end: usize) -> String {
     if start >= chars.len() {

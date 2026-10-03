@@ -9,7 +9,11 @@ use crate::vector::PyVector;
 use proteindf_bridge::superposer_quaternion::SuperposerQuaternion as CoreSuperposerQuaternion;
 use pyo3::prelude::*;
 
-#[pyclass(name = "Superposer_quaternion", module = "proteindf_bridge_rs")]
+#[pyclass(
+    name = "Superposer_quaternion",
+    module = "proteindf_bridge_rs",
+    skip_from_py_object
+)]
 #[derive(Clone)]
 pub struct PySuperposerQuaternion {
     pub(crate) inner: CoreSuperposerQuaternion,

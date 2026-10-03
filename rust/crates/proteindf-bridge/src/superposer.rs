@@ -51,6 +51,16 @@ impl Superposer {
         let shift_positions1 = Self::shift_positions(&positions1, center1);
         let shift_positions2 = Self::shift_positions(&positions2, center2);
 
+        if Self::is_collinear_or_degenerate(&shift_positions1)
+            || Self::is_collinear_or_degenerate(&shift_positions2)
+        {
+            return Err(BridgeError::value_error(
+                "positions",
+                "Common atom positions are collinear or degenerate (< 3 non-collinear points); \
+                 rigid 3D rotation cannot be determined uniquely",
+            ));
+        }
+
         let rotation_mat =
             Self::calc_rotation_matrix(num_of_positions, &shift_positions1, &shift_positions2)?;
 
@@ -146,6 +156,16 @@ impl Superposer {
         self.rmsd
     }
 
+    /// Transforms a single position from the first group's coordinate frame
+    /// to the second group's coordinate frame:
+    /// `pos' = R * (pos - center1) + center2`.
+    pub fn transform_position(&self, pos: &Position) -> Result<Position> {
+        let mut p = *pos - self.center1;
+        p.rotate(&self.rotation_mat)?;
+        p += self.center2;
+        Ok(p)
+    }
+
     /// Superimposes the given `atomgroup` by shifting by `-center1`, rotating by `rotation_mat`,
     /// and shifting by `+center2`.
     pub fn superimpose(&self, atomgroup: &AtomGroup) -> Result<AtomGroup> {
@@ -197,6 +217,56 @@ impl Superposer {
     /// Shifts all positions by subtracting `center`.
     fn shift_positions(positions: &[Position], center: Position) -> Vec<Position> {
         positions.iter().map(|p| *p - center).collect()
+    }
+
+    /// Tolerance in Angstroms for detecting degenerate or collinear point sets.
+    ///
+    /// Interatomic bond lengths in molecular systems are on the order of ~1.0-1.5 Å,
+    /// and non-bonded distances are 2-5 Å. A perpendicular deviation threshold of
+    /// 1e-4 Å (0.0001 Å) is well below physical atomic vibrations and numerical uncertainties,
+    /// making an absolute threshold robust across any realistic molecular point set size.
+    pub const COLLINEARITY_TOLERANCE_ANGSTROM: f64 = 1e-4;
+
+    /// Checks whether a set of centroid-shifted positions is degenerate (all points at origin)
+    /// or collinear (all points lie on a single line passing through the centroid).
+    ///
+    /// Requires at least 3 points spanning at least 2 dimensions to uniquely determine
+    /// a 3D rotation matrix. Returns true if the maximum perpendicular distance from the
+    /// primary axis through the centroid is below `COLLINEARITY_TOLERANCE_ANGSTROM` (1e-4 Å).
+    fn is_collinear_or_degenerate(shifted: &[Position]) -> bool {
+        if shifted.len() < 3 {
+            return true;
+        }
+
+        // Find the point furthest from the centroid (origin)
+        let mut max_len = 0.0;
+        let mut primary_dir = Position::default();
+        for p in shifted {
+            let len = p.length();
+            if len > max_len {
+                max_len = len;
+                primary_dir = *p;
+            }
+        }
+
+        // If even the furthest point is essentially at origin, it is completely degenerate
+        if max_len < Self::COLLINEARITY_TOLERANCE_ANGSTROM {
+            return true;
+        }
+
+        let u = primary_dir / max_len;
+
+        // Check maximum perpendicular distance of any point from the primary axis
+        let mut max_perp = 0.0;
+        for p in shifted {
+            // cross product ||p x u|| gives the perpendicular distance
+            let perp = p.cross(&u).length();
+            if perp > max_perp {
+                max_perp = perp;
+            }
+        }
+
+        max_perp < Self::COLLINEARITY_TOLERANCE_ANGSTROM
     }
 
     /// Computes the optimal 3x3 rotation matrix using the Kabsch algorithm.
