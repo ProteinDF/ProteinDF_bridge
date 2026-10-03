@@ -13,6 +13,8 @@ use crate::error::{BridgeError, Result};
 use crate::periodic_table::PeriodicTable;
 use crate::position::Position;
 
+pub use super::mmcif_writer::MmcifWriteOptions;
+
 /// Represents a CIF data block containing key-value pairs and loop tables.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct MmcifDataBlock {
@@ -659,6 +661,24 @@ impl SimpleMmcif {
             .next()
             .ok_or_else(|| BridgeError::input_error("mmCIF", "No data blocks found in file"))?;
         self.get_structure_atomgroup_for_block(first_block, select_model, select_altloc)
+    }
+
+    /// Writes an `AtomGroup` structure to the given `std::io::Write` stream in mmCIF format.
+    pub fn write_structure(
+        ag: &AtomGroup,
+        w: &mut impl std::io::Write,
+        opts: &MmcifWriteOptions,
+    ) -> Result<()> {
+        super::mmcif_writer::write_structure(ag, w, opts)
+    }
+
+    /// Saves an `AtomGroup` structure to the specified path in mmCIF format.
+    pub fn save_structure(
+        ag: &AtomGroup,
+        path: impl AsRef<Path>,
+        opts: &MmcifWriteOptions,
+    ) -> Result<()> {
+        super::mmcif_writer::save_structure(ag, path, opts)
     }
 
     fn extract_atoms_and_name(dict: &IndexMap<String, String>, ag: &mut AtomGroup) -> Result<()> {
