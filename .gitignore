@@ -55,3 +55,6 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 
+
+# Claude Code (local MCP config)
+.mcp.json
