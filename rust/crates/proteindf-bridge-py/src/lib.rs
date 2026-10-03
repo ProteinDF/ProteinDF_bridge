@@ -8,15 +8,19 @@ pub mod atom;
 pub mod atom_group;
 pub mod bond;
 pub mod ccd_templates;
+pub mod ch_pi;
 pub mod error;
 pub mod format;
+pub mod hydrogen_bond;
 pub mod hydrogenation;
+pub mod interaction_set;
 pub mod ion_pair;
 pub mod matrix;
 pub mod periodic_table;
 pub mod position;
 pub mod ramachandran;
 pub mod schema;
+pub mod secondary_structure;
 pub mod selector;
 pub mod ssbond;
 pub mod superposer;
@@ -106,6 +110,40 @@ fn proteindf_bridge_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Hydrogenation (PR#46)
     m.add_class::<hydrogenation::PyHydrogenationReport>()?;
     m.add_class::<hydrogenation::PyOverallHydrogenationReport>()?;
+
+    // Analysis (PR#47)
+    // Hydrogen bonds
+    m.add_class::<hydrogen_bond::PyHydrogenBond>()?;
+    m.add_class::<hydrogen_bond::PySidechainHydrogenBond>()?;
+    m.add_function(wrap_pyfunction!(hydrogen_bond::calc_backbone_hbonds, m)?)?;
+    m.add_function(wrap_pyfunction!(hydrogen_bond::calc_sidechain_hbonds, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        hydrogen_bond::calc_sidechain_hbonds_with_options,
+        m
+    )?)?;
+
+    // Secondary structure (DSSP)
+    m.add_class::<secondary_structure::PySecondaryStructure>()?;
+    m.add_function(wrap_pyfunction!(
+        secondary_structure::calc_secondary_structure,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        secondary_structure::apply_secondary_structure,
+        m
+    )?)?;
+
+    // CH-pi interactions
+    m.add_class::<ch_pi::PyChPiInteraction>()?;
+    m.add_function(wrap_pyfunction!(ch_pi::calc_ch_pi_interactions, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        ch_pi::calc_ch_pi_interactions_with_thresholds,
+        m
+    )?)?;
+
+    // InteractionSet
+    m.add_class::<interaction_set::PyInteraction>()?;
+    m.add_class::<interaction_set::PyInteractionSet>()?;
 
     Ok(())
 }
