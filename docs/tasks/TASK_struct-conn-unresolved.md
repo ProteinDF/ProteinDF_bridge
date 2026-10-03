@@ -40,3 +40,7 @@
 
 1. 上記1のテストを同じブランチに追加コミットする。
 2. `cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check`が通る。
+
+## レビュー結果(2回目、2026-10-03、収束・マージ済み)
+
+追加コミット`b5f98ab`で、鎖IDが空の結合の往復テスト`test_roundtrip_empty_chain_id_struct_conn`(`test_mmcif_writer.rs`)が追加された。書き出し時に`_struct_conn`の鎖IDが`.`になること、読み直すと未解決0件・結合1本が鎖`_`の原子同士で復元されることを確認している。`cargo test --workspace`(318 passed、0 failed、2 ignored)、clippy、fmtをClaudeが確認した。ユーザー承認のうえ、2026-10-03にdevelopへマージした(`f815203`)。`RUST_PORT_SPEC.md` §3.17の既知の限界を解消済みに更新した。**本タスクは完了。**

@@ -538,7 +538,7 @@ SimpleMmcif::save_structure(ag: &AtomGroup, path: impl AsRef<Path>, opts: &Mmcif
 - **PR#44(Pythonバインディング)**: `proteindf_bridge_rs.SimpleMmcif`に`set_by_atomgroup`・`save`・`get_text`・`__str__`(PyPdbと同じ使い方)と、静的メソッド`write_structure`・`save_structure`を追加した。部分電荷のオプション名は`charge_to_b_factor`のみ(PyPdbの`is_charge2tempfactor`は受け付けない。レビュー1回目で、2つの名前の解釈がメソッドごとに食い違う不具合が見つかり、ユーザー判断で1つに統一)。
 - **検証**: `cargo test --workspace`(314件)、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --check`、Pythonの比較テスト(phase1・2・3・7)と`tests/test_rs_mmcif_writer.py`が通ることをClaudeが確認した。
 - **既知の限界**: 上記「設計」「スコープ外」に書いたもの(`label_seq_id`が本来の値でない、altLoc・占有率・B因子を保持しない、`metalc`も`covale`として書き出す、`_struct_conn`は最初のモデルの結合のみ)に加えて、次がある。
-  - 読み込み時、`_struct_conn`の相手原子が見つからない結合(altLocで除外された原子など)を黙って捨てる → `docs/tasks/TASK_struct-conn-unresolved.md`で対応予定。
+  - ~~読み込み時、`_struct_conn`の相手原子が見つからない結合(altLocで除外された原子など)を黙って捨てる~~ → **解消済み(2026-10-03、`docs/tasks/TASK_struct-conn-unresolved.md`)**。`SimpleMmcif::get_structure_atomgroup_with_report`(および`_for_block_with_report`)が、解決できなかった結合を`MmcifStructureReport.unresolved_struct_conns`として理由付きで返す(altLocによる除外は実データで普通に起こるため、エラーではなく報告にした)。既存の`get_structure_atomgroup`は戻り値を変えず、解決できない結合があれば`log::warn!`で警告する。あわせて、鎖IDが空の`_struct_conn`(書き出し側が`.`と書く)を鎖キー`_`として解決するようになり、空の鎖IDの結合も往復するようになった。
   - `_struct_conn`の収集が検証と書き出しで2〜3回走る(性能上の余地。必要になったら最適化する)。
 
 ## 4. 多言語バインディング方針
