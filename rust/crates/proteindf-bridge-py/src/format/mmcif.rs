@@ -179,12 +179,10 @@ pub struct PyMmcifStructureReport {
     atomgroup: Py<PyAtomGroup>,
     unresolved_struct_conns: Vec<PyUnresolvedStructConn>,
     has_unresolved: bool,
-    atom_count: usize,
 }
 
 impl PyMmcifStructureReport {
     pub fn new(py: Python<'_>, report: CoreMmcifStructureReport) -> PyResult<Self> {
-        let atom_count = report.atomgroup.get_number_of_atoms();
         let has_unresolved = report.has_unresolved();
         let py_ag = Py::new(py, PyAtomGroup::from_core(report.atomgroup))?;
         let unresolved_struct_conns = report
@@ -196,7 +194,6 @@ impl PyMmcifStructureReport {
             atomgroup: py_ag,
             unresolved_struct_conns,
             has_unresolved,
-            atom_count,
         })
     }
 }
@@ -217,10 +214,11 @@ impl PyMmcifStructureReport {
         self.has_unresolved
     }
 
-    pub fn __repr__(&self) -> String {
+    pub fn __repr__(&self, py: Python<'_>) -> String {
+        let atom_count = self.atomgroup.bind(py).borrow().get_number_of_all_atoms();
         format!(
             "MmcifStructureReport(atoms={}, unresolved_bonds={})",
-            self.atom_count,
+            atom_count,
             self.unresolved_struct_conns.len()
         )
     }

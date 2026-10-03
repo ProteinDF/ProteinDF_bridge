@@ -4,10 +4,12 @@
 use crate::atom::PyAtom;
 use crate::ccd_templates::PyCcdTemplateDb;
 use crate::error::to_py_err;
+use crate::hydrogenation::PyOverallHydrogenationReport;
 use crate::matrix::PyMatrix;
 use crate::position::PyPosition;
 use crate::schema::PySchemaViolation;
 use proteindf_bridge::atom_group::{AtomGroup as CoreAtomGroup, Selector};
+use proteindf_bridge::ccd_templates::CcdTemplateDb as CoreCcdTemplateDb;
 use proteindf_bridge::position::Position;
 use proteindf_bridge::secondary_structure::SsCode;
 use pyo3::exceptions::{PyKeyError, PyTypeError, PyValueError};
@@ -443,6 +445,35 @@ impl PyAtomGroup {
     /// affect the original tree.
     pub fn setup_with_db(&mut self, db: &PyCcdTemplateDb) -> PyResult<()> {
         self.inner.setup_with_db(&db.inner).map_err(to_py_err)
+    }
+
+    /// Adds missing hydrogens to this structure using standard polymer connectivity
+    /// and CCD idealized templates.
+    ///
+    /// Modifies this AtomGroup in place. Note that calling this on a subtree copy does not
+    /// affect the original tree.
+    ///
+    /// # Arguments
+    /// * `db` - Optional CCD template database (`CcdTemplateDb`). If None, uses the standard embedded CCD database.
+    ///
+    /// # Returns
+    /// An [`OverallHydrogenationReport`] summarizing added/removed hydrogens, modified residues,
+    /// skipped components (e.g. water), and step errors.
+    #[pyo3(signature = (db=None))]
+    pub fn add_missing_hydrogens(
+        &mut self,
+        py: Python<'_>,
+        db: Option<&PyCcdTemplateDb>,
+    ) -> PyResult<PyOverallHydrogenationReport> {
+        let core_db = match db {
+            Some(d) => &d.inner,
+            None => CoreCcdTemplateDb::global(),
+        };
+        let report = self
+            .inner
+            .add_missing_hydrogens(core_db)
+            .map_err(to_py_err)?;
+        PyOverallHydrogenationReport::new(py, report)
     }
 
     pub fn shift_by(&mut self, dir: &Bound<'_, PyAny>) -> PyResult<()> {

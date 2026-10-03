@@ -704,6 +704,27 @@ disulf1 disulf A CYS 1 SG ? A CYS 1 A CYS 2 SG ? A CYS 2 sing
             "setup() result must persist on rep.atomgroup rather than being discarded on a copy",
         )
 
+    def test_mmcif_report_repr_shows_current_atom_count(self):
+        """
+        PR#45 Review Revision 2:
+        repr(MmcifStructureReport) must report the total atom count at the time of representation,
+        not 0 (which was the count of direct root atoms).
+        """
+        cif_path = os.path.join(DATA_DIR, "1WCT.cif")
+        cif = rs_br.SimpleMmcif(cif_path)
+        rep = cif.get_structure_atomgroup_with_report(select_model=1)
+        total_atoms = rep.atomgroup.get_number_of_all_atoms()
+        self.assertEqual(total_atoms, 218)
+        rep_str = repr(rep)
+        self.assertEqual(rep_str, "MmcifStructureReport(atoms=218, unresolved_bonds=0)")
+
+        # Adding an atom to rep.atomgroup must immediately reflect in repr(rep)
+        atom = rs_br.Atom()
+        atom.name = "DUMMY"
+        rep.atomgroup.set_atom("/model_1/A/1/DUMMY", atom)
+        self.assertEqual(rep.atomgroup.get_number_of_all_atoms(), 219)
+        self.assertEqual(repr(rep), "MmcifStructureReport(atoms=219, unresolved_bonds=0)")
+
 
 if __name__ == "__main__":
     unittest.main()
