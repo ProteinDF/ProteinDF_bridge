@@ -97,5 +97,10 @@ fn proteindf_bridge_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Schema Validation (PR#45)
     m.add_class::<schema::PySchemaViolation>()?;
 
+    // mmCIF Structure Report (PR#45)
+    m.add_class::<format::PyStructConnPartnerUnresolved>()?;
+    m.add_class::<format::PyUnresolvedStructConn>()?;
+    m.add_class::<format::PyMmcifStructureReport>()?;
+
     Ok(())
 }
