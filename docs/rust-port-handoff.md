@@ -184,6 +184,12 @@ Phase 10 において実証された、大規模構造処理に関する性能�
 
 ---
 
+### mmCIF書き出し (PR#42〜44, 完了 2026-10-03)
+- **新規モジュール**: `format/mmcif_writer.rs`。
+- **成果**: `_atom_site`の書き出し(エラー時は何も書かない事前検証、一時ファイル経由の保存)、`_struct_conn`の書き出し(`disulf`・`covale`)と読み込み側の`covale`対応、`AtomGroup::get_bond_list_ref`、Pythonバインディング(`SimpleMmcif.save`等)。詳細は`RUST_PORT_SPEC.md` §3.17、`docs/tasks/TASK_mmcif-writer.md`。
+- **関連して完了した作業**: pyo3 0.29の`FromPyObject`非推奨警告の解消(`TASK_pyo3-from-py-object.md`)、Python比較テストphase1の結合本数テストの更新(`TASK_phase1-bond-count-test.md`)。
+- **教訓**: agyの完了報告の数字(テスト件数・ファイル一覧)が実際と食い違うことが複数回あった(存在しないテストファイルの一覧を含む)。レビューでは報告を鵜呑みにせず、コマンドを実際に実行して確認すること。
+
 ## 5. スコープ外・将来課題（未決事項）
 
 本移植プロジェクト（Phase 1〜10）では着手せず、今後の独立タスクまたは必要時に検討すべき事項。

@@ -147,3 +147,9 @@
 
 1. 上記1・2に対応し、同じブランチに追加コミットする。`is_charge2tempfactor`を渡すとPythonの`TypeError`(未知のキーワード引数)になることをテストで確認する。
 2. Pythonテスト(phase1・2・3・7と新しいテスト)、`cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check`が通る。
+
+## PR#44 レビュー結果(2回目、2026-10-03、収束・マージ済み)
+
+修正コミット`a365d39`を確認した。`is_charge2tempfactor`はすべてのメソッドから削除され、渡すと`TypeError`になることをテストで確認している。部分電荷を持つ構造で4つのメソッドを同じ引数で試し、`charge_to_b_factor=True`ではすべて成功、`False`ではすべて`BrInputError`になる(食い違いが解消した)ことをClaudeが確認した。テストファイルは`tests/test_rs_mmcif_writer.py`に改名された。Pythonテスト(phase1・2・3・7:10・16・16・4件、mmcif_writer:9件)、`cargo test --workspace`(314 passed)、clippy、fmtをClaudeが確認した。ユーザー承認のうえ、2026-10-03にdevelopへマージした(`9d188f1`)。
+
+**PR#42〜44はすべて完了。** `RUST_PORT_SPEC.md` §3.17に実施内容・既知の限界を、`docs/rust-port-handoff.md`に記録した。

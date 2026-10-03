@@ -455,7 +455,7 @@ Phase 8/9と同様、本機能のスコープには含めない。PR#40完了後
 - CCDエントリが存在しないコンポーネントへのフォールバック水素付加(ヒューリスティックな推定は行わない。テンプレートが無ければ明示的にスキップし、その旨をレポートする)。
 - Pythonバインディング(上記参照)。
 
-### 3.17 PDBx/mmCIF構造の書き出し(計画: 2026-10-03)
+### 3.17 PDBx/mmCIF構造の書き出し(完了: 2026-10-03、developにマージ済み)
 
 #### 背景
 
@@ -528,6 +528,18 @@ SimpleMmcif::save_structure(ag: &AtomGroup, path: impl AsRef<Path>, opts: &Mmcif
 - `metalc`・`hydrog`の書き出し/読み込み。
 - 残基内の結合(`_chem_comp_bond`)の書き出し。
 - 読み込み側トークナイザを厳密なCIF仕様に合わせる修正(引用符の直後が空白でなければ値の終わりとみなさない規則)。
+
+#### 実施内容・検証 (2026-10-03完了)
+
+実装はagy、レビューはClaudeが担当した(`docs/tasks/TASK_mmcif-writer.md`参照)。
+
+- **PR#42(`_atom_site`の書き出し)**: `format/mmcif_writer.rs`を新設し、`SimpleMmcif::write_structure`(`std::io::Write`へ逐次書き出し)・`SimpleMmcif::save_structure`・`MmcifWriteOptions { data_block_name, charge_to_b_factor }`を実装した。書き出す前に構造全体を検証する`validate_for_mmcif_write`を通し、エラー時は何も書き出さない。`save_structure`は同じディレクトリの一時ファイルに書いてから`rename`するため、エラー時に指定パスへ不完全なファイルが残らない(レビュー1回目で、途中でエラーになると書きかけのファイルが残る不具合を発見して修正)。`charge_to_b_factor`は部分電荷を小数4桁で`B_iso_or_equiv`に書く。実データ(1HLS・2MGOの20モデル、2FB4の挿入コード、3I3Z)の往復、水素付加パイプライン(`1hls.pdb` → `setup()` → `add_missing_hydrogens` → 書き出し → 再読み込み)の往復、原子数100,000超の構造の往復をテストで確認した。100万原子の書き出しはリリースビルドで約1.0秒。書き出した1HLSをgemmi 0.7.5で読み込めることを確認した。
+- **PR#43(`_struct_conn`)**: 残基間の結合を`disulf`(CYSのSG-SG)・`covale`(それ以外。標準アミノ酸同士のペプチド結合と標準核酸同士のO3'-P結合は除外)として書き出す。結合は`&self`で集める`AtomGroup::get_bond_list_ref`を新設して集め、巨大な構造を`clone`しない。読み込み側は`covale`も読み、`pdbx_value_order`を結合次数にする。実データ1WCT(糖鎖・修飾残基を含む、`covale` 8件・`disulf` 2件)を追加し、読み込み・往復・`setup()`との共存(ファイル由来の結合が消えず重複もしない)を確認した。既存のテストデータには`covale`行がないため、既存の読み込み結果は変わらない。100万原子・結合90万本の構造の書き出しは約2.15秒。
+- **PR#44(Pythonバインディング)**: `proteindf_bridge_rs.SimpleMmcif`に`set_by_atomgroup`・`save`・`get_text`・`__str__`(PyPdbと同じ使い方)と、静的メソッド`write_structure`・`save_structure`を追加した。部分電荷のオプション名は`charge_to_b_factor`のみ(PyPdbの`is_charge2tempfactor`は受け付けない。レビュー1回目で、2つの名前の解釈がメソッドごとに食い違う不具合が見つかり、ユーザー判断で1つに統一)。
+- **検証**: `cargo test --workspace`(314件)、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --check`、Pythonの比較テスト(phase1・2・3・7)と`tests/test_rs_mmcif_writer.py`が通ることをClaudeが確認した。
+- **既知の限界**: 上記「設計」「スコープ外」に書いたもの(`label_seq_id`が本来の値でない、altLoc・占有率・B因子を保持しない、`metalc`も`covale`として書き出す、`_struct_conn`は最初のモデルの結合のみ)に加えて、次がある。
+  - 読み込み時、`_struct_conn`の相手原子が見つからない結合(altLocで除外された原子など)を黙って捨てる → `docs/tasks/TASK_struct-conn-unresolved.md`で対応予定。
+  - `_struct_conn`の収集が検証と書き出しで2〜3回走る(性能上の余地。必要になったら最適化する)。
 
 ## 4. 多言語バインディング方針
 
