@@ -203,7 +203,7 @@ impl AtomSiteRecord {
     }
 }
 
-/// Represents a connection record from `_struct_conn` (e.g. disulfide bonds).
+/// Represents a connection record from `_struct_conn` (e.g. disulfide bonds, covalent linkages).
 #[derive(Debug, Clone, PartialEq)]
 pub struct StructConnRecord {
     pub id: String,
@@ -216,6 +216,7 @@ pub struct StructConnRecord {
     pub ptnr2_seq_id: Option<i32>,
     pub ptnr2_ins_code: String,
     pub ptnr2_atom_id: String,
+    pub pdbx_value_order: Option<String>,
 }
 
 impl StructConnRecord {
@@ -276,6 +277,11 @@ impl StructConnRecord {
             .cloned()
             .unwrap_or_default();
 
+        let pdbx_value_order = row
+            .get("_struct_conn.pdbx_value_order")
+            .filter(|s| *s != "." && *s != "?")
+            .cloned();
+
         Some(Self {
             id,
             conn_type_id,
@@ -287,7 +293,20 @@ impl StructConnRecord {
             ptnr2_seq_id,
             ptnr2_ins_code,
             ptnr2_atom_id,
+            pdbx_value_order,
         })
+    }
+
+    /// Returns the bond order as an integer (1 for sing, 2 for doub, 3 for trip, 4 for quad).
+    /// Defaults to 1 if unspecified or unknown.
+    pub fn bond_order(&self) -> usize {
+        match self.pdbx_value_order.as_deref() {
+            Some(s) if s.eq_ignore_ascii_case("sing") => 1,
+            Some(s) if s.eq_ignore_ascii_case("doub") => 2,
+            Some(s) if s.eq_ignore_ascii_case("trip") => 3,
+            Some(s) if s.eq_ignore_ascii_case("quad") => 4,
+            _ => 1,
+        }
     }
 }
 
@@ -617,27 +636,28 @@ impl SimpleMmcif {
                 }
             }
 
-            // Link disulfide bonds from _struct_conn
+            // Link inter-residue bonds from _struct_conn (disulf, covale)
             for conn in &conns {
-                if conn.conn_type_id == "disulf" {
+                if conn.conn_type_id == "disulf" || conn.conn_type_id == "covale" {
                     if let (Some(seq1), Some(seq2)) = (conn.ptnr1_seq_id, conn.ptnr2_seq_id) {
                         let res_key1 = build_residue_key(seq1, &conn.ptnr1_ins_code);
                         let res_key2 = build_residue_key(seq2, &conn.ptnr2_ins_code);
 
-                        let sg1_opt = model
+                        let atom1_opt = model
                             .get_group(&conn.ptnr1_asym_id)
                             .and_then(|c| c.get_group(&res_key1))
                             .and_then(|r| r.get_atom(&conn.ptnr1_atom_id))
                             .cloned();
 
-                        let sg2_opt = model
+                        let atom2_opt = model
                             .get_group(&conn.ptnr2_asym_id)
                             .and_then(|c| c.get_group(&res_key2))
                             .and_then(|r| r.get_atom(&conn.ptnr2_atom_id))
                             .cloned();
 
-                        if let (Some(sg1), Some(sg2)) = (sg1_opt, sg2_opt) {
-                            model.add_bond(&sg1, &sg2, 1);
+                        if let (Some(a1), Some(a2)) = (atom1_opt, atom2_opt) {
+                            let order = conn.bond_order();
+                            model.add_bond(&a1, &a2, order);
                         }
                     }
                 }
