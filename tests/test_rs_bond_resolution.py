@@ -33,8 +33,8 @@ DATA_DIR = os.path.abspath(
 )
 
 
-class TestRsPr45BondResolutionAndFoundation(unittest.TestCase):
-    """Tests for PR#45: Foundation & Bond Resolution bindings."""
+class TestRsBondResolution(unittest.TestCase):
+    """Tests for Phase 10: Foundation & Bond Resolution bindings."""
 
     def setUp(self):
         self.tmp_files = []
@@ -294,6 +294,76 @@ class TestRsPr45BondResolutionAndFoundation(unittest.TestCase):
         ]
         self.assertEqual(len(co_bonds), 1)
         self.assertEqual(co_bonds[0][2], 2, "C=O bond should have order 2 from CCD template")
+
+    def test_add_from_file_all_or_nothing_on_corrupted_block(self):
+        """
+        PR#45 Review Revision 2 & 3:
+        CcdTemplateDb.add_from_file() must fail atomically if ANY data block is corrupted,
+        leaving the database unmodified, and must raise BrError/BrInputError (not ValueError).
+        Referenced Rust test:
+          test_ccd_templates.rs::test_from_mmcif_block_duplicate_atom_id_rows (lines 515-558)
+        """
+        # Multi-block CIF containing a valid block (GOOD) and a corrupted block (BAD)
+        # with conflicting duplicate atom definitions (C1 defined as C then as N).
+        multi_block_cif_content = """data_GOOD
+_chem_comp.id GOOD
+loop_
+_chem_comp_atom.atom_id
+_chem_comp_atom.type_symbol
+_chem_comp_atom.model_Cartn_x
+_chem_comp_atom.model_Cartn_y
+_chem_comp_atom.model_Cartn_z
+C1 C 0.000 0.000 0.000
+C2 C 1.500 0.000 0.000
+loop_
+_chem_comp_bond.atom_id_1
+_chem_comp_bond.atom_id_2
+_chem_comp_bond.value_order
+C1 C2 sing
+
+data_BAD
+_chem_comp.id BAD
+loop_
+_chem_comp_atom.atom_id
+_chem_comp_atom.type_symbol
+_chem_comp_atom.model_Cartn_x
+_chem_comp_atom.model_Cartn_y
+_chem_comp_atom.model_Cartn_z
+C1 C 0.000 0.000 0.000
+C1 N 1.500 0.000 0.000
+loop_
+_chem_comp_bond.atom_id_1
+_chem_comp_bond.atom_id_2
+_chem_comp_bond.value_order
+C1 C1 sing
+"""
+        corrupted_cif_path = self._get_tmp_path(".cif")
+        with open(corrupted_cif_path, "w", encoding="utf-8") as f:
+            f.write(multi_block_cif_content)
+
+        db = rs_br.CcdTemplateDb.empty()
+        self.assertEqual(len(db), 0)
+
+        # 1. Must raise BrInputError / BrError (per §4.3 common design policy 4)
+        with self.assertRaises(rs_br.BrInputError) as ctx:
+            db.add_from_file(corrupted_cif_path)
+
+        err_msg = str(ctx.exception)
+        # 2. Must identify which block failed in error message
+        self.assertIn("BAD", err_msg)
+
+        # 3. Database MUST remain unmodified (all-or-nothing: GOOD was not inserted)
+        self.assertEqual(
+            len(db),
+            0,
+            "CcdTemplateDb must remain unmodified when any block in add_from_file() fails",
+        )
+        self.assertNotIn("GOOD", db)
+        self.assertNotIn("BAD", db)
+
+        # 4. Nonexistent file also raises BrError / BrInputError
+        with self.assertRaises(rs_br.BrError):
+            db.add_from_file("/nonexistent/path/to/component.cif")
 
     def test_subtree_copy_setup_does_not_mutate_original(self):
         """
@@ -600,6 +670,39 @@ disulf1 disulf A CYS 1 SG ? A CYS 1 A CYS 2 SG ? A CYS 2 sing
         report_b = cif_synth.get_structure_atomgroup_with_report(select_altloc="B")
         self.assertFalse(report_b.has_unresolved())
         self.assertEqual(len(report_b.unresolved_struct_conns), 0)
+
+    def test_mmcif_report_atomgroup_identity_and_persistence(self):
+        """
+        PR#45 Review Revision 1:
+        MmcifStructureReport.atomgroup must return the identical Python AtomGroup instance
+        on repeated accesses (rep.atomgroup is rep.atomgroup), and mutations like setup()
+        must persist on the report's atomgroup.
+        """
+        cif_path = os.path.join(DATA_DIR, "1WCT.cif")
+        cif = rs_br.SimpleMmcif(cif_path)
+        rep = cif.get_structure_atomgroup_with_report(select_model=1)
+
+        # 1. Identity: repeated access returns the exact same Python object
+        ag1 = rep.atomgroup
+        ag2 = rep.atomgroup
+        self.assertIs(
+            ag1,
+            ag2,
+            "rep.atomgroup must return the identical AtomGroup Python object across accesses",
+        )
+
+        # 2. Persistence: setup() in-place mutation persists on rep.atomgroup
+        init_bonds = rep.atomgroup.get_bond_list()
+        self.assertEqual(len(init_bonds), 10)  # 1WCT file-derived bonds baseline
+
+        rep.atomgroup.setup()
+
+        post_bonds = rep.atomgroup.get_bond_list()
+        self.assertGreater(
+            len(post_bonds),
+            10,
+            "setup() result must persist on rep.atomgroup rather than being discarded on a copy",
+        )
 
 
 if __name__ == "__main__":

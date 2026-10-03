@@ -6,8 +6,8 @@ use proteindf_bridge::ccd_templates::{
     CcdAtom as CoreCcdAtom, CcdBondTemplate as CoreCcdBondTemplate,
     CcdTemplateDb as CoreCcdTemplateDb,
 };
+use proteindf_bridge::error::BridgeError;
 use proteindf_bridge::format::mmcif::SimpleMmcif as CoreSimpleMmcif;
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use std::path::Path;
 
@@ -172,41 +172,65 @@ impl PyCcdTemplateDb {
 
     /// Loads component templates from a user-supplied mmCIF file (which may contain multiple data blocks)
     /// and inserts them into this database.
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The file cannot be read or parsed.
+    /// - No CCD data blocks are found in the file.
+    /// - Any data block fails to parse (e.g. conflicting duplicate atoms, missing atom entries,
+    ///   or macromolecular structure data blocks containing `_atom_site`).
+    /// In case of error, this database is left completely unmodified.
     pub fn add_from_file(&mut self, file_path: &str) -> PyResult<usize> {
         let mut cif = CoreSimpleMmcif::new();
         cif.load(Path::new(file_path)).map_err(to_py_err)?;
 
-        let mut count = 0;
+        let names = cif.get_molecule_names();
+        if names.is_empty() {
+            return Err(to_py_err(BridgeError::input_error(
+                "ccd_templates",
+                format!("No data blocks found in file: {file_path}"),
+            )));
+        }
+
+        let mut parsed_templates = Vec::new();
         let mut errors = Vec::new();
 
-        for name in cif.get_molecule_names() {
-            if let Some(block) = cif.get_data_block(&name) {
-                if block.has_atom_site() {
-                    continue;
-                }
-                match CoreCcdBondTemplate::from_mmcif_block(block, &name) {
+        for name in &names {
+            match cif.get_data_block(name) {
+                Some(block) => match CoreCcdBondTemplate::from_mmcif_block(block, name) {
                     Ok(template) => {
-                        self.inner.insert(template);
-                        count += 1;
+                        parsed_templates.push(template);
                     }
                     Err(e) => {
                         errors.push(format!("block '{name}': {e}"));
                     }
+                },
+                None => {
+                    errors.push(format!("block '{name}': block not found in mmCIF data"));
                 }
             }
         }
 
-        if count == 0 {
-            if errors.is_empty() {
-                return Err(PyValueError::new_err(format!(
-                    "No valid CCD component blocks found in file: {file_path}"
-                )));
-            } else {
-                return Err(PyValueError::new_err(format!(
-                    "Failed to load any CCD components from {file_path}: {}",
+        if !errors.is_empty() {
+            return Err(to_py_err(BridgeError::input_error(
+                "ccd_templates",
+                format!(
+                    "Failed to parse CCD component blocks from {file_path}: {}",
                     errors.join("; ")
-                )));
-            }
+                ),
+            )));
+        }
+
+        if parsed_templates.is_empty() {
+            return Err(to_py_err(BridgeError::input_error(
+                "ccd_templates",
+                format!("No valid CCD component blocks found in file: {file_path}"),
+            )));
+        }
+
+        let count = parsed_templates.len();
+        for template in parsed_templates {
+            self.inner.insert(template);
         }
 
         Ok(count)

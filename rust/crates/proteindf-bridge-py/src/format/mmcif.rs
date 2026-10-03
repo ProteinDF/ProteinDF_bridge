@@ -175,43 +175,53 @@ impl PyUnresolvedStructConn {
     module = "proteindf_bridge_rs",
     skip_from_py_object
 )]
-#[derive(Clone)]
 pub struct PyMmcifStructureReport {
-    pub(crate) inner: CoreMmcifStructureReport,
+    atomgroup: Py<PyAtomGroup>,
+    unresolved_struct_conns: Vec<PyUnresolvedStructConn>,
+    has_unresolved: bool,
+    atom_count: usize,
 }
 
-impl From<CoreMmcifStructureReport> for PyMmcifStructureReport {
-    fn from(inner: CoreMmcifStructureReport) -> Self {
-        Self { inner }
+impl PyMmcifStructureReport {
+    pub fn new(py: Python<'_>, report: CoreMmcifStructureReport) -> PyResult<Self> {
+        let atom_count = report.atomgroup.get_number_of_atoms();
+        let has_unresolved = report.has_unresolved();
+        let py_ag = Py::new(py, PyAtomGroup::from_core(report.atomgroup))?;
+        let unresolved_struct_conns = report
+            .unresolved_struct_conns
+            .into_iter()
+            .map(PyUnresolvedStructConn::from)
+            .collect();
+        Ok(Self {
+            atomgroup: py_ag,
+            unresolved_struct_conns,
+            has_unresolved,
+            atom_count,
+        })
     }
 }
 
 #[pymethods]
 impl PyMmcifStructureReport {
     #[getter]
-    pub fn atomgroup(&self) -> PyAtomGroup {
-        PyAtomGroup::from_core(self.inner.atomgroup.clone())
+    pub fn atomgroup(&self, py: Python<'_>) -> Py<PyAtomGroup> {
+        self.atomgroup.clone_ref(py)
     }
 
     #[getter]
     pub fn unresolved_struct_conns(&self) -> Vec<PyUnresolvedStructConn> {
-        self.inner
-            .unresolved_struct_conns
-            .iter()
-            .cloned()
-            .map(PyUnresolvedStructConn::from)
-            .collect()
+        self.unresolved_struct_conns.clone()
     }
 
     pub fn has_unresolved(&self) -> bool {
-        self.inner.has_unresolved()
+        self.has_unresolved
     }
 
     pub fn __repr__(&self) -> String {
         format!(
             "MmcifStructureReport(atoms={}, unresolved_bonds={})",
-            self.inner.atomgroup.get_number_of_atoms(),
-            self.inner.unresolved_struct_conns.len()
+            self.atom_count,
+            self.unresolved_struct_conns.len()
         )
     }
 }
@@ -313,6 +323,7 @@ impl PySimpleMmcif {
     #[pyo3(signature = (select_model=None, select_altloc=Some("A")))]
     pub fn get_structure_atomgroup_with_report(
         &self,
+        py: Python<'_>,
         select_model: Option<usize>,
         select_altloc: Option<&str>,
     ) -> PyResult<PyMmcifStructureReport> {
@@ -320,12 +331,13 @@ impl PySimpleMmcif {
             .inner
             .get_structure_atomgroup_with_report(select_model, select_altloc)
             .map_err(to_py_err)?;
-        Ok(PyMmcifStructureReport::from(report))
+        PyMmcifStructureReport::new(py, report)
     }
 
     #[pyo3(signature = (block_name, select_model=None, select_altloc=Some("A")))]
     pub fn get_structure_atomgroup_for_block_with_report(
         &self,
+        py: Python<'_>,
         block_name: &str,
         select_model: Option<usize>,
         select_altloc: Option<&str>,
@@ -334,7 +346,7 @@ impl PySimpleMmcif {
             .inner
             .get_structure_atomgroup_for_block_with_report(block_name, select_model, select_altloc)
             .map_err(to_py_err)?;
-        Ok(PyMmcifStructureReport::from(report))
+        PyMmcifStructureReport::new(py, report)
     }
 
     #[pyo3(signature = (
