@@ -1500,3 +1500,78 @@ fn test_struct_conn_validation_failure_leaves_buffer_empty() {
         "buffer must remain completely empty on validation failure"
     );
 }
+
+/// Review 1 criterion: Verify that inter-residue bonds in structures with an empty chain ID ("_")
+/// roundtrip properly: written with '.' as asym_id in _struct_conn, and reloaded via
+/// `get_structure_atomgroup_with_report` with 0 unresolved bonds and the bond restored.
+#[test]
+fn test_roundtrip_empty_chain_id_struct_conn() {
+    let mut root = AtomGroup::new();
+    root.name = "root".to_string();
+    let mut model = AtomGroup::new();
+    model.name = "model_1".to_string();
+    // Empty chain ID is represented by group key "_"
+    let mut chain = AtomGroup::new();
+    chain.name = "_".to_string();
+
+    let mut r1 = AtomGroup::new();
+    r1.name = "CYS".to_string();
+    let mut a1 = Atom::new();
+    a1.name = "SG".to_string();
+    a1.set_atomic_number(16);
+    a1.xyz = Position::new(0.0, 0.0, 0.0);
+    r1.set_atom("1_SG", a1);
+
+    let mut r2 = AtomGroup::new();
+    r2.name = "CYS".to_string();
+    let mut a2 = Atom::new();
+    a2.name = "SG".to_string();
+    a2.set_atomic_number(16);
+    a2.xyz = Position::new(2.04, 0.0, 0.0);
+    r2.set_atom("2_SG", a2);
+
+    chain.set_group("1", r1);
+    chain.set_group("2", r2);
+    model.set_group("_", chain);
+    root.set_group("model_1", model);
+
+    let a1_ref = root.get_atom_by_path("/model_1/_/1/1_SG").unwrap().clone();
+    let a2_ref = root.get_atom_by_path("/model_1/_/2/2_SG").unwrap().clone();
+    root.get_group_mut("model_1")
+        .unwrap()
+        .add_bond(&a1_ref, &a2_ref, 1);
+
+    let mut buf = Vec::new();
+    SimpleMmcif::write_structure(&root, &mut buf, &MmcifWriteOptions::default())
+        .expect("write_structure must succeed for empty chain with bonds");
+
+    let text = String::from_utf8(buf).expect("valid utf-8");
+    assert!(
+        text.contains("_struct_conn.id"),
+        "_struct_conn loop must be present"
+    );
+    assert!(
+        text.contains("disulf1 disulf sing . CYS 1 SG ? . 1 . CYS 2 SG ? . 2"),
+        "expected empty chain written as '.' in _struct_conn:\n{text}"
+    );
+
+    let reloaded_cif = SimpleMmcif::from_str(&text).expect("load reloaded mmCIF");
+    let mut report = reloaded_cif
+        .get_structure_atomgroup_with_report(None, None)
+        .expect("get_structure_atomgroup_with_report must succeed");
+
+    assert_eq!(
+        report.unresolved_struct_conns.len(),
+        0,
+        "empty chain struct_conn must resolve with 0 unresolved records"
+    );
+
+    let bonds = report.atomgroup.get_bond_list();
+    assert_eq!(bonds.len(), 1, "exactly 1 bond should be restored");
+    assert_eq!(bonds[0].order, 1);
+    assert!(
+        bonds[0].atom1_path.contains("/_/") && bonds[0].atom2_path.contains("/_/"),
+        "bond must link atoms in chain '_': {:?}",
+        bonds[0]
+    );
+}
