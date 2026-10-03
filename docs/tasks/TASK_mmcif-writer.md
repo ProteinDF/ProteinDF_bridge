@@ -99,3 +99,20 @@
 
 1. 上記1〜6に対応し、同じブランチに追加コミットする。
 2. `cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check`が通る。
+
+## PR#42 レビュー結果(2回目、2026-10-03、収束・マージ済み)
+
+修正コミット`2c5c67f`を確認した。修正依頼1〜6すべてに対応済み。
+
+1. 書き出し前に全体を検証する`validate_for_mmcif_write`を追加し、`save_structure`は一時ファイルに書いてから`rename`する形になった。エラー時に出力バッファが空のままであること・既存ファイルが変更されないことをテストで確認している。
+2. `charge_to_b_factor`は小数4桁になった。
+3. 空の鎖IDの往復テストを追加。
+4. データブロック名の検証を追加。
+5. クォート判定を`determine_cif_quote_kind`に一本化。
+6. 往復テストの補助関数に原子名の一意性のアサートを追加。
+
+`cargo test --workspace`(306 passed、0 failed、2 ignored。うち`test_mmcif_writer`は24 passed、1 ignored)、clippy、fmtをClaudeが確認した。
+
+**残っている軽微な点(対応不要)**: `save_structure`で事前検証が2回走る(100万原子で約0.87秒→約1.01秒)。書き込み途中のI/Oエラー時に一時ファイルが消える経路はテストされていない。
+
+ユーザー承認のうえ、2026-10-03にdevelopへマージした(`72be69c`)。**PR#42は完了。** 次はPR#43。
