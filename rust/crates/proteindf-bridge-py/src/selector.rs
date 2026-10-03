@@ -36,7 +36,11 @@ fn extract_pos(arg: &Bound<'_, PyAny>) -> PyResult<Position> {
 // -----------------------------------------------------------------------------
 // 1. Select_Symbol
 // -----------------------------------------------------------------------------
-#[pyclass(name = "Select_Symbol", module = "proteindf_bridge_rs")]
+#[pyclass(
+    name = "Select_Symbol",
+    module = "proteindf_bridge_rs",
+    skip_from_py_object
+)]
 #[derive(Clone)]
 pub struct PySelectSymbol {
     pub(crate) inner: CoreSelectSymbol,
@@ -63,7 +67,11 @@ impl PySelectSymbol {
 // -----------------------------------------------------------------------------
 // 2. Select_Name
 // -----------------------------------------------------------------------------
-#[pyclass(name = "Select_Name", module = "proteindf_bridge_rs")]
+#[pyclass(
+    name = "Select_Name",
+    module = "proteindf_bridge_rs",
+    skip_from_py_object
+)]
 #[derive(Clone)]
 pub struct PySelectName {
     pub(crate) inner: CoreSelectName,
@@ -92,7 +100,11 @@ impl PySelectName {
 // -----------------------------------------------------------------------------
 // 3. Select_Path_simple
 // -----------------------------------------------------------------------------
-#[pyclass(name = "Select_Path_simple", module = "proteindf_bridge_rs")]
+#[pyclass(
+    name = "Select_Path_simple",
+    module = "proteindf_bridge_rs",
+    skip_from_py_object
+)]
 #[derive(Clone)]
 pub struct PySelectPathSimple {
     pub(crate) inner: CoreSelectPathSimple,
@@ -121,7 +133,11 @@ impl PySelectPathSimple {
 // -----------------------------------------------------------------------------
 // 4. Select_Path_wildcard
 // -----------------------------------------------------------------------------
-#[pyclass(name = "Select_Path_wildcard", module = "proteindf_bridge_rs")]
+#[pyclass(
+    name = "Select_Path_wildcard",
+    module = "proteindf_bridge_rs",
+    skip_from_py_object
+)]
 #[derive(Clone)]
 pub struct PySelectPathWildcard {
     pub(crate) inner: CoreSelectPathWildcard,
@@ -149,7 +165,11 @@ impl PySelectPathWildcard {
 // -----------------------------------------------------------------------------
 // 5. Select_PathRegex
 // -----------------------------------------------------------------------------
-#[pyclass(name = "Select_PathRegex", module = "proteindf_bridge_rs")]
+#[pyclass(
+    name = "Select_PathRegex",
+    module = "proteindf_bridge_rs",
+    skip_from_py_object
+)]
 #[derive(Clone)]
 pub struct PySelectPathRegex {
     pub(crate) inner: CoreSelectPathRegex,
@@ -177,7 +197,11 @@ impl PySelectPathRegex {
 // -----------------------------------------------------------------------------
 // 6. Select_Path
 // -----------------------------------------------------------------------------
-#[pyclass(name = "Select_Path", module = "proteindf_bridge_rs")]
+#[pyclass(
+    name = "Select_Path",
+    module = "proteindf_bridge_rs",
+    skip_from_py_object
+)]
 #[derive(Clone)]
 pub struct PySelectPath {
     pub(crate) inner: CoreSelectPath,
@@ -206,7 +230,11 @@ impl PySelectPath {
 // -----------------------------------------------------------------------------
 // 7. Select_Range
 // -----------------------------------------------------------------------------
-#[pyclass(name = "Select_Range", module = "proteindf_bridge_rs")]
+#[pyclass(
+    name = "Select_Range",
+    module = "proteindf_bridge_rs",
+    skip_from_py_object
+)]
 #[derive(Clone)]
 pub struct PySelectRange {
     pub(crate) inner: CoreSelectRange,
@@ -234,7 +262,11 @@ impl PySelectRange {
 // -----------------------------------------------------------------------------
 // 8. Select_Atom
 // -----------------------------------------------------------------------------
-#[pyclass(name = "Select_Atom", module = "proteindf_bridge_rs")]
+#[pyclass(
+    name = "Select_Atom",
+    module = "proteindf_bridge_rs",
+    skip_from_py_object
+)]
 #[derive(Clone)]
 pub struct PySelectAtom {
     pub(crate) inner: CoreSelectAtom,
@@ -261,7 +293,11 @@ impl PySelectAtom {
 // -----------------------------------------------------------------------------
 // 9. Select_AtomGroup
 // -----------------------------------------------------------------------------
-#[pyclass(name = "Select_AtomGroup", module = "proteindf_bridge_rs")]
+#[pyclass(
+    name = "Select_AtomGroup",
+    module = "proteindf_bridge_rs",
+    skip_from_py_object
+)]
 #[derive(Clone)]
 pub struct PySelectAtomGroup {
     pub(crate) inner: CoreSelectAtomGroup,

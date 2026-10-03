@@ -9,7 +9,11 @@ use proteindf_bridge::ramachandran::{
 };
 use pyo3::prelude::*;
 
-#[pyclass(name = "RamachandranAngle", module = "proteindf_bridge_rs")]
+#[pyclass(
+    name = "RamachandranAngle",
+    module = "proteindf_bridge_rs",
+    skip_from_py_object
+)]
 #[derive(Clone)]
 pub struct PyRamachandranAngle {
     pub(crate) inner: CoreRamachandranAngle,

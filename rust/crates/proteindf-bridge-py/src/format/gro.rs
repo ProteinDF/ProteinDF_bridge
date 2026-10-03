@@ -8,7 +8,11 @@ use proteindf_bridge::format::gro::SimpleGro as CoreSimpleGro;
 use pyo3::prelude::*;
 use std::fs;
 
-#[pyclass(name = "SimpleGro", module = "proteindf_bridge_rs")]
+#[pyclass(
+    name = "SimpleGro",
+    module = "proteindf_bridge_rs",
+    skip_from_py_object
+)]
 #[derive(Clone, Default)]
 pub struct PySimpleGro {
     pub(crate) inner: CoreSimpleGro,

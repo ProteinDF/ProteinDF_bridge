@@ -7,7 +7,11 @@ use proteindf_bridge::error::BridgeError;
 use proteindf_bridge::format::mmcif::SimpleMmcif as CoreSimpleMmcif;
 use pyo3::prelude::*;
 
-#[pyclass(name = "SimpleMmcif", module = "proteindf_bridge_rs")]
+#[pyclass(
+    name = "SimpleMmcif",
+    module = "proteindf_bridge_rs",
+    skip_from_py_object
+)]
 #[derive(Clone, Default)]
 pub struct PySimpleMmcif {
     pub(crate) inner: CoreSimpleMmcif,

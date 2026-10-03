@@ -7,7 +7,7 @@ use proteindf_bridge::format::xyz::Xyz as CoreXyz;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 
-#[pyclass(name = "Xyz", module = "proteindf_bridge_rs")]
+#[pyclass(name = "Xyz", module = "proteindf_bridge_rs", skip_from_py_object)]
 #[derive(Clone, Default)]
 pub struct PyXyz {
     pub(crate) inner: CoreXyz,
