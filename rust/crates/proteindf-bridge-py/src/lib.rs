@@ -10,6 +10,7 @@ pub mod bond;
 pub mod ccd_templates;
 pub mod error;
 pub mod format;
+pub mod hydrogenation;
 pub mod ion_pair;
 pub mod matrix;
 pub mod periodic_table;
@@ -101,6 +102,10 @@ fn proteindf_bridge_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<format::PyStructConnPartnerUnresolved>()?;
     m.add_class::<format::PyUnresolvedStructConn>()?;
     m.add_class::<format::PyMmcifStructureReport>()?;
+
+    // Hydrogenation (PR#46)
+    m.add_class::<hydrogenation::PyHydrogenationReport>()?;
+    m.add_class::<hydrogenation::PyOverallHydrogenationReport>()?;
 
     Ok(())
 }
