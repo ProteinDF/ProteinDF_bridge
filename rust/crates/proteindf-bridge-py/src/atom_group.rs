@@ -11,7 +11,9 @@ use crate::schema::PySchemaViolation;
 use proteindf_bridge::atom_group::{AtomGroup as CoreAtomGroup, Selector};
 use proteindf_bridge::ccd_templates::CcdTemplateDb as CoreCcdTemplateDb;
 use proteindf_bridge::position::Position;
-use proteindf_bridge::secondary_structure::SsCode;
+use proteindf_bridge::secondary_structure::{
+    apply_secondary_structure as core_apply_secondary_structure, SsCode,
+};
 use pyo3::exceptions::{PyKeyError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use std::collections::HashMap;
@@ -474,6 +476,13 @@ impl PyAtomGroup {
             .add_missing_hydrogens(core_db)
             .map_err(to_py_err)?;
         PyOverallHydrogenationReport::new(py, report)
+    }
+
+    /// Applies 3-state secondary structure assignments ('H', 'E', '-') directly to the residue groups of this chain in-place.
+    ///
+    /// Note: This modifies the AtomGroup in-place. If called on a copy or a sub-tree copy (such as one returned by indexing or get_group()), the original root tree will remain unchanged.
+    pub fn apply_secondary_structure(&mut self) {
+        core_apply_secondary_structure(&mut self.inner);
     }
 
     pub fn shift_by(&mut self, dir: &Bound<'_, PyAny>) -> PyResult<()> {
