@@ -28,3 +28,7 @@
 
 1. `tests/test_rs_phase{1,2,3,7}.py`がすべて成功する。実行方法(拡張モジュールのビルド方法、Python環境)と結果を完了報告に書く。参考: Claudeは`cargo build -p proteindf-bridge-py --features extension-module`で作った`.so`を`proteindf_bridge_rs.abi3.so`としてコピーし、`PYTHONPATH`に置いたうえで`uv run --no-project --with numpy --with pyyaml --with msgpack python -m unittest tests/test_rs_phaseN.py`で実行した。
 2. Rust側のコードは変更しない(テストの更新のみ)。
+
+## レビュー結果(1回目、2026-10-03、収束・マージ済み)
+
+`fix/phase1-bond-count-test`(`9111556`)をレビューした。変更は`tests/test_rs_phase1.py`のみで、Rust側の変更はない。結合本数の比較を、N-CA・CA-Cの2本を原子の組まで含めて確認する形に置き換え、Python版との違いの理由をコメントに書いている。コメント中の閾値(Python版`vdw_p + vdw_q + 0.4`、Rust版`COVALENT_BOND_TOLERANCE = 0.45`)は実装と一致することを確認した。他のphaseのテストに同じ種類の比較はなかった。`tests/test_rs_phase{1,2,3,7}.py`(10・16・16・4件)がすべて成功することをClaudeが確認した。ユーザー承認のうえ、2026-10-03にdevelopへマージした。**本タスクは完了。**
