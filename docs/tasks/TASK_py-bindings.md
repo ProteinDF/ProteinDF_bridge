@@ -96,3 +96,18 @@
 
 1. 上記1〜4に対応し、同じブランチに追加コミットする。
 2. 全PR共通の完了の定義1〜4を満たす。
+
+## PR#45 レビュー結果(2回目、2026-10-03、収束・マージ済み)
+
+修正コミット`9ad0369`を確認した。Claudeが実際に試し、次を確認した。
+
+1. `rep.atomgroup is rep.atomgroup`が`True`になり、`rep.atomgroup.setup()`の結果が残る(1WCTで結合10本→224本)。
+2. `ALA`と壊れた`BAD`を含むファイルで`add_from_file()`が`BrInputError`を出し、DBは変更されない。構造データのブロック(`_atom_site`を含むもの)が混ざったファイルも、黙って読み飛ばさずエラーにするようになった。
+3. エラーは`BrError`系に揃った。
+4. テストファイルは`tests/test_rs_bond_resolution.py`に改名された。
+
+コアのクレートは変更なし。`cargo test --workspace`(318 passed)、clippy、fmt、Pythonテスト一式(157件)をClaudeが確認した。
+
+**残っている軽微な点**: `repr(MmcifStructureReport)`が常に`atoms=0`と表示される(最上位に直接ある原子の数を作成時点で数えているため)。→ PR#46で、全原子数をその時点の値で表示するよう修正する。
+
+ユーザー承認のうえ、2026-10-03にdevelopへマージした(`5211af2`)。**PR#45は完了。** 次はPR#46。
