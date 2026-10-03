@@ -7,13 +7,23 @@ pub mod amino_acid;
 pub mod atom;
 pub mod atom_group;
 pub mod bond;
+pub mod brd;
+pub mod ccd_templates;
+pub mod ch_pi;
 pub mod error;
 pub mod format;
+pub mod hydrogen_bond;
+pub mod hydrogenation;
+pub mod interaction_set;
 pub mod ion_pair;
 pub mod matrix;
+pub mod modeling;
+pub mod neutralize;
 pub mod periodic_table;
 pub mod position;
 pub mod ramachandran;
+pub mod schema;
+pub mod secondary_structure;
 pub mod selector;
 pub mod ssbond;
 pub mod superposer;
@@ -86,6 +96,69 @@ fn proteindf_bridge_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<ramachandran::PyRamachandranAngle>()?;
     m.add_function(wrap_pyfunction!(ramachandran::py_calc_phi_psi, m)?)?;
     m.add_function(wrap_pyfunction!(ramachandran::py_dihedral_angle, m)?)?;
+
+    // CCD Template DB (PR#45)
+    m.add_class::<ccd_templates::PyCcdAtom>()?;
+    m.add_class::<ccd_templates::PyCcdBondTemplate>()?;
+    m.add_class::<ccd_templates::PyCcdTemplateDb>()?;
+
+    // Schema Validation (PR#45)
+    m.add_class::<schema::PySchemaViolation>()?;
+
+    // mmCIF Structure Report (PR#45)
+    m.add_class::<format::PyStructConnPartnerUnresolved>()?;
+    m.add_class::<format::PyUnresolvedStructConn>()?;
+    m.add_class::<format::PyMmcifStructureReport>()?;
+
+    // Hydrogenation (PR#46)
+    m.add_class::<hydrogenation::PyHydrogenationReport>()?;
+    m.add_class::<hydrogenation::PyOverallHydrogenationReport>()?;
+
+    // Analysis (PR#47)
+    // Hydrogen bonds
+    m.add_class::<hydrogen_bond::PyHydrogenBond>()?;
+    m.add_class::<hydrogen_bond::PySidechainHydrogenBond>()?;
+    m.add_function(wrap_pyfunction!(hydrogen_bond::calc_backbone_hbonds, m)?)?;
+    m.add_function(wrap_pyfunction!(hydrogen_bond::calc_sidechain_hbonds, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        hydrogen_bond::calc_sidechain_hbonds_with_options,
+        m
+    )?)?;
+
+    // Secondary structure (DSSP)
+    m.add_class::<secondary_structure::PySecondaryStructure>()?;
+    m.add_function(wrap_pyfunction!(
+        secondary_structure::calc_secondary_structure,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        secondary_structure::apply_secondary_structure,
+        m
+    )?)?;
+
+    // CH-pi interactions
+    m.add_class::<ch_pi::PyChPiInteraction>()?;
+    m.add_function(wrap_pyfunction!(ch_pi::calc_ch_pi_interactions, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        ch_pi::calc_ch_pi_interactions_with_thresholds,
+        m
+    )?)?;
+
+    // InteractionSet
+    m.add_class::<interaction_set::PyInteraction>()?;
+    m.add_class::<interaction_set::PyInteractionSet>()?;
+
+    // .brd MessagePack & YUI format I/O (PR#48)
+    m.add_function(wrap_pyfunction!(brd::load_atomgroup, m)?)?;
+    m.add_function(wrap_pyfunction!(brd::save_atomgroup, m)?)?;
+    m.add_function(wrap_pyfunction!(brd::load_brd_yui, m)?)?;
+    m.add_function(wrap_pyfunction!(brd::save_brd_yui, m)?)?;
+
+    // Modeling (PR#48)
+    m.add_class::<modeling::PyModeling>()?;
+
+    // Neutralize (PR#48)
+    m.add_class::<neutralize::PyNeutralize>()?;
 
     Ok(())
 }
