@@ -584,6 +584,39 @@ proteindf-bridge = { git = "https://github.com/<org>/ProteinDF_bridge", tag = "v
   - 既存のPythonスクリプトや計算バッチ処理の高速化・移行が目的の場合は **`proteindf_bridge_rs`** を使用する。
   - YUIの可視化機能やUI・レンダラーと連動するアプリケーションやプラグインを開発する場合は **`yui`** を使用する。
 
+### 4.3 Pythonバインディングの拡充(計画: 2026-10-03)
+
+#### 背景
+
+2026.10.0時点の`proteindf_bridge_rs`が公開しているのは、Phase 1〜5の基盤・フォーマットI/O・構造操作、Phase 7のRamachandran、mmCIF書き出し(§3.17)までである。Phase 6(`.brd`・`Modeling`・`Neutralize`)、Phase 8・9(水素結合・DSSP・CH-π・`InteractionSet`)、Phase 10以降の結合解決(`AtomGroup::setup`・CCDテンプレートDB)・水素付加(§3.16)はPythonから使えない。
+
+#### スコープに関する方針決定(ユーザー確認済み、2026-10-03)
+
+次の4つのまとまりを、この順に別々のPRとして公開する。先にA・Bを入れ、Pythonから「読み込み → 結合解決 → 水素付加 → mmCIF書き出し」の一連の流れが通るようにする。
+
+| PR | まとまり | 内容 | 純Python版の対応機能 |
+| --- | --- | --- | --- |
+| PR#45 | A. 基盤・結合解決 | `AtomGroup.setup()`・`setup_with_db()`、CCDテンプレートDB(組み込み + ユーザー提供CCDファイルによる拡張)、階層規約の検証(`validate_schema`・`is_*_level`)、二次構造フィールドの読み書き、mmCIFの`get_structure_atomgroup_with_report` | なし |
+| PR#46 | B. 水素付加 | `AtomGroup.add_missing_hydrogens()`と結果レポート | なし |
+| PR#47 | C. 解析(Phase 8・9) | 主鎖・側鎖の水素結合、DSSP(`calc_secondary_structure`・`apply_secondary_structure`)、CH-π、`InteractionSet`(MessagePack・YAMLでの往復) | なし |
+| PR#48 | D. 既存Python機能の移行(Phase 6) | `.brd`の読み書き(YUIヘッダー形式を含む)、`Modeling`(ACE/NMEキャッピング等)、`Neutralize` | あり |
+
+`spatial.rs`(`CellList`)などの低レベルAPIと、`hydrogenation.rs`・`backbone_hydrogen.rs`の単一残基向けの内部APIは、今回は公開しない。
+
+#### 共通の設計方針
+
+1. **名前**: D(既存Python機能の移行)は純Python版`proteindf_bridge`のクラス名・メソッド名・引数名に合わせる(§4.2「既存Python APIの関数・クラス名を踏襲」)。A〜C(Rust版で追加した機能)は、Rustの関数名・型名をそのままPythonの命名規則(snake_case・CapWords)で公開する。
+2. **`AtomGroup`のコピーと変更**: 既存の`PyAtomGroup`は木全体を所有しており、`ag["A"]`や`get_group()`は**部分木のコピー**を返す(既存の挙動)。そのため、`setup()`・`add_missing_hydrogens()`・`apply_secondary_structure()`など構造を変更するメソッドは、**呼び出したオブジェクト自身をその場で変更する**形にする。部分木のコピーに対して呼んでも元の木は変わらないことを、該当メソッドのdocstringに明記する。
+3. **結果の型**: レポートや解析結果は読み取り専用のプロパティを持つ`#[pyclass]`として公開し、`__repr__`を付ける。pyo3 0.29の`from_py_object`/`skip_from_py_object`を必ず明示する(`allow(deprecated)`で警告を黙らせない)。列挙型は、Pythonから扱いやすい形(例: `SsCode`は`"H"`/`"E"`/`"-"`の1文字の文字列、`None`は未設定)にする。
+4. **エラー**: Rust側の`BridgeError`は既存の`to_py_err`で`BrError`系の例外に変換する。Python側で黙って`None`や空の結果にしない。
+5. **テスト**: 既存の`tests/test_rs_*.py`と同じ形式で、まとまりごとに新しいテストファイルを作る。
+   - A〜Cは純Python版に対応する機能がないため、**Rust側のテストと同じフィクスチャ・同じ基準値**をPythonから再現できることを確認する(基準値はRustのテストコードから引用し、どのテストの値かをコメントに書く)。
+   - Dは純Python版と1対1で比較する(既存のphase1〜7のテストと同じ方式)。
+   - 実行方法: `cargo build -p proteindf-bridge-py --features extension-module`で作った`.so`を`proteindf_bridge_rs.abi3.so`として`PYTHONPATH`に置き、`uv run --no-project --with numpy --with pyyaml --with msgpack python -m unittest`で実行する(既存の`.venv`は変更しない)。
+6. **コアクレートは原則として変更しない。** バインディングのためにコア側の変更が必要になった場合は、変更内容と理由を完了報告に書き、レビューで判断する。
+
+実行チェックリスト・完了の定義は`docs/tasks/TASK_py-bindings.md`を参照。
+
 ## 5. ライセンス
 
 GPLv3を継続する（本リポジトリと同一ライセンス）。
