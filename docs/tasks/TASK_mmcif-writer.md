@@ -133,3 +133,17 @@
 2. `_struct_conn`の収集が検証と書き出しで2〜3回走り、残基内の結合のパスまで毎回解決している。必要になったら最適化する(対応不要)。
 
 ユーザー承認のうえ、2026-10-03にdevelopへマージした(`2f4e72f`)。**PR#43は完了。** 次はPR#44。
+
+## PR#44 レビュー結果(1回目、2026-10-03、要修正)
+
+`feature/mmcif-writer-pr44`(`1372556`・`ce5dd71`)をレビューした。変更はPythonバインディングのクレートとテストのみで、コアのクレートは変更されていない。既存のPython比較テスト(phase1・2・3・7、10・16・16・4件)と新しいテスト8件、`cargo test --workspace`(314 passed)、clippy、fmtが通ることをClaudeが確認した。
+
+### 修正依頼
+
+1. **【不具合】部分電荷を書き出すオプションに`charge_to_b_factor`と`is_charge2tempfactor`の2つの名前があり、メソッドによって解釈が食い違う。** Claudeが確認したところ、`charge_to_b_factor=False, is_charge2tempfactor=True`を渡すと、`write_structure`・`save_structure`・`set_by_atomgroup`は成功し(OR扱い)、`save`だけがエラーになる(`charge_to_b_factor`を優先)。原因は、TASKに「PyPdbに合わせる」と「`MmcifWriteOptions`の項目をキーワード引数にする」の両方を書いたことにある。**ユーザー判断(2026-10-03)により、mmCIFのほうは`charge_to_b_factor`だけにする。** すべてのメソッドから`is_charge2tempfactor`を削除する。メソッド名(`set_by_atomgroup`・`save`など)はPyPdbに合わせたままにする。
+2. **【軽微】テストファイル名`tests/test_rs_phase44.py`を、内容に合った名前(`tests/test_rs_mmcif_writer.py`など)に変える。** 既存のphase番号は開発段階の番号で、44はPR番号を流用していて紛らわしい。
+
+### 完了の定義(修正後)
+
+1. 上記1・2に対応し、同じブランチに追加コミットする。`is_charge2tempfactor`を渡すとPythonの`TypeError`(未知のキーワード引数)になることをテストで確認する。
+2. Pythonテスト(phase1・2・3・7と新しいテスト)、`cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check`が通る。
