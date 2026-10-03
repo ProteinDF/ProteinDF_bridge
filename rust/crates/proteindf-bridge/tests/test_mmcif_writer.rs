@@ -10,7 +10,8 @@ use proteindf_bridge::atom::Atom;
 use proteindf_bridge::atom_group::AtomGroup;
 use proteindf_bridge::ccd_templates::CcdTemplateDb;
 use proteindf_bridge::format::mmcif_writer::{
-    is_standard_residue, parse_model_key, parse_residue_key, quote_cif_value,
+    determine_cif_quote_kind, is_standard_residue, parse_model_key, parse_residue_key,
+    quote_cif_value, validate_data_block_name, CifQuoteKind,
 };
 use proteindf_bridge::format::{MmcifWriteOptions, Pdb, SimpleMmcif};
 use proteindf_bridge::position::Position;
@@ -80,15 +81,22 @@ fn assert_atomgroups_match_roundtrip(orig: &AtomGroup, reloaded: &AtomGroup) {
                 for (_k, a) in orig_res.atoms() {
                     orig_atoms.insert(&a.name, a);
                 }
+                // Verify uniqueness of atom names within the original residue
+                assert_eq!(
+                    orig_atoms.len(),
+                    orig_res.get_number_of_atoms(),
+                    "duplicate atom name found in original residue {model_key}/{chain_key}/{res_key}"
+                );
+
                 let mut rel_atoms: HashMap<&str, &Atom> = HashMap::new();
                 for (_k, a) in rel_res.atoms() {
                     rel_atoms.insert(&a.name, a);
                 }
-
+                // Verify uniqueness of atom names within the reloaded residue
                 assert_eq!(
-                    orig_atoms.len(),
                     rel_atoms.len(),
-                    "atom count mismatch in {model_key}/{chain_key}/{res_key}"
+                    rel_res.get_number_of_atoms(),
+                    "duplicate atom name found in reloaded residue {model_key}/{chain_key}/{res_key}"
                 );
 
                 for (name, orig_atom) in orig_atoms {
@@ -305,6 +313,51 @@ fn test_hydrogenation_pipeline_roundtrip() {
 // ========================================================================
 
 #[test]
+fn test_synthetic_empty_chain_id_roundtrip() {
+    let mut root = AtomGroup::new();
+    let mut model = AtomGroup::with_name("model_1");
+    // Empty chain ID is represented by group key "_"
+    let mut chain = AtomGroup::with_name("_");
+
+    let mut res = AtomGroup::with_name("GLY");
+    let mut atom = Atom::new();
+    atom.name = "CA".to_string();
+    atom.set_atomic_number(6);
+    atom.xyz = Position::new(1.0, 2.0, 3.0);
+    res.set_atom("1_CA", atom);
+    chain.set_group("1", res);
+
+    model.set_group("_", chain);
+    root.set_group("model_1", model);
+
+    let mut buf = Vec::new();
+    SimpleMmcif::write_structure(&root, &mut buf, &MmcifWriteOptions::default()).unwrap();
+    let cif_str = String::from_utf8(buf).unwrap();
+
+    // Verify that chain ID in _atom_site.label_asym_id and auth_asym_id is written as '.'
+    assert!(
+        cif_str.contains(" GLY . ? 1 ? "),
+        "expected '.' for empty chain label_asym_id"
+    );
+    assert!(
+        cif_str.contains(" GLY . CA 1"),
+        "expected '.' for empty chain auth_asym_id"
+    );
+
+    let reloaded = SimpleMmcif::from_str(&cif_str)
+        .unwrap()
+        .get_structure_atomgroup(None, None)
+        .unwrap();
+
+    let rel_model = reloaded.get_group("model_1").unwrap();
+    assert!(
+        rel_model.has_group("_"),
+        "reloaded model should have chain key '_'"
+    );
+    assert_atomgroups_match_roundtrip(&root, &reloaded);
+}
+
+#[test]
 fn test_synthetic_negative_residue_and_insertion_code() {
     let mut root = AtomGroup::new();
     let mut model = AtomGroup::with_name("model_1");
@@ -424,6 +477,7 @@ fn test_synthetic_mixed_quotes_error() {
     assert!(result.is_err(), "expected error for mixed quotes");
     let err_msg = result.unwrap_err().to_string();
     assert!(err_msg.contains("both single and double quotes"));
+    assert!(buf.is_empty(), "buffer must remain empty on error");
 }
 
 #[test]
@@ -446,6 +500,7 @@ fn test_synthetic_schema_violation_error() {
     assert!(result.is_err(), "expected schema violation error");
     let err_msg = result.unwrap_err().to_string();
     assert!(err_msg.contains("schema validation failed"));
+    assert!(buf.is_empty(), "buffer must remain empty on error");
 }
 
 #[test]
@@ -473,6 +528,7 @@ fn test_synthetic_unparseable_residue_key_error() {
     );
     let err_msg = result.unwrap_err().to_string();
     assert!(err_msg.contains("does not start with a valid integer"));
+    assert!(buf.is_empty(), "buffer must remain empty on error");
 }
 
 #[test]
@@ -496,6 +552,7 @@ fn test_synthetic_unparseable_model_key_error() {
     assert!(result.is_err(), "expected error for unparseable model key");
     let err_msg = result.unwrap_err().to_string();
     assert!(err_msg.contains("does not start with 'model_'"));
+    assert!(buf.is_empty(), "buffer must remain empty on error");
 }
 
 #[test]
@@ -508,7 +565,7 @@ fn test_synthetic_non_integer_charge_handling() {
     let mut atom = Atom::new();
     atom.name = "CA".to_string();
     atom.set_atomic_number(6);
-    atom.charge = 0.35; // non-integer partial charge
+    atom.charge = -0.8341; // 4-decimal partial charge (RESP-like)
     atom.xyz = Position::new(1.0, 2.0, 3.0);
     res.set_atom("1_CA", atom);
 
@@ -516,7 +573,7 @@ fn test_synthetic_non_integer_charge_handling() {
     model.set_group("A", chain);
     root.set_group("model_1", model);
 
-    // 1. charge_to_b_factor = false -> error
+    // 1. charge_to_b_factor = false -> error and buffer is empty
     let mut buf = Vec::new();
     let opts_err = MmcifWriteOptions {
         charge_to_b_factor: false,
@@ -529,8 +586,9 @@ fn test_synthetic_non_integer_charge_handling() {
     );
     let err_msg = result.unwrap_err().to_string();
     assert!(err_msg.contains("non-integer formal charge"));
+    assert!(buf.is_empty(), "buffer must remain empty on error");
 
-    // 2. charge_to_b_factor = true -> success, written to B_iso_or_equiv, formal charge is '?'
+    // 2. charge_to_b_factor = true -> success, written to B_iso_or_equiv with 4 decimals
     let mut buf_ok = Vec::new();
     let opts_ok = MmcifWriteOptions {
         charge_to_b_factor: true,
@@ -540,8 +598,11 @@ fn test_synthetic_non_integer_charge_handling() {
         .expect("write should succeed with charge_to_b_factor = true");
 
     let cif_str = String::from_utf8(buf_ok).unwrap();
-    // B_iso_or_equiv should be 0.35, formal charge should be ?
-    assert!(cif_str.contains(" 0.35 ? 1 ALA A CA 1"));
+    // B_iso_or_equiv should preserve 4 decimals: -0.8341
+    assert!(
+        cif_str.contains(" -0.8341 ? 1 ALA A CA 1"),
+        "expected -0.8341 in B_iso_or_equiv; got: {cif_str}"
+    );
 }
 
 #[test]
@@ -607,7 +668,97 @@ fn test_synthetic_group_pdb_classification() {
 }
 
 // ========================================================================
-// 4. Large Structure (>100,000 atoms) and Benchmark
+// 4. Atomic Error Handling Tests (Review Item 1)
+// ========================================================================
+
+#[test]
+fn test_atomic_write_error_leaves_buffer_empty() {
+    let mut root = AtomGroup::new();
+    let mut model = AtomGroup::with_name("model_1");
+    let mut chain = AtomGroup::with_name("A");
+    let mut res = AtomGroup::with_name("ALA");
+
+    // Atom 1: valid
+    let mut a1 = Atom::new();
+    a1.name = "N".to_string();
+    a1.set_atomic_number(7);
+    a1.charge = 0.0;
+    res.set_atom("1_N", a1);
+
+    // Atom 2: invalid partial charge (triggers mid-residue error)
+    let mut a2 = Atom::new();
+    a2.name = "CA".to_string();
+    a2.set_atomic_number(6);
+    a2.charge = 0.25;
+    res.set_atom("2_CA", a2);
+
+    chain.set_group("1", res);
+    model.set_group("A", chain);
+    root.set_group("model_1", model);
+
+    let mut buf = Vec::new();
+    let res = SimpleMmcif::write_structure(&root, &mut buf, &MmcifWriteOptions::default());
+    assert!(res.is_err(), "expected error for partial charge");
+    assert!(
+        buf.is_empty(),
+        "write_structure must write nothing to buffer when pre-validation fails"
+    );
+}
+
+#[test]
+fn test_atomic_save_error_leaves_destination_untouched() {
+    let mut root = AtomGroup::new();
+    let mut model = AtomGroup::with_name("model_1");
+    let mut chain = AtomGroup::with_name("A");
+    let mut res = AtomGroup::with_name("ALA");
+
+    // Valid atom 1, invalid atom 2
+    let mut a1 = Atom::new();
+    a1.name = "N".to_string();
+    a1.set_atomic_number(7);
+    res.set_atom("1_N", a1);
+
+    let mut a2 = Atom::new();
+    a2.name = "CA".to_string();
+    a2.set_atomic_number(6);
+    a2.charge = 0.5;
+    res.set_atom("2_CA", a2);
+
+    chain.set_group("1", res);
+    model.set_group("A", chain);
+    root.set_group("model_1", model);
+
+    let dest_path = std::env::temp_dir().join(format!(
+        "atomic_test_{}.cif",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+
+    // Case 1: Destination does not exist -> must not be created
+    let res = SimpleMmcif::save_structure(&root, &dest_path, &MmcifWriteOptions::default());
+    assert!(res.is_err());
+    assert!(
+        !dest_path.exists(),
+        "destination file must not exist after failed save_structure"
+    );
+
+    // Case 2: Destination already exists with prior content -> must remain unmodified
+    std::fs::write(&dest_path, "PREVIOUS CONTENT").unwrap();
+    let res = SimpleMmcif::save_structure(&root, &dest_path, &MmcifWriteOptions::default());
+    assert!(res.is_err());
+    let content = std::fs::read_to_string(&dest_path).unwrap();
+    assert_eq!(
+        content, "PREVIOUS CONTENT",
+        "existing file content must not be modified after failed save_structure"
+    );
+
+    let _ = std::fs::remove_file(&dest_path);
+}
+
+// ========================================================================
+// 5. Large Structure (>100,000 atoms) and Benchmark
 // ========================================================================
 
 fn build_large_synthetic_protein(total_residues: usize, atoms_per_residue: usize) -> AtomGroup {
@@ -702,8 +853,63 @@ fn benchmark_write_1_million_atoms() {
 }
 
 // ========================================================================
-// 5. Unit Tests for Helpers
+// 6. Unit Tests for Helpers (Review Items 4 & 5)
 // ========================================================================
+
+#[test]
+fn test_data_block_name_validation() {
+    assert_eq!(validate_data_block_name("structure").unwrap(), "structure");
+    assert_eq!(
+        validate_data_block_name("data_structure").unwrap(),
+        "structure"
+    );
+    assert_eq!(validate_data_block_name("1HLS").unwrap(), "1HLS");
+
+    // Empty
+    assert!(validate_data_block_name("").is_err());
+    assert!(validate_data_block_name("data_").is_err());
+
+    // Whitespace / Control
+    assert!(validate_data_block_name("a b").is_err());
+    assert!(validate_data_block_name("data_a\nb").is_err());
+
+    // Invalid characters
+    assert!(validate_data_block_name("data_foo#bar").is_err());
+    assert!(validate_data_block_name("data_'foo'").is_err());
+    assert!(validate_data_block_name("data_\"foo\"").is_err());
+    assert!(validate_data_block_name("data_foo;bar").is_err());
+}
+
+#[test]
+fn test_determine_cif_quote_kind_cases() {
+    assert_eq!(determine_cif_quote_kind("ALA").unwrap(), CifQuoteKind::None);
+    assert_eq!(
+        determine_cif_quote_kind("O5'").unwrap(),
+        CifQuoteKind::Double
+    );
+    assert_eq!(
+        determine_cif_quote_kind("A B").unwrap(),
+        CifQuoteKind::Single
+    );
+    assert_eq!(determine_cif_quote_kind("").unwrap(), CifQuoteKind::Single);
+    assert_eq!(
+        determine_cif_quote_kind("_tag").unwrap(),
+        CifQuoteKind::Single
+    );
+    assert_eq!(
+        determine_cif_quote_kind("data_foo").unwrap(),
+        CifQuoteKind::Single
+    );
+    assert_eq!(
+        determine_cif_quote_kind("loop_").unwrap(),
+        CifQuoteKind::Single
+    );
+    assert_eq!(determine_cif_quote_kind(".").unwrap(), CifQuoteKind::Single);
+    assert_eq!(determine_cif_quote_kind("?").unwrap(), CifQuoteKind::Single);
+
+    // Both quotes -> Error
+    assert!(determine_cif_quote_kind("a'b\"c").is_err());
+}
 
 #[test]
 fn test_parse_residue_key_cases() {
