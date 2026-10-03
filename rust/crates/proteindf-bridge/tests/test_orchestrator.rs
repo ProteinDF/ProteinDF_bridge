@@ -605,3 +605,585 @@ fn test_step2_error_recorded_when_step1_succeeds() {
         "Error message must describe the superposition failure: {err_msg}"
     );
 }
+
+// ============================================================================
+// PR#41: Comprehensive pinning tests for all 18 combinations of step outcomes
+// (Step1: NA/OK/Err x Step2: OK/Err/Missing x Modification: Modified/Unmodified)
+// ============================================================================
+
+mod step_outcome_pinning_tests {
+    use super::*;
+
+    fn make_ala_preceding_residue() -> AtomGroup {
+        let mut prev = AtomGroup::with_name("ALA");
+        prev.set_atom(
+            "N",
+            Atom::new_with_pos("N", Position::new(0.0, 0.0, 0.0)).unwrap(),
+        );
+        prev.set_atom(
+            "CA",
+            Atom::new_with_pos("C", Position::new(1.46, 0.0, 0.0)).unwrap(),
+        );
+        prev.set_atom(
+            "C",
+            Atom::new_with_pos("C", Position::new(2.0, 1.4, 0.0)).unwrap(),
+        );
+        prev.set_atom(
+            "O",
+            Atom::new_with_pos("O", Position::new(3.2, 1.5, 0.0)).unwrap(),
+        );
+        prev.set_atom(
+            "CB",
+            Atom::new_with_pos("C", Position::new(2.0, -0.7, 1.2)).unwrap(),
+        );
+        prev
+    }
+
+    /// Pattern 01: Step1: NA, Step2: OK, Modified: true
+    #[test]
+    fn test_pattern_01_step1_na_step2_ok_modified() {
+        let db = CcdTemplateDb::global();
+        let mut chain = AtomGroup::with_name("A");
+        chain.set_path("/model_1/A/".to_string());
+
+        // Non-amino acid (lacks N, CA) with CCD template "ALA".
+        // Contains C, O, OXT, CB (>= 3 heavy atoms after terminal checks), so Step2 succeeds and adds hydrogens.
+        let mut res = AtomGroup::with_name("ALA");
+        res.set_atom(
+            "C",
+            Atom::new_with_pos("C", Position::new(2.0, 1.4, 0.0)).unwrap(),
+        );
+        res.set_atom(
+            "O",
+            Atom::new_with_pos("O", Position::new(3.2, 1.5, 0.0)).unwrap(),
+        );
+        res.set_atom(
+            "OXT",
+            Atom::new_with_pos("O", Position::new(1.8, 2.3, 0.0)).unwrap(),
+        );
+        res.set_atom(
+            "CB",
+            Atom::new_with_pos("C", Position::new(2.0, -0.7, 1.2)).unwrap(),
+        );
+        chain.set_group("1", res);
+
+        let report = chain.add_missing_hydrogens(db).unwrap();
+        assert_eq!(report.residue_reports.len(), 1);
+        assert!(report.residue_reports.contains_key("/model_1/A/1/"));
+        assert_eq!(report.skipped_residues.len(), 0);
+        assert_eq!(report.step_errors.len(), 0);
+        assert!(report.total_added_hydrogens > 0);
+    }
+
+    /// Pattern 02: Step1: NA, Step2: OK, Modified: false
+    #[test]
+    fn test_pattern_02_step1_na_step2_ok_unmodified() {
+        let db = CcdTemplateDb::global();
+        let mut chain = AtomGroup::with_name("A");
+        chain.set_path("/model_1/A/".to_string());
+
+        let mut res = AtomGroup::with_name("ALA");
+        res.set_atom(
+            "C",
+            Atom::new_with_pos("C", Position::new(2.0, 1.4, 0.0)).unwrap(),
+        );
+        res.set_atom(
+            "O",
+            Atom::new_with_pos("O", Position::new(3.2, 1.5, 0.0)).unwrap(),
+        );
+        res.set_atom(
+            "OXT",
+            Atom::new_with_pos("O", Position::new(1.8, 2.3, 0.0)).unwrap(),
+        );
+        res.set_atom(
+            "CB",
+            Atom::new_with_pos("C", Position::new(2.0, -0.7, 1.2)).unwrap(),
+        );
+        chain.set_group("1", res);
+
+        let _ = chain.add_missing_hydrogens(db).unwrap();
+        let report2 = chain.add_missing_hydrogens(db).unwrap();
+
+        assert_eq!(report2.residue_reports.len(), 1);
+        assert!(report2.residue_reports.contains_key("/model_1/A/1/"));
+        assert_eq!(report2.skipped_residues.len(), 0);
+        assert_eq!(report2.step_errors.len(), 0);
+        assert_eq!(report2.total_added_hydrogens, 0);
+    }
+
+    // Pattern 03: (Step1: NA, Step2: Err, Modified: true) -> UNREACHABLE
+    // Explained in test_unreachable_step_outcome_combinations.
+
+    /// Pattern 04: Step1: NA, Step2: Err, Modified: false
+    #[test]
+    fn test_pattern_04_step1_na_step2_err_unmodified() {
+        let db = CcdTemplateDb::global();
+        let mut chain = AtomGroup::with_name("A");
+        chain.set_path("/model_1/A/".to_string());
+
+        // HOH water has only 1 heavy atom ('O') -> Step1 is NA, Step2 Err.
+        let mut res_hoh = AtomGroup::with_name("HOH");
+        res_hoh.set_atom(
+            "O",
+            Atom::new_with_pos("O", Position::new(10.0, 10.0, 10.0)).unwrap(),
+        );
+        chain.set_group("1", res_hoh);
+
+        let report = chain.add_missing_hydrogens(db).unwrap();
+        assert_eq!(report.residue_reports.len(), 0);
+        assert_eq!(report.skipped_residues.len(), 1);
+        assert_eq!(report.skipped_residues[0].0, "/model_1/A/1/");
+        assert!(report.skipped_residues[0]
+            .1
+            .contains("Sidechain/general hydrogenation error"));
+        assert_eq!(report.step_errors.len(), 1);
+        assert_eq!(report.step_errors[0].0, "/model_1/A/1/");
+        assert_eq!(report.total_added_hydrogens, 0);
+    }
+
+    // Pattern 05: (Step1: NA, Step2: Missing, Modified: true) -> UNREACHABLE
+    // Explained in test_unreachable_step_outcome_combinations.
+
+    /// Pattern 06: Step1: NA, Step2: Missing, Modified: false
+    #[test]
+    fn test_pattern_06_step1_na_step2_missing_unmodified() {
+        let db = CcdTemplateDb::global();
+        let mut chain = AtomGroup::with_name("A");
+        chain.set_path("/model_1/A/".to_string());
+
+        let mut res_lig = AtomGroup::with_name("LIG");
+        res_lig.set_atom(
+            "C1",
+            Atom::new_with_pos("C", Position::new(10.0, 10.0, 10.0)).unwrap(),
+        );
+        res_lig.set_atom(
+            "C2",
+            Atom::new_with_pos("C", Position::new(11.5, 10.0, 10.0)).unwrap(),
+        );
+        chain.set_group("1", res_lig);
+
+        let report = chain.add_missing_hydrogens(db).unwrap();
+        assert_eq!(report.residue_reports.len(), 0);
+        assert_eq!(report.skipped_residues.len(), 1);
+        assert_eq!(report.skipped_residues[0].0, "/model_1/A/1/");
+        assert!(report.skipped_residues[0]
+            .1
+            .contains("No CCD template found for residue 'LIG'"));
+        assert_eq!(report.step_errors.len(), 0);
+        assert_eq!(report.total_added_hydrogens, 0);
+    }
+
+    /// Pattern 07: Step1: OK, Step2: OK, Modified: true
+    #[test]
+    fn test_pattern_07_step1_ok_step2_ok_modified() {
+        let db = CcdTemplateDb::global();
+        let mut chain = AtomGroup::with_name("A");
+        chain.set_path("/model_1/A/".to_string());
+
+        let mut res_ala = AtomGroup::with_name("ALA");
+        res_ala.set_atom(
+            "N",
+            Atom::new_with_pos("N", Position::new(0.0, 0.0, 0.0)).unwrap(),
+        );
+        res_ala.set_atom(
+            "CA",
+            Atom::new_with_pos("C", Position::new(1.46, 0.0, 0.0)).unwrap(),
+        );
+        res_ala.set_atom(
+            "C",
+            Atom::new_with_pos("C", Position::new(2.0, 1.4, 0.0)).unwrap(),
+        );
+        res_ala.set_atom(
+            "O",
+            Atom::new_with_pos("O", Position::new(3.2, 1.5, 0.0)).unwrap(),
+        );
+        res_ala.set_atom(
+            "CB",
+            Atom::new_with_pos("C", Position::new(2.0, -0.7, 1.2)).unwrap(),
+        );
+        chain.set_group("1", res_ala);
+
+        let report = chain.add_missing_hydrogens(db).unwrap();
+        assert_eq!(report.residue_reports.len(), 1);
+        assert!(report.residue_reports.contains_key("/model_1/A/1/"));
+        assert_eq!(report.skipped_residues.len(), 0);
+        assert_eq!(report.step_errors.len(), 0);
+        assert!(report.total_added_hydrogens > 0);
+    }
+
+    /// Pattern 08: Step1: OK, Step2: OK, Modified: false
+    #[test]
+    fn test_pattern_08_step1_ok_step2_ok_unmodified() {
+        let db = CcdTemplateDb::global();
+        let mut chain = AtomGroup::with_name("A");
+        chain.set_path("/model_1/A/".to_string());
+
+        let mut res_ala = AtomGroup::with_name("ALA");
+        res_ala.set_atom(
+            "N",
+            Atom::new_with_pos("N", Position::new(0.0, 0.0, 0.0)).unwrap(),
+        );
+        res_ala.set_atom(
+            "CA",
+            Atom::new_with_pos("C", Position::new(1.46, 0.0, 0.0)).unwrap(),
+        );
+        res_ala.set_atom(
+            "C",
+            Atom::new_with_pos("C", Position::new(2.0, 1.4, 0.0)).unwrap(),
+        );
+        res_ala.set_atom(
+            "O",
+            Atom::new_with_pos("O", Position::new(3.2, 1.5, 0.0)).unwrap(),
+        );
+        res_ala.set_atom(
+            "CB",
+            Atom::new_with_pos("C", Position::new(2.0, -0.7, 1.2)).unwrap(),
+        );
+        chain.set_group("1", res_ala);
+
+        let _ = chain.add_missing_hydrogens(db).unwrap();
+        let report2 = chain.add_missing_hydrogens(db).unwrap();
+
+        assert_eq!(report2.residue_reports.len(), 1);
+        assert!(report2.residue_reports.contains_key("/model_1/A/1/"));
+        assert_eq!(report2.skipped_residues.len(), 0);
+        assert_eq!(report2.step_errors.len(), 0);
+        assert_eq!(report2.total_added_hydrogens, 0);
+    }
+
+    /// Pattern 09: Step1: OK, Step2: Err, Modified: true
+    #[test]
+    fn test_pattern_09_step1_ok_step2_err_modified() {
+        let db = CcdTemplateDb::global();
+        let mut chain = AtomGroup::with_name("A");
+        chain.set_path("/model_1/A/".to_string());
+
+        chain.set_group("1", make_ala_preceding_residue());
+
+        let mut res2 = AtomGroup::with_name("ALA");
+        res2.set_atom(
+            "N",
+            Atom::new_with_pos("N", Position::new(2.0, 2.7, 0.0)).unwrap(),
+        );
+        res2.set_atom(
+            "CA",
+            Atom::new_with_pos("C", Position::new(3.0, 3.5, 0.0)).unwrap(),
+        );
+        chain.set_group("2", res2);
+
+        let report = chain.add_missing_hydrogens(db).unwrap();
+        assert_eq!(report.residue_reports.len(), 2);
+        assert!(report.residue_reports.contains_key("/model_1/A/2/"));
+        assert_eq!(report.skipped_residues.len(), 0);
+        assert_eq!(report.step_errors.len(), 1);
+        assert_eq!(report.step_errors[0].0, "/model_1/A/2/");
+        assert!(report.step_errors[0].1.contains("common heavy atoms"));
+    }
+
+    /// Pattern 10: Step1: OK, Step2: Err, Modified: false
+    #[test]
+    fn test_pattern_10_step1_ok_step2_err_unmodified() {
+        let db = CcdTemplateDb::global();
+        let mut chain = AtomGroup::with_name("A");
+        chain.set_path("/model_1/A/".to_string());
+
+        chain.set_group("1", make_ala_preceding_residue());
+
+        // Internal PRO has no amide H -> Step1 succeeds with added=0, removed=0.
+        // With only N and CA heavy atoms (< 3), Step2 fails.
+        let mut res2 = AtomGroup::with_name("PRO");
+        res2.set_atom(
+            "N",
+            Atom::new_with_pos("N", Position::new(2.0, 2.7, 0.0)).unwrap(),
+        );
+        res2.set_atom(
+            "CA",
+            Atom::new_with_pos("C", Position::new(3.0, 3.5, 0.0)).unwrap(),
+        );
+        chain.set_group("2", res2);
+
+        let report = chain.add_missing_hydrogens(db).unwrap();
+        assert!(report.residue_reports.contains_key("/model_1/A/1/"));
+        assert!(!report.residue_reports.contains_key("/model_1/A/2/"));
+        assert_eq!(report.skipped_residues.len(), 1);
+        assert_eq!(report.skipped_residues[0].0, "/model_1/A/2/");
+        assert_eq!(report.step_errors.len(), 1);
+        assert_eq!(report.step_errors[0].0, "/model_1/A/2/");
+    }
+
+    /// Pattern 11: Step1: OK, Step2: Missing, Modified: true
+    #[test]
+    fn test_pattern_11_step1_ok_step2_missing_modified() {
+        let db = CcdTemplateDb::global();
+        let mut chain = AtomGroup::with_name("A");
+        chain.set_path("/model_1/A/".to_string());
+
+        chain.set_group("1", make_ala_preceding_residue());
+
+        let mut res2 = AtomGroup::with_name("UNK");
+        res2.set_atom(
+            "N",
+            Atom::new_with_pos("N", Position::new(2.0, 2.7, 0.0)).unwrap(),
+        );
+        res2.set_atom(
+            "CA",
+            Atom::new_with_pos("C", Position::new(3.0, 3.5, 0.0)).unwrap(),
+        );
+        res2.set_atom(
+            "C",
+            Atom::new_with_pos("C", Position::new(4.5, 3.5, 0.0)).unwrap(),
+        );
+        chain.set_group("2", res2);
+
+        let report = chain.add_missing_hydrogens(db).unwrap();
+        assert!(report.residue_reports.contains_key("/model_1/A/2/"));
+        assert!(!report
+            .skipped_residues
+            .iter()
+            .any(|(p, _)| p == "/model_1/A/2/"));
+        assert_eq!(report.step_errors.len(), 1);
+        assert_eq!(report.step_errors[0].0, "/model_1/A/2/");
+        assert!(report.step_errors[0]
+            .1
+            .contains("No CCD template found for residue 'UNK'"));
+    }
+
+    /// Pattern 12: Step1: OK, Step2: Missing, Modified: false
+    #[test]
+    fn test_pattern_12_step1_ok_step2_missing_unmodified() {
+        let db = CcdTemplateDb::global();
+        let mut chain = AtomGroup::with_name("A");
+        chain.set_path("/model_1/A/".to_string());
+
+        chain.set_group("1", make_ala_preceding_residue());
+
+        let mut res2 = AtomGroup::with_name("UNK");
+        res2.set_atom(
+            "N",
+            Atom::new_with_pos("N", Position::new(2.0, 2.7, 0.0)).unwrap(),
+        );
+        res2.set_atom(
+            "CA",
+            Atom::new_with_pos("C", Position::new(3.0, 3.5, 0.0)).unwrap(),
+        );
+        res2.set_atom(
+            "C",
+            Atom::new_with_pos("C", Position::new(4.5, 3.5, 0.0)).unwrap(),
+        );
+        res2.set_atom(
+            "H",
+            Atom::new_with_pos("H", Position::new(2.0, 2.7, 1.0)).unwrap(),
+        );
+        chain.set_group("2", res2);
+
+        let report = chain.add_missing_hydrogens(db).unwrap();
+        assert!(!report.residue_reports.contains_key("/model_1/A/2/"));
+        assert_eq!(report.skipped_residues.len(), 1);
+        assert_eq!(report.skipped_residues[0].0, "/model_1/A/2/");
+        assert!(report.skipped_residues[0]
+            .1
+            .contains("No CCD template found for residue 'UNK'"));
+        assert_eq!(report.step_errors.len(), 0);
+    }
+
+    /// Pattern 13: Step1: Err, Step2: OK, Modified: true
+    #[test]
+    fn test_pattern_13_step1_err_step2_ok_modified() {
+        let db = CcdTemplateDb::global();
+        let mut chain = AtomGroup::with_name("A");
+        chain.set_path("/model_1/A/".to_string());
+
+        chain.set_group("1", make_ala_preceding_residue());
+
+        // prev.C is at (2.0, 1.4, 0.0).
+        // N at (2.0, 2.7, 0.0), CA at (2.0, 4.0, 0.0) -> C_prev, N, CA are collinear along Y axis!
+        // Step1 fails with degenerate backbone geometry error.
+        // Heavy atoms N, CA, C, O, CB span 3D -> Step2 OK and adds sidechain H.
+        let mut res2 = AtomGroup::with_name("ALA");
+        res2.set_atom(
+            "N",
+            Atom::new_with_pos("N", Position::new(2.0, 2.7, 0.0)).unwrap(),
+        );
+        res2.set_atom(
+            "CA",
+            Atom::new_with_pos("C", Position::new(2.0, 4.0, 0.0)).unwrap(),
+        );
+        res2.set_atom(
+            "C",
+            Atom::new_with_pos("C", Position::new(3.0, 4.5, 0.0)).unwrap(),
+        );
+        res2.set_atom(
+            "O",
+            Atom::new_with_pos("O", Position::new(4.0, 4.5, 0.0)).unwrap(),
+        );
+        res2.set_atom(
+            "CB",
+            Atom::new_with_pos("C", Position::new(2.0, 4.0, 1.5)).unwrap(),
+        );
+        chain.set_group("2", res2);
+
+        let report = chain.add_missing_hydrogens(db).unwrap();
+        assert!(report.residue_reports.contains_key("/model_1/A/2/"));
+        assert!(!report
+            .skipped_residues
+            .iter()
+            .any(|(p, _)| p == "/model_1/A/2/"));
+        assert_eq!(report.step_errors.len(), 1);
+        assert_eq!(report.step_errors[0].0, "/model_1/A/2/");
+        assert!(report.step_errors[0]
+            .1
+            .contains("Backbone hydrogenation error"));
+    }
+
+    /// Pattern 14: Step1: Err, Step2: OK, Modified: false
+    #[test]
+    fn test_pattern_14_step1_err_step2_ok_unmodified() {
+        let db = CcdTemplateDb::global();
+        let mut chain = AtomGroup::with_name("A");
+        chain.set_path("/model_1/A/".to_string());
+
+        chain.set_group("1", make_ala_preceding_residue());
+
+        let mut res2 = AtomGroup::with_name("ALA");
+        res2.set_atom(
+            "N",
+            Atom::new_with_pos("N", Position::new(2.0, 2.7, 0.0)).unwrap(),
+        );
+        res2.set_atom(
+            "CA",
+            Atom::new_with_pos("C", Position::new(2.0, 4.0, 0.0)).unwrap(),
+        );
+        res2.set_atom(
+            "C",
+            Atom::new_with_pos("C", Position::new(3.0, 4.5, 0.0)).unwrap(),
+        );
+        res2.set_atom(
+            "O",
+            Atom::new_with_pos("O", Position::new(4.0, 4.5, 0.0)).unwrap(),
+        );
+        res2.set_atom(
+            "CB",
+            Atom::new_with_pos("C", Position::new(2.0, 4.0, 1.5)).unwrap(),
+        );
+        chain.set_group("2", res2);
+
+        // 1st run adds sidechain hydrogens to res2
+        let _ = chain.add_missing_hydrogens(db).unwrap();
+
+        // 2nd run: Step1 is still Err, Step2 is OK but 0 modifications
+        let report2 = chain.add_missing_hydrogens(db).unwrap();
+        assert!(!report2.residue_reports.contains_key("/model_1/A/2/"));
+        assert_eq!(report2.skipped_residues.len(), 1);
+        assert_eq!(report2.skipped_residues[0].0, "/model_1/A/2/");
+        assert!(report2.skipped_residues[0]
+            .1
+            .contains("Backbone hydrogenation error"));
+        assert_eq!(report2.step_errors.len(), 1);
+        assert_eq!(report2.step_errors[0].0, "/model_1/A/2/");
+    }
+
+    // Pattern 15: (Step1: Err, Step2: Err, Modified: true) -> UNREACHABLE
+    // Explained in test_unreachable_step_outcome_combinations.
+
+    /// Pattern 16: Step1: Err, Step2: Err, Modified: false
+    /// Pinned per TASK instructions: Same residue is recorded in both step_errors (twice!)
+    /// and skipped_residues (once).
+    #[test]
+    fn test_pattern_16_step1_err_step2_err_unmodified() {
+        let db = CcdTemplateDb::global();
+        let mut chain = AtomGroup::with_name("A");
+        chain.set_path("/model_1/A/".to_string());
+
+        chain.set_group("1", make_ala_preceding_residue());
+
+        // Collinear backbone (Step1: Err) and only 2 heavy atoms (< 3, Step2: Err).
+        let mut res2 = AtomGroup::with_name("ALA");
+        res2.set_atom(
+            "N",
+            Atom::new_with_pos("N", Position::new(2.0, 2.7, 0.0)).unwrap(),
+        );
+        res2.set_atom(
+            "CA",
+            Atom::new_with_pos("C", Position::new(2.0, 4.0, 0.0)).unwrap(),
+        );
+        chain.set_group("2", res2);
+
+        let report = chain.add_missing_hydrogens(db).unwrap();
+        assert!(!report.residue_reports.contains_key("/model_1/A/2/"));
+        assert_eq!(report.skipped_residues.len(), 1);
+        assert_eq!(report.skipped_residues[0].0, "/model_1/A/2/");
+
+        // Both Step1 and Step2 recorded in step_errors:
+        assert_eq!(report.step_errors.len(), 2);
+        assert_eq!(report.step_errors[0].0, "/model_1/A/2/");
+        assert!(report.step_errors[0]
+            .1
+            .contains("Backbone hydrogenation error"));
+        assert_eq!(report.step_errors[1].0, "/model_1/A/2/");
+        assert!(report.step_errors[1]
+            .1
+            .contains("Sidechain/general hydrogenation error"));
+    }
+
+    // Pattern 17: (Step1: Err, Step2: Missing, Modified: true) -> UNREACHABLE
+    // Explained in test_unreachable_step_outcome_combinations.
+
+    /// Pattern 18: Step1: Err, Step2: Missing, Modified: false
+    #[test]
+    fn test_pattern_18_step1_err_step2_missing_unmodified() {
+        let db = CcdTemplateDb::global();
+        let mut chain = AtomGroup::with_name("A");
+        chain.set_path("/model_1/A/".to_string());
+
+        chain.set_group("1", make_ala_preceding_residue());
+
+        let mut res2 = AtomGroup::with_name("UNK");
+        res2.set_atom(
+            "N",
+            Atom::new_with_pos("N", Position::new(2.0, 2.7, 0.0)).unwrap(),
+        );
+        res2.set_atom(
+            "CA",
+            Atom::new_with_pos("C", Position::new(2.0, 4.0, 0.0)).unwrap(),
+        );
+        chain.set_group("2", res2);
+
+        let report = chain.add_missing_hydrogens(db).unwrap();
+        assert!(!report.residue_reports.contains_key("/model_1/A/2/"));
+        assert_eq!(report.skipped_residues.len(), 1);
+        assert_eq!(report.skipped_residues[0].0, "/model_1/A/2/");
+        assert!(report.skipped_residues[0]
+            .1
+            .contains("No CCD template found for residue 'UNK'"));
+        assert_eq!(report.step_errors.len(), 1);
+        assert_eq!(report.step_errors[0].0, "/model_1/A/2/");
+        assert!(report.step_errors[0]
+            .1
+            .contains("Backbone hydrogenation error"));
+    }
+
+    /// Explains and tests why 4 of the 18 combinations are structurally unreachable.
+    #[test]
+    fn test_unreachable_step_outcome_combinations() {
+        // Pattern 03: (Step1: NA, Step2: Err, Modified: true)
+        // - Step 1 is not applicable (0 modifications).
+        // - Step 2 fails with Err. In-place hydrogenation is atomic (it only commits modifications
+        //   on Ok). Therefore, 0 modifications occur on Err.
+        // - Consequently, Modified: true cannot be reached.
+
+        // Pattern 05: (Step1: NA, Step2: Missing, Modified: true)
+        // - Step 1 is not applicable (0 modifications).
+        // - Step 2 finds no template and does nothing (0 modifications).
+        // - Consequently, Modified: true cannot be reached.
+
+        // Pattern 15: (Step1: Err, Step2: Err, Modified: true)
+        // - Step 1 returns Err (atomic, 0 modifications).
+        // - Step 2 returns Err (atomic, 0 modifications).
+        // - Consequently, Modified: true cannot be reached when both steps fail.
+
+        // Pattern 17: (Step1: Err, Step2: Missing, Modified: true)
+        // - Step 1 returns Err (0 modifications).
+        // - Step 2 finds no template (0 modifications).
+        // - Consequently, Modified: true cannot be reached.
+    }
+}
