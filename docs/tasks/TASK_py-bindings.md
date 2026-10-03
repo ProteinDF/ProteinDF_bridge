@@ -80,3 +80,19 @@
 
 - `RUST_PORT_SPEC.md` §4.3に「実施内容・検証」と既知の限界を追記する。
 - `docs/rust-port-handoff.md`に記録する。
+
+## PR#45 レビュー結果(1回目、2026-10-03、要修正)
+
+`feature/py-bindings-pr45`(`495eeee`・`a8c260b`・`042e1e8`)をレビューした。コアのクレートは変更されていない。`cargo test --workspace`(318 passed)、clippy、fmt、Pythonテスト一式(`unittest discover`、155件)が通ることをClaudeが確認した。基準値はRust側のテストから引用されており、引用元も明記されている。
+
+### 修正依頼
+
+1. **【不具合】`MmcifStructureReport.atomgroup`がアクセスのたびに構造全体の新しいコピーを返す。** Claudeが1WCTで確認したところ、`rep.atomgroup is rep.atomgroup`は`False`で、`rep.atomgroup.setup()`を呼んだ後に`rep.atomgroup`を見ても結合は10本(ファイル由来のみ)のままだった。`setup()`はその場限りのコピーにかかって黙って失われる。大きな構造ではアクセスのたびに全体を複製する性能上の問題もある。レポートが`AtomGroup`をPythonオブジェクト(`Py<PyAtomGroup>`)として1つだけ持ち、毎回同じオブジェクトを返すようにする。`rep.atomgroup is rep.atomgroup`であることと、`rep.atomgroup.setup()`の結果が`rep.atomgroup`に残ることをテストする。
+2. **【不具合】`CcdTemplateDb.add_from_file()`が、壊れたデータブロックを黙って無視する。** 1つでも読み込めたブロックがあると、読み込めなかったブロックのエラーを捨てて成功扱いにする。Claudeが、正常な`ALA`と矛盾する重複原子を持つ`BAD`の2ブロックを含むファイルで確認したところ、例外は出ず、戻り値1で`BAD`はDBに入っていなかった。すべてのブロックを先に解析し、1つでも失敗したら、DBを一切変更せずに例外を出す(どのブロックがなぜ失敗したかをメッセージに含める)。このケースをテストする。
+3. **【軽微】ファイル読み込みなどRust側の処理に由来するエラーを`PyValueError`で出している箇所がある(`add_from_file`)。** §4.3「共通の設計方針」4に従い、`BrError`系(`to_py_err`)に揃える。引数の値そのものが不正な場合(`secondary_structure`への不正なコードなど)は`ValueError`のままでよい。
+4. **【軽微】テストファイル名`tests/test_rs_pr45.py`とクラス名`TestRsPr45...`を、内容に合った名前(例: `tests/test_rs_bond_resolution.py`)に変える。** PR#44と同じ理由(PR番号を名前に使わない)。PR#46以降も同様にする。
+
+### 完了の定義(修正後)
+
+1. 上記1〜4に対応し、同じブランチに追加コミットする。
+2. 全PR共通の完了の定義1〜4を満たす。
