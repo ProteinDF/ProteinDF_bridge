@@ -7,7 +7,7 @@ use crate::matrix::PySymmetricMatrix;
 use proteindf_bridge::bond::Bond as CoreBond;
 use pyo3::prelude::*;
 
-#[pyclass(name = "Bond", module = "proteindf_bridge_rs")]
+#[pyclass(name = "Bond", module = "proteindf_bridge.rs")]
 #[derive(Default)]
 pub struct PyBond {
     pub(crate) inner: CoreBond,

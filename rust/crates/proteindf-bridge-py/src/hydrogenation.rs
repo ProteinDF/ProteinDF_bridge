@@ -10,7 +10,7 @@ use pyo3::types::PyDict;
 /// Per-residue or per-component report of hydrogen addition and removal.
 #[pyclass(
     name = "HydrogenationReport",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Clone, Debug)]
@@ -61,7 +61,7 @@ impl PyHydrogenationReport {
 /// Overall summary report of the hydrogenation process across an AtomGroup structure.
 #[pyclass(
     name = "OverallHydrogenationReport",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 pub struct PyOverallHydrogenationReport {

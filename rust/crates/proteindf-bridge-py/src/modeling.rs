@@ -12,7 +12,7 @@ use proteindf_bridge::modeling::Modeling as CoreModeling;
 use pyo3::prelude::*;
 
 /// Structural modeling and capping/neutralization utility corresponding to `proteindf_bridge.modeling.Modeling`.
-#[pyclass(name = "Modeling", module = "proteindf_bridge_rs", skip_from_py_object)]
+#[pyclass(name = "Modeling", module = "proteindf_bridge.rs", skip_from_py_object)]
 pub struct PyModeling {
     pub(crate) inner: CoreModeling,
 }

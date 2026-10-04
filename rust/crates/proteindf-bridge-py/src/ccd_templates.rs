@@ -12,7 +12,7 @@ use pyo3::prelude::*;
 use std::path::Path;
 
 /// A single atom of a CCD component, with element and idealized geometry.
-#[pyclass(name = "CcdAtom", module = "proteindf_bridge_rs", skip_from_py_object)]
+#[pyclass(name = "CcdAtom", module = "proteindf_bridge.rs", skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyCcdAtom {
     pub(crate) inner: CoreCcdAtom,
@@ -51,7 +51,7 @@ impl PyCcdAtom {
 /// A bond template for a chemical component in the CCD.
 #[pyclass(
     name = "CcdBondTemplate",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Clone)]
@@ -103,7 +103,7 @@ impl PyCcdBondTemplate {
 }
 
 /// In-memory lookup database of CCD bond templates.
-#[pyclass(name = "CcdTemplateDb", module = "proteindf_bridge_rs", from_py_object)]
+#[pyclass(name = "CcdTemplateDb", module = "proteindf_bridge.rs", from_py_object)]
 #[derive(Clone, Default)]
 pub struct PyCcdTemplateDb {
     pub(crate) inner: CoreCcdTemplateDb,

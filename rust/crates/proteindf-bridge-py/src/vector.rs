@@ -5,7 +5,7 @@ use proteindf_bridge::vector::Vector as CoreVector;
 use pyo3::exceptions::{PyIndexError, PyTypeError};
 use pyo3::prelude::*;
 
-#[pyclass(name = "Vector", module = "proteindf_bridge_rs", from_py_object)]
+#[pyclass(name = "Vector", module = "proteindf_bridge.rs", from_py_object)]
 #[derive(Clone)]
 pub struct PyVector {
     pub(crate) inner: CoreVector,

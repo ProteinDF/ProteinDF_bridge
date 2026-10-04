@@ -19,7 +19,7 @@ use pyo3::prelude::*;
 use std::collections::HashMap;
 use std::str::FromStr;
 
-#[pyclass(name = "AtomGroup", module = "proteindf_bridge_rs", from_py_object)]
+#[pyclass(name = "AtomGroup", module = "proteindf_bridge.rs", from_py_object)]
 #[derive(Clone, Default)]
 pub struct PyAtomGroup {
     pub(crate) inner: CoreAtomGroup,

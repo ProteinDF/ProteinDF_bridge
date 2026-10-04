@@ -5,7 +5,7 @@ use crate::atom_group::PyAtomGroup;
 use proteindf_bridge::ion_pair::IonPair as CoreIonPair;
 use pyo3::prelude::*;
 
-#[pyclass(name = "IonPair", module = "proteindf_bridge_rs", skip_from_py_object)]
+#[pyclass(name = "IonPair", module = "proteindf_bridge.rs", skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyIonPair {
     pub(crate) inner: CoreIonPair,
