@@ -80,3 +80,13 @@
 
 1. 上記1〜4に対応し、同じブランチに追加コミットする。
 2. PR#49の完了の定義1〜4に加え、sdistからのインストールとテストが通る。
+
+## PR#49 レビュー結果(2回目、2026-10-04、収束・マージ済み)
+
+修正コミット`bf09909`を確認した。sdistに`proteindf_bridge.data/scripts/`の32本が含まれるようになり、Claudeがwheelとsdistのそれぞれを新しい一時環境にインストールして、どちらでもスクリプト32本のインストール、`python -P -m unittest discover -s tests`(197件)、`neutralize.py --help`の起動を確認した。文書の指摘2〜4(根拠のないRustのバージョン、内部の作業番号、`docs/usage.md`の古い説明)も直った。`cargo test --workspace`(318 passed)、clippy、fmtも確認した。
+
+**参考**: `maturin sdist`の最初に出る`error: manifest path \`Cargo.toml\` does not exist`は、maturinがカレントディレクトリの`Cargo.toml`を最初に探すときのメッセージで、その後`pyproject.toml`の`manifest-path`のクレートを読んで正常に終了する(終了コード0)。害はない。
+
+**注意**: マージ後は、ソースからの`pip install .`にRustツールチェーンが必要になる。ビルド済みwheelの配布はPR#50で用意する。
+
+ユーザー承認のうえ、2026-10-04にdevelopへマージした(`6af3a4d`)。**PR#49は完了。** 次はPR#50。
