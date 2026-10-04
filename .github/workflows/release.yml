@@ -2,6 +2,8 @@ name: Release
 
 on:
   push:
+    branches:
+      - feature/packaging-pr51
     tags:
       - '[0-9]+.[0-9]+*'
   workflow_dispatch:
