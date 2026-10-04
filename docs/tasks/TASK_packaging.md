@@ -61,3 +61,22 @@
 - `docs/rust-port-handoff.md`に記録する。
 - PyPIのアカウントが用意できたら、PyPIへの公開(Trusted Publishing)を別タスクとして追加する。
 - スクリプトをRust版を使う形に書き換える計画を、別に立てる。
+
+## PR#49 レビュー結果(1回目、2026-10-04、要修正)
+
+`feature/packaging-pr49`(`b6f066a`〜`8d343ae`の5コミット)をレビューした。Claudeが手元で`maturin build`・`maturin sdist`を実行し、それぞれを新しい一時環境にインストールして確認した。
+
+- **wheel**: 問題なし。旧`setup.cfg`の32本のスクリプトがそのままインストールされ(一覧が旧`setup.cfg`と完全に一致することを確認)、`pdb2brd.py --help`が起動する。`python -P -m unittest discover -s tests`で197件すべて成功。`proteindf_bridge.__version__`は`2026.10.1`、`import proteindf_bridge.rs`も通る。`proteindf_bridge/data/*.brd`もwheelに含まれる。
+- 移動・削除したファイル(`scripts/` → `proteindf_bridge.data/scripts/`、`setup.cfg`・`setup.py`・バインディング側の`pyproject.toml`の削除)と、バージョン一致のテスト(`tests/test_version.py`)は妥当。
+
+### 修正依頼
+
+1. **【不具合】ソース配布物(sdist)にスクリプトのディレクトリ`proteindf_bridge.data/`が含まれず、sdistからのインストールが失敗する。** Claudeが`maturin sdist`で作ったsdistを新しい環境に`uv pip install`したところ、`Caused by: No such data directory .../proteindf_bridge.data`でビルドが失敗した。§4.4は「wheelのない環境ではソースからビルドできる」ことを求めており、PR#50でもsdistをReleaseに置く。`[tool.maturin]`の`include`にsdist向けの指定(例: `{ path = "proteindf_bridge.data/**/*", format = "sdist" }`)を加えるなどで直す。**sdistを新しい一時環境にインストールし、スクリプトがインストールされ、テストが通ることを確認する**(完了の定義に追加)。
+2. **【文書】`README.md`・`docs/installation.md`の「`rustc` 1.80+」に根拠がない。** Cargo.tomlに`rust-version`(最小対応バージョン)は宣言されていない。実際に確かめた最小バージョンがあるならCargo.tomlに`rust-version`として宣言して文書と一致させ、なければ具体的な数字を書かない(「最新の安定版のRust」など)。
+3. **【文書】利用者向けの文書(`README.md`・`docs/installation.md`)に「PR#50」という内部の作業番号が書かれている。** 利用者には意味がないので、「今後GitHub Releaseで提供予定」のような書き方にする。
+4. **【文書】`docs/usage.md`の冒頭が、スクリプトが`scripts/`の下にインストールされると書いている。** 実際には`pip install`で実行ファイルとして(環境の`bin/`に)インストールされる。現状に合わせて直す。
+
+### 完了の定義(修正後)
+
+1. 上記1〜4に対応し、同じブランチに追加コミットする。
+2. PR#49の完了の定義1〜4に加え、sdistからのインストールとテストが通る。
