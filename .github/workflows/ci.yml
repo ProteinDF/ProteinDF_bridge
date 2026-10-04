@@ -69,10 +69,6 @@ jobs:
         run: python -P -m unittest discover -s tests
       - name: Verify scripts
         run: |
-          # 暫定措置: maturinがsdist作成時に権限を0644に揃えるため、sdistからのインストールで
-          # スクリプトに実行権限が付かない問題への暫定ワークアラウンド。
-          # スクリプトをエントリーポイント([project.scripts])に移行するPR#51で取り除く。
-          find "$pythonLocation/bin" -name "*.py" -exec chmod +x {} +
           pdb2brd.py --help
           brd2pdb.py --help
           neutralize.py --help
