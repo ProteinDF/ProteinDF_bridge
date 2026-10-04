@@ -13,9 +13,27 @@ ProteinDF_bridge is a Python library for reading, manipulating, and converting v
 
 ## Installation
 
+### Pre-built Wheels (Recommended)
+
+Pre-built wheels are available on GitHub Releases for Linux (x86_64, aarch64 with manylinux2014) and macOS (Apple Silicon). No Rust toolchain is required when installing from a wheel.
+
+To let `pip` automatically select the matching wheel for your platform:
+
+```bash
+pip install proteindf_bridge --find-links https://github.com/ProteinDF/ProteinDF_bridge/releases/expanded_assets/<tag>
+```
+
+> **Note**: Use the `expanded_assets/<tag>` endpoint instead of `releases/tag/<tag>`. GitHub Releases loads assets dynamically on tag pages which prevents `pip` from scraping link targets, whereas `expanded_assets` provides the direct HTML link list that `pip` can parse.
+
+Alternatively, you can specify the direct URL to the appropriate wheel file:
+
+```bash
+pip install https://github.com/ProteinDF/ProteinDF_bridge/releases/download/<tag>/proteindf_bridge-<version>-<platform_tag>.whl
+```
+
 ### From Source
 
-Installing from source compiles the bundled Rust extension (`proteindf_bridge.rs`) and requires a working Rust toolchain. Pre-built wheels for common platforms will be provided on GitHub Releases in the future.
+Installing from source compiles the bundled Rust extension (`proteindf_bridge.rs`) and requires a working Rust toolchain (`rustc` and `cargo`, latest stable).
 
 ```bash
 git clone https://github.com/ProteinDF/ProteinDF_bridge.git
