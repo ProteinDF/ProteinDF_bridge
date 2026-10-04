@@ -13,7 +13,7 @@ use crate::atom_group::PyAtomGroup;
 /// Represents a detected CH-pi interaction between a carbon atom and an aromatic ring.
 #[pyclass(
     name = "ChPiInteraction",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Debug, Clone, PartialEq)]

@@ -38,7 +38,7 @@ fn extract_pos(arg: &Bound<'_, PyAny>) -> PyResult<Position> {
 // -----------------------------------------------------------------------------
 #[pyclass(
     name = "Select_Symbol",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Clone)]
@@ -69,7 +69,7 @@ impl PySelectSymbol {
 // -----------------------------------------------------------------------------
 #[pyclass(
     name = "Select_Name",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Clone)]
@@ -102,7 +102,7 @@ impl PySelectName {
 // -----------------------------------------------------------------------------
 #[pyclass(
     name = "Select_Path_simple",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Clone)]
@@ -135,7 +135,7 @@ impl PySelectPathSimple {
 // -----------------------------------------------------------------------------
 #[pyclass(
     name = "Select_Path_wildcard",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Clone)]
@@ -167,7 +167,7 @@ impl PySelectPathWildcard {
 // -----------------------------------------------------------------------------
 #[pyclass(
     name = "Select_PathRegex",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Clone)]
@@ -199,7 +199,7 @@ impl PySelectPathRegex {
 // -----------------------------------------------------------------------------
 #[pyclass(
     name = "Select_Path",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Clone)]
@@ -232,7 +232,7 @@ impl PySelectPath {
 // -----------------------------------------------------------------------------
 #[pyclass(
     name = "Select_Range",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Clone)]
@@ -264,7 +264,7 @@ impl PySelectRange {
 // -----------------------------------------------------------------------------
 #[pyclass(
     name = "Select_Atom",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Clone)]
@@ -295,7 +295,7 @@ impl PySelectAtom {
 // -----------------------------------------------------------------------------
 #[pyclass(
     name = "Select_AtomGroup",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Clone)]

@@ -11,7 +11,7 @@ use pyo3::prelude::*;
 
 #[pyclass(
     name = "RamachandranAngle",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Clone)]

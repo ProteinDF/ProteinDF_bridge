@@ -5,7 +5,7 @@ use crate::atom_group::PyAtomGroup;
 use proteindf_bridge::ssbond::SSBond as CoreSSBond;
 use pyo3::prelude::*;
 
-#[pyclass(name = "SSBond", module = "proteindf_bridge_rs", skip_from_py_object)]
+#[pyclass(name = "SSBond", module = "proteindf_bridge.rs", skip_from_py_object)]
 #[derive(Clone)]
 pub struct PySSBond {
     pub(crate) inner: CoreSSBond,

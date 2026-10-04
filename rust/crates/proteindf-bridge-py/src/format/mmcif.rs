@@ -15,7 +15,7 @@ use pyo3::prelude::*;
 /// Describes why a partner atom in a `_struct_conn` record could not be resolved.
 #[pyclass(
     name = "StructConnPartnerUnresolved",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Clone)]
@@ -104,7 +104,7 @@ impl PyStructConnPartnerUnresolved {
 /// Information about a `_struct_conn` record that could not be resolved into a bond.
 #[pyclass(
     name = "UnresolvedStructConn",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Clone)]
@@ -172,7 +172,7 @@ impl PyUnresolvedStructConn {
 /// and any `_struct_conn` records that could not be resolved.
 #[pyclass(
     name = "MmcifStructureReport",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 pub struct PyMmcifStructureReport {
@@ -226,7 +226,7 @@ impl PyMmcifStructureReport {
 
 #[pyclass(
     name = "SimpleMmcif",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Clone)]

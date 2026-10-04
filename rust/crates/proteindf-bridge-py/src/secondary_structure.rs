@@ -14,7 +14,7 @@ use crate::atom_group::PyAtomGroup;
 /// Secondary structure assignment for a residue.
 #[pyclass(
     name = "SecondaryStructure",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Debug, Clone, PartialEq, Eq)]

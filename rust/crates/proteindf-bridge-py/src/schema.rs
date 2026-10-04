@@ -7,7 +7,7 @@ use pyo3::prelude::*;
 /// A violation of the standard protein schema (`/model_N/chain_id/res_key/atom_key`).
 #[pyclass(
     name = "SchemaViolation",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Clone)]

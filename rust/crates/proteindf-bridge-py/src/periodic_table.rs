@@ -5,7 +5,7 @@ use crate::error::to_py_err;
 use proteindf_bridge::periodic_table::PeriodicTable as CorePeriodicTable;
 use pyo3::prelude::*;
 
-#[pyclass(name = "PeriodicTable", module = "proteindf_bridge_rs")]
+#[pyclass(name = "PeriodicTable", module = "proteindf_bridge.rs")]
 pub struct PyPeriodicTable;
 
 fn resolve_atomic_number(atom: &Bound<'_, PyAny>) -> PyResult<usize> {
