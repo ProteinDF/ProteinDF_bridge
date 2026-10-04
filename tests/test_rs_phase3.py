@@ -3,7 +3,7 @@
 
 """
 Comparison test suite for Phase 5 (PR#16):
-Validating proteindf_bridge_rs (PyO3 Rust bindings) structural operations against pure Python proteindf_bridge.
+Validating proteindf_bridge.rs (PyO3 Rust bindings) structural operations against pure Python proteindf_bridge.
 """
 
 import math
@@ -34,7 +34,7 @@ from proteindf_bridge.superposer import Superposer as PySuperposer
 from proteindf_bridge.superposer_quaternion import Superposer_quaternion as PySuperposer_quaternion
 
 # Rust PyO3 bindings
-import proteindf_bridge_rs as rs_br
+import proteindf_bridge.rs as rs_br
 
 DATA_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "proteindf_bridge", "data")

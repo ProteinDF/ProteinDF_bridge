@@ -4,7 +4,8 @@ ProteinDF_bridge is a Python library for reading, manipulating, and converting v
 
 ## Requirements
 
-- Python 3.8 or later
+- Python 3.9 or later
+- Rust toolchain (`cargo`, `rustc`, latest stable) when installing from source
 - Python packages:
   - `numpy`
   - `pyyaml`
@@ -12,16 +13,13 @@ ProteinDF_bridge is a Python library for reading, manipulating, and converting v
 
 ## Installation
 
-### Clone repository
+### From Source
+
+Installing from source compiles the bundled Rust extension (`proteindf_bridge.rs`) and requires a working Rust toolchain. Pre-built wheels for common platforms will be provided on GitHub Releases in the future.
 
 ```bash
 git clone https://github.com/ProteinDF/ProteinDF_bridge.git
 cd ProteinDF_bridge
-```
-
-### Install using pip
-
-```bash
 pip install .
 ```
 
@@ -35,6 +33,7 @@ pip install -e .
 
 ```python
 from proteindf_bridge import BioPdb, AtomGroup
+import proteindf_bridge.rs as rs
 
 # Load structure from PDB
 pdb = BioPdb()
@@ -48,7 +47,11 @@ print(f"Total atoms: {ag.get_number_of_all_atoms()}")
 ## Running Tests
 
 ```bash
-pytest
+# Python test suite
+python -m unittest discover -s tests
+
+# Rust crate test suite
+cargo test --manifest-path rust/Cargo.toml
 ```
 
 ## Contributing

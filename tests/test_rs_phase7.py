@@ -3,7 +3,7 @@
 
 """
 Validation test suite for Phase 7 (PR#21):
-Verifying Ramachandran calculation and dihedral angle PyO3 bindings (proteindf_bridge_rs).
+Verifying Ramachandran calculation and dihedral angle PyO3 bindings (proteindf_bridge.rs).
 """
 
 import math
@@ -11,7 +11,7 @@ import os
 import unittest
 
 from proteindf_bridge.biopdb import Pdb as PyPdb
-import proteindf_bridge_rs as rs_br
+import proteindf_bridge.rs as rs_br
 
 DATA_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "proteindf_bridge", "data")

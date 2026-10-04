@@ -1,9 +1,10 @@
 # Command-line tools
 
-`ProteinDF_bridge` installs a set of small, single-purpose CLI scripts under
-`scripts/`. Each one is a thin wrapper around `proteindf_bridge` that reads
-one format and writes another, or performs one structure-editing operation
-on a bridge (`.brd`) file. Run any of them with `-h` for full options.
+`ProteinDF_bridge` installs a set of small, single-purpose CLI scripts as
+standalone executables (placed in your Python environment's `bin/` directory,
+accessible via `PATH`). Each one is a thin wrapper around `proteindf_bridge`
+that reads one format and writes another, or performs one structure-editing
+operation on a bridge (`.brd`) file. Run any of them with `-h` for full options.
 
 ## Format conversion
 

@@ -5,7 +5,7 @@ import os
 import tempfile
 import unittest
 
-import proteindf_bridge_rs as rs_br
+import proteindf_bridge.rs as rs_br
 
 
 class TestRsAnalysis(unittest.TestCase):
