@@ -20,7 +20,7 @@ jobs:
         with:
           components: rustfmt, clippy
       - name: Check formatting
-        run: cargo fmt --all -- --check --manifest-path rust/Cargo.toml
+        run: cargo fmt --manifest-path rust/Cargo.toml --all -- --check
       - name: Run clippy
         run: cargo clippy --workspace --all-targets --manifest-path rust/Cargo.toml -- -D warnings
       - name: Run tests
@@ -69,6 +69,7 @@ jobs:
         run: python -P -m unittest discover -s tests
       - name: Verify scripts
         run: |
+          chmod +x $(which pdb2brd.py brd2pdb.py neutralize.py)
           pdb2brd.py --help
           brd2pdb.py --help
           neutralize.py --help

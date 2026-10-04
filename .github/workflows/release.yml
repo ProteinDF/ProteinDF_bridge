@@ -48,7 +48,7 @@ jobs:
       - name: Test wheel on aarch64 (emulated)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
-          docker run --rm -v ${{ github.workspace }}:/io -w /io arm64v8/python:3.12-slim bash -c "
+          docker run --rm --platform linux/arm64 -v ${{ github.workspace }}:/io -w /io python:3.12-slim bash -c "
             pip install dist/*aarch64*.whl &&
             python -P -m unittest discover -s tests &&
             pdb2brd.py --help &&
@@ -105,6 +105,7 @@ jobs:
         run: |
           pip install dist/*.tar.gz
           python -P -m unittest discover -s tests
+          chmod +x $(which pdb2brd.py brd2pdb.py neutralize.py)
           pdb2brd.py --help
           brd2pdb.py --help
           neutralize.py --help
