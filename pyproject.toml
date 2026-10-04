@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "proteindf_bridge"
-version = "2026.10.1"
+version = "2026.10.2"
 description = "bridge scripts the ProteinDF package and other data/package"
 readme = "README.md"
 requires-python = ">=3.9"
