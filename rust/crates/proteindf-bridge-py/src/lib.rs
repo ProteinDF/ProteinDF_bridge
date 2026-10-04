@@ -31,7 +31,7 @@ pub mod superposer_quaternion;
 pub mod vector;
 
 #[pymodule]
-fn proteindf_bridge_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Exceptions
     m.add("BrError", m.py().get_type::<error::BrError>())?;
     m.add("BrInputError", m.py().get_type::<error::BrInputError>())?;
