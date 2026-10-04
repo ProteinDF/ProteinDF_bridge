@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "GPL-3.0-or-later" }
 authors = [
-    { name = "Toshiyuki HIRANO", email = "hiracchi@gmail.com" },
+    { name = "Toshiyuki HIRANO", email = "hiracchi@users.noreply.github.com" },
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
