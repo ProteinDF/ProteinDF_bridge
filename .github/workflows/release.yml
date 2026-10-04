@@ -105,6 +105,9 @@ jobs:
         run: |
           pip install dist/*.tar.gz
           python -P -m unittest discover -s tests
+          # 暫定措置: maturinがsdist作成時に権限を0644に揃えるため、sdistからのインストールで
+          # スクリプトに実行権限が付かない問題への暫定ワークアラウンド。
+          # スクリプトをエントリーポイント([project.scripts])に移行するPR#51で取り除く。
           find "$pythonLocation/bin" -name "*.py" -exec chmod +x {} +
           pdb2brd.py --help
           brd2pdb.py --help
@@ -126,6 +129,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Fetch annotated tags
+        run: git fetch --tags --force
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -139,7 +144,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG_MSG=$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")
-          if [ -z "$TAG_MSG" ]; then
-            TAG_MSG="Release $GITHUB_REF_NAME"
+          if [ -n "$TAG_MSG" ]; then
+            gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes "$TAG_MSG"
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes-from-tag
           fi
-          gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes "$TAG_MSG"

@@ -23,7 +23,7 @@ To let `pip` automatically select the matching wheel for your platform:
 pip install proteindf_bridge --find-links https://github.com/ProteinDF/ProteinDF_bridge/releases/expanded_assets/<tag>
 ```
 
-> **Note**: Use the `expanded_assets/<tag>` endpoint instead of `releases/tag/<tag>`. GitHub Releases loads assets dynamically on tag pages which prevents `pip` from scraping link targets, whereas `expanded_assets` provides the direct HTML link list that `pip` can parse.
+> **Note**: `expanded_assets/<tag>` is an undocumented (non-public) GitHub web endpoint that returns the HTML fragment listing release assets. Unlike the standard `releases/tag/<tag>` page (where assets are loaded asynchronously via JavaScript and cannot be scraped by `pip`), `expanded_assets` allows `pip` to discover and select matching wheels. Because this endpoint is not an officially documented GitHub API, specifying the direct wheel URL below is also supported and recommended if you prefer a fully documented approach.
 
 Alternatively, you can specify the direct URL to the appropriate wheel file:
 
