@@ -3,7 +3,7 @@
 ## Requirements
 
 - Python 3.9 or later
-- Rust toolchain (`cargo`, `rustc` 1.80+) when compiling from source
+- Rust toolchain (`cargo`, `rustc`, latest stable) when compiling from source
 - Python dependencies: `numpy`, `pyyaml`, `msgpack`
 
 ## From source
@@ -26,4 +26,4 @@ pip install -e .
 
 ## Pre-built wheels
 
-Pre-compiled wheels for Linux (x86_64, aarch64) and macOS (Apple Silicon) will be provided via GitHub Releases (planned in PR#50).
+Pre-compiled wheels for Linux (x86_64, aarch64) and macOS (Apple Silicon) will be provided via GitHub Releases in the future.

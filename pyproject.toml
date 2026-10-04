@@ -47,5 +47,6 @@ module-name = "proteindf_bridge.rs"
 features = ["pyo3/extension-module"]
 data = "proteindf_bridge.data"
 include = [
-    "proteindf_bridge/data/*.brd",
+    { path = "proteindf_bridge/data/*.brd", format = ["wheel", "sdist"] },
+    { path = "proteindf_bridge.data/**/*", format = "sdist" },
 ]

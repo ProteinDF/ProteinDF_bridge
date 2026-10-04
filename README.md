@@ -5,7 +5,7 @@ ProteinDF_bridge is a Python library for reading, manipulating, and converting v
 ## Requirements
 
 - Python 3.9 or later
-- Rust toolchain (`cargo`, `rustc` 1.80+) when installing from source
+- Rust toolchain (`cargo`, `rustc`, latest stable) when installing from source
 - Python packages:
   - `numpy`
   - `pyyaml`
@@ -15,7 +15,7 @@ ProteinDF_bridge is a Python library for reading, manipulating, and converting v
 
 ### From Source
 
-Installing from source compiles the bundled Rust extension (`proteindf_bridge.rs`) and requires a working Rust toolchain. Pre-built wheels for common platforms will be provided on GitHub Releases (PR#50).
+Installing from source compiles the bundled Rust extension (`proteindf_bridge.rs`) and requires a working Rust toolchain. Pre-built wheels for common platforms will be provided on GitHub Releases in the future.
 
 ```bash
 git clone https://github.com/ProteinDF/ProteinDF_bridge.git
