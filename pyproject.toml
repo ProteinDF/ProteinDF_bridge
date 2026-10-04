@@ -1,3 +1,51 @@
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "proteindf_bridge"
+version = "2026.10.1"
+description = "bridge scripts the ProteinDF package and other data/package"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "GPL-3.0-or-later" }
+authors = [
+    { name = "Toshiyuki HIRANO", email = "hiracchi@gmail.com" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "msgpack",
+    "pyyaml",
+    "numpy",
+]
+
+[project.optional-dependencies]
+docs = [
+    "sphinx>=7",
+    "myst-parser",
+    "furo",
+    "sphinx-intl",
+    "sphinx-copybutton",
+    "sphinx-autodoc-typehints",
+]
+
+[tool.maturin]
+manifest-path = "rust/crates/proteindf-bridge-py/Cargo.toml"
+module-name = "proteindf_bridge.rs"
+features = ["pyo3/extension-module"]
+data = "proteindf_bridge.data"
+include = [
+    "proteindf_bridge/data/*.brd",
+]
