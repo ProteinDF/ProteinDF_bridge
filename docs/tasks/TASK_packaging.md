@@ -145,3 +145,16 @@ agyが修正依頼1の第一候補(スクリプトの1行目を`#!python`にす�
 2. 32本のコマンド名が旧`setup.cfg`の一覧と完全に一致することを確認する。
 3. `python -m unittest discover -s tests`、`cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check`が通る。
 4. CIとReleaseのワークフローをGitHub上で動かして成功を確認する(確認のための一時的な変更は、確認後に取り除く)。
+
+## PR#51 レビュー結果(1回目、2026-10-04、収束・マージ済み)
+
+`feature/packaging-pr51`(`fa15fae`〜`982afb8`の6コミット)をレビューした。指摘なし。
+
+- Claudeがこのブランチからsdistとwheelを作り、標準の`pip`で新しい2つの環境にそれぞれインストールした。どちらも32本のコマンドがすべて実行可能で、`pdb2brd.py -h`が起動し、ラッパーはインストール先の環境のPythonを呼ぶ(パスが長いため`#!/bin/sh`経由の形)。`proteindf_bridge.rs`もimportできた。PR#50で問題になったsdistからのインストールで実行権限が付かない件は解消した。
+- コマンド名は旧`setup.cfg`の32本と完全に一致する。`chmod +x`の暫定措置と一時的なトリガーは取り除かれ、`proteindf_bridge.data`への参照も残っていない。
+- GitHub上のCI(run 37192055943)・Release(run 37192055948)はどちらも成功し、タグやReleaseは作られていない。
+- スクリプトはもともと`main()`を持っており、ほぼ移動のみ。`doctest_runner.py`だけは古いパッケージ名`bridge`を参照して動かなかったため、`main()`を追加して`proteindf_bridge`を参照するよう直した。
+
+**別件(PR#49由来)**: Rust版のクラスの`__module__`が`proteindf_bridge_rs`のまま(`#[pyclass(module = "proteindf_bridge_rs")]`が47か所残っている)。→ `docs/tasks/TASK_pyclass-module-name.md`で対応する(ユーザー承認、2026-10-05)。
+
+ユーザー承認のうえ、2026-10-05にdevelopへマージした(`6dffa5a`)。**PR#51は完了。** これで、wheel付きの最初のReleaseを作れる状態になった。
