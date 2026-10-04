@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, master, develop, feature/packaging-pr51]
+    branches: [main, master, develop]
   pull_request:
     branches: [main, master, develop]
   workflow_dispatch:
