@@ -572,6 +572,8 @@ proteindf-bridge = { git = "https://github.com/<org>/ProteinDF_bridge", tag = "v
 
 ### 4.2 Pythonバインディングの役割分担指針 (PR#36)
 
+> **注記(2026-10-05)**: 本節の`proteindf-bridge-py`(`proteindf_bridge_rs`パッケージ)は、2026-10-04に純Python版と1つのパッケージ`proteindf_bridge`に統合され、Rust版は`proteindf_bridge.rs`としてimportする形になった(§4.4)。以下で`proteindf_bridge_rs`と書かれている箇所は`proteindf_bridge`(Rust版を使う部分は`proteindf_bridge.rs`)と読み替えること。
+
 将来的に `proteindf-bridge-py` と YUI 独自の `core-py`（`yui` パッケージ）が共存し得るため、その役割分担と使い分け指針を以下のように定める。
 
 - **`proteindf-bridge-py` (`proteindf_bridge_rs` パッケージ)**:
