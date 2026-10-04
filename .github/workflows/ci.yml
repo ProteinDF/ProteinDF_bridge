@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rust-checks:
+    name: Rust checks (fmt, clippy, test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path rust/Cargo.toml --all -- --check
+      - name: Run clippy
+        run: cargo clippy --workspace --all-targets --manifest-path rust/Cargo.toml -- -D warnings
+      - name: Run tests
+        run: cargo test --workspace --manifest-path rust/Cargo.toml
+
+  wheel-test:
+    name: Build & test wheel (Linux x86_64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: --release --out dist
+      - name: Install wheel
+        run: pip install dist/*.whl
+      - name: Run tests
+        run: python -P -m unittest discover -s tests
+      - name: Verify scripts
+        run: |
+          pdb2brd.py --help
+          brd2pdb.py --help
+          neutralize.py --help
+
+  sdist-test:
+    name: Build & test sdist (source distribution)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+      - name: Install sdist
+        run: pip install dist/*.tar.gz
+      - name: Run tests
+        run: python -P -m unittest discover -s tests
+      - name: Verify scripts
+        run: |
+          # 暫定措置: maturinがsdist作成時に権限を0644に揃えるため、sdistからのインストールで
+          # スクリプトに実行権限が付かない問題への暫定ワークアラウンド。
+          # スクリプトをエントリーポイント([project.scripts])に移行するPR#51で取り除く。
+          find "$pythonLocation/bin" -name "*.py" -exec chmod +x {} +
+          pdb2brd.py --help
+          brd2pdb.py --help
+          neutralize.py --help
+
+  docs-test:
+    name: Test documentation build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install package with docs dependencies
+        run: pip install -e .[docs]
+      - name: Build English HTML
+        run: sphinx-build -b html -D language=en docs _site/en
+      - name: Build Japanese HTML
+        run: sphinx-build -b html -D language=ja docs _site/ja
