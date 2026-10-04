@@ -11,7 +11,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use std::str::FromStr;
 
-#[pyclass(name = "Atom", module = "proteindf_bridge_rs", from_py_object)]
+#[pyclass(name = "Atom", module = "proteindf_bridge.rs", from_py_object)]
 #[derive(Clone)]
 pub struct PyAtom {
     pub(crate) inner: CoreAtom,

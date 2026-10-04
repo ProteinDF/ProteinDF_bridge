@@ -15,7 +15,7 @@ use crate::atom_group::PyAtomGroup;
 /// Represents a detected backbone hydrogen bond.
 #[pyclass(
     name = "HydrogenBond",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Debug, Clone, PartialEq)]
@@ -64,7 +64,7 @@ impl PyHydrogenBond {
 /// Represents a detected sidechain hydrogen bond.
 #[pyclass(
     name = "SidechainHydrogenBond",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Debug, Clone, PartialEq)]

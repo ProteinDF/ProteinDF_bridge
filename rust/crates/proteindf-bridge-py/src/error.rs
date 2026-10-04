@@ -6,9 +6,9 @@ use pyo3::create_exception;
 use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
 
-create_exception!(proteindf_bridge_rs, BrError, PyException);
-create_exception!(proteindf_bridge_rs, BrInputError, BrError);
-create_exception!(proteindf_bridge_rs, BrValueError, BrError);
+create_exception!(proteindf_bridge.rs, BrError, PyException);
+create_exception!(proteindf_bridge.rs, BrInputError, BrError);
+create_exception!(proteindf_bridge.rs, BrValueError, BrError);
 
 pub fn to_py_err(err: BridgeError) -> PyErr {
     match err {

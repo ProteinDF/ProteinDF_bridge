@@ -6,7 +6,7 @@ use crate::error::to_py_err;
 use proteindf_bridge::format::pdb::Pdb as CorePdb;
 use pyo3::prelude::*;
 
-#[pyclass(name = "Pdb", module = "proteindf_bridge_rs", skip_from_py_object)]
+#[pyclass(name = "Pdb", module = "proteindf_bridge.rs", skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyPdb {
     pub(crate) inner: CorePdb,

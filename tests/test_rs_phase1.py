@@ -3,7 +3,7 @@
 
 """
 Comparison test suite for Phase 5 (PR#14):
-Validating proteindf_bridge_rs (PyO3 Rust bindings) against pure Python proteindf_bridge.
+Validating proteindf_bridge.rs (PyO3 Rust bindings) against pure Python proteindf_bridge.
 """
 
 import math
@@ -22,7 +22,7 @@ from proteindf_bridge.atomgroup import AtomGroup as PyAtomGroup
 from proteindf_bridge.error import BrError as PyBrError, BrInputError as PyBrInputError, BrValueError as PyBrValueError
 
 # Rust PyO3 bindings
-import proteindf_bridge_rs as rs_br
+import proteindf_bridge.rs as rs_br
 
 
 class TestRsPhase1(unittest.TestCase):

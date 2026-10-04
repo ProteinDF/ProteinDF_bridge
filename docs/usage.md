@@ -1,9 +1,11 @@
 # Command-line tools
 
-`ProteinDF_bridge` installs a set of small, single-purpose CLI scripts under
-`scripts/`. Each one is a thin wrapper around `proteindf_bridge` that reads
-one format and writes another, or performs one structure-editing operation
-on a bridge (`.brd`) file. Run any of them with `-h` for full options.
+`ProteinDF_bridge` installs a set of small, single-purpose CLI scripts as
+entry-point console scripts (placed in your Python environment's `bin/` directory,
+accessible via `PATH`). The underlying implementations reside in
+`proteindf_bridge.cli`. Each command is a thin wrapper around `proteindf_bridge`
+that reads one format and writes another, or performs one structure-editing
+operation on a bridge (`.brd`) file. Run any of them with `-h` for full options.
 
 ## Format conversion
 
@@ -36,7 +38,6 @@ on a bridge (`.brd`) file. Run any of them with `-h` for full options.
 | `brd-setup-bond.py` | setup bonds |
 | `brd-show-bonds.py` | show bonds |
 | `brd-show-res.py` | print residues in the bridge file |
-| `remove_wat.py` | remove water molecules in bridge file |
 | `reorder.py` | reorder protein |
 | `neutralize.py` | neutralize protein |
 | `crystallize.py` | crystallize molecules |

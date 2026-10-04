@@ -35,7 +35,7 @@ fn parse_kind(s: &str) -> PyResult<InteractionKind> {
 /// Represents a detected non-covalent or disulfide interaction.
 #[pyclass(
     name = "Interaction",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Debug, Clone, PartialEq)]
@@ -102,7 +102,7 @@ impl PyInteraction {
 /// Aggregation set of detected interactions in a molecular structure.
 #[pyclass(
     name = "InteractionSet",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     from_py_object
 )]
 #[derive(Debug, Clone, Default, PartialEq)]

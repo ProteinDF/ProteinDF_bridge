@@ -10,7 +10,7 @@ use std::fs;
 
 #[pyclass(
     name = "SimpleGro",
-    module = "proteindf_bridge_rs",
+    module = "proteindf_bridge.rs",
     skip_from_py_object
 )]
 #[derive(Clone, Default)]

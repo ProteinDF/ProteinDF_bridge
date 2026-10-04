@@ -6,7 +6,7 @@ on:
     paths:
       - "docs/**"
       - "proteindf_bridge/**"
-      - "setup.cfg"
+      - "pyproject.toml"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
 
@@ -27,6 +27,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
       - run: pip install -e .[docs]
       - name: Build English HTML
         run: sphinx-build -b html -D language=en docs _site/en
@@ -61,6 +62,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
       - run: pip install -e .[docs]
       - name: Install TeX (English + Japanese)
         run: |

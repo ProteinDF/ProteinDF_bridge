@@ -26,7 +26,7 @@ rust/
 
 ### 1.3 命名規約
 - **コアクレート**: `proteindf-bridge`（「PDF: Portable Document Format」との混同を避けるため、Phase 4.5で `pdf-bridge` から改名）。
-- **Pythonバインディングパッケージ**: `proteindf_bridge_rs`（既存の純Python版 `proteindf_bridge` と共存インストール・並行比較できるように命名）。
+- **Pythonバインディングパッケージ**: `proteindf_bridge_rs`（既存の純Python版 `proteindf_bridge` と共存インストール・並行比較できるように命名）。（→ **2026-10-04変更**: 純Python版と1つのパッケージ`proteindf_bridge`に統合し、Rust版は`proteindf_bridge.rs`としてimportする形にした。§4.4参照。）
 
 ### 1.4 Claude と agy の共有ワークツリー衝突を避けるルール (MUST、2026-09-22 追記)
 

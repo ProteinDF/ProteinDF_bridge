@@ -3,7 +3,7 @@
 
 """
 Comparison test suite for Phase 6 (PR#48):
-Validating proteindf_bridge_rs (PyO3 Rust bindings) against pure Python proteindf_bridge
+Validating proteindf_bridge.rs (PyO3 Rust bindings) against pure Python proteindf_bridge
 for .brd I/O (MessagePack and YUI header formats), Modeling, and Neutralize.
 """
 
@@ -22,7 +22,7 @@ from proteindf_bridge.biopdb import Pdb as PyPdb
 from proteindf_bridge.position import Position as PyPos
 
 # Rust PyO3 bindings
-import proteindf_bridge_rs as rs_br
+import proteindf_bridge.rs as rs_br
 
 
 class TestRsPhase6(unittest.TestCase):

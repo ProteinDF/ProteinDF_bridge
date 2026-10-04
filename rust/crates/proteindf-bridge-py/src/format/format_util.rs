@@ -5,7 +5,7 @@ use crate::atom_group::PyAtomGroup;
 use proteindf_bridge::format::Format as CoreFormat;
 use pyo3::prelude::*;
 
-#[pyclass(name = "Format", module = "proteindf_bridge_rs")]
+#[pyclass(name = "Format", module = "proteindf_bridge.rs")]
 pub struct PyFormat;
 
 #[pymethods]

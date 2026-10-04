@@ -1,3 +1,85 @@
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "proteindf_bridge"
+version = "2026.10.2"
+description = "bridge scripts the ProteinDF package and other data/package"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "GPL-3.0-or-later" }
+authors = [
+    { name = "Toshiyuki HIRANO", email = "hiracchi@users.noreply.github.com" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "msgpack",
+    "pyyaml",
+    "numpy",
+]
+
+[project.optional-dependencies]
+docs = [
+    "sphinx>=7",
+    "myst-parser",
+    "furo",
+    "sphinx-intl",
+    "sphinx-copybutton",
+    "sphinx-autodoc-typehints",
+]
+
+[project.scripts]
+"brd-box.py" = "proteindf_bridge.cli.brd_box:main"
+"brd-density.py" = "proteindf_bridge.cli.brd_density:main"
+"brd-divide-mainchain.py" = "proteindf_bridge.cli.brd_divide_mainchain:main"
+"brd-divide.py" = "proteindf_bridge.cli.brd_divide:main"
+"brd-formula.py" = "proteindf_bridge.cli.brd_formula:main"
+"brd-renumber-resid.py" = "proteindf_bridge.cli.brd_renumber_resid:main"
+"brd-restructure.py" = "proteindf_bridge.cli.brd_restructure:main"
+"brd-select-path.py" = "proteindf_bridge.cli.brd_select_path:main"
+"brd-select.py" = "proteindf_bridge.cli.brd_select:main"
+"brd-setup-bond.py" = "proteindf_bridge.cli.brd_setup_bond:main"
+"brd-show-bonds.py" = "proteindf_bridge.cli.brd_show_bonds:main"
+"brd-show-res.py" = "proteindf_bridge.cli.brd_show_res:main"
+"brd2gro.py" = "proteindf_bridge.cli.brd2gro:main"
+"brd2pdb.py" = "proteindf_bridge.cli.brd2pdb:main"
+"brd2txt.py" = "proteindf_bridge.cli.brd2txt:main"
+"brd2xyz.py" = "proteindf_bridge.cli.brd2xyz:main"
+"crystallize.py" = "proteindf_bridge.cli.crystallize:main"
+"db2txt.py" = "proteindf_bridge.cli.db2txt:main"
+"doctest_runner.py" = "proteindf_bridge.cli.doctest_runner:main"
+"gro2brd.py" = "proteindf_bridge.cli.gro2brd:main"
+"mmcif2mol2.py" = "proteindf_bridge.cli.mmcif2mol2:main"
+"mmcif2txt.py" = "proteindf_bridge.cli.mmcif2txt:main"
+"module_inspect.py" = "proteindf_bridge.cli.module_inspect:main"
+"mpac2txt.py" = "proteindf_bridge.cli.mpac2txt:main"
+"mpac2yml.py" = "proteindf_bridge.cli.mpac2yml:main"
+"neutralize.py" = "proteindf_bridge.cli.neutralize:main"
+"pdb2brd.py" = "proteindf_bridge.cli.pdb2brd:main"
+"read_amber_prmtop.py" = "proteindf_bridge.cli.read_amber_prmtop:main"
+"reorder.py" = "proteindf_bridge.cli.reorder:main"
+"superposer.py" = "proteindf_bridge.cli.superposer:main"
+"xyz2brd.py" = "proteindf_bridge.cli.xyz2brd:main"
+"yml2mpac.py" = "proteindf_bridge.cli.yml2mpac:main"
+
+[tool.maturin]
+manifest-path = "rust/crates/proteindf-bridge-py/Cargo.toml"
+module-name = "proteindf_bridge.rs"
+features = ["pyo3/extension-module"]
+include = [
+    { path = "proteindf_bridge/data/*.brd", format = ["wheel", "sdist"] },
+]
+

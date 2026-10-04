@@ -21,7 +21,24 @@ convention used through `2024.03.0` after a period of committing directly to `ma
 Versioning follows `YYYY.M.PATCH` (calendar versioning): the first release in a given
 year/month is `PATCH=0` (e.g. `2026.9.0`), subsequent releases in the same month increment
 `PATCH` (e.g. `2026.9.1`). Keep `proteindf_bridge/_version.py` and the `version` field in
-`setup.cfg` in sync.
+`pyproject.toml` in sync (checked by `tests/test_version.py`).
+
+## Running Tests
+
+Building and testing requires Python 3.9+ and the Rust toolchain (`cargo` / `rustc`).
+
+1. Install the package in editable mode (or build and install the wheel):
+   ```bash
+   pip install -e .
+   ```
+2. Run Python test suites:
+   ```bash
+   python -m unittest discover -s tests
+   ```
+3. Run Rust unit tests:
+   ```bash
+   cargo test --manifest-path rust/Cargo.toml
+   ```
 
 See `docs/rust-port-handoff.md` for the Rust port (`rust/`) subproject's specific PR/review
 workflow, which follows this same branching model.
