@@ -25,3 +25,16 @@
 1. このブランチから作ったsdistとwheelの中身の一覧を確認し、`*.out`が含まれないこと、作者の個人メールアドレスが含まれないこと(`PKG-INFO`・`METADATA`を含む)を、実際のコマンドと出力で示す。
 2. 作者の個人メールアドレスで`git grep`した結果が空であることを示す。
 3. 新しい一時環境に`pip install`して、`python -P -m unittest discover -s tests`が通る。`cargo test --workspace`・`cargo clippy --workspace --all-targets -- -D warnings`・`cargo fmt --all -- --check`が通る。
+
+## 実施結果(2026-10-05、マージ済み)
+
+agyが利用上限に達していたため、ユーザー承認のうえClaudeが実施した(`e7859e2`・`c82fa7e`ほか)。
+
+- Gaussianの出力ファイル4つを削除し、`proteindf_bridge/data/ACE-ALA-NME/README.md`に理由と再計算の方法を書き足した。
+- `pyproject.toml`と翻訳ファイル3つのメールアドレスをGitHubのnoreplyアドレスに変えた。本タスクファイル自身に個人のメールアドレスを書いていたため、伏せた表現に直した。
+- `git grep`で個人のメールアドレスが0件であることを確認した。このブランチから作ったsdist(218ファイル)とwheel(101ファイル)に`*.out`は0件、実行時に必要な`data/*.brd`は7件ずつ含まれ、`PKG-INFO`・`METADATA`の作者はnoreplyのアドレスになった。新しい環境でPythonテスト一式(198件)、`cargo test --workspace`(318件)、clippy、fmtが通った。
+- 手元でビルドしたwheelの`rs.abi3.so`とSBOMには、ビルドしたマシンのパス(`~/.cargo/registry`やworktreeのパス)が入る。**リリースではGitHub Actionsでビルドしたwheelだけを配り、手元でビルドしたwheelをアップロードしないこと。**
+- テスト用の構造ファイル(PDBの公開データ)は、純Python版`ssbond.py`のdoctestが実行時に`data/1hls.pdb`を読むため、同梱したままにした。
+- ファイルを削除しても、gitの過去の履歴には残る(履歴の書き換えは行っていない)。
+
+ユーザー承認のうえ、2026-10-05にdevelopへマージした(`3747ba2`)。**本タスクは完了。**
