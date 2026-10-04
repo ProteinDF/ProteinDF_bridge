@@ -3,7 +3,7 @@
 
 """
 Comparison test suite for Phase 5 (PR#15):
-Validating proteindf_bridge_rs (PyO3 Rust bindings) format I/O against pure Python proteindf_bridge.
+Validating proteindf_bridge.rs (PyO3 Rust bindings) format I/O against pure Python proteindf_bridge.
 """
 
 import os
@@ -24,7 +24,7 @@ from proteindf_bridge.atomgroup import AtomGroup as PyAtomGroup
 from proteindf_bridge.position import Position as PyPos
 
 # Rust PyO3 bindings
-import proteindf_bridge_rs as rs_br
+import proteindf_bridge.rs as rs_br
 
 DATA_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "proteindf_bridge", "data")

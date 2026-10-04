@@ -6,7 +6,7 @@
 
 """
 Test suite for PR#44:
-Validating proteindf_bridge_rs (PyO3 Rust bindings) PDBx/mmCIF structure writing
+Validating proteindf_bridge.rs (PyO3 Rust bindings) PDBx/mmCIF structure writing
 methods on PySimpleMmcif, including write_structure, save_structure, save,
 set_by_atomgroup, keyword options, roundtrip fidelity, and error propagation.
 """
@@ -16,7 +16,7 @@ import tempfile
 import unittest
 
 # Rust PyO3 bindings
-import proteindf_bridge_rs as rs_br
+import proteindf_bridge.rs as rs_br
 
 DATA_DIR = os.path.abspath(
     os.path.join(
