@@ -545,7 +545,7 @@ SimpleMmcif::save_structure(ag: &AtomGroup, path: impl AsRef<Path>, opts: &Mmcif
 
 - **Rust:** コアライブラリ本体。ネイティブクレートとしてYUIの `core`/`renderer-native` から直接利用する。
 - **C/C++:** `cdylib` + `cbindgen` によるヘッダー生成でC ABIを公開する。
-- **Python:** `PyO3` + `maturin` によるバインディングを提供し、既存 `ProteinDF_bridge`/`ProteinDF_pytools` ユーザーが最小コストで移行できるようにする（可能な限り既存Python APIの関数・クラス名を踏襲する）。パッケージ名は `proteindf_bridge_rs` とし、既存の純Python版 `proteindf_bridge` と共存インストールできるようにする。
+- **Python:** `PyO3` + `maturin` によるバインディングを提供し、既存 `ProteinDF_bridge`/`ProteinDF_pytools` ユーザーが最小コストで移行できるようにする（可能な限り既存Python APIの関数・クラス名を踏襲する）。パッケージ名は `proteindf_bridge_rs` とし、既存の純Python版 `proteindf_bridge` と共存インストールできるようにする。（→ **2026-10-04変更**: 純Python版と1つのパッケージ`proteindf_bridge`に統合し、Rust版は`proteindf_bridge.rs`としてimportする形にする。§4.4参照。）
 
 ### 4.1 クレート配布方式の指針 (PR#36)
 
@@ -628,6 +628,31 @@ proteindf-bridge = { git = "https://github.com/<org>/ProteinDF_bridge", tag = "v
 - **確立した方針**: `AtomGroup`のような大きな構造は、アクセスのたびにコピーせず同じオブジェクトを返す。結果の一覧(リスト・辞書)はアクセスのたびに新しいコンテナを返し、順序は決定的にする。テストファイル名・クラス名にPR番号を使わない。
 - **検証**: `cargo test --workspace`(318件)、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --check`、Pythonテスト一式(`python -m unittest discover -s tests`、196件。純Python版のテストと`tests/test_rs_*.py`)が通ることをClaudeが確認した。
 - **既知の限界**: `spatial.rs`(`CellList`)などの低レベルAPIと、`hydrogenation.rs`・`backbone_hydrogen.rs`の単一残基向けの内部APIは公開していない。`ag["A"]`などが部分木のコピーを返す既存の挙動は変えていない(構造を変更するメソッドは呼び出したオブジェクト自身を変更し、部分木のコピーでは元の木が変わらない旨をdocstringに明記)。CH-πの閾値に負の値などを渡してもエラーにならない(コア側に検証がない)。
+
+### 4.4 1つのパッケージへの統合とwheel配布(計画: 2026-10-04)
+
+#### 背景
+
+2026.10.1時点では、純Python版`proteindf_bridge`(setuptools、`pip install .`)とRust版のPythonバインディング`proteindf_bridge_rs`(maturin、`rust/crates/proteindf-bridge-py`)は別々のパッケージで、`scripts/`配下のスクリプトはすべて純Python版だけを使っている。ユーザーの最終的な目標は、Rustライブラリを使うPythonスクリプトを`pip install`で導入できるようにすることである。
+
+大型計算機では、`cargo`(Rustツールチェーン)をインストール時に必須にするのは負担が大きい(計算ノードのネットワーク制限、`~/.rustup`・`~/.cargo`の容量、Cコンパイラの要否など)。Rust製のPythonパッケージ(pydantic-core、polars、ruffなど)は、ビルド済みのwheelを配ってコンパイラを不要にするのが標準である。
+
+#### 方針決定(ユーザー確認済み、2026-10-04)
+
+- **1つのパッケージにまとめる。** ルートの`pyproject.toml`のビルドをmaturinに切り替え、純Pythonのコードと、Rustの拡張モジュールを1つのパッケージ`proteindf_bridge`に同梱する。
+- **Rust版のimport名は`proteindf_bridge.rs`**(`import proteindf_bridge.rs as rs`)。これまでの独立パッケージ名`proteindf_bridge_rs`(§4・§4.2で定めた名前)は廃止する。
+- **対応するPythonは3.9以降**(`requires-python = ">=3.9"`。Rust側の`abi3-py39`と一致)。
+- **wheelの対象環境**: Linux x86_64・Linux aarch64(いずれもmanylinux2014)、macOS(Apple Silicon)。これらに加えてソース配布物(sdist)も作り、wheelのない環境ではソースからビルドできるようにする(このときだけ`cargo`が必要)。
+- **配布先は当面GitHubのRelease。** PyPIが標準だが、ユーザーにまだPyPIアカウントがないため、まずGitHub Releaseで配り、アカウントができたらPyPIへの公開(Trusted Publishing)を追加する。
+- **リリースの自動化**: バージョンタグをプッシュしたら、GitHub Actionsがwheelとsdistをビルドし、GitHubのReleaseを自動で作って置く。(これに伴い、2026.10.0で決めた「タグのみ、Releaseページは作らない」方針は変更する。)
+- スクリプトをRust版を使う形に書き換えるのは、本節の作業(パッケージの統合と配布)が終わってから、別に計画する。
+
+#### 対象(PR分割)
+
+- **PR#49**: パッケージの統合(maturinへの移行、`proteindf_bridge.rs`、スクリプトのインストール、テストとドキュメントの更新)
+- **PR#50**: GitHub Actionsによるwheelのビルド・テストと、GitHub Releaseへの自動公開
+
+実行チェックリスト・完了の定義は`docs/tasks/TASK_packaging.md`を参照。
 
 ## 5. ライセンス
 
