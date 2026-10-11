@@ -27,6 +27,7 @@ Excluded tools (6 tools):
 import io
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -72,16 +73,24 @@ class TestCliGolden(unittest.TestCase):
         cls.golden_dir = os.path.join(test_dir, "cli_golden")
 
         # Standard fixtures
-        cls.p_pdb = os.path.join(cls.data_dir, "2MGO.pdb")
+        cls.p_1hls_pdb = os.path.join(cls.data_dir, "1hls.pdb")
+        cls.p_2mgo_pdb = os.path.join(cls.data_dir, "2MGO.pdb")
         cls.p_gro = os.path.join(cls.data_dir, "sample.gro")
         cls.p_xyz = os.path.join(cls.data_dir, "ACE_ALA_NME.xyz")
         cls.p_cif = os.path.join(cls.data_dir, "ALA.cif")
-        cls.p_brd = os.path.join(cls.data_dir, "ACE_ALA_NME.brd")
         cls.p_cis1 = os.path.join(cls.data_dir, "ACE_ALA_NME_cis1.brd")
         cls.p_cis2 = os.path.join(cls.data_dir, "ACE_ALA_NME_cis2.brd")
 
     def setUp(self):
         self.temp_dir = tempfile.mkdtemp()
+        # Generate standard protein .brd inputs for tests:
+        # - 1hls.brd (782 atoms, standard protein model/chain/residue hierarchy, charged residues)
+        # - 2mgo.brd (136 atoms, NMR model, has explicit SSBOND disulfide bonds)
+        self.brd_1hls = os.path.join(self.temp_dir, "1hls_input.brd")
+        self._run_cli(pdb2brd.main, ["pdb2brd.py", self.p_1hls_pdb, self.brd_1hls])
+
+        self.brd_2mgo = os.path.join(self.temp_dir, "2mgo_input.brd")
+        self._run_cli(pdb2brd.main, ["pdb2brd.py", self.p_2mgo_pdb, self.brd_2mgo])
 
     def tearDown(self):
         shutil.rmtree(self.temp_dir, ignore_errors=True)
@@ -163,18 +172,14 @@ class TestCliGolden(unittest.TestCase):
 
     def test_cli_pdb2brd(self):
         out_path = os.path.join(self.temp_dir, "pdb2brd.brd")
-        out, err, exc = self._run_cli(pdb2brd.main, ["pdb2brd.py", self.p_pdb, out_path])
+        out, err, exc = self._run_cli(pdb2brd.main, ["pdb2brd.py", self.p_1hls_pdb, out_path])
         self.assertIsNone(exc)
         self._assert_brd_matches_golden(out_path, "pdb2brd.brd.json")
         self._assert_text_matches_golden(out, "pdb2brd.stdout.txt")
 
     def test_cli_brd2pdb(self):
-        # Generate input brd from 2MGO.pdb
-        brd_input = os.path.join(self.temp_dir, "input_2mgo.brd")
-        self._run_cli(pdb2brd.main, ["pdb2brd.py", self.p_pdb, brd_input])
-
         out_path = os.path.join(self.temp_dir, "brd2pdb.pdb")
-        out, err, exc = self._run_cli(brd2pdb.main, ["brd2pdb.py", brd_input, "-o", out_path])
+        out, err, exc = self._run_cli(brd2pdb.main, ["brd2pdb.py", self.brd_1hls, "-o", out_path])
         self.assertIsNone(exc)
         with open(out_path, "r", encoding="utf-8") as f:
             pdb_content = f.read()
@@ -182,7 +187,7 @@ class TestCliGolden(unittest.TestCase):
         self._assert_text_matches_golden(out, "brd2pdb.stdout.txt")
 
     def test_cli_brd2gro(self):
-        out, err, exc = self._run_cli(brd2gro.main, ["brd2gro.py", self.p_brd])
+        out, err, exc = self._run_cli(brd2gro.main, ["brd2gro.py", self.brd_1hls])
         self.assertIsNone(exc)
         self._assert_text_matches_golden(out, "brd2gro.stdout.txt")
 
@@ -195,7 +200,7 @@ class TestCliGolden(unittest.TestCase):
 
     def test_cli_brd2xyz(self):
         out_path = os.path.join(self.temp_dir, "brd2xyz.xyz")
-        out, err, exc = self._run_cli(brd2xyz.main, ["brd2xyz.py", self.p_brd, "-o", out_path])
+        out, err, exc = self._run_cli(brd2xyz.main, ["brd2xyz.py", self.brd_1hls, "-o", out_path])
         self.assertIsNone(exc)
         with open(out_path, "r", encoding="utf-8") as f:
             xyz_content = f.read()
@@ -211,7 +216,7 @@ class TestCliGolden(unittest.TestCase):
 
     def test_cli_brd2txt(self):
         out_path = os.path.join(self.temp_dir, "brd2txt.csv")
-        out, err, exc = self._run_cli(brd2txt.main, ["brd2txt.py", self.p_brd, "-c", out_path])
+        out, err, exc = self._run_cli(brd2txt.main, ["brd2txt.py", self.brd_1hls, "-c", out_path])
         self.assertIsNone(exc)
         with open(out_path, "r", encoding="utf-8") as f:
             csv_content = f.read()
@@ -272,34 +277,37 @@ class TestCliGolden(unittest.TestCase):
     # =========================================================================
 
     def test_cli_brd_box(self):
-        out, err, exc = self._run_cli(brd_box.main, ["brd-box.py", self.p_brd, "1", "1.0"])
+        out, err, exc = self._run_cli(brd_box.main, ["brd-box.py", self.brd_1hls, "1", "1.0"])
         self.assertIsNone(exc)
         self._assert_text_matches_golden(out, "brd_box.stdout.txt")
 
     def test_cli_brd_density(self):
-        out, err, exc = self._run_cli(brd_density.main, ["brd-density.py", self.p_brd, "1", "--box", "10.0", "10.0", "10.0"])
+        out, err, exc = self._run_cli(brd_density.main, ["brd-density.py", self.brd_1hls, "1", "--box", "30.0", "30.0", "30.0"])
         self.assertIsNone(exc)
         self._assert_text_matches_golden(out, "brd_density.stdout.txt")
 
     def test_cli_brd_formula(self):
-        out, err, exc = self._run_cli(brd_formula.main, ["brd-formula.py", self.p_brd])
+        out, err, exc = self._run_cli(brd_formula.main, ["brd-formula.py", self.brd_1hls])
         self.assertIsNone(exc)
         self._assert_text_matches_golden(out, "brd_formula.stdout.txt")
 
     def test_cli_brd_show_res(self):
-        out, err, exc = self._run_cli(brd_show_res.main, ["brd-show-res.py", self.p_brd])
+        out, err, exc = self._run_cli(brd_show_res.main, ["brd-show-res.py", self.brd_1hls])
         self.assertIsNone(exc)
         self._assert_text_matches_golden(out, "brd_show_res.stdout.txt")
 
     def test_cli_brd_show_bonds(self):
-        out, err, exc = self._run_cli(brd_show_bonds.main, ["brd-show-bonds.py", self.p_brd])
+        # 2MGO has SSBOND records and yields explicit bonds in brd
+        out, err, exc = self._run_cli(brd_show_bonds.main, ["brd-show-bonds.py", self.brd_2mgo])
         self.assertIsNone(exc)
         self._assert_text_matches_golden(out, "brd_show_bonds.stdout.txt")
 
     def test_cli_brd_setup_bond(self):
         # Pure Python implementation has AttributeError: module 'proteindf_bridge' has no attribute 'Bond'
+        # (Bond import is commented out in proteindf_bridge/__init__.py).
+        # We record and test this expected exception so that the behavior is pinned until PR#54 migration.
         out_path = os.path.join(self.temp_dir, "bonds.brd")
-        out, err, exc = self._run_cli(brd_setup_bond.main, ["brd-setup-bond.py", self.p_brd, "-o", out_path])
+        out, err, exc = self._run_cli(brd_setup_bond.main, ["brd-setup-bond.py", self.brd_1hls, "-o", out_path])
         self.assertIsNotNone(exc)
         self.assertIsInstance(exc, AttributeError)
         exc_str = f"{type(exc).__name__}: {exc}"
@@ -307,65 +315,60 @@ class TestCliGolden(unittest.TestCase):
 
     def test_cli_brd_select(self):
         out_path = os.path.join(self.temp_dir, "select.brd")
-        out, err, exc = self._run_cli(brd_select.main, ["brd-select.py", self.p_brd, "-q", "*/1/*", "-o", out_path])
+        out, err, exc = self._run_cli(brd_select.main, ["brd-select.py", self.brd_1hls, "-q", "*/A/1/*", "-o", out_path])
         self.assertIsNone(exc)
         self._assert_brd_matches_golden(out_path, "brd_select.brd.json")
         self._assert_text_matches_golden(out, "brd_select.stdout.txt")
 
     def test_cli_brd_select_path(self):
         out_path = os.path.join(self.temp_dir, "select_path.brd")
-        out, err, exc = self._run_cli(brd_select_path.main, ["brd-select-path.py", self.p_brd, "-q", "/1/", "-o", out_path])
+        out, err, exc = self._run_cli(brd_select_path.main, ["brd-select-path.py", self.brd_1hls, "-q", "/model_1/A/1/", "-o", out_path])
         self.assertIsNone(exc)
         self._assert_brd_matches_golden(out_path, "brd_select_path.brd.json")
         self._assert_text_matches_golden(out, "brd_select_path.stdout.txt")
 
     def test_cli_brd_divide(self):
         out_path = os.path.join(self.temp_dir, "divide.brd")
-        out, err, exc = self._run_cli(brd_divide.main, ["brd-divide.py", self.p_brd, "-o", out_path])
+        out, err, exc = self._run_cli(brd_divide.main, ["brd-divide.py", self.brd_1hls, "-o", out_path])
         self.assertIsNone(exc)
         self._assert_brd_matches_golden(out_path, "brd_divide.brd.json")
         self._assert_text_matches_golden(out, "brd_divide.stdout.txt")
 
     def test_cli_brd_divide_mainchain(self):
         out_path = os.path.join(self.temp_dir, "divide_mc.brd")
-        out, err, exc = self._run_cli(brd_divide_mainchain.main, ["brd-divide-mainchain.py", self.p_brd, "-o", out_path])
+        out, err, exc = self._run_cli(brd_divide_mainchain.main, ["brd-divide-mainchain.py", self.brd_1hls, "-o", out_path])
         self.assertIsNone(exc)
         self._assert_brd_matches_golden(out_path, "brd_divide_mainchain.brd.json")
         self._assert_text_matches_golden(out, "brd_divide_mainchain.stdout.txt")
 
     def test_cli_brd_renumber_resid(self):
         out_path = os.path.join(self.temp_dir, "renumber_resid.brd")
-        out, err, exc = self._run_cli(brd_renumber_resid.main, ["brd-renumber-resid.py", self.p_brd, "10", "-o", out_path])
+        out, err, exc = self._run_cli(brd_renumber_resid.main, ["brd-renumber-resid.py", self.brd_1hls, "10", "-o", out_path])
         self.assertIsNone(exc)
         self._assert_brd_matches_golden(out_path, "brd_renumber_resid.brd.json")
         self._assert_text_matches_golden(out, "brd_renumber_resid.stdout.txt")
 
     def test_cli_brd_restructure(self):
-        # Generate input 2mgo.brd with model/chain/residue hierarchy
-        brd_input = os.path.join(self.temp_dir, "input_2mgo.brd")
-        self._run_cli(pdb2brd.main, ["pdb2brd.py", self.p_pdb, brd_input])
-
         out_path = os.path.join(self.temp_dir, "restructure.brd")
-        out, err, exc = self._run_cli(brd_restructure.main, ["brd-restructure.py", brd_input, brd_input, "-o", out_path])
+        out, err, exc = self._run_cli(brd_restructure.main, ["brd-restructure.py", self.brd_1hls, self.brd_1hls, "-o", out_path])
         self.assertIsNone(exc)
         self._assert_brd_matches_golden(out_path, "brd_restructure.brd.json")
         self._assert_text_matches_golden(out, "brd_restructure.stdout.txt")
 
     def test_cli_reorder(self):
         out_path = os.path.join(self.temp_dir, "reorder.brd")
-        out, err, exc = self._run_cli(reorder.main, ["reorder.py", self.p_brd, out_path])
+        out, err, exc = self._run_cli(reorder.main, ["reorder.py", self.brd_1hls, out_path])
         self.assertIsNone(exc)
         self._assert_brd_matches_golden(out_path, "reorder.brd.json")
         self._assert_text_matches_golden(out, "reorder.stdout.txt")
 
     def test_cli_crystallize(self):
         out_path = os.path.join(self.temp_dir, "crystallize.brd")
-        out, err, exc = self._run_cli(crystallize.main, ["crystallize.py", self.p_brd, out_path, "--num_x", "1", "--num_y", "1", "--num_z", "1"])
+        out, err, exc = self._run_cli(crystallize.main, ["crystallize.py", self.brd_1hls, out_path, "--num_x", "1", "--num_y", "1", "--num_z", "1"])
         self.assertIsNone(exc)
         self._assert_brd_matches_golden(out_path, "crystallize.brd.json")
         # crystallize.py prints args Namespace containing dynamic input/output file paths.
         # Normalize paths so the test is deterministic across runs and machines.
-        import re
         norm_out = re.sub(r"INPUT_BRD_PATH=\['[^']*'\]", "INPUT_BRD_PATH=['<INPUT_BRD_PATH>']", out)
         norm_out = re.sub(r"OUTPUT_BRD_PATH=\['[^']*'\]", "OUTPUT_BRD_PATH=['<OUTPUT_BRD_PATH>']", norm_out)
         self._assert_text_matches_golden(norm_out, "crystallize.stdout.txt")
@@ -376,7 +379,7 @@ class TestCliGolden(unittest.TestCase):
 
     def test_cli_neutralize(self):
         out_path = os.path.join(self.temp_dir, "neutralize.brd")
-        out, err, exc = self._run_cli(neutralize.main, ["neutralize.py", self.p_brd, out_path])
+        out, err, exc = self._run_cli(neutralize.main, ["neutralize.py", self.brd_1hls, out_path])
         self.assertIsNone(exc)
         self._assert_brd_matches_golden(out_path, "neutralize.brd.json")
         self._assert_text_matches_golden(out, "neutralize.stdout.txt")

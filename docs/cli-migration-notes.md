@@ -75,6 +75,14 @@
      - `read_amber_prmtop.py` は原子座標・電荷等のPython辞書を `.brd` 形式のMessagePackとして書き出している。
      - `mmcif2txt.py` / `mmcif2mol2.py` は `SimpleMmcif.save_msgpack` でmmCIFブロックの辞書データをキャッシュしている。
      - Python側の標準 `msgpack` パッケージをスクリプト内で使用するか、`proteindf_bridge.rs` にMessagePack保存関数・メソッドを追加するかはPR#53の実装時に判断する。
-5. **純Python版 `brd-setup-bond.py` のバグ解消と移行**
-   - **純Python版の状態**: `proteindf_bridge/__init__.py` で `Bond` がインポートされていないため、純Python版の実行時に `AttributeError: module 'proteindf_bridge' has no attribute 'Bond'` となる。
-   - **Rust版での移行方針**: Rust版では `AtomGroup.setup()` または `Bond.setup_heuristic()` が利用可能であり、PR#54にて正常に結合解決を行うCLIとして移行する。
+5. **純Python版 `brd-setup-bond.py` のバグとPR#54移行時の正しさの基準**
+   - **純Python版の状態**: `proteindf_bridge/__init__.py` で `Bond` がインポートされていないため、純Python版の実行時に `AttributeError: module 'proteindf_bridge' has no attribute 'Bond'` となる。このため、移行前の基準として使える正常出力が存在しない（本PR#52ではこの例外送出をゴールデンテストとして固定している）。
+   - **PR#54での移行方針と正しさの基準**:
+     - Rust版では `AtomGroup.setup()`（CCDテンプレートDB + 共有結合半径ヒューリスティックによる統合結合解決、§3.13〜3.15）または `Bond.setup_heuristic()`（純共有結合半径ヒューリスティックのみ、§3.10）が既に提供されている。
+     - PR#54で `brd-setup-bond.py` をRust版に切り替える際は、`AtomGroup.setup()` を呼び出して結合を解決し、`save_atomgroup` で保存する設計とする。
+     - **正しさの検証基準値**:
+       1. `tests/test_rs_bond_resolution.rs` (`test_resolve_bonds_1hls_real_pdb`) および `rust/crates/proteindf-bridge/tests/test_ccd_templates.rs`:
+          実PDBフィクスチャ `1hls.pdb` に対し、結合解決後に二重結合（GLU 4 の CD=OE1、ARG 22 の CZ=NH2 等の次数2結合）および残基間ペプチド結合（次数1）が正しく付与され、全結合レコードに重複がないこと。
+       2. `tests/test_rs_phase2.rs` (`test_bond_setup_covalent_tolerance_and_exclusion`):
+          共有結合半径 + マージン（0.45Å）に基づく結合判定が行われ、非結合のVDW接触や水素結合が結合として誤検出されないこと。
+       3. 結合を持つ既存構造（2MGO等のSSBOND結合）に対して二重追加や次数上書きが発生しないこと（§3.12重複登録防止規約）。
