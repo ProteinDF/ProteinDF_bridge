@@ -80,9 +80,30 @@
    - **PR#54での移行方針と正しさの基準**:
      - Rust版では `AtomGroup.setup()`（CCDテンプレートDB + 共有結合半径ヒューリスティックによる統合結合解決、§3.13〜3.15）または `Bond.setup_heuristic()`（純共有結合半径ヒューリスティックのみ、§3.10）が既に提供されている。
      - PR#54で `brd-setup-bond.py` をRust版に切り替える際は、`AtomGroup.setup()` を呼び出して結合を解決し、`save_atomgroup` で保存する設計とする。
-     - **正しさの検証基準値**:
-       1. `tests/test_rs_bond_resolution.rs` (`test_resolve_bonds_1hls_real_pdb`) および `rust/crates/proteindf-bridge/tests/test_ccd_templates.rs`:
-          実PDBフィクスチャ `1hls.pdb` に対し、結合解決後に二重結合（GLU 4 の CD=OE1、ARG 22 の CZ=NH2 等の次数2結合）および残基間ペプチド結合（次数1）が正しく付与され、全結合レコードに重複がないこと。
-       2. `tests/test_rs_phase2.rs` (`test_bond_setup_covalent_tolerance_and_exclusion`):
-          共有結合半径 + マージン（0.45Å）に基づく結合判定が行われ、非結合のVDW接触や水素結合が結合として誤検出されないこと。
-       3. 結合を持つ既存構造（2MGO等のSSBOND結合）に対して二重追加や次数上書きが発生しないこと（§3.12重複登録防止規約）。
+     - **実在するテストに基づく正しさの検証基準値**:
+       1. `rust/crates/proteindf-bridge/tests/test_ccd_templates.rs` の `test_atomgroup_setup_1hls_real_pdb` (710行目〜):
+          実PDBフィクスチャ `1hls.pdb` に対し、`ag.setup()` 実行後にCCDテンプレートDB由来の二重結合が付与されること:
+          - GLU 4 の主鎖 `C=O` 結合がちょうど1本で次数2であること:
+            `assert_eq!(glu4_co_bonds.len(), 1, "GLU 4 C=O bond should appear exactly once");`
+            `assert_eq!(glu4_co_bonds[0].order, 2, "GLU 4 C=O bond should have order 2 from CCD template");`
+          - 鎖Bの ARG 22 に次数2の結合（`C=O` および `CZ=NH2`）が2本以上存在すること:
+            `assert!(arg_double_bonds >= 2, "ARG 22 should have at least 2 double bonds (C=O and CZ=NH2)");`
+          - 残基間ペプチド結合（次数1）がヒューリスティックにより検出され、全体として重複結合が存在しないこと:
+            `assert!(seen.insert(key), "Duplicate bond found: {:?}", key);`
+       2. `rust/crates/proteindf-bridge/tests/test_ccd_templates.rs` の `test_resolve_bonds_preserves_existing_file_bonds` (805行目〜):
+          ファイル由来の事前登録結合（CONECTや明示的結合情報）が上書きされず保持され、重複しないこと:
+          - 事前登録した次数1の `C-O` 結合がCCDの次数2で上書きされず維持されること:
+            `assert_eq!(co_bonds.len(), 1, "C-O bond must be unique");`
+            `assert_eq!(co_bonds[0].order, 1, "Pre-existing C-O bond order 1 must be strictly preserved");`
+          - ALAの重原子結合4本が重複なく得られること:
+            `assert_eq!(bonds.len(), 4, "Total bonds should be 4 without duplicates");`
+       3. `rust/crates/proteindf-bridge/tests/test_covalent_bond_detection.rs` の `test_non_covalent_contact_excluded` (45行目〜):
+          共有結合半径（Cordero et al. 2008）+ マージン（0.45Å）による幾何判定により、非結合の接触（2.5ÅのC-Cペアや2.8Åの水素結合ペア）が結合として誤検出されず除外されること:
+          `assert_eq!(bonds.len(), 1, "Expected exactly 1 genuine covalent bond, but found {}", bonds.len());`
+          `assert!(is_c3_c4, "The only detected bond should be C3-C4");`
+       4. `rust/crates/proteindf-bridge/tests/test_covalent_bond_detection.rs` の `test_known_covalent_bonds_1hls` (91行目〜):
+          `1hls.pdb` において残基間ペプチド結合（鎖A残基1-2間、鎖B残基1-2間）、残基内共有結合（GLU 4のCA-CB）、およびジスルフィド結合（鎖A CYS6 SG - CYS11 SG）が正しく検出されること:
+          `assert!(peptide_a1_a2.is_some(), "Peptide bond between Chain A residue 1 C and residue 2 N should be detected");`
+          `assert!(peptide_b1_b2.is_some(), "Peptide bond between Chain B residue 1 C and residue 2 N should be detected");`
+          `assert!(glu4_ca_cb.is_some(), "CA-CB bond in GLU residue 4 should be detected");`
+          `assert!(ssbond_a6_a11.is_some(), "Disulfide bond between Chain A CYS6 SG and CYS11 SG should be detected");`
