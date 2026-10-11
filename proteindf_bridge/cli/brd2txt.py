@@ -21,7 +21,7 @@
 
 import argparse
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 
 def main():
@@ -47,10 +47,7 @@ def main():
     # reading
     if (verbose == True):
         print("reading: %s\n" % (mpac_file_path))
-    mpac_data = bridge.load_msgpack(mpac_file_path)
-
-    # prepare atomgroup
-    atom_group = bridge.AtomGroup(mpac_data)
+    atom_group = rs.load_atomgroup(mpac_file_path)
 
     # output
     if (len(csv_file_path) > 0):

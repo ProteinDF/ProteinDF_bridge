@@ -4,7 +4,7 @@
 import argparse
 import pprint
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 
 def main():
@@ -30,19 +30,15 @@ def main():
     # load gro file
     if (verbose == True):
         print("reading: %s\n" % (gro_file_path))
-    gro_obj = bridge.SimpleGro()
+    gro_obj = rs.SimpleGro()
     gro_obj.load(gro_file_path)
     # print(gro_obj)
     atom_group = gro_obj.get_atomgroup()
 
-    # output DfData
-    data = atom_group.get_raw_data()
-    # pprint.pprint(data)
-
     # output file
     if (verbose == True):
         print("writing: %s\n" % (output_path))
-    bridge.save_msgpack(data, output_path)
+    rs.save_atomgroup(atom_group, output_path)
 
 
 if __name__ == '__main__':

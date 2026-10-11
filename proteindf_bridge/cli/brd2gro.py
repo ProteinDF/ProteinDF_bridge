@@ -4,7 +4,7 @@
 import sys
 import argparse
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 
 def main():
@@ -26,12 +26,9 @@ def main():
     # reading
     if (verbose == True):
         print("reading: %s\n" % (mpac_file_path))
-    mpac_data = bridge.load_msgpack(mpac_file_path)
+    atom_group = rs.load_atomgroup(mpac_file_path)
 
-    # prepare atomgroup
-    atom_group = bridge.AtomGroup(mpac_data)
-
-    gro = bridge.SimpleGro()
+    gro = rs.SimpleGro()
     gro.set_by_atomgroup(atom_group)
 
     # output

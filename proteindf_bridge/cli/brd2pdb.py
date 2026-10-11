@@ -22,7 +22,7 @@
 import sys
 import argparse
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 
 def main():
@@ -60,14 +60,10 @@ def main():
     # reading
     if (verbose == True):
         print("reading: %s\n" % (mpac_file_path))
-    mpac_data = bridge.load_msgpack(mpac_file_path)
-
-    # prepare atomgroup
-    atom_group = bridge.AtomGroup(mpac_data)
-    # print(atom_group)
+    atom_group = rs.load_atomgroup(mpac_file_path)
 
     # prepare BrPdb object
-    pdb_obj = bridge.Pdb(mode=pdb_mode)
+    pdb_obj = rs.Pdb(mode=pdb_mode)
     pdb_obj.set_by_atomgroup(atom_group, is_charge2tempfactor)
 
     # output PDB
