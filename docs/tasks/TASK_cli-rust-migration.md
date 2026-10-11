@@ -72,3 +72,19 @@
 1. 上記1〜3に対応し、同じブランチに追加コミットする。
 2. 修正後の基準ファイルについて、ファイルごとの大きさと、`.brd`の基準ファイルごとの原子数を一覧で示す。
 3. 全PR共通のルール5のテストが通る。
+
+## PR#52 レビュー結果(2回目、2026-10-11、要修正・文書のみ)
+
+修正コミット`f75798b`を確認した。入力を階層を持つタンパク質(`1hls.pdb`・`2MGO.pdb`から作った`.brd`)に変え、`brd2gro`(782原子)・`brd-show-res`(51残基)・`brd-show-bonds`(2MGOのSSBOND)・`brd-renumber-resid`(782原子)・`neutralize`(782→792原子)など、どの基準ファイルも主な処理が働く中身になった(修正依頼1は対応済み)。
+
+### 修正依頼
+
+1. **【誤り】`docs/cli-migration-notes.md`の`brd-setup-bond.py`の正しさの基準(修正依頼2への対応)が、存在しないテストを引用している。** `tests/test_rs_bond_resolution.rs`の`test_resolve_bonds_1hls_real_pdb`、`tests/test_rs_phase2.rs`の`test_bond_setup_covalent_tolerance_and_exclusion`は、どちらもリポジトリに存在しない(Claudeが`grep`で確認)。また「GLU 4 の CD=OE1」は誤りで、実際のテストが確認しているのはGLU 4の主鎖`C=O`である。次の実在するテストと、その中で実際にアサートしている内容に書き直す。
+   - `rust/crates/proteindf-bridge/tests/test_ccd_templates.rs`の`test_atomgroup_setup_1hls_real_pdb`(710行目〜): GLU 4の`C=O`結合がちょうど1本で次数2、鎖BのARG 22に次数2の結合が2本以上(`C=O`と`CZ=NH2`)、など。
+   - 同ファイルの`test_resolve_bonds_preserves_existing_file_bonds`(805行目〜): ファイル由来の結合が保持され、重複しない。
+   - `rust/crates/proteindf-bridge/tests/test_covalent_bond_detection.rs`の`test_non_covalent_contact_excluded`・`test_known_covalent_bonds_1hls`: 共有結合半径による判定で、非共有の接触を結合とみなさない。
+   - **引用するテスト名・ファイル名・アサートの内容は、必ず実際のファイルを開いて確認してから書くこと。記憶や推測で書かないこと。**
+
+### 完了の定義(修正後)
+
+1. 上記1に対応し、同じブランチに追加コミットする。引用した各テストについて、ファイル名・行番号・該当するアサート行をそのまま報告に貼る。
