@@ -36,6 +36,19 @@
 
 `pdb2brd.py`・`brd2pdb.py`・`brd2gro.py`・`gro2brd.py`・`brd2xyz.py`・`xyz2brd.py`・`brd2txt.py`・`mmcif2txt.py`・`mmcif2mol2.py`・`read_amber_prmtop.py`
 
+### 方針(Claude決定、2026-10-11)
+
+1. 対応表(`docs/cli-migration-notes.md` §2)に従い、構造の読み書きは`proteindf_bridge.rs`の`load_atomgroup`・`save_atomgroup`・`Pdb`・`SimpleGro`・`Xyz`・`SimpleMmcif`・`SimpleMol2`・`AmberPrmtop`を使う。
+2. **`AtomGroup`ではない汎用データ**(`mmcif2txt.py`・`mmcif2mol2.py`・`read_amber_prmtop.py`が書き出す辞書)のMessagePack読み書きは、Pythonの`msgpack`パッケージ(既に`pyproject.toml`の依存にある)をコマンドの中で直接使う。`proteindf_bridge.rs`にMessagePackの汎用関数は追加しない。構造データではないため。
+3. **`AtomGroup.save_csv`**(`brd2txt.py`)は、Pythonバインディング(`rust/crates/proteindf-bridge-py`)に追加する。列・書式は純Python版(`proteindf_bridge/atomgroup.py`の`save_csv`)と同じにし、Pythonのテストを追加する。コアのクレートは変更しない(必要なら報告)。書き出しは途中で失敗しても壊れたファイルを残さない(一時ファイルに書いて名前を変える。PR#42と同じ)。
+4. `read_amber_prmtop.py`の出力先が`output.brd`に固定されている点は、コマンドの引数を変えないルールに従い、そのままにする。
+
+### 完了の定義(PR#53)
+
+1. 「PR#53〜55共通の完了の定義」1〜3を満たす。
+2. 10本それぞれについて、PR#52の基準ファイルとの比較結果(一致/違いあり)を報告する。違いがあったものは、違いの具体的な中身(例: どのキーがどう変わったか、原子数・結合数の変化)と、「意図した違い」か「不具合」かの分類と根拠を書く。
+3. `.brd`の基準ファイルを更新した場合は、更新前後の原子数・結合数を示す。
+
 ## PR#54: 構造の操作・表示(14本)
 
 `brd-box.py`・`brd-density.py`・`brd-formula.py`・`brd-show-res.py`・`brd-show-bonds.py`・`brd-setup-bond.py`・`brd-select.py`・`brd-select-path.py`・`brd-divide.py`・`brd-divide-mainchain.py`・`brd-renumber-resid.py`・`brd-restructure.py`・`reorder.py`・`crystallize.py`
