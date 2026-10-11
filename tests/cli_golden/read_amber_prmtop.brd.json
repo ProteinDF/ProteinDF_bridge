@@ -1,0 +1,26 @@
+{
+  "coordinates": {
+    "atoms": [
+      {
+        "charge": 0.0,
+        "label": "",
+        "symbol": "C",
+        "xyz": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "charge": 0.0,
+        "label": "",
+        "symbol": "H",
+        "xyz": [
+          2.059801,
+          0.0,
+          0.0
+        ]
+      }
+    ]
+  }
+}

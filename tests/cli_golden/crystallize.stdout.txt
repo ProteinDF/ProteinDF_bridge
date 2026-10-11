@@ -1,0 +1,1 @@
+Namespace(INPUT_BRD_PATH=['<INPUT_BRD_PATH>'], OUTPUT_BRD_PATH=['<OUTPUT_BRD_PATH>'], num_x=[1], num_y=[1], num_z=[1], verbose=False)
