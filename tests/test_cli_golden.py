@@ -533,8 +533,8 @@ class TestCliGolden(unittest.TestCase):
         out, err, exc = self._run_cli(superposer.main, ["superposer.py", self.p_cis1, self.p_cis2])
         self.assertIsNone(exc)
 
-        # Parse RMSD line: pure Python baseline is 1.6536679544491055, Rust (nalgebra Kabsch SVD) is 1.6536679544491049.
-        # Difference is ~6e-16 (1-2 ULPs of 64-bit float representation).
+        # Parse RMSD line: pure Python baseline is 1.6536679544491055, Rust (Jacobi Matrix::eig) is 1.6536679544491049.
+        # Difference is ~6e-16 (1-2 ULPs of 64-bit float representation due to numpy vs Jacobi eig rounding).
         # We enforce delta=1e-14 so that any meaningful drift is caught while allowing floating-point rounding variance.
         lines = out.strip().splitlines()
         self.assertTrue(lines[0].startswith("rmsd: "), f"First line must start with 'rmsd: ', got {lines[0]}")

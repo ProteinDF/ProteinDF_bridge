@@ -52,7 +52,7 @@
 | `reorder.py` | PR#54 (完了) | `load_atomgroup`, `AtomGroup`, `save_msgpack` | `load_atomgroup`, `AtomGroup`, `save_atomgroup` | ○ | `save_atomgroup` で保存。基準ファイルと完全一致。 |
 | `crystallize.py` | PR#54 (完了) | `load_atomgroup`, `AtomGroup`, `Position`, `AtomGroup.shift_by`, `save_msgpack` | `load_atomgroup`, `AtomGroup`, `Position`, `AtomGroup.shift_by`, `save_atomgroup` | ○ | `save_atomgroup` で保存。基準ファイルと完全一致。 |
 | `neutralize.py` | PR#55 (完了) | `load_atomgroup`, `Neutralize.neutralized`, `save_msgpack` | `load_atomgroup`, `Neutralize.neutralized`, `save_atomgroup` | ○ | `Neutralize` はRust版に実装・公開済み。移行完了。基準ファイルと完全一致。 |
-| `superposer.py` | PR#55 (完了) | `load_atomgroup`, `Superposer`, `Superposer_quaternion` | `load_atomgroup`, `Superposer`, `Superposer_quaternion` | ○ | `Superposer`, `Superposer_quaternion` はRust版に実装・公開済み。移行完了。意図した違い: RMSDの浮動小数点最下位桁の丸め誤差（差~6e-16）、AtomGroup文字列表現のDisplayフォーマット。 |
+| `superposer.py` | PR#55 (完了) | `load_atomgroup`, `Superposer`, `Superposer_quaternion` | `load_atomgroup`, `Superposer`, `Superposer_quaternion` | ○ | `Superposer`, `Superposer_quaternion` はRust版に実装・公開済み。移行完了。違いあり: RMSDの浮動小数点最下位桁の丸め誤差（差~6e-16）、既知の問題: AtomGroup文字列表現で入れ子の字下げをしない（コアで別タスク）。 |
 
 ---
 
@@ -191,7 +191,7 @@ PR#55においてモデリング2本（`neutralize.py`, `superposer.py`）を純
 | コマンド | 移行結果 | 比較結果 | 違いの分類 | 根拠・内容 |
 | :--- | :--- | :--- | :--- | :--- |
 | `neutralize.py` | 移行完了 | **完全一致** | なし | `rs.Neutralize`（PR#48でバインディング公開済み）を使用し、`rs.save_atomgroup` で保存。基準ファイル（782→792原子、10イオン付加）および標準出力（空）ともに完全一致。アルゴリズムは決定論的であり、複数回実行時もビット単位で完全一致することを確認済み。 |
-| `superposer.py` | 移行完了 | **違いあり** | **意図した違い** | 1. RMSD計算値: 純Python版は `1.6536679544491055`（numpy SVD/固有値分解）、Rust版は `1.6536679544491049`（nalgebra Kabsch SVD）。差は倍精度浮動小数点の最下位1〜2ulp（約 `5.995e-16`）。アルゴリズム・数式は同一であり、許容誤差 `1e-14` 以内で一致。<br>2. 構造の文字列表現: 純Python版は `atomgroup.py` の `_get_str()`（1042〜1058行目）、Rust版は `rust/crates/proteindf-bridge/src/atom_group.rs` の `Display for AtomGroup`（1261〜1272行目）および `rust/crates/proteindf-bridge/src/atom.rs` の `Display for Atom`（147〜165行目）。Rustコアのフォーマット規格（グループヘッダの書式、原子行頭の原子キー付与）に従う。基準ファイルを更新。 |
+| `superposer.py` | 移行完了 | **違いあり** | 1. **意図した違い** (RMSD計算値)<br>2. **既知の問題** (AtomGroup文字列表現) | 1. RMSD計算値: 純Python版は `1.6536679544491055`、Rust版は `1.6536679544491049`。差は倍精度浮動小数点の最下位1〜2ulp（約 `5.995e-16`）。純Python版もRust版も、対称行列の固有値分解を使う同じ手順（純Python版 `proteindf_bridge/superposer.py` 272行目の `trr.eig()`、Rust版 `rust/crates/proteindf-bridge/src/superposer.rs` 305行目の `trr_sym.eig()?`）であり、違いは固有値分解の実装（純Python版は `numpy.linalg.eigh`、Rust版は自前のヤコビ法 `Matrix::eig` / `SymmetricMatrix::eig`）による丸めの差である。アルゴリズム・数式は同一であり、許容誤差 `1e-14` 以内で一致。<br>2. 構造の文字列表現: 純Python版は `atomgroup.py` の `_get_str()`（1042〜1058行目）、Rust版は `rust/crates/proteindf-bridge/src/atom_group.rs` の `Display for AtomGroup`（1261〜1272行目）および `rust/crates/proteindf-bridge/src/atom.rs` の `Display for Atom`（147〜165行目）。Rust版の `Display` は入れ子の深さに応じた字下げをしないため、階層の見通しが悪くなっている。基準ファイルの更新はこのままとする（Rust版の出力を標準にする方針）が、既知の問題: Rust版の `Display` は入れ子の字下げをしない。コアで対応する（別タスク）。 |
 
 ### 6.2 追加したAPI
 なし（既存の `proteindf_bridge.rs` APIで全機能充足）。
