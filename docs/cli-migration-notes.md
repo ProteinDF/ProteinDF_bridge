@@ -119,12 +119,12 @@ PR#53においてフォーマット変換10本（`pdb2brd.py`, `brd2pdb.py`, `br
 | コマンド | 移行結果 | 比較結果 | 違いの分類 | 根拠・内容 |
 | :--- | :--- | :--- | :--- | :--- |
 | `pdb2brd.py` | 移行完了 | **完全一致** | なし | `rs.save_atomgroup` による1ステップ保存。 |
-| `brd2pdb.py` | 移行完了 | **違いあり** | **意図した違い** | ATOMレコードの温度因子（B-factor）未指定時デフォルト値。純Python版 `biopdb.py` はヒューリスティックに `1.00` を付与していたが、Rust版は `RUST_PORT_SPEC.md` §3.17の仕様規約に従い、温度因子を持たない `AtomGroup` に対して初期値 `0.00` を設定する。基準ファイルを更新。 |
+| `brd2pdb.py` | 移行完了 | **違いあり** | **意図した違い** | ATOMレコードの温度因子（B-factor）未指定時デフォルト値。純Python版は読み込み時の既定値が `0.0`（`proteindf_bridge/biopdb.py` 216行目）なのに、`set_by_atomgroup` の経路でだけ `1.0`（同474行目の `setdefault("temp_factor", 1.0)`）になる不整合があり、Rust版は読み込み（`rust/crates/proteindf-bridge/src/format/pdb.rs` 266〜267行目）および `set_by_atomgroup`（同559〜563行目）の双方で既定値 `0.0` として一貫している。基準ファイルを更新。 |
 | `brd2gro.py` | 移行完了 | **違いあり** | **意図した違い** | ボックスベクトル行（末尾行）の書式。純Python版はスペース区切りの浮動小数点（改行なし）を出力していたが、Rust版はGRO公式規格（GROMACS仕様）に準拠した固定幅 `{:10.5}` カラムおよび末尾改行を出力する。基準ファイルを更新。 |
 | `gro2brd.py` | 移行完了 | **完全一致** | なし | 読み込み・`.brd` 出力ともに一致。 |
 | `brd2xyz.py` | 移行完了 | **完全一致** | なし | 読み込み・`.xyz` 出力ともに一致。 |
 | `xyz2brd.py` | 移行完了 | **完全一致** | なし | 読み込み・`.brd` 出力ともに一致。 |
-| `brd2txt.py` | 移行完了 | **完全一致** | なし | 新設した `AtomGroup.save_csv` により列・書式・浮動小数点表記が純Python版と完全一致。 |
+| `brd2txt.py` | 移行完了 | **完全一致** | なし | 新設した `AtomGroup.save_csv` により列・書式（CRLF）・浮動小数点表記が純Python版と完全一致。 |
 | `mmcif2txt.py` | 移行完了 | **違いあり** | **意図した違い (不具合修正)** | `_pdbx_chem_comp_identifier` 内のトークナイズ結果。純Python版パーサーは引用符付き空白文字列（例: `"(2S)-2-aminopropanoic acid"`）の分割に失敗しカラムが壊れていたが、Rust版の厳密なトークナイザにより正しくパースされるようになった。基準ファイルを更新。 |
 | `mmcif2mol2.py` | 移行完了 | **完全一致** | なし | `.mol2` 出力およびスクラッチMessagePack保存・復元が一致。 |
 | `read_amber_prmtop.py` | 移行完了 | **完全一致** | なし | PRMTOP読込、内部座標辞書変換、MessagePack出力すべて一致。 |
@@ -132,13 +132,14 @@ PR#53においてフォーマット変換10本（`pdb2brd.py`, `brd2pdb.py`, `br
 ### 4.2 追加したAPI
 1. **`AtomGroup.save_csv(path)`**:
    - `rust/crates/proteindf-bridge-py/src/atom_group.rs`
-   - 一時ファイル出力後にアトミックリネームする安全設計。
+   - 一時ファイル出力後にアトミックリネームする安全設計。RFC 4180準拠のCRLF改行およびPythonの`repr(float)`互換の浮動小数点書式。
 2. **`SimpleMmcif.data`**:
    - `rust/crates/proteindf-bridge-py/src/format/mmcif.rs`
    - mmCIFブロック辞書（`{block_name: [key_values, tables]}`）を返すプロパティ。
 3. **`SimpleMmcif.from_data(dict)`**:
    - `rust/crates/proteindf-bridge-py/src/format/mmcif.rs`
-   - mmCIFブロック辞書から `SimpleMmcif` を復元する静的メソッド。
-4. **`Pdb.debug`**:
-   - `rust/crates/proteindf-bridge-py/src/format/pdb.rs`
-   - CLIスクリプトとの後方互換性プロパティ。
+   - mmCIFブロック辞書から `SimpleMmcif` を復元する静的メソッド。不正入力時は `BrInputError` を送出。
+
+### 4.3 CLIオプションとAPIの扱いについての決定
+- **`pdb2brd.py` の `-d/--debug` オプションと `Pdb.debug` プロパティの扱い**:
+  純Python版の `Pdb` には `debug` 属性が存在したが、Rust版の `Pdb` コアにはデバッグフラグが存在しない。何もしないgetter/setterを公開APIに追加することは避け、`Pdb.debug` プロパティはバインディングに追加しない方針とした。`pdb2brd.py` 内の `pdb_obj.debug = debug` の代入行は削除したが、全PR共通ルール1（コマンド名・引数・オプションは変えない）に従い、CLIの `-d/--debug` 引数定義はそのまま維持している。
