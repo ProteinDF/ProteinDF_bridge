@@ -3,7 +3,7 @@
 
 import argparse
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 
 def divide_lowest_atomgroup(atomgroup):
@@ -45,17 +45,17 @@ def main():
     #
     if verbose:
         print("load: {}".format(brd_path))
-    atomgroup = bridge.load_atomgroup(brd_path)
+    atomgroup = rs.load_atomgroup(brd_path)
 
     #
     group_list = divide_lowest_atomgroup(atomgroup)
 
     # output
     if output_path:
-        blocks = bridge.AtomGroup()
+        blocks = rs.AtomGroup()
         block_index = 1
         for grp in group_list:
-            block = bridge.AtomGroup()
+            block = rs.AtomGroup()
             atom_index = 1
             for atom in grp:
                 block.set_atom(atom_index, atom)
@@ -65,7 +65,7 @@ def main():
 
         if verbose:
             print("save: {}".format(output_path))
-        bridge.save_atomgroup(blocks, output_path)
+        rs.save_atomgroup(blocks, output_path)
 
     else:
         for grp in group_list:

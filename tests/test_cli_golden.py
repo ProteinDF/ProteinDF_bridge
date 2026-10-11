@@ -124,9 +124,29 @@ class TestCliGolden(unittest.TestCase):
         Recursively normalize a loaded .brd data dictionary.
         - Sort dictionary keys
         - Round float values to 6 decimal places to prevent floating-point representation drift
+        - Sort and canonicalize bond lists (endpoints order-independent) since heuristic bond
+          search uses spatial cell hashing which may iterate cells non-deterministically.
         """
         if isinstance(obj, dict):
-            return {str(k): TestCliGolden._canonicalize_brd(v) for k, v in sorted(obj.items())}
+            res = {}
+            for k, v in sorted(obj.items()):
+                if k == "bonds" and isinstance(v, list):
+                    norm_b = []
+                    for b in v:
+                        b_can = TestCliGolden._canonicalize_brd(b)
+                        if isinstance(b_can, list) and len(b_can) >= 2:
+                            p1, p2 = str(b_can[0]), str(b_can[1])
+                            if p1 > p2:
+                                norm_b.append([p2, p1] + list(b_can[2:]))
+                            else:
+                                norm_b.append([p1, p2] + list(b_can[2:]))
+                        else:
+                            norm_b.append(b_can)
+                    norm_b.sort(key=lambda x: (str(x[0]), str(x[1])))
+                    res[str(k)] = norm_b
+                else:
+                    res[str(k)] = TestCliGolden._canonicalize_brd(v)
+            return res
         elif isinstance(obj, list):
             return [TestCliGolden._canonicalize_brd(x) for x in obj]
         elif isinstance(obj, float):
@@ -329,15 +349,66 @@ class TestCliGolden(unittest.TestCase):
         self._assert_text_matches_golden(out, "brd_show_bonds.stdout.txt")
 
     def test_cli_brd_setup_bond(self):
-        # Pure Python implementation has AttributeError: module 'proteindf_bridge' has no attribute 'Bond'
-        # (Bond import is commented out in proteindf_bridge/__init__.py).
-        # We record and test this expected exception so that the behavior is pinned until PR#54 migration.
         out_path = os.path.join(self.temp_dir, "bonds.brd")
         out, err, exc = self._run_cli(brd_setup_bond.main, ["brd-setup-bond.py", self.brd_1hls, "-o", out_path])
-        self.assertIsNotNone(exc)
-        self.assertIsInstance(exc, AttributeError)
-        exc_str = f"{type(exc).__name__}: {exc}"
-        self._assert_text_matches_golden(exc_str, "brd_setup_bond.exception.txt")
+        self.assertIsNone(exc)
+        self._assert_brd_matches_golden(out_path, "brd_setup_bond.brd.json")
+
+        # Correctness criteria per TASK_cli-rust-migration.md / docs/cli-migration-notes.md §3.5:
+        # 1. Real PDB 1hls: GLU 4 backbone C=O bond is unique and has order 2 (from CCD template DB)
+        # 2. Chain B ARG 22 has >= 2 double bonds (C=O and CZ=NH2)
+        # 3. Inter-residue peptide bonds (Chain A 1-2, Chain B 1-2) detected with order 1
+        # 4. Disulfide bond (Chain A CYS6 SG - CYS11 SG) detected with order 1
+        # 5. No duplicate bonds exist across all detected bonds
+        import proteindf_bridge.rs as rs
+        ag = rs.load_atomgroup(out_path)
+        bonds = ag.get_bond_list()
+
+        # 1. GLU 4 C=O bond
+        glu4_co = [
+            b for b in bonds
+            if (('/A/4/' in b[0] and (b[0].endswith('_C') or b[0].endswith('/C'))) and ('/A/4/' in b[1] and (b[1].endswith('_O') or b[1].endswith('/O'))))
+            or (('/A/4/' in b[1] and (b[1].endswith('_C') or b[1].endswith('/C'))) and ('/A/4/' in b[0] and (b[0].endswith('_O') or b[0].endswith('/O'))))
+        ]
+        self.assertEqual(len(glu4_co), 1, "GLU 4 C=O bond should appear exactly once")
+        self.assertEqual(glu4_co[0][2], 2, "GLU 4 C=O bond should have order 2 from CCD template")
+
+        # 2. ARG 22 in Chain B double bonds
+        arg22_double = [b for b in bonds if ('/B/22/' in b[0] or '/B/22/' in b[1]) and b[2] == 2]
+        self.assertGreaterEqual(len(arg22_double), 2, "ARG 22 should have at least 2 double bonds")
+
+        # 3. Peptide bonds
+        pep_a = [
+            b for b in bonds
+            if (('/A/1/' in b[0] and (b[0].endswith('_C') or b[0].endswith('/C')) and '/A/2/' in b[1] and (b[1].endswith('_N') or b[1].endswith('/N'))))
+            or (('/A/2/' in b[0] and (b[0].endswith('_N') or b[0].endswith('/N')) and '/A/1/' in b[1] and (b[1].endswith('_C') or b[1].endswith('/C'))))
+        ]
+        self.assertEqual(len(pep_a), 1, "Peptide bond between Chain A residue 1 C and residue 2 N should be detected")
+        self.assertEqual(pep_a[0][2], 1, "Peptide bond order should be 1")
+
+        pep_b = [
+            b for b in bonds
+            if (('/B/1/' in b[0] and (b[0].endswith('_C') or b[0].endswith('/C')) and '/B/2/' in b[1] and (b[1].endswith('_N') or b[1].endswith('/N'))))
+            or (('/B/2/' in b[0] and (b[0].endswith('_N') or b[0].endswith('/N')) and '/B/1/' in b[1] and (b[1].endswith('_C') or b[1].endswith('/C'))))
+        ]
+        self.assertEqual(len(pep_b), 1, "Peptide bond between Chain B residue 1 C and residue 2 N should be detected")
+        self.assertEqual(pep_b[0][2], 1, "Peptide bond order should be 1")
+
+        # 4. Disulfide bond
+        ssbond = [
+            b for b in bonds
+            if (('/A/6/' in b[0] and (b[0].endswith('_SG') or b[0].endswith('/SG')) and '/A/11/' in b[1] and (b[1].endswith('_SG') or b[1].endswith('/SG'))))
+            or (('/A/11/' in b[0] and (b[0].endswith('_SG') or b[0].endswith('/SG')) and '/A/6/' in b[1] and (b[1].endswith('_SG') or b[1].endswith('/SG'))))
+        ]
+        self.assertEqual(len(ssbond), 1, "Disulfide bond between Chain A CYS6 SG and CYS11 SG should be detected")
+        self.assertEqual(ssbond[0][2], 1, "Disulfide bond order should be 1")
+
+        # 5. No duplicates
+        seen = set()
+        for b in bonds:
+            pair = tuple(sorted([b[0], b[1]]))
+            self.assertNotIn(pair, seen, f"Duplicate bond found: {pair}")
+            seen.add(pair)
 
     def test_cli_brd_select(self):
         out_path = os.path.join(self.temp_dir, "select.brd")

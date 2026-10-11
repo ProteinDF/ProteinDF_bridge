@@ -3,7 +3,7 @@
 
 import argparse
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 import logging
 import logging.config
@@ -21,13 +21,13 @@ def get_ions(atomgroup, logger):
         else:
             logger.debug("FOUND>'{}':'{}'@{}".format(key,
                                                      atom.symbol, atomgroup.name))
-            atomgroup.erase_atom(key)
+            atomgroup.remove_atom(key)
             ions.append(atom)
     return ions
 
 
 def get_max_resid(model):
-    assert isinstance(model, bridge.AtomGroup)
+    assert isinstance(model, rs.AtomGroup)
 
     max_resid = 0
     for chain_name, chain in model.groups():
@@ -37,9 +37,9 @@ def get_max_resid(model):
 
 
 def reorder_ions_for_amber(protein, logger):
-    assert isinstance(protein, bridge.AtomGroup)
+    assert isinstance(protein, rs.AtomGroup)
 
-    protein = bridge.AtomGroup(protein)
+    protein = rs.AtomGroup(protein)
 
     # atomgroup for ions
     for model_name, model in protein.groups():
@@ -50,7 +50,7 @@ def reorder_ions_for_amber(protein, logger):
             ions = get_ions(chain, logger)
 
             for ion in ions:
-                res = bridge.AtomGroup()
+                res = rs.AtomGroup()
                 res.name = ion.name
                 res.set_atom(ion.symbol, ion)
                 chain.set_group(current_resid, res)
@@ -92,13 +92,13 @@ def main():
     logger.addHandler(handler)
 
     # reading
-    protein = bridge.load_atomgroup(input_path)
+    protein = rs.load_atomgroup(input_path)
 
     # reorder
     mod_protein = reorder_ions_for_amber(protein, logger)
 
     # output
-    bridge.save_msgpack(mod_protein.get_raw_data(), output_path)
+    rs.save_atomgroup(mod_protein, output_path)
 
 
 if __name__ == '__main__':

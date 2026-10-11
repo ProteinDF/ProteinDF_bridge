@@ -22,7 +22,7 @@
 import sys
 import argparse
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 
 def main():
@@ -49,19 +49,16 @@ def main():
     # reading
     if verbose:
         print("reading: %s\n" % (mpac_file_path))
-    mpac_data = bridge.load_msgpack(mpac_file_path)
 
     # prepare atomgroup
-    atom_group = bridge.AtomGroup(mpac_data)
-    # print(atom_group)
-
-    bonds = bridge.Bond()
-    bonds.setup(atom_group)
+    atom_group = rs.load_atomgroup(mpac_file_path)
+    atom_group.setup()
 
     # output
     if (verbose == True):
         print("writing: %s\n" % (output))
-    bridge.save_msgpack(atom_group.get_dict_data(), output)
+    if output:
+        rs.save_atomgroup(atom_group, output)
 
 
 if __name__ == '__main__':

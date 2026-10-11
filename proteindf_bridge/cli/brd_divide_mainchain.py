@@ -3,7 +3,7 @@
 
 import argparse
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 
 def divide_lowest_atomgroup(atomgroup):
@@ -12,9 +12,9 @@ def divide_lowest_atomgroup(atomgroup):
         from_subgrp = divide_lowest_atomgroup(subgrp)
         group_list.extend(from_subgrp)
 
-    subgroup = bridge.AtomGroup()
+    subgroup = rs.AtomGroup()
     for atom_key, atom in atomgroup.atoms():
-        subgroup.add(atom_key, atom)
+        subgroup.set_atom(atom_key, atom)
     if len(subgroup) > 0:
         subgroup.name = atomgroup.name
         group_list.append(subgroup)
@@ -30,8 +30,8 @@ def divide_mainchain(atomgroup):
         from_subgrp = divide_mainchain(subgrp)
         group_list.extend(from_subgrp)
 
-    main_chain = bridge.AtomGroup()
-    side_chain = bridge.AtomGroup()
+    main_chain = rs.AtomGroup()
+    side_chain = rs.AtomGroup()
     for atom_key, atom in atomgroup.atoms():
         if atom.name in main_chain_atoms:
             main_chain.set_atom(atom_key, atom)
@@ -72,14 +72,14 @@ def main():
     #
     if verbose:
         print("load: {}".format(brd_path))
-    atomgroup = bridge.load_atomgroup(brd_path)
+    atomgroup = rs.load_atomgroup(brd_path)
 
     #
     group_list = divide_mainchain(atomgroup)
 
     # output
     if output_path:
-        blocks = bridge.AtomGroup()
+        blocks = rs.AtomGroup()
         block_index = 1
         for atomgroup in group_list:
             blocks.set_group(block_index, atomgroup)
@@ -87,7 +87,7 @@ def main():
 
         if verbose:
             print("save: {}".format(output_path))
-        bridge.save_atomgroup(blocks, output_path)
+        rs.save_atomgroup(blocks, output_path)
 
     else:
         for atomgroup in group_list:

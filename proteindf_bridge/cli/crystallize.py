@@ -4,7 +4,7 @@
 import sys
 import argparse
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 
 def main():
@@ -50,7 +50,7 @@ def main():
         print("#mols in cell: {} x {} x {}".format(num_x, num_y, num_z))
 
     # load input file
-    ag = bridge.load_atomgroup(input_path)
+    ag = rs.load_atomgroup(input_path)
     # print(ag)
 
     num_of_res = ag.get_number_of_groups()
@@ -63,8 +63,8 @@ def main():
         print("cell size: {}".format(cell_size))
 
     # make cell
-    cell = bridge.AtomGroup()
-    shift = bridge.Position()
+    cell = rs.AtomGroup()
+    shift = rs.Position()
     count = 1
     for count_x in range(num_x):
         shift.x = count_x * cell_size.x
@@ -73,7 +73,7 @@ def main():
             for count_z in range(num_z):
                 shift.z = count_z * cell_size.z
 
-                new_ag = bridge.AtomGroup(ag)
+                new_ag = rs.AtomGroup(ag)
                 new_ag.shift_by(shift)
 
                 for resid, res in new_ag.groups():
@@ -85,8 +85,7 @@ def main():
     if verbose:
         print("OUTPUT: {}".format(output_path))
 
-    data = cell.get_raw_data()
-    bridge.save_msgpack(data, output_path)
+    rs.save_atomgroup(cell, output_path)
 
 
 if __name__ == '__main__':

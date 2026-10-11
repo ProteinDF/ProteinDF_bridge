@@ -15,6 +15,7 @@ import unittest
 import msgpack
 
 # Pure Python implementation
+import proteindf_bridge.common as py_common
 import proteindf_bridge.functions as py_functions
 import proteindf_bridge.modeling as py_modeling
 import proteindf_bridge.neutralize as py_neutralize
@@ -825,6 +826,120 @@ class TestRsPhase6(unittest.TestCase):
             rs_br.SimpleMmcif.from_data({"data_test": [{}]})  # length < 2
         with self.assertRaises(rs_br.BrError):
             rs_br.SimpleMmcif.from_data({"data_test": ["not_a_dict", []]})
+
+    # =========================================================================
+    # PR#54 Additions: AVOGADRO_CONST, restructure, remove_atom/erase_atom
+    # =========================================================================
+
+    def test_avogadro_const(self):
+        """
+        Verify AVOGADRO_CONST module constant matches pure Python common.py.
+        """
+        self.assertEqual(rs_br.AVOGADRO_CONST, py_common.AVOGADRO_CONST)
+        self.assertEqual(rs_br.AVOGADRO_CONST, 6.02214076e+23)
+
+    def test_atomgroup_remove_atom(self):
+        """
+        Verify remove_atom removes an atom from AtomGroup and returns it.
+        """
+        ag = rs_br.AtomGroup("test_remove")
+        atom1 = rs_br.Atom(symbol="C", name="CA", position=rs_br.Position(1.0, 2.0, 3.0))
+        atom2 = rs_br.Atom(symbol="N", name="N", position=rs_br.Position(4.0, 5.0, 6.0))
+        ag.set_atom("1", atom1)
+        ag.set_atom("2", atom2)
+
+        self.assertEqual(ag.get_number_of_atoms(), 2)
+
+        removed1 = ag.remove_atom("1")
+        self.assertIsNotNone(removed1)
+        self.assertEqual(removed1.name, "CA")
+        self.assertEqual(ag.get_number_of_atoms(), 1)
+        self.assertFalse(ag.has_atom("1"))
+
+        removed2 = ag.remove_atom("2")
+        self.assertIsNotNone(removed2)
+        self.assertEqual(removed2.name, "N")
+        self.assertEqual(ag.get_number_of_atoms(), 0)
+        self.assertFalse(ag.has_atom("2"))
+
+    def test_atomgroup_restructure_parity(self):
+        """
+        Verify AtomGroup.restructure parity with pure Python AtomGroup.restructure on 1hls.pdb.
+        """
+        pdb_path = os.path.join(self.repo_root, "proteindf_bridge", "data", "1hls.pdb")
+        self.assertTrue(os.path.exists(pdb_path), f"1hls.pdb not found at: {pdb_path}")
+
+        # Pure Python
+        py_pdb = PyPdb()
+        py_pdb.load(pdb_path)
+        py_ag = py_pdb.get_atomgroup()
+        py_restructured = py_ag.restructure(py_ag, 1.0e-5)
+
+        # Rust
+        rs_pdb = rs_br.Pdb()
+        rs_pdb.load(pdb_path)
+        rs_ag = rs_pdb.get_atomgroup()
+        rs_restructured = rs_ag.restructure(rs_ag, 1.0e-5)
+
+        # Compare serialized brd data
+        with tempfile.TemporaryDirectory() as tmpdir:
+            py_brd = os.path.join(tmpdir, "py_restruct.brd")
+            rs_brd = os.path.join(tmpdir, "rs_restruct.brd")
+            py_functions.save_msgpack(py_restructured.get_raw_data(), py_brd)
+            rs_br.save_atomgroup(rs_restructured, rs_brd)
+
+            py_data = py_functions.load_msgpack(py_brd)
+            rs_data = py_functions.load_msgpack(rs_brd)
+
+            def canon(obj):
+                if isinstance(obj, dict):
+                    return {str(k): canon(v) for k, v in sorted(obj.items())}
+                elif isinstance(obj, list):
+                    return [canon(x) for x in obj]
+                elif isinstance(obj, float):
+                    return round(obj, 6)
+                else:
+                    return obj
+
+            self.assertEqual(canon(rs_data), canon(py_data))
+
+    def test_atomgroup_restructure_with_rest_atoms(self):
+        """
+        Verify restructure assigns unmatched atoms to model_1/Z/1 (res_name UNK) and copies charges.
+        """
+        # Create reference with model_1/A/1
+        ref_ag = rs_br.AtomGroup()
+        model_1 = rs_br.AtomGroup()
+        chain_a = rs_br.AtomGroup()
+        res_1 = rs_br.AtomGroup("ALA")
+        atom_c = rs_br.Atom(symbol="C", name="CA", position=rs_br.Position(0.0, 0.0, 0.0))
+        res_1.set_atom("CA", atom_c)
+        chain_a.set_group("1", res_1)
+        model_1.set_group("A", chain_a)
+        ref_ag.set_group("model_1", model_1)
+
+        # Create target with matching atom (CA at 0.0 with charge 0.5) and unmatched atom (N at 10.0 with charge -0.3)
+        target_ag = rs_br.AtomGroup()
+        ca = rs_br.Atom(symbol="C", name="CA", position=rs_br.Position(0.0, 0.0, 0.0))
+        ca.charge = 0.5
+        n_unmatched = rs_br.Atom(symbol="N", name="N", position=rs_br.Position(10.0, 10.0, 10.0))
+        n_unmatched.charge = -0.3
+        target_ag.set_atom("CA", ca)
+        target_ag.set_atom("N", n_unmatched)
+
+        restructured = target_ag.restructure(ref_ag, 1.0e-5)
+        # Check matching atom charge copied
+        matched_ca = restructured["model_1"]["A"]["1"]["CA"]
+        self.assertAlmostEqual(matched_ca.charge, 0.5)
+
+        # Check rest atom assigned to model_1/Z/1
+        chain_z = restructured["model_1"]["Z"]
+        res_unk = chain_z["1"]
+        self.assertEqual(res_unk.name, "UNK")
+        self.assertEqual(res_unk.get_number_of_atoms(), 1)
+        rest_n = res_unk["1"]
+        self.assertEqual(rest_n.symbol, "N")
+        self.assertAlmostEqual(rest_n.charge, -0.3)
 
 
 if __name__ == "__main__":
