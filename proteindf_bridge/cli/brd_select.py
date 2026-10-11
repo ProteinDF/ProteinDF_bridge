@@ -22,7 +22,7 @@
 import sys
 import argparse
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 
 def main():
@@ -44,16 +44,14 @@ def main():
     # reading
     if verbose:
         print("reading: {}".format(mpac_file_path))
-    mpac_data = bridge.load_msgpack(mpac_file_path)
 
     # prepare atomgroup
-    atomgroup = bridge.AtomGroup(mpac_data)
-    # print(atom_group)
+    atomgroup = rs.load_atomgroup(mpac_file_path)
 
     # selector
     if verbose:
         print('query="{}"'.format(query))
-    path_selector = bridge.Select_Path_wildcard(query)
+    path_selector = rs.Select_Path_wildcard(query)
     selected = atomgroup.select(path_selector)
 
     # output
@@ -61,8 +59,7 @@ def main():
         if verbose == True:
             print("writing: %s\n" % (output_path))
 
-        output_data = selected.get_raw_data()
-        bridge.save_msgpack(output_data, output_path)
+        rs.save_atomgroup(selected, output_path)
     else:
         print(selected)
 

@@ -3,7 +3,7 @@
 
 import argparse
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 
 def show_protein(model):
@@ -30,16 +30,14 @@ def main():
     # reading
     if (verbose == True):
         print("reading: %s\n" % (mpac_file_path))
-    mpac_data = bridge.load_msgpack(mpac_file_path)
-
     # prepare atomgroup
-    atomgroup = bridge.AtomGroup(mpac_data)
+    atomgroup = rs.load_atomgroup(mpac_file_path)
 
-    if bridge.Format.is_models(atomgroup):
+    if rs.Format.is_models(atomgroup):
         for model_key, model in atomgroup.groups():
             print(">>>> model: {}".format(model_key))
             show_protein(model)
-    elif bridge.Format.is_protein(atomgroup):
+    elif rs.Format.is_protein(atomgroup):
         show_protein(atomgroup)
     else:
         print("unknown bridge file format.")
