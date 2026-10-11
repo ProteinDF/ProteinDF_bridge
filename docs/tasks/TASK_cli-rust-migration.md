@@ -180,3 +180,18 @@
 
 1. `AtomGroup.setup()`後の鎖レベルの結合の並び順を決定的にする(コアの修正)。
 2. 化学式(`get_formula`)をHill方式にするかどうか(コアの変更、ユーザー判断待ち)。
+
+## PR#55 レビュー結果(1回目、2026-10-12、要修正・文書のみ)
+
+`feature/cli-migration-pr55`(`dbd716c`・`dc6991f`・`77aac4c`)をレビューした。`neutralize.py`は基準ファイルと一致し、782→792原子、Na+ 6個・Cl- 4個、全体の電荷0、イオンと原子・イオン同士の最短距離、2回の実行で出力が同一であることをアサートしている。`superposer.py`のRMSDの差(約6e-16)は浮動小数点の丸めの範囲で、許容誤差`1e-14`は妥当。26本すべてが`proteindf_bridge.rs`だけを使い、純Python版を使うのは対象外の6本だけであることを`git grep`の出力で確認した。
+
+### 修正依頼
+
+1. **【根拠の誤り】`superposer.py`のRMSDの違いの根拠(`docs/cli-migration-notes.md`と報告)が実物と違う。**
+   - 「numpy SVD」「nalgebra Kabsch SVD」は誤り。コアのクレートは`nalgebra`に依存していない(`rust/crates/proteindf-bridge/Cargo.toml`)。純Python版も Rust版も、対称行列の固有値分解を使う同じ手順である(純Python版`proteindf_bridge/superposer.py`の`trr.eig()`、Rust版`rust/crates/proteindf-bridge/src/superposer.rs`の`trr_sym.eig()`)。違いは固有値分解の実装(純Python版はnumpy、Rust版は自前の`Matrix::eig`)による丸めの差である。
+   - 引用している行番号(`superposer.py` 82〜88行目は`center1`のプロパティ、`superposer.rs` 24〜30行目は構造体のフィールド)は、該当する処理を指していない。実際の行を開いて直す。
+2. **【分類の書き直し】`superposer.py`の標準出力(`print(ag)`)の書式の違いを「Rust版のフォーマット規格に従う変更」としているが、Rust版の`Display for AtomGroup`(`rust/crates/proteindf-bridge/src/atom_group.rs`)は入れ子の深さに応じた字下げをしないため、階層の見通しが悪くなっている。** Claudeが1hls(モデル→鎖→残基の3階層)で確かめたところ、`group key=model_1`・`group key=A`・`group key=1`の見出しがすべて同じ字下げで並んだ。純Python版の`_get_str`は階層ごとに字下げする。基準ファイルの更新はこのままでよい(Rust版の出力を標準にする方針)が、記録は「意図した違い」ではなく「既知の問題: Rust版の`Display`は入れ子の字下げをしない。コアで対応する(別タスク)」と事実どおりに書く。
+
+### 完了の定義(修正後)
+
+1. 上記1・2に対応し、同じブランチに追加コミットする。引用する行番号は実際のファイルで確かめ、該当行をそのまま報告に貼る。
