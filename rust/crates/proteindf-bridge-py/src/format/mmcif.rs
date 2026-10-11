@@ -301,61 +301,130 @@ impl PySimpleMmcif {
     }
 
     #[staticmethod]
-    pub fn from_data(_py: Python<'_>, data: &Bound<'_, pyo3::types::PyDict>) -> PyResult<Self> {
+    pub fn from_data(_py: Python<'_>, data: &Bound<'_, pyo3::PyAny>) -> PyResult<Self> {
+        let dict = data.cast::<pyo3::types::PyDict>().map_err(|_| {
+            to_py_err(proteindf_bridge::error::BridgeError::input_error(
+                "SimpleMmcif.from_data",
+                "expected dict for data",
+            ))
+        })?;
+
         let mut cif_text = String::new();
-        for (block_name_obj, block_data_obj) in data.iter() {
-            let block_name: String = block_name_obj.extract()?;
+        for (block_name_obj, block_data_obj) in dict.iter() {
+            let block_name: String = block_name_obj.extract().map_err(|e| {
+                to_py_err(proteindf_bridge::error::BridgeError::input_error(
+                    "SimpleMmcif.from_data",
+                    format!("invalid block name: {e}"),
+                ))
+            })?;
             if !block_name.starts_with("data_") {
                 cif_text.push_str(&format!("data_{block_name}\n"));
             } else {
                 cif_text.push_str(&format!("{block_name}\n"));
             }
-            let block_list: Bound<'_, pyo3::types::PyList> = block_data_obj.extract()?;
-            if block_list.len() >= 1 {
-                let item0 = block_list.get_item(0)?;
-                let kv_dict: Bound<'_, pyo3::types::PyDict> = item0.extract()?;
-                for (k_obj, v_obj) in kv_dict.iter() {
-                    let k: String = k_obj.extract()?;
-                    let v: String = v_obj.extract()?;
-                    cif_text.push_str(&format!("{k} \"{v}\"\n"));
-                }
+            let block_list: Bound<'_, pyo3::types::PyList> =
+                block_data_obj.extract().map_err(|e| {
+                    to_py_err(proteindf_bridge::error::BridgeError::input_error(
+                        "SimpleMmcif.from_data",
+                        format!("invalid block data, expected list: {e}"),
+                    ))
+                })?;
+            if block_list.len() < 2 {
+                return Err(to_py_err(
+                    proteindf_bridge::error::BridgeError::input_error(
+                        "SimpleMmcif.from_data",
+                        "block data must have at least 2 elements [dict, tables]",
+                    ),
+                ));
             }
-            if block_list.len() >= 2 {
-                let item1 = block_list.get_item(1)?;
-                let tables_list: Bound<'_, pyo3::types::PyList> = item1.extract()?;
-                for table_obj in tables_list.iter() {
-                    let table: Bound<'_, pyo3::types::PyList> = table_obj.extract()?;
-                    if table.is_empty() {
-                        continue;
-                    }
-                    cif_text.push_str("loop_\n");
-                    let first_item = table.get_item(0)?;
-                    let first_row: Bound<'_, pyo3::types::PyDict> = first_item.extract()?;
-                    let mut headers: Vec<String> = Vec::new();
-                    for (h_obj, _) in first_row.iter() {
-                        let h: String = h_obj.extract()?;
-                        cif_text.push_str(&format!("{h}\n"));
-                        headers.push(h);
-                    }
-                    for row_obj in table.iter() {
-                        let row_dict: Bound<'_, pyo3::types::PyDict> = row_obj.extract()?;
-                        let mut line_vals = Vec::new();
-                        for h in &headers {
-                            if let Some(val_obj) = row_dict.get_item(h)? {
-                                let v: String = val_obj.extract()?;
-                                if v.is_empty() {
-                                    line_vals.push("?".to_string());
-                                } else if v.contains(' ') || v.contains('\t') || v.contains('\n') {
-                                    line_vals.push(format!("\"{v}\""));
-                                } else {
-                                    line_vals.push(v);
-                                }
-                            } else {
+            let item0 = block_list.get_item(0)?;
+            let kv_dict: Bound<'_, pyo3::types::PyDict> = item0.extract().map_err(|e| {
+                to_py_err(proteindf_bridge::error::BridgeError::input_error(
+                    "SimpleMmcif.from_data",
+                    format!("block[0] must be dict: {e}"),
+                ))
+            })?;
+            for (k_obj, v_obj) in kv_dict.iter() {
+                let k: String = k_obj.extract().map_err(|e| {
+                    to_py_err(proteindf_bridge::error::BridgeError::input_error(
+                        "SimpleMmcif.from_data",
+                        format!("invalid key in block[0]: {e}"),
+                    ))
+                })?;
+                let v: String = v_obj.extract().map_err(|e| {
+                    to_py_err(proteindf_bridge::error::BridgeError::input_error(
+                        "SimpleMmcif.from_data",
+                        format!("invalid value in block[0]: {e}"),
+                    ))
+                })?;
+                cif_text.push_str(&format!("{k} \"{v}\"\n"));
+            }
+            let item1 = block_list.get_item(1)?;
+            let tables_list: Bound<'_, pyo3::types::PyList> = item1.extract().map_err(|e| {
+                to_py_err(proteindf_bridge::error::BridgeError::input_error(
+                    "SimpleMmcif.from_data",
+                    format!("block[1] must be list of tables: {e}"),
+                ))
+            })?;
+            for table_obj in tables_list.iter() {
+                let table: Bound<'_, pyo3::types::PyList> = table_obj.extract().map_err(|e| {
+                    to_py_err(proteindf_bridge::error::BridgeError::input_error(
+                        "SimpleMmcif.from_data",
+                        format!("table must be list of rows: {e}"),
+                    ))
+                })?;
+                if table.is_empty() {
+                    continue;
+                }
+                cif_text.push_str("loop_\n");
+                let first_item = table.get_item(0)?;
+                let first_row: Bound<'_, pyo3::types::PyDict> =
+                    first_item.extract().map_err(|e| {
+                        to_py_err(proteindf_bridge::error::BridgeError::input_error(
+                            "SimpleMmcif.from_data",
+                            format!("table row must be dict: {e}"),
+                        ))
+                    })?;
+                let mut headers: Vec<String> = Vec::new();
+                for (h_obj, _) in first_row.iter() {
+                    let h: String = h_obj.extract().map_err(|e| {
+                        to_py_err(proteindf_bridge::error::BridgeError::input_error(
+                            "SimpleMmcif.from_data",
+                            format!("invalid header in table row: {e}"),
+                        ))
+                    })?;
+                    cif_text.push_str(&format!("{h}\n"));
+                    headers.push(h);
+                }
+                for row_obj in table.iter() {
+                    let row_dict: Bound<'_, pyo3::types::PyDict> =
+                        row_obj.extract().map_err(|e| {
+                            to_py_err(proteindf_bridge::error::BridgeError::input_error(
+                                "SimpleMmcif.from_data",
+                                format!("table row must be dict: {e}"),
+                            ))
+                        })?;
+                    let mut line_vals = Vec::new();
+                    for h in &headers {
+                        if let Some(val_obj) = row_dict.get_item(h)? {
+                            let v: String = val_obj.extract().map_err(|e| {
+                                to_py_err(proteindf_bridge::error::BridgeError::input_error(
+                                    "SimpleMmcif.from_data",
+                                    format!("invalid value in table field: {e}"),
+                                ))
+                            })?;
+                            if v.is_empty() {
                                 line_vals.push("?".to_string());
+                            } else if v.contains(' ') || v.contains('\t') || v.contains('\n') {
+                                line_vals.push(format!("\"{v}\""));
+                            } else {
+                                line_vals.push(v);
                             }
+                        } else {
+                            line_vals.push("?".to_string());
                         }
-                        cif_text.push_str(&format!("{}\n", line_vals.join(" ")));
                     }
+                    cif_text.push_str(&format!("{}\n", line_vals.join(" ")));
                 }
             }
         }
