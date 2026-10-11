@@ -105,3 +105,22 @@
 ## PR#52 完了(2026-10-11)
 
 `60bbcef`で修正依頼に対応済み。引用された4つのテスト(`test_atomgroup_setup_1hls_real_pdb` 710行目、`test_resolve_bonds_preserves_existing_file_bonds` 805行目、`test_non_covalent_contact_excluded` 45行目、`test_known_covalent_bonds_1hls` 91行目)が実在し、アサートの内容が一致することをClaudeが確認した。Pythonテスト一式224件OK(新しい環境)。純Python版のパッケージとRustのコードに変更なし。`--no-ff`でdevelopにマージした(`1be62f7`)。
+
+## PR#53 レビュー結果(1回目、2026-10-11、要修正)
+
+`feature/cli-migration-pr53`(`c0a7927`・`8a7a53c`)をレビューした。10本すべてが`proteindf_bridge.rs`と`msgpack`だけをimportしている。基準ファイルとの違い3件のうち、`mmcif2txt`(純Python版トークナイザが引用符付きの値を分割していた不具合の修正)と`brd2gro`(ボックス行をGROMACSと同じ`%10.5f`にした)は意図した違いとして妥当。Pythonテスト一式227件、`cargo nextest`(`317 tests run: 317 passed, 2 skipped`)、clippy・fmtをClaudeが新しい環境で確認した。
+
+### 修正依頼
+
+1. **【不具合・テストが空振り】`tests/test_rs_phase6.py`の`test_simple_mmcif_data_property`(740行目)は、`ALA.cif`のパスが`rust/proteindf_bridge/data/ALA.cif`(存在しない)に解決されるため、`if os.path.exists(...)`の中のアサートが一度も実行されずに成功している。** パスを`proteindf_bridge/data/ALA.cif`に正しく直し、`if`でスキップせず、ファイルがなければ失敗するようにする。
+2. **【テスト不足】`SimpleMmcif.from_data`のテストがない。また、`mmcif2mol2.py`の`-w`(スクラッチ書き出し)・`-r`(スクラッチ読み込み)の経路が基準テストで通っていない。** `data` → `msgpack` → `from_data`の往復で内容が一致するテストと、`mmcif2mol2.py`を`-w`で実行してから`-r`で実行し、mol2の出力が通常の実行と同じになるテストを追加する。不正な入力(辞書でない値、ブロックの形が違うもの)を`from_data`に渡したときに`BrError`の系統のエラーになることも確かめる。
+3. **【書式の違いを記録していない】`AtomGroup.save_csv`の改行がLF(`\n`)だが、純Python版(`csv.writer`の既定)はCRLF(`\r\n`)。** 基準テストは改行を正規化し、`test_atomgroup_save_csv_parity`も行ごとに`strip()`するため、この違いが検出されていない。TASKの方針3(列・書式は純Python版と同じ)とRFC 4180に合わせてCRLFにし、パリティテストは改行を含めたバイト列で比較する。
+4. **【書式の違い】`save_csv`の浮動小数点の書式がPythonの`repr`と一致しない場合がある。** Rustの`{}`は指数表記を使わないため、例えば電荷`1e-05`はPythonでは`1e-05`、Rust版では`0.00001`になる(`1e16`以上も同様)。Pythonの`repr(float)`と同じ規則(指数が-4未満または16以上で指数表記)にし、`1e-05`・`-2.5e-07`・`1e16`・`123.0`・`0.1`などの値でPython版と一致することをテストする。
+5. **【APIの方針】`Pdb.debug`は何もしないプロパティ(getterは常に`False`、setterは値を捨てる)であり、公開APIに意味のない属性を足している。** `Pdb.debug`をバインディングから削除し、`pdb2brd.py`側で`pdb_obj.debug = debug`の行を削除する(`-d/--debug`オプションはルール1に従い受け付けたまま残す)。この扱いを`docs/cli-migration-notes.md`に書く。
+6. **【根拠の誤り】`brd2pdb.py`のB-factorの違い(1.00→0.00)の根拠に挙げている`RUST_PORT_SPEC.md` §3.17は、mmCIF書き出しの仕様であり、PDB書き出しの根拠ではない。** 分類(意図した違い)は妥当なので、根拠を実際のコードに直す: 純Python版は読み込み時の既定値が`0.0`(`proteindf_bridge/biopdb.py`の216行目)なのに、`set_by_atomgroup`の経路でだけ`1.0`(同474行目の`setdefault("temp_factor", 1.0)`)になる不整合があり、Rust版は読み込み・書き出しとも`0.0`で一貫している(`rust/crates/proteindf-bridge/src/format/pdb.rs`)。行番号は実際のファイルで確認してから書く。
+
+### 完了の定義(修正後)
+
+1. 上記1〜6に対応し、同じブランチに追加コミットする。
+2. 追加・変更したテストについて、ファイル名・テスト名・行番号を報告に書く。修正依頼1については、修正後のテストのアサートが実行されることの根拠(例: ファイルを一時的に別名にすると失敗すること)を示す。
+3. 全PR共通のルール5のテストが通る。
