@@ -22,13 +22,13 @@
 import sys
 import argparse
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 
 def load_brd(path, verbose=False):
     if verbose:
         print("reading: %s\n" % (path))
-    atomgroup = bridge.load_atomgroup(path)
+    atomgroup = rs.load_atomgroup(path)
     return atomgroup
 
 
@@ -61,9 +61,9 @@ def main():
     atomgroup2 = load_brd(mpac_file_path2, verbose)
 
     if use_quaternion:
-        sp = bridge.Superposer_quaternion(atomgroup1, atomgroup2)
+        sp = rs.Superposer_quaternion(atomgroup1, atomgroup2)
     else:
-        sp = bridge.Superposer(atomgroup1, atomgroup2)
+        sp = rs.Superposer(atomgroup1, atomgroup2)
     rmsd = sp.rmsd
     print('rmsd: {}'.format(rmsd))
 

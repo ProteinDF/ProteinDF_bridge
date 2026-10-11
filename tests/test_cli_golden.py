@@ -481,10 +481,93 @@ class TestCliGolden(unittest.TestCase):
         self._assert_brd_matches_golden(out_path, "neutralize.brd.json")
         self._assert_text_matches_golden(out, "neutralize.stdout.txt")
 
+        # Verify physical and chemical properties of neutralized output (782 -> 792 atoms, 10 ions)
+        ag = py_fn.load_msgpack(out_path)
+        all_atoms = []
+
+        def collect(g):
+            for a in g.get("atoms", {}).values():
+                all_atoms.append(a)
+            for sub in g.get("groups", {}).values():
+                collect(sub)
+
+        collect(ag)
+        self.assertEqual(len(all_atoms), 792, "1hls (782 atoms) should have 792 atoms after neutralizing 10 charged sites")
+
+        # Ion counts and elements
+        na_ions = [a for a in all_atoms if a.get("symbol") == "Na" or a.get("name") == "Na"]
+        cl_ions = [a for a in all_atoms if a.get("symbol") == "Cl" or a.get("name") == "Cl"]
+        self.assertEqual(len(na_ions), 6, "Expected 6 Na+ counter-ions")
+        self.assertEqual(len(cl_ions), 4, "Expected 4 Cl- counter-ions")
+
+        # Total charge
+        total_charge = sum(float(a.get("charge", 0.0)) for a in all_atoms)
+        self.assertAlmostEqual(total_charge, 0.0, places=4, msg="Overall system charge should be 0.0")
+
+        # Non-bonded distance checks (ions should not clash with other atoms or each other)
+        import math
+        all_ions = na_ions + cl_ions
+        non_ions = [a for a in all_atoms if a not in all_ions]
+        for ion in all_ions:
+            ix, iy, iz = ion["xyz"]
+            # Distance to protein atoms (>= 1.5A to avoid clash)
+            for patm in non_ions:
+                px, py, pz = patm["xyz"]
+                d = math.sqrt((ix - px)**2 + (iy - py)**2 + (iz - pz)**2)
+                self.assertGreater(d, 1.5, f"Ion {ion.get('name')} too close to atom {patm.get('name')}: {d:.3f}A")
+            # Distance to other ions (>= 5.0A)
+            for ion2 in all_ions:
+                if ion2 is not ion:
+                    i2x, i2y, i2z = ion2["xyz"]
+                    d = math.sqrt((ix - i2x)**2 + (iy - i2y)**2 + (iz - i2z)**2)
+                    self.assertGreater(d, 5.0, f"Ion {ion.get('name')} too close to ion {ion2.get('name')}: {d:.3f}A")
+
+        # Determinism check across runs
+        repeat_path = os.path.join(self.temp_dir, "neutralize_repeat.brd")
+        out2, err2, exc2 = self._run_cli(neutralize.main, ["neutralize.py", self.brd_1hls, repeat_path])
+        self.assertIsNone(exc2)
+        with open(out_path, "rb") as f1, open(repeat_path, "rb") as f2:
+            self.assertEqual(f1.read(), f2.read(), "Neutralize output must be strictly deterministic and bit-identical across runs")
+
     def test_cli_superposer(self):
         out, err, exc = self._run_cli(superposer.main, ["superposer.py", self.p_cis1, self.p_cis2])
         self.assertIsNone(exc)
+
+        # Parse RMSD line: pure Python baseline is 1.6536679544491055, Rust (Jacobi Matrix::eig) is 1.6536679544491049.
+        # Difference is ~6e-16 (1-2 ULPs of 64-bit float representation due to numpy vs Jacobi eig rounding).
+        # We enforce delta=1e-14 so that any meaningful drift is caught while allowing floating-point rounding variance.
+        lines = out.strip().splitlines()
+        self.assertTrue(lines[0].startswith("rmsd: "), f"First line must start with 'rmsd: ', got {lines[0]}")
+        actual_rmsd = float(lines[0].split()[1])
+        expected_py_rmsd = 1.6536679544491055
+        self.assertAlmostEqual(
+            actual_rmsd,
+            expected_py_rmsd,
+            delta=1e-14,
+            msg="Kabsch RMSD must match pure Python baseline within 64-bit float rounding precision (1e-14)"
+        )
+
+        # Structure representation matches Rust Display golden output
         self._assert_text_matches_golden(out, "superposer.stdout.txt")
+
+    def test_cli_superposer_quaternion(self):
+        out, err, exc = self._run_cli(superposer.main, ["superposer.py", "-q", self.p_cis1, self.p_cis2])
+        self.assertIsNone(exc)
+
+        # Parse RMSD line with quaternion: pure Python baseline is 1.7371258580366855, Rust is 1.7371258580366848.
+        # Difference is ~6.66e-16 (1-2 ULPs of 64-bit float representation).
+        lines = out.strip().splitlines()
+        self.assertTrue(lines[0].startswith("rmsd: "), f"First line must start with 'rmsd: ', got {lines[0]}")
+        actual_rmsd = float(lines[0].split()[1])
+        expected_py_rmsd = 1.7371258580366855
+        self.assertAlmostEqual(
+            actual_rmsd,
+            expected_py_rmsd,
+            delta=1e-14,
+            msg="Quaternion RMSD must match pure Python baseline within 64-bit float rounding precision (1e-14)"
+        )
+        self.assertIn("# group name=", out)
+        self.assertIn("1_CH3 C (CH3 )", out)
 
 
 if __name__ == "__main__":

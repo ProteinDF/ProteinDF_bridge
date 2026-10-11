@@ -3,7 +3,7 @@
 
 import argparse
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 import logging
 import logging.config
@@ -42,14 +42,14 @@ def main():
     logger.addHandler(handler)
 
     # reading
-    protein = bridge.load_atomgroup(input_path)
+    protein = rs.load_atomgroup(input_path)
 
     # neutralize
-    neutralizer = bridge.Neutralize(protein)
+    neutralizer = rs.Neutralize(protein)
     mod_protein = neutralizer.neutralized
 
     # output
-    bridge.save_msgpack(mod_protein.get_raw_data(), output_path)
+    rs.save_atomgroup(mod_protein, output_path)
 
 
 if __name__ == '__main__':
