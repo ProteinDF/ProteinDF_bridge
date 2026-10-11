@@ -1258,16 +1258,30 @@ impl BitXorAssign for AtomGroup {
     }
 }
 
-impl fmt::Display for AtomGroup {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "# group name={}", self.name)?;
-        for (key, group) in self.groups() {
-            write!(f, "  group key={}: {}", key, group)?;
+impl AtomGroup {
+    fn format_indented(&self, f: &mut fmt::Formatter<'_>, key: &str, depth: usize) -> fmt::Result {
+        let indent = "  ".repeat(depth);
+        writeln!(f, "{}# group key={} name={}", indent, key, self.name)?;
+        for (sub_key, group) in self.groups() {
+            group.format_indented(f, sub_key, depth + 1)?;
         }
-        for (key, atom) in self.atoms() {
-            writeln!(f, "  {} {}", key, atom)?;
+        for (_atom_key, atom) in self.atoms() {
+            writeln!(f, "{}{}", indent, atom)?;
+        }
+        for bond in &self.bonds {
+            writeln!(
+                f,
+                "{}bond {} <-{}-> {}",
+                indent, bond.atom1_path, bond.order, bond.atom2_path
+            )?;
         }
         Ok(())
+    }
+}
+
+impl fmt::Display for AtomGroup {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.format_indented(f, "", 0)
     }
 }
 
@@ -2014,5 +2028,50 @@ mod tests {
             SchemaViolation::DirectAtomsAtNonResidueLevel { depth, atom_keys, .. }
                 if *depth == 4 && atom_keys == &vec!["C1".to_string()]
         )));
+    }
+
+    #[test]
+    fn test_display_hierarchical() {
+        let mut root = AtomGroup::new();
+        root.name = "protein".to_string();
+
+        let mut model = AtomGroup::new();
+        model.name = "model_1".to_string();
+
+        let mut chain = AtomGroup::new();
+        chain.name = "A".to_string();
+
+        let mut residue = AtomGroup::new();
+        residue.name = "ALA".to_string();
+
+        let mut a1 = Atom::from_symbol("N").unwrap();
+        a1.name = "N".to_string();
+        a1.xyz = Position::new(1.0, 2.0, 3.0);
+
+        let mut a2 = Atom::from_symbol("C").unwrap();
+        a2.name = "CA".to_string();
+        a2.xyz = Position::new(2.0, 3.0, 4.0);
+
+        residue.set_atom("N", a1);
+        residue.set_atom("CA", a2);
+
+        // Add a bond directly in chain
+        chain.add_bond_direct("1/N", "1/CA", 1);
+
+        chain.set_group("1", residue);
+        model.set_group("A", chain);
+        root.set_group("model_1", model);
+
+        let output = format!("{}", root);
+        let expected = "\
+# group key= name=protein
+  # group key=model_1 name=model_1
+    # group key=A name=A
+      # group key=1 name=ALA
+      N (N   )    1.000    2.000    3.000,  0.00,    0.000    0.000    0.000 /model_1/A/1/N
+      C (CA  )    2.000    3.000    4.000,  0.00,    0.000    0.000    0.000 /model_1/A/1/CA
+    bond 1/N <-1-> 1/CA
+";
+        assert_eq!(output, expected);
     }
 }
