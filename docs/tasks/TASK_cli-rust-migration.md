@@ -53,6 +53,19 @@
 
 `brd-box.py`・`brd-density.py`・`brd-formula.py`・`brd-show-res.py`・`brd-show-bonds.py`・`brd-setup-bond.py`・`brd-select.py`・`brd-select-path.py`・`brd-divide.py`・`brd-divide-mainchain.py`・`brd-renumber-resid.py`・`brd-restructure.py`・`reorder.py`・`crystallize.py`
 
+### 方針(Claude決定、2026-10-11)
+
+1. **`AVOGADRO_CONST`**: `proteindf_bridge.rs`のモジュール定数として、純Python版(`proteindf_bridge/common.py`)と同じ値`6.02214076e+23`(CODATA 2018の定義値)を公開する。
+2. **`AtomGroup.restructure(reference, range=1.0e-5)`**: Pythonバインディング(`rust/crates/proteindf-bridge-py`)に追加する。アルゴリズムは純Python版(`proteindf_bridge/atomgroup.py`の`restructure`と、そこから呼ばれる`_copy_attributes`・`_get_rest_of_frame_molecule`・`_assign_rest_molecule`)と同じにし、バインディングに既にある`Select_AtomGroup`・`Select_Atom`・`select`・`^`(`__xor__`)に相当するコアの機能を組み合わせて実装する。コアのクレートは変更しない(必要なら報告)。純Python版と同じ入力で結果(`.brd`の内容)が一致することをテストする。
+3. **`brd-setup-bond.py`**: 純Python版は`AttributeError`で動かない(PR#52の記録)。Rust版では`AtomGroup.setup()`で結合を解決し`save_atomgroup`で保存する。基準ファイルは新しい出力で置き換えてよい(「不具合の修正」に分類)が、スナップショットとの一致だけでなく、`docs/cli-migration-notes.md` §3の5に書いた正しさの基準(1hlsでGLU 4の主鎖`C=O`がちょうど1本で次数2、鎖BのARG 22に次数2の結合が2本以上、ペプチド結合とCYS6–CYS11のジスルフィド結合があること、結合の重複がないこと)を、コマンドの出力`.brd`に対してアサートするテストを追加する。
+4. 上の2・3以外のコマンドは、対応表のとおり既存のRust版APIで置き換える。
+
+### 完了の定義(PR#54)
+
+1. 「PR#53〜55共通の完了の定義」1〜3を満たす。
+2. 14本それぞれについて、PR#52の基準ファイルとの比較結果(一致/違いあり)を報告する。違いがあったものは、違いの具体的な中身と、「意図した違い」か「不具合」かの分類と根拠(実際のコードの行や仕様の節)を書く。
+3. `.brd`の基準ファイルを更新した場合は、更新前後の原子数・結合数を示す。
+
 ## PR#55: モデリング(2本)
 
 `neutralize.py`・`superposer.py`
