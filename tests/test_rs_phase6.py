@@ -838,11 +838,11 @@ class TestRsPhase6(unittest.TestCase):
         self.assertEqual(rs_br.AVOGADRO_CONST, py_common.AVOGADRO_CONST)
         self.assertEqual(rs_br.AVOGADRO_CONST, 6.02214076e+23)
 
-    def test_atomgroup_remove_atom_and_erase_atom(self):
+    def test_atomgroup_remove_atom(self):
         """
-        Verify remove_atom and erase_atom remove an atom from AtomGroup and return it.
+        Verify remove_atom removes an atom from AtomGroup and returns it.
         """
-        ag = rs_br.AtomGroup("test_erase")
+        ag = rs_br.AtomGroup("test_remove")
         atom1 = rs_br.Atom(symbol="C", name="CA", position=rs_br.Position(1.0, 2.0, 3.0))
         atom2 = rs_br.Atom(symbol="N", name="N", position=rs_br.Position(4.0, 5.0, 6.0))
         ag.set_atom("1", atom1)
@@ -850,17 +850,15 @@ class TestRsPhase6(unittest.TestCase):
 
         self.assertEqual(ag.get_number_of_atoms(), 2)
 
-        # erase_atom
-        erased = ag.erase_atom("1")
-        self.assertIsNotNone(erased)
-        self.assertEqual(erased.name, "CA")
+        removed1 = ag.remove_atom("1")
+        self.assertIsNotNone(removed1)
+        self.assertEqual(removed1.name, "CA")
         self.assertEqual(ag.get_number_of_atoms(), 1)
         self.assertFalse(ag.has_atom("1"))
 
-        # remove_atom
-        removed = ag.remove_atom("2")
-        self.assertIsNotNone(removed)
-        self.assertEqual(removed.name, "N")
+        removed2 = ag.remove_atom("2")
+        self.assertIsNotNone(removed2)
+        self.assertEqual(removed2.name, "N")
         self.assertEqual(ag.get_number_of_atoms(), 0)
         self.assertFalse(ag.has_atom("2"))
 

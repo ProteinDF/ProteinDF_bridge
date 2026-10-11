@@ -215,10 +215,6 @@ impl PyAtomGroup {
         self.del_atom(key)
     }
 
-    pub fn erase_atom(&mut self, key: &Bound<'_, PyAny>) -> PyResult<Option<PyAtom>> {
-        self.del_atom(key)
-    }
-
     pub fn get_group(&self, key: &Bound<'_, PyAny>) -> PyResult<Option<PyAtomGroup>> {
         let k = extract_key(key)?;
         Ok(self

@@ -21,7 +21,7 @@ def get_ions(atomgroup, logger):
         else:
             logger.debug("FOUND>'{}':'{}'@{}".format(key,
                                                      atom.symbol, atomgroup.name))
-            atomgroup.erase_atom(key)
+            atomgroup.remove_atom(key)
             ions.append(atom)
     return ions
 
