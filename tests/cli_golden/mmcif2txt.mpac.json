@@ -511,10 +511,10 @@
         },
         {
           "_pdbx_chem_comp_identifier.comp_id": "ALA",
-          "_pdbx_chem_comp_identifier.identifier": "acid\"",
-          "_pdbx_chem_comp_identifier.program": "1.5.0",
-          "_pdbx_chem_comp_identifier.program_version": "\"(2S)-2-aminopropanoic",
-          "_pdbx_chem_comp_identifier.type": "SYSTEMATIC NAME\" \"OpenEye OEToolkits"
+          "_pdbx_chem_comp_identifier.identifier": "(2S)-2-aminopropanoic acid",
+          "_pdbx_chem_comp_identifier.program": "OpenEye OEToolkits",
+          "_pdbx_chem_comp_identifier.program_version": "1.5.0",
+          "_pdbx_chem_comp_identifier.type": "SYSTEMATIC NAME"
         }
       ],
       [

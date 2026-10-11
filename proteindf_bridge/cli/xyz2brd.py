@@ -22,7 +22,7 @@
 import sys
 import argparse
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 
 def main():
@@ -48,11 +48,11 @@ def main():
     # reading
     if (verbose == True):
         print("reading: %s\n" % (xyz_file_path))
-    xyz = bridge.Xyz()
+    xyz = rs.Xyz()
     xyz.load(xyz_file_path)
-    atomgroup = xyz.get_atom_group()
+    atomgroup = xyz.get_atomgroup()
 
-    bridge.save_msgpack(atomgroup.get_raw_data(), brd_file_path)
+    rs.save_atomgroup(atomgroup, brd_file_path)
 
 
 if __name__ == '__main__':

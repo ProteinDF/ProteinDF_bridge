@@ -12,6 +12,8 @@ import os
 import tempfile
 import unittest
 
+import msgpack
+
 # Pure Python implementation
 import proteindf_bridge.functions as py_functions
 import proteindf_bridge.modeling as py_modeling
@@ -30,6 +32,7 @@ class TestRsPhase6(unittest.TestCase):
     def setUpClass(cls):
         # Locate test data directory
         test_dir = os.path.dirname(os.path.abspath(__file__))
+        cls.repo_root = os.path.abspath(os.path.join(test_dir, ".."))
         cls.data_dir = os.path.join(test_dir, "..", "rust", "crates", "proteindf-bridge", "tests", "data")
         if not os.path.exists(cls.data_dir):
             cls.data_dir = os.path.join(test_dir, "data")
@@ -696,6 +699,132 @@ class TestRsPhase6(unittest.TestCase):
         ag = rs_br.AtomGroup("test")
         neut = rs_br.Neutralize(ag)
         self.assertIn("Neutralize(atoms=", repr(neut))
+
+    # =========================================================================
+    # 4. AtomGroup.save_csv and SimpleMmcif.data
+    # =========================================================================
+
+    def test_atomgroup_save_csv_parity(self):
+        """
+        Verify that rs_br.AtomGroup.save_csv produces identical CSV output
+        including CRLF line endings as pure Python py_ag.save_csv.
+        """
+        fixture_path = os.path.join(self.data_dir, "ACE_ALA_NME_trans1.brd")
+        py_ag = py_functions.load_atomgroup(fixture_path)
+        rs_ag = rs_br.load_atomgroup(fixture_path)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            py_csv = os.path.join(tmpdir, "py.csv")
+            rs_csv = os.path.join(tmpdir, "rs.csv")
+
+            py_ag.save_csv(py_csv)
+            rs_ag.save_csv(rs_csv)
+
+            self.assertTrue(os.path.exists(py_csv))
+            self.assertTrue(os.path.exists(rs_csv))
+
+            with open(py_csv, "rb") as f:
+                py_bytes = f.read()
+            with open(rs_csv, "rb") as f:
+                rs_bytes = f.read()
+
+            self.assertEqual(rs_bytes, py_bytes)
+            self.assertIn(b"\r\n", rs_bytes)
+
+    def test_atomgroup_save_csv_float_repr(self):
+        """
+        Verify that save_csv formats floats (charges and coordinates) identically
+        to Python repr, including small exponents (1e-05, -2.5e-07), large exponents (1e16),
+        and normal numbers (123.0, 0.1).
+        """
+        test_values = [1e-05, -2.5e-07, 1e16, 123.0, 0.1, 0.0, -0.0]
+        py_ag = PyAtomGroup("test_floats")
+        rs_ag = rs_br.AtomGroup("test_floats")
+
+        for i, val in enumerate(test_values):
+            name = f"C{i}"
+            py_atom = PyAtom(symbol="C", name=name, position=PyPos(val, -val, val * 2.0))
+            py_atom.charge = val
+            py_ag.set_atom(name, py_atom)
+
+            rs_atom = rs_br.Atom(symbol="C", name=name, position=rs_br.Position(val, -val, val * 2.0))
+            rs_atom.charge = val
+            rs_ag.set_atom(name, rs_atom)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            py_csv = os.path.join(tmpdir, "py_floats.csv")
+            rs_csv = os.path.join(tmpdir, "rs_floats.csv")
+
+            py_ag.save_csv(py_csv)
+            rs_ag.save_csv(rs_csv)
+
+            with open(py_csv, "rb") as f:
+                py_bytes = f.read()
+            with open(rs_csv, "rb") as f:
+                rs_bytes = f.read()
+
+            self.assertEqual(rs_bytes, py_bytes)
+            self.assertIn(b"1e-05", rs_bytes)
+            self.assertIn(b"-2.5e-07", rs_bytes)
+            self.assertIn(b"1e+16", rs_bytes)
+            self.assertIn(b"123.0", rs_bytes)
+            self.assertIn(b"0.1", rs_bytes)
+            self.assertIn(b"\r\n", rs_bytes)
+
+    def test_atomgroup_save_csv_atomic_write_on_error(self):
+        """
+        Verify that save_csv does not leave corrupt / partial files on invalid destination.
+        """
+        ag = rs_br.AtomGroup("test")
+        non_existent_path = "/non_existent_directory_for_test_12345/test.csv"
+        with self.assertRaises(Exception):
+            ag.save_csv(non_existent_path)
+        self.assertFalse(os.path.exists(non_existent_path))
+
+    def test_simple_mmcif_data_property(self):
+        """
+        Verify that SimpleMmcif.data returns block dictionaries matching pure Python mmCIF data.
+        """
+        cif_path = os.path.join(self.repo_root, "proteindf_bridge", "data", "ALA.cif")
+        self.assertTrue(os.path.exists(cif_path), f"ALA.cif not found at: {cif_path}")
+        mmcif = rs_br.SimpleMmcif(cif_path)
+        data = mmcif.data
+        self.assertIn("data_ALA", data)
+        block = data["data_ALA"]
+        self.assertEqual(len(block), 2)
+        kv, tables = block
+        self.assertEqual(kv["_chem_comp.id"], "ALA")
+        self.assertGreater(len(tables), 0)
+
+    def test_simple_mmcif_from_data_roundtrip(self):
+        """
+        Verify that SimpleMmcif data -> msgpack -> from_data roundtrip preserves mmCIF contents.
+        """
+        cif_path = os.path.join(self.repo_root, "proteindf_bridge", "data", "ALA.cif")
+        self.assertTrue(os.path.exists(cif_path), f"ALA.cif not found at: {cif_path}")
+        mmcif = rs_br.SimpleMmcif(cif_path)
+        orig_data = mmcif.data
+        packed = msgpack.packb(orig_data)
+        unpacked = msgpack.unpackb(packed, raw=False)
+        restored = rs_br.SimpleMmcif.from_data(unpacked)
+        self.assertEqual(restored.data, orig_data)
+
+    def test_simple_mmcif_from_data_invalid_input(self):
+        """
+        Verify that SimpleMmcif.from_data raises rs_br.BrError on invalid input types or structures.
+        """
+        with self.assertRaises(rs_br.BrError):
+            rs_br.SimpleMmcif.from_data("invalid_string")
+        with self.assertRaises(rs_br.BrError):
+            rs_br.SimpleMmcif.from_data(12345)
+        with self.assertRaises(rs_br.BrError):
+            rs_br.SimpleMmcif.from_data(["not_a_dict"])
+        with self.assertRaises(rs_br.BrError):
+            rs_br.SimpleMmcif.from_data({"data_test": "not_a_list"})
+        with self.assertRaises(rs_br.BrError):
+            rs_br.SimpleMmcif.from_data({"data_test": [{}]})  # length < 2
+        with self.assertRaises(rs_br.BrError):
+            rs_br.SimpleMmcif.from_data({"data_test": ["not_a_dict", []]})
 
 
 if __name__ == "__main__":

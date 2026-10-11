@@ -240,6 +240,32 @@ class TestCliGolden(unittest.TestCase):
         self._assert_text_matches_golden(mol2_content, "mmcif2mol2.mol2.txt")
         self._assert_text_matches_golden(out, "mmcif2mol2.stdout.txt")
 
+    def test_cli_mmcif2mol2_scratch_roundtrip(self):
+        scratch_path = os.path.join(self.temp_dir, "scratch.mpac")
+        out_dir_read = os.path.join(self.temp_dir, "from_scratch")
+        os.makedirs(out_dir_read, exist_ok=True)
+
+        # 1. Run with -w to write scratch file
+        out_w, err_w, exc_w = self._run_cli(
+            mmcif2mol2.main,
+            ["mmcif2mol2.py", self.p_cif, "-w", scratch_path],
+        )
+        self.assertIsNone(exc_w)
+        self.assertTrue(os.path.exists(scratch_path))
+        self.assertGreater(os.path.getsize(scratch_path), 0)
+
+        # 2. Run with -r to read scratch file and output mol2
+        out_r, err_r, exc_r = self._run_cli(
+            mmcif2mol2.main,
+            ["mmcif2mol2.py", "dummy.cif", "-r", scratch_path, "-o", out_dir_read],
+        )
+        self.assertIsNone(exc_r)
+        mol2_path = os.path.join(out_dir_read, "data_ALA.mol2")
+        self.assertTrue(os.path.exists(mol2_path))
+        with open(mol2_path, "r", encoding="utf-8") as f:
+            mol2_content = f.read()
+        self._assert_text_matches_golden(mol2_content, "mmcif2mol2.mol2.txt")
+
     def test_cli_read_amber_prmtop(self):
         top_path = os.path.join(self.temp_dir, "test.prmtop")
         crd_path = os.path.join(self.temp_dir, "test.inpcrd")

@@ -27,16 +27,16 @@
 
 | コマンド | 移行PR | 純Python版で使用しているAPI | 対応するRust版API (`proteindf_bridge.rs`) | Rust API有無 | 備考・差異 |
 | :--- | :--- | :--- | :--- | :---: | :--- |
-| `pdb2brd.py` | PR#53 | `Pdb`, `save_msgpack`, `AtomGroup.get_raw_data` | `Pdb`, `save_atomgroup` (または `save_msgpack`) | △ | `save_msgpack(ag.get_raw_data(), path)` は Rust版では `save_atomgroup(ag, path)` で1ステップ実行可能。`save_msgpack` 自体は未公開。 |
-| `brd2pdb.py` | PR#53 | `load_msgpack`, `AtomGroup(dict)`, `Pdb.set_by_atomgroup` | `load_atomgroup`, `Pdb.set_by_atomgroup` | ○ | `load_msgpack` + `AtomGroup` は `load_atomgroup` で置換可能。 |
-| `brd2gro.py` | PR#53 | `load_msgpack`, `AtomGroup(dict)`, `SimpleGro` | `load_atomgroup`, `SimpleGro` | ○ | `load_atomgroup` で読み込み、`SimpleGro` で出力可能。 |
-| `gro2brd.py` | PR#53 | `SimpleGro`, `save_msgpack`, `AtomGroup.get_raw_data` | `SimpleGro`, `save_atomgroup` | △ | `SimpleGro.get_atomgroup()` を取得後、`save_atomgroup` で保存可能。 |
-| `brd2xyz.py` | PR#53 | `load_msgpack`, `AtomGroup(dict)`, `Xyz` | `load_atomgroup`, `Xyz` | ○ | `load_atomgroup` で読み込み、`Xyz.set_by_atomgroup` で出力可能。 |
-| `xyz2brd.py` | PR#53 | `Xyz`, `save_msgpack`, `AtomGroup.get_raw_data` | `Xyz`, `save_atomgroup` | △ | `Xyz.get_atomgroup()` 後に `save_atomgroup` で保存可能。 |
-| `brd2txt.py` | PR#53 | `load_msgpack`, `AtomGroup(dict)`, `AtomGroup.save_csv` | `load_atomgroup` | × | `AtomGroup.save_csv` がRust版APIに未公開。 |
-| `mmcif2txt.py` | PR#53 | `SimpleMmcif`, `SimpleMmcif.save_msgpack` | `SimpleMmcif` | × | `SimpleMmcif.save_msgpack` がRust版APIに未公開。 |
-| `mmcif2mol2.py` | PR#53 | `SimpleMmcif`, `SimpleMol2`, `SimpleMmcif.save_msgpack` | `SimpleMmcif`, `SimpleMol2` | △ | `save_msgpack`/`load_msgpack` スクラッチ機能以外は `SimpleMmcif`・`SimpleMol2` ともにRust版に揃っている。 |
-| `read_amber_prmtop.py` | PR#53 | `AmberPrmtop`, `save_msgpack` | `AmberPrmtop` | × | ProteinDF内部座標辞書形式のMessagePack書き出しに `save_msgpack` を使用している。 |
+| `pdb2brd.py` | PR#53 (完了) | `Pdb`, `save_msgpack`, `AtomGroup.get_raw_data` | `Pdb`, `save_atomgroup` | ○ | `save_atomgroup` で1ステップ保存。移行完了。基準ファイルと完全一致。 |
+| `brd2pdb.py` | PR#53 (完了) | `load_msgpack`, `AtomGroup(dict)`, `Pdb.set_by_atomgroup` | `load_atomgroup`, `Pdb.set_by_atomgroup` | ○ | 移行完了。意図した違い: B-factorデフォルト値（純Python版1.00 → Rust版0.00）。 |
+| `brd2gro.py` | PR#53 (完了) | `load_msgpack`, `AtomGroup(dict)`, `SimpleGro` | `load_atomgroup`, `SimpleGro` | ○ | 移行完了。意図した違い: ボックスベクトル行の書式（GRO規格準拠のf10.5固定幅および末尾改行）。 |
+| `gro2brd.py` | PR#53 (完了) | `SimpleGro`, `save_msgpack`, `AtomGroup.get_raw_data` | `SimpleGro`, `save_atomgroup` | ○ | `SimpleGro.get_atomgroup()` 後に `save_atomgroup` で保存。移行完了。基準ファイルと完全一致。 |
+| `brd2xyz.py` | PR#53 (完了) | `load_msgpack`, `AtomGroup(dict)`, `Xyz` | `load_atomgroup`, `Xyz` | ○ | `load_atomgroup` で読み込み、`Xyz.set_by_atomgroup` で出力。移行完了。基準ファイルと完全一致。 |
+| `xyz2brd.py` | PR#53 (完了) | `Xyz`, `save_msgpack`, `AtomGroup.get_raw_data` | `Xyz`, `save_atomgroup` | ○ | `Xyz.get_atomgroup()` 後に `save_atomgroup` で保存。移行完了。基準ファイルと完全一致。 |
+| `brd2txt.py` | PR#53 (完了) | `load_msgpack`, `AtomGroup(dict)`, `AtomGroup.save_csv` | `load_atomgroup`, `AtomGroup.save_csv` | ○ | `AtomGroup.save_csv` をPyO3バインディングに追加（PR#53）。基準ファイルと完全一致。 |
+| `mmcif2txt.py` | PR#53 (完了) | `SimpleMmcif`, `SimpleMmcif.save_msgpack` | `SimpleMmcif.data`, `msgpack` (Python) | ○ | `SimpleMmcif.data` を追加し、スクリプト内で `msgpack` を直接使用。意図した違い: 引用符トークナイズ不具合修正。 |
+| `mmcif2mol2.py` | PR#53 (完了) | `SimpleMmcif`, `SimpleMol2`, `SimpleMmcif.save_msgpack` | `SimpleMmcif`, `SimpleMol2`, `msgpack` (Python) | ○ | スクラッチ保存に `SimpleMmcif.data` + `msgpack`、読込に `from_data` を使用。基準ファイルと完全一致。 |
+| `read_amber_prmtop.py` | PR#53 (完了) | `AmberPrmtop`, `save_msgpack` | `AmberPrmtop`, `msgpack` (Python) | ○ | `AmberPrmtop` で読込後、座標辞書を `msgpack` で書き出し。基準ファイルと完全一致。 |
 | `brd-box.py` | PR#54 | `load_msgpack`, `AtomGroup(dict)`, `AtomGroup.weight`, `AVOGADRO_CONST` | `load_atomgroup`, `AtomGroup.weight` | × | 定数 `AVOGADRO_CONST`（アボガドロ定数）が `proteindf_bridge.rs` に未公開。 |
 | `brd-density.py` | PR#54 | `load_msgpack`, `AtomGroup(dict)`, `AtomGroup.weight`, `AVOGADRO_CONST` | `load_atomgroup`, `AtomGroup.weight` | × | 定数 `AVOGADRO_CONST` が `proteindf_bridge.rs` に未公開。 |
 | `brd-formula.py` | PR#54 | `load_msgpack`, `AtomGroup(dict)`, `AtomGroup.formula` | `load_atomgroup`, `AtomGroup.formula` | ○ | `AtomGroup.formula` はRust版にも実装・公開済み。 |
@@ -107,3 +107,39 @@
           `assert!(peptide_b1_b2.is_some(), "Peptide bond between Chain B residue 1 C and residue 2 N should be detected");`
           `assert!(glu4_ca_cb.is_some(), "CA-CB bond in GLU residue 4 should be detected");`
           `assert!(ssbond_a6_a11.is_some(), "Disulfide bond between Chain A CYS6 SG and CYS11 SG should be detected");`
+
+---
+
+## 4. PR#53（フォーマット変換10本）の移行結果と差分の分類・根拠
+
+PR#53においてフォーマット変換10本（`pdb2brd.py`, `brd2pdb.py`, `brd2gro.py`, `gro2brd.py`, `brd2xyz.py`, `xyz2brd.py`, `brd2txt.py`, `mmcif2txt.py`, `mmcif2mol2.py`, `read_amber_prmtop.py`）を純Python版からRust版（`proteindf_bridge.rs`）へ移行した。
+
+### 4.1 10本ごとの比較結果一覧
+
+| コマンド | 移行結果 | 比較結果 | 違いの分類 | 根拠・内容 |
+| :--- | :--- | :--- | :--- | :--- |
+| `pdb2brd.py` | 移行完了 | **完全一致** | なし | `rs.save_atomgroup` による1ステップ保存。 |
+| `brd2pdb.py` | 移行完了 | **違いあり** | **意図した違い** | ATOMレコードの温度因子（B-factor）未指定時デフォルト値。純Python版は読み込み時の既定値が `0.0`（`proteindf_bridge/biopdb.py` 216行目）なのに、`set_by_atomgroup` の経路でだけ `1.0`（同474行目の `setdefault("temp_factor", 1.0)`）になる不整合があり、Rust版は読み込み（`rust/crates/proteindf-bridge/src/format/pdb.rs` 266〜267行目）および `set_by_atomgroup`（同559〜563行目）の双方で既定値 `0.0` として一貫している。基準ファイルを更新。 |
+| `brd2gro.py` | 移行完了 | **違いあり** | **意図した違い** | ボックスベクトル行（末尾行）の書式。純Python版はスペース区切りの浮動小数点（改行なし）を出力していたが、Rust版はGRO公式規格（GROMACS仕様）に準拠した固定幅 `{:10.5}` カラムおよび末尾改行を出力する。基準ファイルを更新。 |
+| `gro2brd.py` | 移行完了 | **完全一致** | なし | 読み込み・`.brd` 出力ともに一致。 |
+| `brd2xyz.py` | 移行完了 | **完全一致** | なし | 読み込み・`.xyz` 出力ともに一致。 |
+| `xyz2brd.py` | 移行完了 | **完全一致** | なし | 読み込み・`.brd` 出力ともに一致。 |
+| `brd2txt.py` | 移行完了 | **完全一致** | なし | 新設した `AtomGroup.save_csv` により列・書式（CRLF）・浮動小数点表記が純Python版と完全一致。 |
+| `mmcif2txt.py` | 移行完了 | **違いあり** | **意図した違い (不具合修正)** | `_pdbx_chem_comp_identifier` 内のトークナイズ結果。純Python版パーサーは引用符付き空白文字列（例: `"(2S)-2-aminopropanoic acid"`）の分割に失敗しカラムが壊れていたが、Rust版の厳密なトークナイザにより正しくパースされるようになった。基準ファイルを更新。 |
+| `mmcif2mol2.py` | 移行完了 | **完全一致** | なし | `.mol2` 出力およびスクラッチMessagePack保存・復元が一致。 |
+| `read_amber_prmtop.py` | 移行完了 | **完全一致** | なし | PRMTOP読込、内部座標辞書変換、MessagePack出力すべて一致。 |
+
+### 4.2 追加したAPI
+1. **`AtomGroup.save_csv(path)`**:
+   - `rust/crates/proteindf-bridge-py/src/atom_group.rs`
+   - 一時ファイル出力後にアトミックリネームする安全設計。RFC 4180準拠のCRLF改行およびPythonの`repr(float)`互換の浮動小数点書式。
+2. **`SimpleMmcif.data`**:
+   - `rust/crates/proteindf-bridge-py/src/format/mmcif.rs`
+   - mmCIFブロック辞書（`{block_name: [key_values, tables]}`）を返すプロパティ。
+3. **`SimpleMmcif.from_data(dict)`**:
+   - `rust/crates/proteindf-bridge-py/src/format/mmcif.rs`
+   - mmCIFブロック辞書から `SimpleMmcif` を復元する静的メソッド。不正入力時は `BrInputError` を送出。
+
+### 4.3 CLIオプションとAPIの扱いについての決定
+- **`pdb2brd.py` の `-d/--debug` オプションと `Pdb.debug` プロパティの扱い**:
+  純Python版の `Pdb` には `debug` 属性が存在したが、Rust版の `Pdb` コアにはデバッグフラグが存在しない。何もしないgetter/setterを公開APIに追加することは避け、`Pdb.debug` プロパティはバインディングに追加しない方針とした。`pdb2brd.py` 内の `pdb_obj.debug = debug` の代入行は削除したが、全PR共通ルール1（コマンド名・引数・オプションは変えない）に従い、CLIの `-d/--debug` 引数定義はそのまま維持している。

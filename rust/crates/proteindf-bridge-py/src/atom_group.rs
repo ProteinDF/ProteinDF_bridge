@@ -596,4 +596,135 @@ impl PyAtomGroup {
     pub fn __str__(&self) -> String {
         format!("{}", self.inner)
     }
+
+    pub fn save_csv(&self, py: Python<'_>, path: &str) -> PyResult<()> {
+        let path_ref = std::path::Path::new(path);
+        let parent = path_ref
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new("."));
+        let file_name = path_ref
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("output.csv");
+        let temp_name = format!(
+            ".{file_name}.tmp_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        );
+        let temp_path = parent.join(temp_name);
+
+        struct TempFileGuard<'a>(&'a std::path::Path, bool);
+        impl<'a> Drop for TempFileGuard<'a> {
+            fn drop(&mut self) {
+                if !self.1 {
+                    let _ = std::fs::remove_file(self.0);
+                }
+            }
+        }
+        let mut guard = TempFileGuard(&temp_path, false);
+
+        let file = std::fs::File::create(&temp_path).map_err(|e| {
+            to_py_err(proteindf_bridge::error::BridgeError::input_error(
+                temp_path.display().to_string(),
+                e.to_string(),
+            ))
+        })?;
+        let mut writer = std::io::BufWriter::new(file);
+
+        let mut rows = Vec::new();
+        collect_csv_rows(&self.inner, &[], &mut rows, py)?;
+
+        use std::io::Write;
+        for row in rows {
+            for (i, field) in row.iter().enumerate() {
+                if i > 0 {
+                    writer.write_all(b",").map_err(|e| {
+                        to_py_err(proteindf_bridge::error::BridgeError::input_error(
+                            temp_path.display().to_string(),
+                            e.to_string(),
+                        ))
+                    })?;
+                }
+                write_csv_field(&mut writer, field).map_err(|e| {
+                    to_py_err(proteindf_bridge::error::BridgeError::input_error(
+                        temp_path.display().to_string(),
+                        e.to_string(),
+                    ))
+                })?;
+            }
+            writer.write_all(b"\r\n").map_err(|e| {
+                to_py_err(proteindf_bridge::error::BridgeError::input_error(
+                    temp_path.display().to_string(),
+                    e.to_string(),
+                ))
+            })?;
+        }
+
+        writer.flush().map_err(|e| {
+            to_py_err(proteindf_bridge::error::BridgeError::input_error(
+                temp_path.display().to_string(),
+                e.to_string(),
+            ))
+        })?;
+        drop(writer);
+
+        std::fs::rename(&temp_path, path_ref).map_err(|e| {
+            to_py_err(proteindf_bridge::error::BridgeError::input_error(
+                path_ref.display().to_string(),
+                e.to_string(),
+            ))
+        })?;
+        guard.1 = true;
+
+        Ok(())
+    }
+}
+
+fn collect_csv_rows(
+    ag: &CoreAtomGroup,
+    parents: &[String],
+    rows: &mut Vec<Vec<String>>,
+    py: Python<'_>,
+) -> PyResult<()> {
+    for (key, subgrp) in ag.groups() {
+        let mut new_parents = parents.to_vec();
+        new_parents.push(key.clone());
+        new_parents.push(subgrp.name.clone());
+        collect_csv_rows(subgrp, &new_parents, rows, py)?;
+    }
+    for (_key, atom) in ag.atoms() {
+        let mut row = parents.to_vec();
+        let sym = atom.symbol().unwrap_or("X").to_string();
+        row.push(sym);
+        row.push(format_py_float(py, atom.xyz.x)?);
+        row.push(format_py_float(py, atom.xyz.y)?);
+        row.push(format_py_float(py, atom.xyz.z)?);
+        row.push(format_py_float(py, atom.charge)?);
+        rows.push(row);
+    }
+    Ok(())
+}
+
+fn format_py_float(py: Python<'_>, v: f64) -> PyResult<String> {
+    pyo3::types::PyFloat::new(py, v).repr()?.extract::<String>()
+}
+
+fn write_csv_field<W: std::io::Write>(w: &mut W, s: &str) -> std::io::Result<()> {
+    if s.contains(',') || s.contains('"') || s.contains('\n') || s.contains('\r') {
+        w.write_all(b"\"")?;
+        for b in s.bytes() {
+            if b == b'"' {
+                w.write_all(b"\"\"")?;
+            } else {
+                w.write_all(&[b])?;
+            }
+        }
+        w.write_all(b"\"")?;
+    } else {
+        w.write_all(s.as_bytes())?;
+    }
+    Ok(())
 }

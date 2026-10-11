@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+import msgpack
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 
 def main():
@@ -28,12 +29,13 @@ def main():
     # load mmCIF file
     if verbose:
         print("reading: {}".format(mmcif_file_path))
-    mmcif = bridge.SimpleMmcif(mmcif_file_path)
+    mmcif = rs.SimpleMmcif(mmcif_file_path)
 
     if len(write_mpac_file_path) > 0:
         if verbose:
             print("write mpac file: {}".format(write_mpac_file_path))
-        mmcif.save_msgpack(write_mpac_file_path)
+        with open(write_mpac_file_path, "wb") as f:
+            f.write(msgpack.packb(mmcif.data))
 
     # print(mmcif)
 
