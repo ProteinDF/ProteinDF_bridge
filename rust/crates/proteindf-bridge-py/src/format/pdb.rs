@@ -54,6 +54,14 @@ impl PyPdb {
         self.inner.set_mode(mode.as_deref());
     }
 
+    #[getter]
+    pub fn debug(&self) -> bool {
+        false
+    }
+
+    #[setter]
+    pub fn set_debug(&mut self, _debug: bool) {}
+
     #[pyo3(signature = (select_model=None, select_altloc=Some("A")))]
     pub fn get_atomgroup(
         &self,

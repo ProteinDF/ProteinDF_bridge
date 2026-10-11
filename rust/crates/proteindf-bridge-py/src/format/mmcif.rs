@@ -273,6 +273,101 @@ impl PySimpleMmcif {
         self.inner.get_molecule_names()
     }
 
+    #[getter]
+    pub fn data<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PyDict>> {
+        let root_dict = pyo3::types::PyDict::new(py);
+        for (block_name, block) in self.inner.data() {
+            let kv_dict = pyo3::types::PyDict::new(py);
+            for (k, v) in &block.key_values {
+                kv_dict.set_item(k, v)?;
+            }
+            let tables_list = pyo3::types::PyList::empty(py);
+            for table in &block.tables {
+                let table_list = pyo3::types::PyList::empty(py);
+                for row in table {
+                    let row_dict = pyo3::types::PyDict::new(py);
+                    for (k, v) in row {
+                        row_dict.set_item(k, v)?;
+                    }
+                    table_list.append(row_dict)?;
+                }
+                tables_list.append(table_list)?;
+            }
+            let block_list =
+                pyo3::types::PyList::new(py, &[kv_dict.into_any(), tables_list.into_any()])?;
+            root_dict.set_item(block_name, block_list)?;
+        }
+        Ok(root_dict)
+    }
+
+    #[staticmethod]
+    pub fn from_data(_py: Python<'_>, data: &Bound<'_, pyo3::types::PyDict>) -> PyResult<Self> {
+        let mut cif_text = String::new();
+        for (block_name_obj, block_data_obj) in data.iter() {
+            let block_name: String = block_name_obj.extract()?;
+            if !block_name.starts_with("data_") {
+                cif_text.push_str(&format!("data_{block_name}\n"));
+            } else {
+                cif_text.push_str(&format!("{block_name}\n"));
+            }
+            let block_list: Bound<'_, pyo3::types::PyList> = block_data_obj.extract()?;
+            if block_list.len() >= 1 {
+                let item0 = block_list.get_item(0)?;
+                let kv_dict: Bound<'_, pyo3::types::PyDict> = item0.extract()?;
+                for (k_obj, v_obj) in kv_dict.iter() {
+                    let k: String = k_obj.extract()?;
+                    let v: String = v_obj.extract()?;
+                    cif_text.push_str(&format!("{k} \"{v}\"\n"));
+                }
+            }
+            if block_list.len() >= 2 {
+                let item1 = block_list.get_item(1)?;
+                let tables_list: Bound<'_, pyo3::types::PyList> = item1.extract()?;
+                for table_obj in tables_list.iter() {
+                    let table: Bound<'_, pyo3::types::PyList> = table_obj.extract()?;
+                    if table.is_empty() {
+                        continue;
+                    }
+                    cif_text.push_str("loop_\n");
+                    let first_item = table.get_item(0)?;
+                    let first_row: Bound<'_, pyo3::types::PyDict> = first_item.extract()?;
+                    let mut headers: Vec<String> = Vec::new();
+                    for (h_obj, _) in first_row.iter() {
+                        let h: String = h_obj.extract()?;
+                        cif_text.push_str(&format!("{h}\n"));
+                        headers.push(h);
+                    }
+                    for row_obj in table.iter() {
+                        let row_dict: Bound<'_, pyo3::types::PyDict> = row_obj.extract()?;
+                        let mut line_vals = Vec::new();
+                        for h in &headers {
+                            if let Some(val_obj) = row_dict.get_item(h)? {
+                                let v: String = val_obj.extract()?;
+                                if v.is_empty() {
+                                    line_vals.push("?".to_string());
+                                } else if v.contains(' ') || v.contains('\t') || v.contains('\n') {
+                                    line_vals.push(format!("\"{v}\""));
+                                } else {
+                                    line_vals.push(v);
+                                }
+                            } else {
+                                line_vals.push("?".to_string());
+                            }
+                        }
+                        cif_text.push_str(&format!("{}\n", line_vals.join(" ")));
+                    }
+                }
+            }
+        }
+        let inner = CoreSimpleMmcif::from_str(&cif_text).map_err(to_py_err)?;
+        Ok(Self {
+            inner,
+            atomgroup: None,
+            data_block_name: "structure".to_string(),
+            charge_to_b_factor: false,
+        })
+    }
+
     #[pyo3(signature = (name=None))]
     pub fn get_atomgroup(&self, name: Option<&str>) -> PyResult<PyAtomGroup> {
         let ag = match name {

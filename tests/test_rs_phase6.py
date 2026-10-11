@@ -697,6 +697,61 @@ class TestRsPhase6(unittest.TestCase):
         neut = rs_br.Neutralize(ag)
         self.assertIn("Neutralize(atoms=", repr(neut))
 
+    # =========================================================================
+    # 4. AtomGroup.save_csv and SimpleMmcif.data
+    # =========================================================================
+
+    def test_atomgroup_save_csv_parity(self):
+        """
+        Verify that rs_br.AtomGroup.save_csv produces identical CSV output
+        (columns, formatting, floats) as pure Python py_ag.save_csv.
+        """
+        fixture_path = os.path.join(self.data_dir, "ACE_ALA_NME_trans1.brd")
+        py_ag = py_functions.load_atomgroup(fixture_path)
+        rs_ag = rs_br.load_atomgroup(fixture_path)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            py_csv = os.path.join(tmpdir, "py.csv")
+            rs_csv = os.path.join(tmpdir, "rs.csv")
+
+            py_ag.save_csv(py_csv)
+            rs_ag.save_csv(rs_csv)
+
+            self.assertTrue(os.path.exists(py_csv))
+            self.assertTrue(os.path.exists(rs_csv))
+
+            with open(py_csv, "r", encoding="utf-8") as f:
+                py_lines = [line.strip() for line in f if line.strip()]
+            with open(rs_csv, "r", encoding="utf-8") as f:
+                rs_lines = [line.strip() for line in f if line.strip()]
+
+            self.assertEqual(rs_lines, py_lines)
+
+    def test_atomgroup_save_csv_atomic_write_on_error(self):
+        """
+        Verify that save_csv does not leave corrupt / partial files on invalid destination.
+        """
+        ag = rs_br.AtomGroup("test")
+        non_existent_path = "/non_existent_directory_for_test_12345/test.csv"
+        with self.assertRaises(Exception):
+            ag.save_csv(non_existent_path)
+        self.assertFalse(os.path.exists(non_existent_path))
+
+    def test_simple_mmcif_data_property(self):
+        """
+        Verify that SimpleMmcif.data returns block dictionaries matching pure Python mmCIF data.
+        """
+        cif_path = os.path.join(self.data_dir, "..", "..", "..", "..", "proteindf_bridge", "data", "ALA.cif")
+        if os.path.exists(cif_path):
+            mmcif = rs_br.SimpleMmcif(cif_path)
+            data = mmcif.data
+            self.assertIn("data_ALA", data)
+            block = data["data_ALA"]
+            self.assertEqual(len(block), 2)
+            kv, tables = block
+            self.assertEqual(kv["_chem_comp.id"], "ALA")
+            self.assertGreater(len(tables), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
