@@ -828,7 +828,7 @@ class TestRsPhase6(unittest.TestCase):
             rs_br.SimpleMmcif.from_data({"data_test": ["not_a_dict", []]})
 
     # =========================================================================
-    # PR#54 Additions: AVOGADRO_CONST, restructure, remove_atom/erase_atom
+    # PR#54 Additions: AVOGADRO_CONST, restructure, remove_atom
     # =========================================================================
 
     def test_avogadro_const(self):

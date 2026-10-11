@@ -159,3 +159,12 @@
 
 1. 上記1〜3に対応し、同じブランチに追加コミットする。
 2. 全PR共通のルール5のテストが通る。
+
+## PR#54 完了(2026-10-12)
+
+修正コミット(`e72486d`・`886fa39`)で修正依頼1〜3に対応済み。`erase_atom`はバインディング・コマンド・テストから削除され、`reorder.py`は`remove_atom`を使う。`brd-formula.py`の記録(純Python版`N67C254O76H379S6`、Rust版`src/atom_group.rs`の`get_formula`、どちらもHill方式ではない)と、`brd-setup-bond.py`の結合の並び順の既知の問題(原因未確認、コアで別タスク)をClaudeが確認した。Pythonテスト一式235件OK(新しい環境)、`cargo nextest` `317 tests run: 317 passed, 2 skipped`、clippy・fmt OK。`--no-ff`でdevelopにマージした(`1e63ffc`)。マージ後、`tests/test_rs_phase6.py`に残っていた`erase_atom`に触れるコメントをClaudeが直した。
+
+### 別タスクの候補(PR#55の後)
+
+1. `AtomGroup.setup()`後の鎖レベルの結合の並び順を決定的にする(コアの修正)。
+2. 化学式(`get_formula`)をHill方式にするかどうか(コアの変更、ユーザー判断待ち)。
