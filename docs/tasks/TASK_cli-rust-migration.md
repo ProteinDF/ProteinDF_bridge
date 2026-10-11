@@ -88,3 +88,7 @@
 ### 完了の定義(修正後)
 
 1. 上記1に対応し、同じブランチに追加コミットする。引用した各テストについて、ファイル名・行番号・該当するアサート行をそのまま報告に貼る。
+
+## PR#52 完了(2026-10-11)
+
+`60bbcef`で修正依頼に対応済み。引用された4つのテスト(`test_atomgroup_setup_1hls_real_pdb` 710行目、`test_resolve_bonds_preserves_existing_file_bonds` 805行目、`test_non_covalent_contact_excluded` 45行目、`test_known_covalent_bonds_1hls` 91行目)が実在し、アサートの内容が一致することをClaudeが確認した。Pythonテスト一式224件OK(新しい環境)。純Python版のパッケージとRustのコードに変更なし。`--no-ff`でdevelopにマージした(`1be62f7`)。
