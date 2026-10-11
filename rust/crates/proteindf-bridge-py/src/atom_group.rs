@@ -597,7 +597,7 @@ impl PyAtomGroup {
         format!("{}", self.inner)
     }
 
-    pub fn save_csv(&self, path: &str) -> PyResult<()> {
+    pub fn save_csv(&self, py: Python<'_>, path: &str) -> PyResult<()> {
         let path_ref = std::path::Path::new(path);
         let parent = path_ref
             .parent()
@@ -635,7 +635,7 @@ impl PyAtomGroup {
         let mut writer = std::io::BufWriter::new(file);
 
         let mut rows = Vec::new();
-        collect_csv_rows(&self.inner, &[], &mut rows);
+        collect_csv_rows(&self.inner, &[], &mut rows, py)?;
 
         use std::io::Write;
         for row in rows {
@@ -655,7 +655,7 @@ impl PyAtomGroup {
                     ))
                 })?;
             }
-            writer.write_all(b"\n").map_err(|e| {
+            writer.write_all(b"\r\n").map_err(|e| {
                 to_py_err(proteindf_bridge::error::BridgeError::input_error(
                     temp_path.display().to_string(),
                     e.to_string(),
@@ -683,32 +683,33 @@ impl PyAtomGroup {
     }
 }
 
-fn collect_csv_rows(ag: &CoreAtomGroup, parents: &[String], rows: &mut Vec<Vec<String>>) {
+fn collect_csv_rows(
+    ag: &CoreAtomGroup,
+    parents: &[String],
+    rows: &mut Vec<Vec<String>>,
+    py: Python<'_>,
+) -> PyResult<()> {
     for (key, subgrp) in ag.groups() {
         let mut new_parents = parents.to_vec();
         new_parents.push(key.clone());
         new_parents.push(subgrp.name.clone());
-        collect_csv_rows(subgrp, &new_parents, rows);
+        collect_csv_rows(subgrp, &new_parents, rows, py)?;
     }
     for (_key, atom) in ag.atoms() {
         let mut row = parents.to_vec();
         let sym = atom.symbol().unwrap_or("X").to_string();
         row.push(sym);
-        row.push(format_py_float(atom.xyz.x));
-        row.push(format_py_float(atom.xyz.y));
-        row.push(format_py_float(atom.xyz.z));
-        row.push(format_py_float(atom.charge));
+        row.push(format_py_float(py, atom.xyz.x)?);
+        row.push(format_py_float(py, atom.xyz.y)?);
+        row.push(format_py_float(py, atom.xyz.z)?);
+        row.push(format_py_float(py, atom.charge)?);
         rows.push(row);
     }
+    Ok(())
 }
 
-fn format_py_float(v: f64) -> String {
-    let s = format!("{v}");
-    if !s.contains('.') && !s.contains('e') && !s.contains('E') {
-        format!("{s}.0")
-    } else {
-        s
-    }
+fn format_py_float(py: Python<'_>, v: f64) -> PyResult<String> {
+    pyo3::types::PyFloat::new(py, v).repr()?.extract::<String>()
 }
 
 fn write_csv_field<W: std::io::Write>(w: &mut W, s: &str) -> std::io::Result<()> {
