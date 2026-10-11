@@ -156,10 +156,10 @@ PR#54において構造の操作・表示14本（`brd-box.py`, `brd-density.py`,
 | :--- | :--- | :--- | :--- | :--- |
 | `brd-box.py` | 移行完了 | **完全一致** | なし | 追加した `rs.AVOGADRO_CONST` を使用し、標準出力が完全一致。 |
 | `brd-density.py` | 移行完了 | **完全一致** | なし | 追加した `rs.AVOGADRO_CONST` を使用し、標準出力が完全一致。 |
-| `brd-formula.py` | 移行完了 | **違いあり** | **意図した違い** | 元素の出力順序。純Python版（`atomgroup.py` 581〜592行目）は原子リストに出現した順序（1hlsの場合は `N`, `C`, `O`, `H`, `S`）で出力していたが、Rust版（`rust/crates/proteindf-bridge/src/core/atom_group.rs` 547〜564行目）は周期表（`PeriodicTable`）の原子番号順（`H=1`, `C=6`, `N=7`, `O=8`, `S=16`）に決定論的にソートして出力する。化学式表現として決定論的かつ標準的な仕様であるため「意図した違い」として基準ファイルを更新。 |
+| `brd-formula.py` | 移行完了 | **違いあり** | **意図した違い** | 元素の出力順序。純Python版（`atomgroup.py` 581〜592行目）は原子リストに出現した順序（1hlsの場合は `N67C254O76H379S6`）で出力していたが、Rust版（`rust/crates/proteindf-bridge/src/atom_group.rs` 547〜564行目の `get_formula`）は周期表（`PeriodicTable`）の原子番号順（`H=1`, `C=6`, `N=7`, `O=8`, `S=16` で `H379C254N67O76S6`）に出力する。純Python版は出現順で入力によって変わる。Rust版は原子番号順で入力によらず決まる。どちらもHill方式（C、H、その後アルファベット順）ではない。「意図した違い（決定的になった）」として基準ファイルを更新。 |
 | `brd-show-res.py` | 移行完了 | **完全一致** | なし | `Format.is_models`, `Format.is_protein` を使用し、標準出力が完全一致。 |
 | `brd-show-bonds.py` | 移行完了 | **完全一致** | なし | `rs.AtomGroup.get_bond_list` はタプルのリストを返すが、`print(list(bond))` により純Python版と同じ角括弧リスト書式（`['...', '...', 1]`）を維持。標準出力が完全一致。 |
-| `brd-setup-bond.py` | 移行完了 | **違いあり** | **不具合修正** | 純Python版は `proteindf_bridge/__init__.py` に `Bond` がエクスポートされていないため `AttributeError` でクラッシュしていた（更新前の基準ファイルは例外テキスト）。Rust版では `AtomGroup.setup()`（CCDテンプレートDB + 共有結合半径ヒューリスティックによる統合結合解決）を呼び出して `.brd` を出力するように改修。1hlsに対し782原子・793結合が重複なく正しく解決されることを確認し、新規 `.brd` 基準ファイルを生成。またヒューリスティック探索のセル走査順の非決定性に対応するためテスト正規化ソート処理を導入。 |
+| `brd-setup-bond.py` | 移行完了 | **違いあり** | **不具合修正** | 純Python版は `proteindf_bridge/__init__.py` に `Bond` がエクスポートされていないため `AttributeError` でクラッシュしていた（更新前の基準ファイルは例外テキスト）。Rust版では `AtomGroup.setup()`（CCDテンプレートDB + 共有結合半径ヒューリスティックによる統合結合解決）を呼び出して `.brd` を出力するように改修。1hlsに対し782原子・793結合が重複なく正しく解決されることを確認し、新規 `.brd` 基準ファイルを生成。またヒューリスティック探索のセル走査順の非決定性に対応するためテスト正規化ソート処理を導入。<br>**既知の問題**: `setup()` 後の鎖レベルの結合の並び順（例: `/groups/model_1/groups/A/bonds`、`.../B/bonds`）が実行ごとに変わる。原因は未確認。コアで対応する（別タスク）。 |
 | `brd-select.py` | 移行完了 | **完全一致** | なし | `Select_Path_wildcard` による原子選択および `.brd` 出力が完全一致。 |
 | `brd-select-path.py` | 移行完了 | **完全一致** | なし | `Select_Path_simple` による原子選択および `.brd` 出力が完全一致。 |
 | `brd-divide.py` | 移行完了 | **完全一致** | なし | 残基単位の分割および `.brd` 出力が完全一致。 |
@@ -176,7 +176,8 @@ PR#54において構造の操作・表示14本（`brd-box.py`, `brd-density.py`,
 2. **`AtomGroup.restructure(reference, range=1.0e-5)`**:
    - `rust/crates/proteindf-bridge-py/src/atom_group.rs`
    - 参照 `AtomGroup` のツリー階層構造に合わせて自身の原子を再配置する。コアの `ag.remove_atom` / `ag.add_atom` を活用した決定論的かつ安全な実装。
-3. **`AtomGroup.erase_atom(path)` / `AtomGroup.remove_atom(path)`**:
+3. **`AtomGroup.remove_atom(path)`**:
    - `rust/crates/proteindf-bridge-py/src/atom_group.rs`
-   - 指定パスの原子を削除するメソッド。
+   - 指定パスの原子を削除するメソッド。純Python版で非推奨の `erase_atom` はバインディングに追加せず、`remove_atom` のみを提供する。
+
 
