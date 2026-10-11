@@ -67,7 +67,6 @@ def main():
     if (verbose == True):
         print("reading: %s\n" % (pdb_file_path))
     pdb_obj = rs.Pdb()
-    pdb_obj.debug = debug
     pdb_obj.load(pdb_file_path)
     # print(pdb_obj)
     atom_group = pdb_obj.get_atomgroup(select_model=select_model,
