@@ -195,3 +195,15 @@
 ### 完了の定義(修正後)
 
 1. 上記1・2に対応し、同じブランチに追加コミットする。引用する行番号は実際のファイルで確かめ、該当行をそのまま報告に貼る。
+
+## PR#55 完了(2026-10-12)
+
+修正コミット`7b4ddac`で修正依頼1・2に対応済み(文書とテストのコメントのみ)。RMSDの違いの根拠(純Python版`superposer.py` 272行目`trr.eig()`→`matrix.py` 501行目`numpy.linalg.eigh`、Rust版`superposer.rs` 305行目`trr_sym.eig()`→`matrix.rs` 593行目のJacobi法)と、`Display`の字下げを「既知の問題」とした記録をClaudeが実物で確認した。`--no-ff`でdevelopにマージした(`fd78b84`)。
+
+**これで構造を扱う26本すべての移行が完了した。**
+
+### 次の作業(ユーザー決定、2026-10-12)
+
+1. コアの修正(`docs/tasks/TASK_core-determinism-display.md`): `setup()`後の結合の並び順を決定的にする/`Display for AtomGroup`を階層ごとに字下げする。
+2. リリース(2026.10.3)。
+3. その後、化学式(`get_formula`)をHill方式にする。
