@@ -141,3 +141,21 @@
 ## PR#53 完了(2026-10-11)
 
 修正コミット(`8554dc8`・`d3c9590`・`3a046fc`・`3878ad3`・`649ce56`)で修正依頼1〜6に対応済み。`test_simple_mmcif_data_property`のアサートが実行されること、`from_data`の往復と不正入力、`mmcif2mol2`の`-w`/`-r`経路、`save_csv`のCRLFとPythonの`repr`と同じ浮動小数点の書式(バイト列で比較)をテストで確認した。引用された行番号(`biopdb.py` 216・474行目、`pdb.rs` 266・559行目)をClaudeが実物で確認した。Pythonテスト一式231件OK(新しい環境)、`cargo nextest` `317 tests run: 317 passed, 2 skipped`、clippy・fmt OK。コアのクレートと純Python版のパッケージ(`cli/`以外)に変更なし。`--no-ff`でdevelopにマージした(`9b7857f`)。
+
+## PR#54 レビュー結果(1回目、2026-10-12、要修正)
+
+`feature/cli-migration-pr54`(`d7797c7`・`3fb7806`・`8b42ce9`・`e32b1df`)をレビューした。14本のコマンドは`proteindf_bridge.rs`だけを使っている(他のimportは標準ライブラリのみ)。`AVOGADRO_CONST`は純Python版と同じ値。`AtomGroup.restructure`は純Python版(`atomgroup.py`の`restructure`・`_copy_attributes`・`_get_rest_of_frame_molecule`・`_assign_rest_molecule`)と同じ手順(`Select_Atom`の既定の距離0.1も同じ)で、基準ファイルと一致した。`brd-setup-bond.py`の出力は782原子・793結合で、正しさの基準(GLU 4の`C=O`、ARG 22、ペプチド結合、CYS6–CYS11、重複なし)をアサートするテストがある。Pythonテスト一式235件、`cargo nextest`(`317 tests run: 317 passed, 2 skipped`)、clippy・fmtをClaudeが新しい環境で確認した。コアのクレートと純Python版のパッケージ(`cli/`以外)に変更なし。
+
+### 修正依頼
+
+1. **【APIの方針】`AtomGroup.erase_atom`をバインディングに追加しているが、純Python版の`erase_atom`は非推奨(`proteindf_bridge/atomgroup.py`の`erase_atom`は`DeprecationWarning`を出し、`remove_atom`を使うよう案内している)。** 新しいAPIに非推奨の名前を持ち込まない。`erase_atom`をバインディングから削除し、`reorder.py`は`remove_atom`を使う。`test_atomgroup_remove_atom_and_erase_atom`も合わせて直す(`remove_atom`だけのテストにし、テスト名も変える)。
+2. **【記録の誤り】`brd-formula.py`の違いの記録(`docs/cli-migration-notes.md`の表と報告)に誤りがある。**
+   - 報告では純Python版の出力を`N379C254O76H67S6`と書いているが、実際の基準ファイルは`N67C254O76H379S6`。
+   - Rust版の実装の場所は`rust/crates/proteindf-bridge/src/core/atom_group.rs`ではなく`rust/crates/proteindf-bridge/src/atom_group.rs`(547行目の`get_formula`)。
+   - 「化学式表現として標準的な仕様」は誤り。化学式の標準的な書き方はHill方式(C、H、その後アルファベット順。1hlsなら`C254H379N67O76S6`)であり、Rust版の原子番号順はHill方式ではない。記録は「純Python版は出現順で入力によって変わる。Rust版は原子番号順で入力によらず決まる。どちらもHill方式ではない」と事実どおりに書き、分類は「意図した違い(決定的になった)」のままでよい。Hill方式にするかどうかは、コアの変更になるため本PRでは扱わない。
+3. **【記録】`brd-setup-bond.py`の出力`.brd`は、実行ごとにバイト列が変わる。** Claudeが同じ入力で3回実行したところ、3つとも`md5sum`が異なり、違いは鎖レベル(`/groups/model_1/groups/A/bonds`(21本)・`.../B/bonds`(29本))の結合リストの並び順だけだった。基準テストで結合リストを並べ替えて比べる対応は、テストとしては妥当。ただし原因はコアのクレート側にあり、本PRでは直さない(ルール3)。`docs/cli-migration-notes.md`に「既知の問題: `setup()`後の鎖レベルの結合の並び順が実行ごとに変わる。コアで対応する(別タスク)」と書く。報告にある原因の推測(`spatial.rs`の`HashMap`)は、確かめていないなら「未確認」と書く。
+
+### 完了の定義(修正後)
+
+1. 上記1〜3に対応し、同じブランチに追加コミットする。
+2. 全PR共通のルール5のテストが通る。
