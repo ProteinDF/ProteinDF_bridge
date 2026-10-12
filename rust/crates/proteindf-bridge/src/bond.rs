@@ -155,6 +155,8 @@ impl Bond {
             }
         });
 
+        bonds_to_add.sort_unstable();
+
         for (p, q) in bonds_to_add {
             mol.add_bond(&self.atoms[p], &self.atoms[q], 1);
         }

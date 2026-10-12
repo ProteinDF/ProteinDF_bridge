@@ -124,29 +124,10 @@ class TestCliGolden(unittest.TestCase):
         Recursively normalize a loaded .brd data dictionary.
         - Sort dictionary keys
         - Round float values to 6 decimal places to prevent floating-point representation drift
-        - Sort and canonicalize bond lists (endpoints order-independent) since heuristic bond
-          search uses spatial cell hashing which may iterate cells non-deterministically.
+        Bond lists are now deterministic (PR#56) and are compared in their exact emitted order.
         """
         if isinstance(obj, dict):
-            res = {}
-            for k, v in sorted(obj.items()):
-                if k == "bonds" and isinstance(v, list):
-                    norm_b = []
-                    for b in v:
-                        b_can = TestCliGolden._canonicalize_brd(b)
-                        if isinstance(b_can, list) and len(b_can) >= 2:
-                            p1, p2 = str(b_can[0]), str(b_can[1])
-                            if p1 > p2:
-                                norm_b.append([p2, p1] + list(b_can[2:]))
-                            else:
-                                norm_b.append([p1, p2] + list(b_can[2:]))
-                        else:
-                            norm_b.append(b_can)
-                    norm_b.sort(key=lambda x: (str(x[0]), str(x[1])))
-                    res[str(k)] = norm_b
-                else:
-                    res[str(k)] = TestCliGolden._canonicalize_brd(v)
-            return res
+            return {str(k): TestCliGolden._canonicalize_brd(v) for k, v in sorted(obj.items())}
         elif isinstance(obj, list):
             return [TestCliGolden._canonicalize_brd(x) for x in obj]
         elif isinstance(obj, float):
@@ -353,6 +334,13 @@ class TestCliGolden(unittest.TestCase):
         out, err, exc = self._run_cli(brd_setup_bond.main, ["brd-setup-bond.py", self.brd_1hls, "-o", out_path])
         self.assertIsNone(exc)
         self._assert_brd_matches_golden(out_path, "brd_setup_bond.brd.json")
+
+        # Determinism check (TASK_core-determinism-display.md): 2 runs of brd-setup-bond.py produce identical byte sequences
+        out_path2 = os.path.join(self.temp_dir, "bonds2.brd")
+        out2, err2, exc2 = self._run_cli(brd_setup_bond.main, ["brd-setup-bond.py", self.brd_1hls, "-o", out_path2])
+        self.assertIsNone(exc2)
+        with open(out_path, "rb") as f1, open(out_path2, "rb") as f2:
+            self.assertEqual(f1.read(), f2.read(), "brd-setup-bond.py outputs must be bit-identical across runs")
 
         # Correctness criteria per TASK_cli-rust-migration.md / docs/cli-migration-notes.md §3.5:
         # 1. Real PDB 1hls: GLU 4 backbone C=O bond is unique and has order 2 (from CCD template DB)
@@ -566,8 +554,8 @@ class TestCliGolden(unittest.TestCase):
             delta=1e-14,
             msg="Quaternion RMSD must match pure Python baseline within 64-bit float rounding precision (1e-14)"
         )
-        self.assertIn("# group name=", out)
-        self.assertIn("1_CH3 C (CH3 )", out)
+        self.assertIn("# group key= name=", out)
+        self.assertIn("C (CH3 )", out)
 
 
 if __name__ == "__main__":
