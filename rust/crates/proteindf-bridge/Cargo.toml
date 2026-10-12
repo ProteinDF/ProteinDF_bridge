@@ -19,6 +19,8 @@ log = "0.4"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 zstd = { workspace = true, optional = true }
 ruzstd = { workspace = true, optional = true }
+hdf5-metno = { workspace = true, optional = true }
+ndarray = { workspace = true, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 ruzstd = { workspace = true }
@@ -31,4 +33,7 @@ zstd = ["dep:zstd"]
 # exclusive with the `zstd` feature; select it with `--no-default-features
 # --features ruzstd`.
 ruzstd = ["dep:ruzstd"]
+# ProteinDF HDF5 reader feature (requires C toolchain & cmake to build libhdf5 statically).
+hdf5 = ["dep:hdf5-metno", "dep:ndarray"]
+
 
