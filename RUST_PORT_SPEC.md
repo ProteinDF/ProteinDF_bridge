@@ -76,7 +76,25 @@
 構造データ（本リポジトリ由来）とは別に、ProteinDFの計算結果（`pdfparam.h5`: 基底関数系・MO係数行列・軌道エネルギー・Mulliken電荷等のポピュレーション解析）を扱う姉妹プロジェクト **`ProteinDF_pytools`**（`orbinfo.py`, `matrix.py`/`vector.py`, `basisset.py`/`basis2.py`, `pdfparam_hdf5.py`, `poputils.py` 等）も `proteindf-bridge` に統合する。
 
 - HDF5読み込みは `hdf5-metno` クレート（オリジナルの `hdf5` crateは保守停止のため）を使用する。
-- モジュール: `qc_result/pdfparam_hdf5.rs`, `qc_result/basis_set.rs`, `qc_result/orbital_info.rs`, `qc_result/population.rs`。
+- モジュール: `qc_result/pdfparam_hdf5.rs`, `qc_result/types.rs` (`QcResult`, `QcMolecule`, `QcBasisSet`, `OrbitalInfo`, `OrbitalEnergy`, `MoCoefficients`, `MullikenPopulation` 等)。
+
+#### 実施内容 (2026-10-12完了、PR#60)
+
+1. **機能フラグとHDF5ビルド方式**:
+   - コアクレート (`rust/crates/proteindf-bridge`) にオプション機能 `hdf5` を新設し、既定では無効（wasm32およびPython wheelビルドへの影響なし）。
+   - 依存クレート `hdf5-metno` において、`static` 機能を有効化。システムに `libhdf5` が存在しない環境でも、CコンパイラとCMakeによりHDF5 Cライブラリをソースから静的ビルド・リンクする構成を採用した。
+2. **型と関数の新設 (`src/qc_result/`)**:
+   - `QcParameters`: ルート属性 (`method`, `xc_functional`, `num_of_atoms`, `num_of_AOs`, `num_of_MOs`, `iterations`, `scf_converged`, `step_control`, `guess`, `cut_value`, `CDAM_tau`, `CD_epsilon`, `scf_acceleration`, `damping_factor`, `comment`)。
+   - `QcMolecule` / `QcAtom`: `/molecule/xyzc` をパース。生座標をBohr単位で保持しつつ、`get_atomgroup()` により `BOHR_TO_ANGSTROM` を乗じてÅ単位の `AtomGroup` に変換可能。
+   - `QcBasisSet` / `QcCgto` / `QcPgto`: `/basisset/{name, cgto, pgto}` をパースし、各原子種のCGTOおよびPGTOパラメータを構造化。
+   - `OrbitalInfo` / `AtomicOrbital`: ProteinDF (`orbinfo.py` / `basisset.py`) と同一の規則に従い、原子順・CGTO順に基底関数を展開（s: 1, p: 3, d: 5, f: 7）。各AOの親原子インデックス、元素記号、殻種別、軌道成分名（`px`, `py`, `pz`, `dxy`, `dyz`, `dzx`, `dxx-yy`, `dzz` 等）を対応付け。
+   - `OrbitalEnergy`, `OrbitalOccupation`, `MoCoefficients`, `MullikenPopulation`: 軌道エネルギー、占有数、MO係数行列 $C$ ($N_{\text{AO}} \times N_{\text{MO}}$)、Mulliken原子電荷を保持。RKS (`"rks"`) および UKS (`"uks_alpha"`, `"uks_beta"`) の両方に対応し、最終反復または反復番号指定で参照可能。
+   - `SymmetricMatrix`: 対称行列（重なり行列 $S$、密度行列 $P$、Fock行列 $F$、ハミルトニアン $h$, $h_2$）。
+   - `PdfParamHdf5::load(path)`: ファイルを開き、全データをパースして `QcResult` コンテナを構築。存在しないデータセット（`N2_UHF` 等での欠損グループ）は `Option` や空リストとして安全に処理。
+3. **検証**:
+   - `tests/test_qc_hdf5.rs` において、`H2O_HF_reference.h5`、`Ne_HF_reference.h5`、`N2_UHF_reference.h5` の3フィクスチャを用いた回帰テストを実装。期待値はリポジトリ外の環境で `h5py` および `ProteinDF_pytools` を実行した実測値に基づいて決定。
+   - `reference.h5` に含まれない行列（`s`, `P`, `F`, `h`, `h2`）が安全に `None` / 空となること、欠損グループを持つUKSファイルがエラーなくパースされることを確認。
+
 
 ### 3.5 軌道別Mulliken寄与計算（`OrbitalContribution`）
 
