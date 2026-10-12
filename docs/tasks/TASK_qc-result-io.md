@@ -60,6 +60,14 @@
 
 1. 対象1〜5に対応している。コードの変更はない(テストデータの追加と文書のみ)。
 
+### 実施内容 (2026-10-12)
+
+1. **HDF5形式の調査**: `ProteinDF_test/serial_dev` の `reference.h5` を調査し、ルート属性・グループ・データセットの木構造、型、形を `docs/qc-result-format.md` にまとめた。
+2. **ProteinDF_pytoolsとの対応づけ**: `pdfparam_hdf5.py`, `matrix.py`, `vector.py`, `orbinfo.py`, `basisset.py` の実装と対応づけ、各データの所在（HDF5内 vs 外部バイナリファイル）およびバイナリ行列・ベクトルのフォーマット仕様を記載した。
+3. **Mulliken寄与計算の充足性判断**: MO係数行列 $C$ とAO-原子対応はそろうが、重なり行列 $S$ は `reference.h5` に含まれていない（不足）ことを突き止め、その根拠と理由を明記した。
+4. **PR#60・61の範囲の案**: HDF5読み込み機能（PR#60）および軌道別Mulliken寄与計算・S行列入力（PR#61）の設計案を提示した。
+5. **テストデータのコピー**: `H2O_HF_reference.h5`, `Ne_HF_reference.h5`, `N2_UHF_reference.h5` を `rust/crates/proteindf-bridge/tests/data/` に追加。コピー前に個人データがないことを確認済み。
+
 ## PR#58 レビュー結果(1回目、2026-10-12、要修正)
 
 `feature/cube-reader`(`19790cb`・`63bdb8b`・`1a2aad3`)をレビューした。CUBEの読み込みは仕様どおり(単位を格子点数の符号で判定し換算しない、原子数が負なら軌道番号の行を読み、格子点の値は軌道が最も内側に並ぶ形で軌道ごとに分ける、1行あたりの値の数を決め打ちしない、形式の誤りは行番号付きの`BridgeError`)。テストも分子軌道の並び(`1.0 2.0 1.1 2.1 ...`)を区別して確かめている。Pythonテスト一式242件、`cargo nextest`(`325 tests run: 325 passed, 2 skipped`)、clippy・fmtをClaudeが新しい環境で確認した。
