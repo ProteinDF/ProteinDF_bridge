@@ -211,3 +211,26 @@ PR#61のマージ後に詳細を書く。PR#61で作り直した`.h5`の`s`を�
 ## PR#61 完了(2026-10-12)
 
 修正コミット(`7bc65a7`)で修正依頼1〜6に対応済み。`P`・`F`が実行種別と反復を持つ`DensityMatrix`・`FockMatrix`になり、`get_density_matrix`・`get_fock_matrix`で取り出せること、`read_group_matrices`が読み込みの失敗と正方でない行列をエラーにすること、基準値をProteinDF_testの値と作り直した値に分けて書き、テストの期待値をProteinDF_testの値にしたこと、ダミー原子の合成テスト(`test_synthetic_dummy_atom_orbital_mapping`)をClaudeが確認した。Claudeが作り直した`.h5`で実データのテスト`4 tests run: 4 passed, 333 skipped`、機能`hdf5`ありで`333 tests run: 333 passed, 4 skipped`、なしで`325 tests run: 325 passed, 2 skipped`、Pythonテスト一式242件OK(新しい環境)。`--no-ff`でdevelopにマージした(`61c9903`)。マージ後のdevelopで`scripts/ci-local.sh all qc-data`が全ジョブ成功した。
+
+## PR#62: 軌道ごとのMulliken寄与(計画、ユーザー確認済み 2026-10-12)
+
+ブランチ: `feature/orbital-contribution`。`RUST_PORT_SPEC.md` §3.5。
+
+### 対象
+
+1. **計算**(`src/qc_result/population.rs`を新設):
+   - MO $i$ への原子 $A$ の寄与を $\sum_{\mu \in A} C_{\mu i} (SC)_{\mu i}$ とする(Mulliken gross population の軌道ごとの分割)。負の値もありうる。各軌道で全原子について足すと1になる。
+   - 出力は`OrbitalContribution { orbital_index, atom_contributions }`。`atom_contributions`は分子(`QcMolecule`)の原子の並び順にすべての原子を含め、原子の添字と寄与の組を持つ。基底関数のない原子(ダミー原子`X`)の寄与は0。
+   - 入力は、MO係数(`MoCoefficients`)、重なり行列S(`SymmetricMatrix`、引数で受け取る)、AOと原子の対応(`OrbitalInfo`)。次元が合わないときは`BridgeError`にする。Sをファイルにない場合にCから作り直す処理は作らない。
+   - 全軌道を計算する関数を用意する。軌道を選んで計算する関数が必要かどうかは、実装の手間を見て判断し、報告する(同じ機能の別名は作らない)。
+   - 数値は`f64`にする(`RUST_PORT_SPEC.md` §3.5の`f32`から変更。1e-8での答え合わせのため。表示側で必要なら変換する)。§3.5に変更の理由を追記する。
+2. **機能`hdf5`との分離**: 現在は`qc_result`全体が機能`hdf5`の中にある(`src/lib.rs` 32〜33行目・97行目付近)。型(`types.rs`)と計算(`population.rs`)は機能`hdf5`なしでも使えるようにし、HDF5の読み込み(`pdfparam_hdf5.rs`)だけを機能`hdf5`の中に残す。wasm32のcheck(既存の手順)で`population.rs`がビルドされることを確かめる。`types.rs`がHDF5に依存している部分があれば、読み込み側へ移す。
+3. **テスト**:
+   - 合成データ(CIで動く、機能`hdf5`なし): 手で計算できる小さな例(2原子・2AOなど)で、寄与の値と、軌道ごとの和が1になることを確かめる。期待値の計算をテストのコメントに書く。次元が合わない場合のエラーも確かめる。
+   - 実データ(`#[ignore]`、`PROTEINDF_BRIDGE_QC_DATA`、`scripts/ci-local.sh qc-data`で実行): 作り直した`CH3COOX_HF.h5`・`GLY.h5`の最終反復のRKSについて、(1)全軌道で寄与の和が1と1e-10以内で一致、(2)各原子について「`xyzc`の電荷の列の値 − Σ_i 占有数_i × 寄与_{iA}」が、ProteinDF_testの`pdfresults.std.h5`の`pop/mulliken/rks_{最終反復}`と1e-6以内で一致。期待値はリポジトリの外で`h5py`を使って`pdfresults.std.h5`から読み、全桁をテストに書き、どのファイルのどのデータセットから読んだかをコメントに書く(Claudeの確認では、CH3COOX_HFは`-0.44462725, 0.21815275, 0.17203644, 0.17315344, 0.57957603, -0.80335457, -0.89493684, 1.0`、GLYは`-0.45308302, 0.23025299, 0.19545874, -0.07892775, 0.11297073, 0.07262471, 0.47490416, -0.46885192, -0.3762826, 0.29093396`、小数点以下8桁)。
+4. Pythonのバインディングは作らない。`RUST_PORT_SPEC.md` §3.5に実施内容を追記する。
+
+### 完了の定義
+
+1. 対象1〜4に対応している。
+2. `scripts/ci-local.sh all qc-data`(`PROTEINDF_BRIDGE_QC_DATA`を設定)が全ジョブ成功する。実際の出力の最後の一覧と、nextestのSummaryの行を示す。
