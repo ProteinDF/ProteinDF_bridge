@@ -25,6 +25,11 @@ jobs:
         run: cargo clippy --workspace --all-targets --manifest-path rust/Cargo.toml -- -D warnings
       - name: Run tests
         run: cargo test --workspace --manifest-path rust/Cargo.toml
+      - name: Run clippy (with hdf5 feature)
+        run: cargo clippy --workspace --all-targets --manifest-path rust/Cargo.toml --features proteindf-bridge/hdf5 -- -D warnings
+      - name: Run tests (with hdf5 feature)
+        run: cargo test --workspace --manifest-path rust/Cargo.toml --features proteindf-bridge/hdf5
+
 
   wheel-test:
     name: Build & test wheel (Linux x86_64)

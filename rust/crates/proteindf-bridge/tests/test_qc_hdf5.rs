@@ -1,0 +1,691 @@
+// SPDX-FileCopyrightText: The ProteinDF development team
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+//! Tests for ProteinDF HDF5 reader (`qc_result::PdfParamHdf5`).
+//!
+//! Expected values were determined by inspecting the actual test fixtures
+//! (`rust/crates/proteindf-bridge/tests/data/*_reference.h5`) using `h5py` and
+//! `ProteinDF_pytools` (`PdfParam_H5`, `OrbInfo`, `basisset.py`) in an isolated
+//! temporary Python virtual environment outside the repository (`/tmp/.../vh5`).
+
+#![cfg(feature = "hdf5")]
+
+use std::path::PathBuf;
+
+use proteindf_bridge::qc_result::{PdfParamHdf5, RunType};
+use proteindf_bridge::BOHR_TO_ANGSTROM;
+
+fn fixture_path(filename: &str) -> PathBuf {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("tests");
+    path.push("data");
+    path.push(filename);
+    path
+}
+
+/// Tests reading `H2O_HF_reference.h5`:
+/// - RKS method, 3 atoms, 24 AOs, 24 MOs, 49 iterations, converged = true.
+/// - Molecule: O, H, H with coordinates in Bohr.
+/// - Basis set: O-DZVP2.H and O-DZVP2.O, 24 expanded AOs according to ProteinDF rules.
+/// - Molecular orbital coefficients, orbital energies, occupations, Mulliken charges.
+/// - Verifies optional fields not present in `reference.h5` (`s`, `P`, `F`, `h`, `h2`) are None / empty.
+#[test]
+fn test_h2o_hf_reference() {
+    let path = fixture_path("H2O_HF_reference.h5");
+    let result = PdfParamHdf5::load(&path).expect("failed to load H2O_HF_reference.h5");
+
+    // 1. Parameters (verified against root attributes in h5py)
+    assert_eq!(result.params.method, "rks");
+    assert_eq!(result.params.xc_functional, "HF");
+    assert_eq!(result.params.num_of_atoms, 3);
+    assert_eq!(result.params.num_of_aos, 24);
+    assert_eq!(result.params.num_of_mos, 24);
+    assert_eq!(result.params.iterations, 49);
+    assert_eq!(result.params.max_iterations, 100);
+    assert!(result.params.scf_converged);
+    assert_eq!(
+        result.params.step_control,
+        "create integral guess scf force"
+    );
+    assert_eq!(result.params.guess, "core");
+    assert_eq!(result.params.cut_value, "1.0e-10");
+    assert_eq!(result.params.cdam_tau, "1.0E-10");
+    assert_eq!(result.params.cd_epsilon, "1.0E-6");
+    assert_eq!(result.params.scf_acceleration, "damping");
+    assert_eq!(result.params.damping_factor, Some(0.67));
+
+    // 2. Molecule (verified against molecule/xyzc in h5py: O at origin, H at x=1.8897..., H at y=1.8897...)
+    assert_eq!(result.molecule.len(), 3);
+    let o = &result.molecule.atoms[0];
+    assert_eq!(o.symbol, "O");
+    assert_eq!(o.charge, 8.0);
+    assert_eq!(o.pos_bohr.x, 0.0);
+    assert_eq!(o.pos_bohr.y, 0.0);
+    assert_eq!(o.pos_bohr.z, 0.0);
+
+    let h1 = &result.molecule.atoms[1];
+    assert_eq!(h1.symbol, "H");
+    assert_eq!(h1.charge, 1.0);
+    assert!((h1.pos_bohr.x - 1.889_726_125_457_828_1).abs() < 1e-12);
+    assert_eq!(h1.pos_bohr.y, 0.0);
+    assert_eq!(h1.pos_bohr.z, 0.0);
+
+    let h2 = &result.molecule.atoms[2];
+    assert_eq!(h2.symbol, "H");
+    assert_eq!(h2.charge, 1.0);
+    assert_eq!(h2.pos_bohr.x, 0.0);
+    assert!((h2.pos_bohr.y - 1.889_726_125_457_828_1).abs() < 1e-12);
+    assert_eq!(h2.pos_bohr.z, 0.0);
+
+    // AtomGroup conversion: Bohr to Angstrom conversion check (1.8897261254578281 Bohr * BOHR_TO_ANGSTROM ≈ 1.0 Å)
+    let ag = result
+        .molecule
+        .get_atomgroup(Some("water"))
+        .expect("failed to convert to AtomGroup");
+    assert_eq!(ag.name, "water");
+    assert_eq!(ag.get_number_of_atoms(), 3);
+    let atom_h1 = ag.get_atom("1").expect("atom 1 not found");
+    assert!((atom_h1.xyz.x - 1.889_726_125_457_828_1 * BOHR_TO_ANGSTROM).abs() < 1e-10);
+    assert!((atom_h1.xyz.x - 1.0).abs() < 1e-5);
+
+    // 3. Basis set and OrbitalInfo (verified against ProteinDF OrbInfo rules: 24 AOs)
+    assert_eq!(result.basisset.definitions.len(), 2);
+    assert_eq!(result.orbital_info.num_of_aos, 24);
+    assert_eq!(result.orbital_info.len(), 24);
+
+    // Atom 0 (O): CGTOs: 3 s-shells (s), 2 p-shells (px,py,pz), 1 d-shell (dxy,dyz,dzx,dxx-yy,dzz) -> 3 + 6 + 5 = 14 AOs
+    assert_eq!(result.orbital_info.atom_id(0), Some(0));
+    assert_eq!(result.orbital_info.orbitals[0].shell_type, "s");
+    assert_eq!(result.orbital_info.orbitals[0].basis_type, "s");
+    assert_eq!(result.orbital_info.orbitals[3].shell_type, "p");
+    assert_eq!(result.orbital_info.orbitals[3].basis_type, "px");
+    assert_eq!(result.orbital_info.orbitals[4].basis_type, "py");
+    assert_eq!(result.orbital_info.orbitals[5].basis_type, "pz");
+    assert_eq!(result.orbital_info.orbitals[9].shell_type, "d");
+    assert_eq!(result.orbital_info.orbitals[9].basis_type, "dxy");
+    assert_eq!(result.orbital_info.orbitals[13].basis_type, "dzz");
+
+    // Atom 1 (H): CGTOs: 2 s-shells (s), 1 p-shell (px,py,pz) -> 2 + 3 = 5 AOs (AOs 14..18)
+    assert_eq!(result.orbital_info.atom_id(14), Some(1));
+    assert_eq!(result.orbital_info.orbitals[14].atom_symbol, "H");
+    assert_eq!(result.orbital_info.orbitals[14].shell_type, "s");
+    assert_eq!(result.orbital_info.orbitals[16].shell_type, "p");
+    assert_eq!(result.orbital_info.orbitals[16].basis_type, "px");
+
+    // Atom 2 (H): CGTOs: 2 s-shells, 1 p-shell -> 5 AOs (AOs 19..23)
+    assert_eq!(result.orbital_info.atom_id(19), Some(2));
+    assert_eq!(result.orbital_info.atom_id(23), Some(2));
+
+    // 4. Total energies across iterations (/TEs: length 49)
+    assert_eq!(result.total_energies.len(), 49);
+    assert!((result.total_energies[0] - (-60.633_567_801_727_23)).abs() < 1e-10);
+    assert!((result.total_energies[48] - (-76.032_302_389_239_29)).abs() < 1e-10);
+
+    // 5. MO coefficients (/C/rks_49: shape=(24, 24))
+    let c = result
+        .get_mo_coefficients(&RunType::Rks, Some(49))
+        .expect("missing MO coefficients for iteration 49");
+    assert_eq!(c.n_ao(), 24);
+    assert_eq!(c.n_mo(), 24);
+    assert_eq!(c.matrix.rows(), 24);
+    assert_eq!(c.matrix.cols(), 24);
+    assert_eq!(c.iteration, 49);
+    // C[0, 0] = 1.00053064, C[0, 1] = -0.228648715, C[1, 0] = -0.00684479965 (from h5py)
+    assert!((c.get(0, 0).unwrap() - 1.000_530_64).abs() < 1e-6);
+    assert!((c.get(0, 1).unwrap() - (-0.228_648_715)).abs() < 1e-6);
+    assert!((c.get(1, 0).unwrap() - (-0.006_844_799_65)).abs() < 1e-6);
+
+    let mo0 = c.mo_vector(0).expect("failed to extract MO 0 vector");
+    assert_eq!(mo0.len(), 24);
+    assert!((mo0[0] - 1.000_530_64).abs() < 1e-6);
+
+    // 6. Orbital energies (/energy_level: 49 iterations present, final iteration 49)
+    assert_eq!(result.orbital_energies.len(), 49);
+    let oe49 = result
+        .get_orbital_energy(&RunType::Rks, None)
+        .expect("missing final orbital energy");
+    assert_eq!(oe49.iteration, 49);
+    assert_eq!(oe49.len(), 24);
+    // Energy of orbital 0 (O 1s): -20.56028171 Hartree, HOMO (orb 4): -0.51133860 Hartree
+    assert!((oe49.energies[0] - (-20.560_281_71)).abs() < 1e-6);
+    assert!((oe49.energies[4] - (-0.511_338_60)).abs() < 1e-6);
+
+    // Check specific earlier iteration (e.g. iteration 1)
+    let oe1 = result
+        .get_orbital_energy(&RunType::Rks, Some(1))
+        .expect("missing iteration 1 orbital energy");
+    assert_eq!(oe1.iteration, 1);
+    assert!((oe1.energies[0] - (-17.120_732_02)).abs() < 1e-6);
+
+    // 7. Occupation (/occ/rks: 10 electrons in closed shell -> 5 doubly occupied orbitals)
+    let occ = result
+        .get_orbital_occupation(&RunType::Rks)
+        .expect("missing occupation for rks");
+    assert_eq!(occ.occupations.len(), 24);
+    for i in 0..5 {
+        assert_eq!(occ.occupations[i], 2.0);
+    }
+    for i in 5..24 {
+        assert_eq!(occ.occupations[i], 0.0);
+    }
+
+    // 8. Mulliken population (/pop/mulliken/rks_49: O=-0.59339845, H1=+0.29669921, H2=+0.29669924)
+    let pop = result
+        .get_mulliken_population(&RunType::Rks, None)
+        .expect("missing mulliken population");
+    assert_eq!(pop.iteration, 49);
+    assert_eq!(pop.charges.len(), 3);
+    assert!((pop.charges[0] - (-0.593_398_45)).abs() < 1e-6);
+    assert!((pop.charges[1] - 0.296_699_21).abs() < 1e-6);
+    assert!((pop.charges[2] - 0.296_699_24).abs() < 1e-6);
+
+    // 9. Verify optional matrices that are not in reference.h5 are None / empty
+    assert!(result.s_matrix.is_none());
+    assert!(result.density_matrices.is_empty());
+    assert!(result.fock_matrices.is_empty());
+    assert!(result.h_matrix.is_none());
+    assert!(result.h2_matrix.is_none());
+}
+
+/// Tests reading `Ne_HF_reference.h5`:
+/// - Single-atom system (1 atom, 14 AOs, 14 MOs, 30 iterations).
+/// - Net Mulliken charge on single neutral atom is 0.0.
+#[test]
+fn test_ne_hf_reference() {
+    let path = fixture_path("Ne_HF_reference.h5");
+    let result = PdfParamHdf5::load(&path).expect("failed to load Ne_HF_reference.h5");
+
+    assert_eq!(result.params.method, "rks");
+    assert_eq!(result.params.num_of_atoms, 1);
+    assert_eq!(result.params.num_of_aos, 14);
+    assert_eq!(result.params.num_of_mos, 14);
+    assert_eq!(result.params.iterations, 30);
+    assert!(result.params.scf_converged);
+
+    // Molecule
+    assert_eq!(result.molecule.len(), 1);
+    assert_eq!(result.molecule.atoms[0].symbol, "Ne");
+    assert_eq!(result.molecule.atoms[0].charge, 10.0);
+
+    // Orbital info: 14 AOs for single Ne
+    assert_eq!(result.orbital_info.len(), 14);
+    assert_eq!(result.orbital_info.atom_id(0), Some(0));
+    assert_eq!(result.orbital_info.atom_id(13), Some(0));
+
+    // MO coefficients: 14x14 matrix
+    let c = result
+        .get_mo_coefficients(&RunType::Rks, None)
+        .expect("missing MO coefficients");
+    assert_eq!(c.n_ao(), 14);
+    assert_eq!(c.n_mo(), 14);
+    assert_eq!(c.matrix.rows(), 14);
+    assert_eq!(c.matrix.cols(), 14);
+    assert_eq!(c.iteration, 30);
+    assert!((c.get(0, 0).unwrap() - 0.998_877_889).abs() < 1e-6);
+
+    // Orbital energy at iteration 30: 1s energy = -32.74420438 Hartree
+    let oe = result
+        .get_orbital_energy(&RunType::Rks, None)
+        .expect("missing orbital energy");
+    assert_eq!(oe.iteration, 30);
+    assert!((oe.energies[0] - (-32.744_204_38)).abs() < 1e-6);
+
+    // Mulliken charge: [0.0]
+    let pop = result
+        .get_mulliken_population(&RunType::Rks, None)
+        .expect("missing mulliken population");
+    assert_eq!(pop.charges.len(), 1);
+    assert_eq!(pop.charges[0], 0.0);
+
+    // Non-existent datasets
+    assert!(result.s_matrix.is_none());
+}
+
+/// Tests reading `N2_UHF_reference.h5`:
+/// - UKS method with missing groups (`C`, `energy_level`, `occ`, `pop` are absent in this minimal reference file).
+/// - Confirms defensive handling: loader successfully returns without error, missing fields are safely empty/None.
+#[test]
+fn test_n2_uhf_reference() {
+    let path = fixture_path("N2_UHF_reference.h5");
+    let result = PdfParamHdf5::load(&path).expect("failed to load N2_UHF_reference.h5");
+
+    assert_eq!(result.params.method, "uks");
+    assert_eq!(result.params.xc_functional, "HF");
+    assert_eq!(result.params.num_of_atoms, 2);
+    assert_eq!(result.params.num_of_aos, 28);
+    assert_eq!(result.params.num_of_mos, 28);
+    assert_eq!(result.params.iterations, 36);
+    assert!(result.params.scf_converged);
+
+    // 2 Nitrogen atoms: N at 0.0, N at 1.8897261254578281 Bohr
+    assert_eq!(result.molecule.len(), 2);
+    assert_eq!(result.molecule.atoms[0].symbol, "N");
+    assert_eq!(result.molecule.atoms[0].charge, 7.0);
+    assert_eq!(result.molecule.atoms[1].symbol, "N");
+    assert_eq!(result.molecule.atoms[1].charge, 7.0);
+
+    // Basis set: 28 AOs (14 AOs per N atom)
+    assert_eq!(result.orbital_info.len(), 28);
+    assert_eq!(result.orbital_info.atom_id(0), Some(0));
+    assert_eq!(result.orbital_info.atom_id(13), Some(0));
+    assert_eq!(result.orbital_info.atom_id(14), Some(1));
+    assert_eq!(result.orbital_info.atom_id(27), Some(1));
+
+    // TEs: 36 iterations
+    assert_eq!(result.total_energies.len(), 36);
+    assert!((result.total_energies[0] - (-91.423_143_074_964_59)).abs() < 1e-10);
+    assert!((result.total_energies[35] - (-108.925_183_195_859_99)).abs() < 1e-10);
+
+    // Absent groups in this file should be safely empty / None
+    assert!(result.mo_coefficients.is_empty());
+    assert!(result
+        .get_mo_coefficients(&RunType::UksAlpha, None)
+        .is_none());
+    assert!(result
+        .get_mo_coefficients(&RunType::UksBeta, None)
+        .is_none());
+    assert!(result.orbital_energies.is_empty());
+    assert!(result.orbital_occupations.is_empty());
+    assert!(result.mulliken_charges.is_empty());
+    assert!(result.s_matrix.is_none());
+    assert!(result.density_matrices.is_empty());
+    assert!(result.fock_matrices.is_empty());
+}
+
+// -----------------------------------------------------------------------------
+// Synthetic HDF5 fixtures for UKS, ROKS, and optional matrices (PR#60 Review Request 2)
+//
+// The datasets and attributes follow ProteinDF_pytools (`pdfparam_hdf5.py`):
+// - Matrix I/O `_set_matrix` (599-611行目): attributes `row`, `col`, `type` ("SY" or "GE")
+// - Vector I/O `_set_vector` (628-638行目): attribute `dim`
+// - Path generators (643-686行目):
+//   - `_get_h5path_occ` (643-645行目): "occ/{run_type}"
+//   - `_get_h5path_s` (647-649行目): "s"
+//   - `_get_h5path_h` (651-653行目): "h"
+//   - `_get_h5path_h2` (655-657行目): "h2"
+//   - `_get_h5path_c_matrix` (659-662行目): "C/{run_type}_{iteration}"
+//   - `_get_h5path_density_matrix` (664-667行目): "P/{run_type}_{iteration}"
+//   - `_get_h5path_f_matrix` (669-672行目): "F/{run_type}_{iteration}"
+//   - `_get_h5path_TEs` (674-676行目): "TEs"
+//   - `_get_h5path_energy_level` (678-681行目): "energy_level/{run_type}_{iteration}"
+//   - `_get_h5path_pop_mulliken_atom` (683-686行目): "pop/mulliken/{run_type}_{iteration}"
+// -----------------------------------------------------------------------------
+
+use hdf5_metno::types::FixedAscii;
+use std::path::Path;
+
+fn str_ascii<const N: usize>(s: &str) -> FixedAscii<N> {
+    FixedAscii::<N>::from_ascii(s).expect("valid ascii")
+}
+
+fn write_synthetic_qc_h5(
+    file_path: &Path,
+    method: &str,
+    asymmetric_s: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let file = hdf5_metno::File::create(file_path)?;
+
+    // 1. Root attributes
+    file.new_attr::<FixedAscii<32>>()
+        .create("method")?
+        .write_scalar(&str_ascii::<32>(method))?;
+    file.new_attr::<FixedAscii<32>>()
+        .create("xc_functional")?
+        .write_scalar(&str_ascii::<32>("B3LYP"))?;
+    file.new_attr::<i64>()
+        .create("num_of_atoms")?
+        .write_scalar(&2i64)?;
+    file.new_attr::<i64>()
+        .create("num_of_AOs")?
+        .write_scalar(&2i64)?;
+    file.new_attr::<i64>()
+        .create("num_of_MOs")?
+        .write_scalar(&2i64)?;
+    file.new_attr::<i64>()
+        .create("iterations")?
+        .write_scalar(&2i64)?;
+    file.new_attr::<bool>()
+        .create("scf_converged")?
+        .write_scalar(&true)?;
+
+    // 2. Molecule (/molecule/xyzc: 2 atoms, shape (2, 6))
+    let mol_data = vec![
+        str_ascii::<32>("H"),
+        str_ascii::<32>(""),
+        str_ascii::<32>("0.000000"),
+        str_ascii::<32>("0.000000"),
+        str_ascii::<32>("0.000000"),
+        str_ascii::<32>("1.000000"),
+        str_ascii::<32>("H"),
+        str_ascii::<32>(""),
+        str_ascii::<32>("0.000000"),
+        str_ascii::<32>("0.000000"),
+        str_ascii::<32>("1.400000"),
+        str_ascii::<32>("1.000000"),
+    ];
+    let mol_arr = ndarray::Array2::from_shape_vec((2, 6), mol_data)?;
+    file.new_dataset_builder()
+        .with_data(&mol_arr)
+        .create("molecule/xyzc")?;
+
+    // 3. Basis set (/basisset/{name, cgto, pgto})
+    let name_data = vec![str_ascii::<32>("H-basis"), str_ascii::<32>("H")];
+    let name_arr = ndarray::Array2::from_shape_vec((1, 2), name_data)?;
+    file.new_dataset_builder()
+        .with_data(&name_arr)
+        .create("basisset/name")?;
+
+    let cgto_data = vec![
+        str_ascii::<32>("H-basis"),
+        str_ascii::<32>("0"),
+        str_ascii::<32>("s"),
+        str_ascii::<32>("1.0"),
+    ];
+    let cgto_arr = ndarray::Array2::from_shape_vec((1, 4), cgto_data)?;
+    file.new_dataset_builder()
+        .with_data(&cgto_arr)
+        .create("basisset/cgto")?;
+
+    let pgto_data = vec![
+        str_ascii::<32>("H-basis"),
+        str_ascii::<32>("0"),
+        str_ascii::<32>("0"),
+        str_ascii::<32>("1.0"),
+        str_ascii::<32>("1.0"),
+    ];
+    let pgto_arr = ndarray::Array2::from_shape_vec((1, 5), pgto_data)?;
+    file.new_dataset_builder()
+        .with_data(&pgto_arr)
+        .create("basisset/pgto")?;
+
+    // 4. Total energies (/TEs)
+    let tes_arr = ndarray::Array1::from(vec![-1.10, -1.15]);
+    let ds_tes = file
+        .new_dataset_builder()
+        .with_data(&tes_arr)
+        .create("TEs")?;
+    ds_tes
+        .new_attr::<i64>()
+        .create("dim")?
+        .write_scalar(&2i64)?;
+
+    // Helper closure to write a 2D matrix with pdfparam_hdf5 attributes (_set_matrix 599-611行目)
+    let write_mat =
+        |path: &str, mat_type: &str, data: Vec<f64>| -> Result<(), Box<dyn std::error::Error>> {
+            let arr = ndarray::Array2::from_shape_vec((2, 2), data)?;
+            let ds = file.new_dataset_builder().with_data(&arr).create(path)?;
+            ds.new_attr::<i64>().create("row")?.write_scalar(&2i64)?;
+            ds.new_attr::<i64>().create("col")?.write_scalar(&2i64)?;
+            ds.new_attr::<FixedAscii<32>>()
+                .create("type")?
+                .write_scalar(&str_ascii::<32>(mat_type))?;
+            Ok(())
+        };
+
+    // Helper closure to write a 1D vector with pdfparam_hdf5 attributes (_set_vector 628-638行目)
+    let write_vec = |path: &str, data: Vec<f64>| -> Result<(), Box<dyn std::error::Error>> {
+        let len = data.len() as i64;
+        let arr = ndarray::Array1::from(data);
+        let ds = file.new_dataset_builder().with_data(&arr).create(path)?;
+        ds.new_attr::<i64>().create("dim")?.write_scalar(&len)?;
+        Ok(())
+    };
+
+    // 5. Symmetric matrices (s, h, h2)
+    let s_data = if asymmetric_s {
+        // Asymmetric matrix: element (0, 1) = 0.5 != element (1, 0) = 0.2
+        vec![1.0, 0.5, 0.2, 1.0]
+    } else {
+        // Symmetric matrix
+        vec![1.0, 0.2, 0.2, 1.0]
+    };
+    write_mat("s", "SY", s_data)?;
+    write_mat("h", "SY", vec![-1.2, -0.3, -0.3, -1.2])?;
+    write_mat("h2", "SY", vec![0.5, 0.1, 0.1, 0.5])?;
+
+    // 6. Spin-specific orbital datasets
+    let run_types = match method {
+        "uks" => vec!["uks_alpha", "uks_beta"],
+        "roks" => vec!["roks_close", "roks_open"],
+        _ => vec!["rks"],
+    };
+
+    for (idx, rt) in run_types.iter().enumerate() {
+        // Different values for each spin component (alpha vs beta, close vs open)
+        let delta = idx as f64 * 0.1;
+
+        // C matrix: path "C/{run_type}_2" (_get_h5path_c_matrix 659-662行目)
+        let c_data = vec![1.0 - delta, 0.0 + delta, 0.0 + delta, 1.0 - delta];
+        write_mat(&format!("C/{}_{}", rt, 2), "GE", c_data)?;
+
+        // Energy levels: path "energy_level/{run_type}_2" (_get_h5path_energy_level 678-681行目)
+        let oe_data = vec![-0.50 + delta, 0.20 + delta];
+        write_vec(&format!("energy_level/{}_{}", rt, 2), oe_data)?;
+
+        // Occupations: path "occ/{run_type}" (_get_h5path_occ 643-645行目)
+        let occ_data = if idx == 0 {
+            vec![1.0, 0.0]
+        } else {
+            vec![0.0, 0.0]
+        };
+        write_vec(&format!("occ/{}", rt), occ_data)?;
+
+        // Mulliken charges: path "pop/mulliken/{run_type}_2" (_get_h5path_pop_mulliken_atom 683-686行目)
+        let pop_data = vec![0.50 - delta, 0.50 + delta];
+        write_vec(&format!("pop/mulliken/{}_{}", rt, 2), pop_data)?;
+
+        // P matrix: path "P/{run_type}_2" (_get_h5path_density_matrix 664-667行目)
+        let p_data = vec![1.0 - delta, 0.0, 0.0, delta];
+        write_mat(&format!("P/{}_{}", rt, 2), "SY", p_data)?;
+
+        // F matrix: path "F/{run_type}_2" (_get_h5path_f_matrix 669-672行目)
+        let f_data = vec![-0.50 + delta, 0.05, 0.05, 0.20 + delta];
+        write_mat(&format!("F/{}_{}", rt, 2), "SY", f_data)?;
+    }
+
+    Ok(())
+}
+
+/// Tests UKS orbital data and optional matrices (`s`, `P`, `F`, `h`, `h2`) from a synthetic HDF5 file.
+///
+/// Verifies:
+/// - UKS alpha and beta spin components have different coefficients, energies, occupations, charges.
+/// - Top-level symmetric matrices `s`, `h`, `h2` are successfully read as `SymmetricMatrix`.
+/// - Group-level symmetric matrices `P` and `F` are successfully read.
+/// - Format follows ProteinDF `pdfparam_hdf5.py` (_get_h5path_* 643-686行目, _set_matrix 599-611行目).
+#[test]
+fn test_synthetic_uks_hdf5() {
+    let tmp_dir = std::env::temp_dir().join(format!("test_qc_hdf5_uks_{}", std::process::id()));
+    std::fs::create_dir_all(&tmp_dir).expect("failed to create temp dir");
+    let h5_path = tmp_dir.join("synthetic_uks.h5");
+
+    write_synthetic_qc_h5(&h5_path, "uks", false).expect("failed to write synthetic UKS HDF5");
+
+    let result = PdfParamHdf5::load(&h5_path).expect("failed to load synthetic UKS HDF5");
+
+    // 1. Root parameters
+    assert_eq!(result.params.method, "uks");
+    assert_eq!(result.params.xc_functional, "B3LYP");
+    assert_eq!(result.params.num_of_atoms, 2);
+    assert_eq!(result.params.num_of_aos, 2);
+    assert_eq!(result.params.num_of_mos, 2);
+    assert_eq!(result.params.iterations, 2);
+    assert!(result.params.scf_converged);
+
+    // 2. Symmetric matrices (s, h, h2)
+    let s = result
+        .s_matrix
+        .as_ref()
+        .expect("s_matrix should be present");
+    assert_eq!(s.dim(), 2);
+    assert!((s.get(0, 0).unwrap() - 1.0).abs() < 1e-10);
+    assert!((s.get(0, 1).unwrap() - 0.2).abs() < 1e-10);
+    assert!((s.get(1, 0).unwrap() - 0.2).abs() < 1e-10);
+
+    let h = result
+        .h_matrix
+        .as_ref()
+        .expect("h_matrix should be present");
+    assert_eq!(h.dim(), 2);
+    assert!((h.get(0, 0).unwrap() - (-1.2)).abs() < 1e-10);
+    assert!((h.get(0, 1).unwrap() - (-0.3)).abs() < 1e-10);
+
+    let h2 = result
+        .h2_matrix
+        .as_ref()
+        .expect("h2_matrix should be present");
+    assert_eq!(h2.dim(), 2);
+    assert!((h2.get(0, 0).unwrap() - 0.5).abs() < 1e-10);
+    assert!((h2.get(0, 1).unwrap() - 0.1).abs() < 1e-10);
+
+    // 3. Group-level matrices (P, F)
+    assert_eq!(result.density_matrices.len(), 2);
+    assert_eq!(result.fock_matrices.len(), 2);
+
+    // 4. UKS MO coefficients: alpha vs beta must have distinct values
+    let c_alpha = result
+        .get_mo_coefficients(&RunType::UksAlpha, Some(2))
+        .expect("missing UKS alpha MO coefficients");
+    let c_beta = result
+        .get_mo_coefficients(&RunType::UksBeta, Some(2))
+        .expect("missing UKS beta MO coefficients");
+    assert_eq!(c_alpha.n_ao(), 2);
+    assert_eq!(c_alpha.n_mo(), 2);
+    assert_eq!(c_beta.n_ao(), 2);
+    assert_eq!(c_beta.n_mo(), 2);
+
+    // Alpha C[0, 0] = 1.0, Beta C[0, 0] = 0.9 (distinct!)
+    assert!((c_alpha.get(0, 0).unwrap() - 1.0).abs() < 1e-10);
+    assert!((c_beta.get(0, 0).unwrap() - 0.9).abs() < 1e-10);
+    assert_ne!(c_alpha.get(0, 0).unwrap(), c_beta.get(0, 0).unwrap());
+
+    // 5. UKS Orbital energies: alpha vs beta must have distinct values
+    let oe_alpha = result
+        .get_orbital_energy(&RunType::UksAlpha, Some(2))
+        .expect("missing UKS alpha orbital energy");
+    let oe_beta = result
+        .get_orbital_energy(&RunType::UksBeta, Some(2))
+        .expect("missing UKS beta orbital energy");
+    assert!((oe_alpha.energies[0] - (-0.50)).abs() < 1e-10);
+    assert!((oe_beta.energies[0] - (-0.40)).abs() < 1e-10);
+    assert_ne!(oe_alpha.energies[0], oe_beta.energies[0]);
+
+    // 6. UKS Orbital occupations: alpha vs beta must have distinct values
+    let occ_alpha = result
+        .get_orbital_occupation(&RunType::UksAlpha)
+        .expect("missing UKS alpha occupation");
+    let occ_beta = result
+        .get_orbital_occupation(&RunType::UksBeta)
+        .expect("missing UKS beta occupation");
+    assert_eq!(occ_alpha.occupations[0], 1.0);
+    assert_eq!(occ_beta.occupations[0], 0.0);
+    assert_ne!(occ_alpha.occupations[0], occ_beta.occupations[0]);
+
+    // 7. UKS Mulliken populations: alpha vs beta must have distinct values
+    let pop_alpha = result
+        .get_mulliken_population(&RunType::UksAlpha, Some(2))
+        .expect("missing UKS alpha Mulliken population");
+    let pop_beta = result
+        .get_mulliken_population(&RunType::UksBeta, Some(2))
+        .expect("missing UKS beta Mulliken population");
+    assert!((pop_alpha.charges[0] - 0.50).abs() < 1e-10);
+    assert!((pop_beta.charges[0] - 0.40).abs() < 1e-10);
+    assert_ne!(pop_alpha.charges[0], pop_beta.charges[0]);
+
+    // Cleanup
+    let _ = std::fs::remove_dir_all(&tmp_dir);
+}
+
+/// Tests ROKS orbital data reading from a synthetic HDF5 file.
+///
+/// Verifies:
+/// - ROKS closed-shell (`roks_close`) and open-shell (`roks_open`) run types are supported.
+/// - MO coefficients, energies, occupations, and Mulliken charges are correctly read.
+/// - Format follows ProteinDF `pdfparam_hdf5.py` (_get_h5path_* 643-686行目).
+#[test]
+fn test_synthetic_roks_hdf5() {
+    let tmp_dir = std::env::temp_dir().join(format!("test_qc_hdf5_roks_{}", std::process::id()));
+    std::fs::create_dir_all(&tmp_dir).expect("failed to create temp dir");
+    let h5_path = tmp_dir.join("synthetic_roks.h5");
+
+    write_synthetic_qc_h5(&h5_path, "roks", false).expect("failed to write synthetic ROKS HDF5");
+
+    let result = PdfParamHdf5::load(&h5_path).expect("failed to load synthetic ROKS HDF5");
+
+    assert_eq!(result.params.method, "roks");
+
+    // 1. ROKS MO coefficients (roks_close and roks_open)
+    let c_close = result
+        .get_mo_coefficients(&RunType::RoksClose, Some(2))
+        .expect("missing ROKS close MO coefficients");
+    let c_open = result
+        .get_mo_coefficients(&RunType::RoksOpen, Some(2))
+        .expect("missing ROKS open MO coefficients");
+    assert_eq!(c_close.n_ao(), 2);
+    assert_eq!(c_open.n_ao(), 2);
+    assert!((c_close.get(0, 0).unwrap() - 1.0).abs() < 1e-10);
+    assert!((c_open.get(0, 0).unwrap() - 0.9).abs() < 1e-10);
+
+    // 2. ROKS orbital energies
+    let oe_close = result
+        .get_orbital_energy(&RunType::RoksClose, Some(2))
+        .expect("missing ROKS close orbital energy");
+    let oe_open = result
+        .get_orbital_energy(&RunType::RoksOpen, Some(2))
+        .expect("missing ROKS open orbital energy");
+    assert!((oe_close.energies[0] - (-0.50)).abs() < 1e-10);
+    assert!((oe_open.energies[0] - (-0.40)).abs() < 1e-10);
+
+    // 3. ROKS occupations
+    let occ_close = result
+        .get_orbital_occupation(&RunType::RoksClose)
+        .expect("missing ROKS close occupation");
+    let occ_open = result
+        .get_orbital_occupation(&RunType::RoksOpen)
+        .expect("missing ROKS open occupation");
+    assert_eq!(occ_close.occupations[0], 1.0);
+    assert_eq!(occ_open.occupations[0], 0.0);
+
+    // 4. ROKS Mulliken population
+    let pop_close = result
+        .get_mulliken_population(&RunType::RoksClose, Some(2))
+        .expect("missing ROKS close Mulliken population");
+    let pop_open = result
+        .get_mulliken_population(&RunType::RoksOpen, Some(2))
+        .expect("missing ROKS open Mulliken population");
+    assert!((pop_close.charges[0] - 0.50).abs() < 1e-10);
+    assert!((pop_open.charges[0] - 0.40).abs() < 1e-10);
+
+    // Cleanup
+    let _ = std::fs::remove_dir_all(&tmp_dir);
+}
+
+/// Tests that reading a non-symmetric matrix in HDF5 (`s` dataset) triggers a `BridgeError`.
+///
+/// Verifies the symmetry validation decision from Review Request 1:
+/// Full $N \times N$ symmetric matrix datasets must satisfy $|A_{rc} - A_{cr}| \le 10^{-8}$.
+/// If non-symmetric data is encountered, loading fails with a [`BridgeError`].
+#[test]
+fn test_synthetic_asymmetric_s_matrix_error() {
+    let tmp_dir = std::env::temp_dir().join(format!("test_qc_hdf5_asymm_{}", std::process::id()));
+    std::fs::create_dir_all(&tmp_dir).expect("failed to create temp dir");
+    let h5_path = tmp_dir.join("synthetic_asymm.h5");
+
+    // Write with asymmetric_s = true (element (0, 1) = 0.5, element (1, 0) = 0.2, diff = 0.3)
+    write_synthetic_qc_h5(&h5_path, "rks", true)
+        .expect("failed to write synthetic HDF5 with asymmetric S");
+
+    let err = PdfParamHdf5::load(&h5_path).expect_err("loading asymmetric matrix must fail");
+    let err_msg = err.to_string();
+    assert!(
+        err_msg.contains("not symmetric"),
+        "error message must mention symmetry failure: {err_msg}"
+    );
+    assert!(
+        err_msg.contains("matrix 's'"),
+        "error message must specify matrix 's': {err_msg}"
+    );
+
+    // Cleanup
+    let _ = std::fs::remove_dir_all(&tmp_dir);
+}
