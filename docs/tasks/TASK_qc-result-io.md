@@ -132,3 +132,17 @@
 ## PR#61: 軌道ごとのMulliken寄与(予定)
 
 ユーザーが用意する、`s`を含む多原子分子の`pdfresults.h5`を受け取ってから始める。答え合わせは、(1)各軌道の寄与の原子についての和が1、(2)占有軌道の寄与を占有数で重み付けした和が、ファイル内の`P`と`s`から計算した原子ごとのMulliken gross populationと一致、(3)`pop/mulliken`があればそれとも一致、で行う。
+
+## PR#60 レビュー結果(1回目、2026-10-12、要修正)
+
+`feature/qc-hdf5-reader`(`0aaa323`〜`1b8dc14`の5コミット)をレビューした。機能`hdf5`は既定で無効、`hdf5-metno`の`static`機能でHDF5をソースからビルドする選択(ローカルにlibhdf5がなく、CIでも追加パッケージが不要)は妥当。AOの展開順(`s`、`px py pz`、`dxy dyz dzx dxx-yy dzz`)はProteinDF_pytoolsの`basisset.py` 156行目と、実行種別の名前(`rks`、`uks_alpha`/`uks_beta`、`roks_close`/`roks_open`)は`pdfparam_object.py` 62〜67行目と一致することをClaudeが確認した。`cargo nextest`(機能`hdf5`あり: `328 tests run: 328 passed, 2 skipped`)、機能ありのclippy、wasm32のcheck、Pythonテスト一式242件をClaudeが確認した。
+
+### 修正依頼
+
+1. **【重複する型】`src/qc_result/types.rs`に独自の`SymmetricMatrix`(全要素を持つ行優先の`Vec<f64>`)を定義しているが、コアには既に`crate::matrix::SymmetricMatrix`(`src/matrix.rs` 516行目)と`crate::matrix::Matrix`がある。** 同じ名前の別の型が公開APIに2つあると、利用者が取り違える。S・P・F・h・h2は`crate::matrix::SymmetricMatrix`、MO係数は`crate::matrix::Matrix`(または`Matrix`を内部に持つ型)で表す。HDF5のデータセットが全要素(N×N)で格納されていることは、読み込み時に対称性を確かめる(許容誤差を決めて、外れたら`BridgeError`)か、下三角だけを使うかを決めて、ドキュメントコメントに書く。
+2. **【テスト不足】UKS・ROKSの軌道データ(MO係数・軌道エネルギー・占有数・Mulliken電荷)と、`s`・`P`・`F`・`h`・`h2`の読み込みが、一度もテストで通っていない。** テストデータ3ファイルのうち、`N2_UHF_reference.h5`には軌道データがなく、どのファイルにも`s`などがない。テストの中で、`hdf5-metno`を使って一時ディレクトリに小さなHDF5を書き、読み込みを確かめる。書くデータの木構造(データセットの名前、`C/uks_alpha_{反復}`などのパス、`s`などの属性`type`・`row`・`col`)は、ProteinDF_pytoolsの`pdfparam_hdf5.py`の`_get_h5path_*`(643〜690行目付近)と`_set_matrix`の書き方に合わせ、テストのコメントに該当行を書く。UKS(α・βで値が違うこと)、ROKS、`s`ありで対称でない値を入れた場合(修正依頼1で決めた扱い)を確かめる。実際の計算結果での確認は、PR#61でユーザーが用意するファイルで行う。
+
+### 完了の定義(修正後)
+
+1. 上記1・2に対応し、同じブランチに追加コミットする。
+2. 完了の定義2(PR#60)のテストが通る。
