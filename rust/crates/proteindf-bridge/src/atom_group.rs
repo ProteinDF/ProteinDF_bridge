@@ -42,7 +42,6 @@ use indexmap::IndexMap;
 use crate::atom::Atom;
 use crate::error::Result;
 use crate::matrix::Matrix;
-use crate::periodic_table::PeriodicTable;
 use crate::position::Position;
 use crate::secondary_structure::SsCode;
 
@@ -543,21 +542,76 @@ impl AtomGroup {
         counts
     }
 
-    /// Returns the molecular formula (Hill system ordering: H, C, then others by atomic number).
+    /// Returns the molecular formula using the Hill system.
+    ///
+    /// # Rules (Hill system)
+    /// 1. If Carbon (C) is present: `C` first, then `H` (if present), followed by
+    ///    all other elements in alphabetical order of their chemical symbols.
+    /// 2. If Carbon is not present: all elements (including `H`) in alphabetical
+    ///    order of their chemical symbols.
+    /// 3. If the count of an element is 1, the number is omitted (e.g. `CH4`, `NaCl`, `H2O`).
+    /// 4. Unknown/dummy atoms (`X`) are appended at the very end as `X{count}` (or `X` if count is 1).
+    /// 5. If there are no atoms, returns an empty string `""`.
+    /// 6. Alphabetical ordering is based on standard ASCII/string ordering of the
+    ///    element symbols (e.g. `Cl` < `Na` < `O`).
     pub fn get_formula(&self) -> String {
         let kinds = self.get_atom_kinds_count();
-        let mut formula = String::new();
+        if kinds.is_empty() {
+            return String::new();
+        }
 
-        let num_elements = PeriodicTable::get_num_of_atoms();
-        for atomic_num in 1..num_elements {
-            if let Ok(symbol) = PeriodicTable::get_symbol(atomic_num) {
-                if let Some(&count) = kinds.get(symbol) {
-                    formula.push_str(&format!("{}{}", symbol, count));
+        let mut formula = String::new();
+        let append_element = |out: &mut String, sym: &str, count: usize| {
+            out.push_str(sym);
+            if count > 1 {
+                out.push_str(&count.to_string());
+            }
+        };
+
+        let has_c = kinds.get("C").copied().unwrap_or(0) > 0;
+        let x_count = kinds.get("X").copied().unwrap_or(0);
+
+        if has_c {
+            let c_count = kinds["C"];
+            append_element(&mut formula, "C", c_count);
+
+            if let Some(&h_count) = kinds.get("H") {
+                if h_count > 0 {
+                    append_element(&mut formula, "H", h_count);
+                }
+            }
+
+            let mut others: Vec<&str> = kinds
+                .keys()
+                .map(|s| s.as_str())
+                .filter(|&sym| sym != "C" && sym != "H" && sym != "X")
+                .collect();
+            others.sort_unstable();
+
+            for sym in others {
+                let cnt = kinds[sym];
+                if cnt > 0 {
+                    append_element(&mut formula, sym, cnt);
+                }
+            }
+        } else {
+            let mut others: Vec<&str> = kinds
+                .keys()
+                .map(|s| s.as_str())
+                .filter(|&sym| sym != "X")
+                .collect();
+            others.sort_unstable();
+
+            for sym in others {
+                let cnt = kinds[sym];
+                if cnt > 0 {
+                    append_element(&mut formula, sym, cnt);
                 }
             }
         }
-        if let Some(&count) = kinds.get("X") {
-            formula.push_str(&format!("X{}", count));
+
+        if x_count > 0 {
+            append_element(&mut formula, "X", x_count);
         }
 
         formula
@@ -1661,7 +1715,58 @@ mod tests {
         group1.set_group("grp", subgrp);
 
         let formula = group1.get_formula();
-        assert_eq!(formula, "H2C1");
+        assert_eq!(formula, "CH2");
+    }
+
+    #[test]
+    fn test_get_formula_hill_rules() {
+        // 1. Empty group
+        let empty = AtomGroup::new();
+        assert_eq!(empty.get_formula(), "");
+
+        // Helper closure to create AtomGroup from symbols
+        let make_group = |symbols: &[&str]| {
+            let mut group = AtomGroup::new();
+            for (i, sym) in symbols.iter().enumerate() {
+                group.set_atom(&format!("atom_{}", i), Atom::from_symbol(sym).unwrap());
+            }
+            group
+        };
+
+        // 2. Carbon-containing with Hydrogen and others (single count omitted)
+        // Methane: CH4
+        assert_eq!(make_group(&["C", "H", "H", "H", "H"]).get_formula(), "CH4");
+
+        // Ethanol: C2H6O (C first, then H, then O; O count 1 omitted)
+        assert_eq!(
+            make_group(&["C", "C", "H", "H", "H", "H", "H", "H", "O"]).get_formula(),
+            "C2H6O"
+        );
+
+        // Carbon-containing without Hydrogen: CO2
+        assert_eq!(make_group(&["C", "O", "O"]).get_formula(), "CO2");
+
+        // 3. Non-carbon containing (all alphabetical, H not special)
+        // Water: H2O (H < O)
+        assert_eq!(make_group(&["H", "H", "O"]).get_formula(), "H2O");
+
+        // Sodium Chloride: ClNa (Cl < Na, both counts omitted)
+        assert_eq!(make_group(&["Na", "Cl"]).get_formula(), "ClNa");
+
+        // Ammonia: H3N (H < N)
+        assert_eq!(make_group(&["N", "H", "H", "H"]).get_formula(), "H3N");
+
+        // 4. Dummy/unknown element X: always at the end
+        // Single X
+        assert_eq!(make_group(&["X"]).get_formula(), "X");
+        // Multiple X
+        assert_eq!(make_group(&["X", "X"]).get_formula(), "X2");
+        // Carbon with X: CX
+        assert_eq!(make_group(&["C", "X"]).get_formula(), "CX");
+        // Carbon with multiple X: CX2
+        assert_eq!(make_group(&["C", "X", "X"]).get_formula(), "CX2");
+        // Non-carbon with X: H2OX
+        assert_eq!(make_group(&["H", "H", "O", "X"]).get_formula(), "H2OX");
     }
 
     #[test]
