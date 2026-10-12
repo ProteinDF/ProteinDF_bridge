@@ -56,3 +56,7 @@
 
 1. 上記1〜6に対応し、同じブランチに追加コミットする。
 2. 完了の定義2〜3(PR#63)を、修正後のスクリプトで改めて示す。修正依頼1のテストで`FAILED`になる実際の出力を示す。
+
+## PR#63 完了(2026-10-12)
+
+修正コミット(`c18be9f`)で修正依頼1〜6に対応済み。各ジョブを`set -e`を有効にしたサブシェルで実行し、途中のコマンドの失敗で`FAILED`・終了コード1になること(リポジトリの外のコピーで書式を崩して確認)、全ジョブの実行の前後で`git status --porcelain --ignored`にファイルが増えないことをClaudeが確認した。worktreeにできる`.venv/`は、ユーザーのmiseの設定(`python.uv_venv_auto`)によるもので、スクリプトとは関係ない。sdistの最初に出る``error: manifest path `Cargo.toml` does not exist``は、その直後に`pyproject.toml`の`manifest-path`でビルドが進み、インストールとテストが通るため害はない。`--no-ff`でdevelopにマージした(`6531714`)。マージ後のdevelopで`scripts/ci-local.sh all qc-data`が全ジョブ成功した。

@@ -207,3 +207,7 @@ PR#61のマージ後に詳細を書く。PR#61で作り直した`.h5`の`s`を�
 
 1. 上記1〜6に対応し、同じブランチに追加コミットする。
 2. 完了の定義2・3(PR#61)を改めて示す。
+
+## PR#61 完了(2026-10-12)
+
+修正コミット(`7bc65a7`)で修正依頼1〜6に対応済み。`P`・`F`が実行種別と反復を持つ`DensityMatrix`・`FockMatrix`になり、`get_density_matrix`・`get_fock_matrix`で取り出せること、`read_group_matrices`が読み込みの失敗と正方でない行列をエラーにすること、基準値をProteinDF_testの値と作り直した値に分けて書き、テストの期待値をProteinDF_testの値にしたこと、ダミー原子の合成テスト(`test_synthetic_dummy_atom_orbital_mapping`)をClaudeが確認した。Claudeが作り直した`.h5`で実データのテスト`4 tests run: 4 passed, 333 skipped`、機能`hdf5`ありで`333 tests run: 333 passed, 4 skipped`、なしで`325 tests run: 325 passed, 2 skipped`、Pythonテスト一式242件OK(新しい環境)。`--no-ff`でdevelopにマージした(`61c9903`)。マージ後のdevelopで`scripts/ci-local.sh all qc-data`が全ジョブ成功した。
