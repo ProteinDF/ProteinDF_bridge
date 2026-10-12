@@ -189,3 +189,21 @@ PR#61の検証データは、ユーザーが用意する結果ファイルでは
 ## PR#62: 軌道ごとのMulliken寄与(予定)
 
 PR#61のマージ後に詳細を書く。PR#61で作り直した`.h5`の`s`を使い、(1)各軌道の寄与の原子についての和が1、(2)占有数で重み付けした和を`xyzc`の電荷の列から引いた値が、ProteinDF_testの`pdfresults.std.h5`の`pop/mulliken`と一致、を確かめる。
+
+## PR#61 レビュー結果(1回目、2026-10-12、要修正)
+
+`feature/qc-regen-testdata`(`79c32a1`・`7bac411`・`36e3de0`)をレビューした。SY行列の読み方(下三角から作り、上三角がすべて0なら下三角だけの格納として受け入れ、0でない値があれば許容誤差で照合)は計画どおり。根拠の行番号(`pdfparam_hdf5.py` 605行目の`data=matrix.data`、純Python版`matrix.py`の`SymmetricMatrix.set`)をClaudeが確認した。Claudeが`regenerate.sh`でリポジトリの外に2つの`.h5`を作り直し、実データのテスト(`4 tests run: 4 passed, 332 skipped`)、機能`hdf5`ありの`332 tests run: 332 passed, 4 skipped`、なしの`325 tests run: 325 passed, 2 skipped`、clippy(機能あり)・fmt・wasm32のcheckが通ることを確認した。追加したファイルにローカルのパスは含まれていない。
+
+### 修正依頼
+
+1. **【どの反復の行列か分からない】`QcResult`の`density_matrices`・`fock_matrices`は`Vec<SymmetricMatrix>`で、実行種別と反復の情報を持たない。** 実際のファイルには`P/rks_1`〜`P/rks_88`のように全反復の行列があり、実データのテストは並び順(`read_group_matrices`の並べ替え)に頼って`.last()`を最終反復として使っている。MO係数(`MoCoefficients`、`types.rs` 446行目)と同じく、実行種別・反復・行列を持つ型にし、`get_mo_coefficients`と同じ形の取り出し関数(反復を省略すると最終反復)を用意する。実データのテストは、その関数で最終反復の`P`を取り出す形に直す。合成HDF5のテストで、UKSのα・βと反復の取り違えがないことを確かめる。
+2. **【読めないデータを黙って捨てる】`read_group_matrices`は、名前を解釈できないメンバー、正方でないデータセット、読み込みに失敗したデータセットを、エラーにせず飛ばしている。** 読み込みの失敗と正方でない行列は`BridgeError`にする。名前を解釈できないメンバーを飛ばすなら、その理由(ProteinDF_pytoolsが書く名前の規則)をドキュメントコメントに書く。
+3. **【基準値の出典の取り違え】`tests/qc_inputs/README.md`の表「ProteinDF_test基準値 (pdfresults.std.h5)」と、実データのテストのコメント「Source: ... pdfresults.std.h5」「Expected final energy: -227.32196883082707」は、作り直したファイルの値(`bf581a8`のビルド)を、ProteinDF_testの`pdfresults.std.h5`の値として書いている。** `pdfresults.std.h5`の最終の全エネルギーは、CH3COOX_HFが`-227.32196883081747`、GLYが`-282.86416358371673`(Claudeが`h5py`で確認)。作り直した値は、CH3COOX_HFが`-227.32196883082707`、GLYが`-282.86416358371594`。両方を区別して書き、テストの期待値は`pdfresults.std.h5`の値にする(許容誤差1e-6はそのまま)。この取り違えは、本ファイルの「計画の変更」の書き方(Claude)があいまいだったことにもよる。
+4. **【ダミー原子の扱いのテスト】`OrbitalInfo::build`で、基底関数の定義がない原子(ダミー原子`X`)をAO数0として飛ばすように変えたが、これを確かめるのはCIで動かない実データのテストだけ。** 合成HDF5で、基底関数のない原子を途中に含む分子を作り、AOと原子の対応がずれないこと(`X`の後ろの原子のAOが正しい原子に対応すること)を確かめるテストを追加する。
+5. **【期待値の決め方の記述】実データのテストのコメント「Evaluated using h5py / numpy in isolated scratchpad environment.」は、何をどう確かめたのかが分からない。** どのファイルのどのデータセットを読んで、どの値を確かめたかを書く。
+6. **【後片付け】worktreeに`.venv/`・`__pycache__/`が残っている。** 消す。
+
+### 完了の定義(修正後)
+
+1. 上記1〜6に対応し、同じブランチに追加コミットする。
+2. 完了の定義2・3(PR#61)を改めて示す。
