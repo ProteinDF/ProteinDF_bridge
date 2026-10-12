@@ -39,3 +39,7 @@
 1. 対象1〜5に対応している。
 2. 次のテストが通る: 新しい一時環境にパッケージを`pip install`して`python -P -m unittest discover -s tests`、`cargo nextest run --workspace --status-level fail --final-status-level fail`、`cargo test --doc`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check`。
 3. `brd-formula.py`を1hlsの`.brd`で実行した実際の出力を報告に貼る。
+
+## PR#57 完了(2026-10-12)
+
+`42f553f`・`fdf18a3`・`0051080`をレビューし、1回で収束した。`get_formula`の実装が仕様1〜6どおりであること、Rustのテストが仕様の例を網羅すること、`brd-formula.py`の1hlsの出力が`C254H379N67O76S6: MW=5779.662000000002`で基準ファイルの違いが化学式だけであること、純Python版のパッケージと`tests/test_atomgroup.py`が変更されていないことをClaudeが確認した。Pythonテスト一式237件OK(新しい環境)、`cargo nextest` `320 tests run: 320 passed, 2 skipped`、doctest・clippy・fmt OK。`--no-ff`でdevelopにマージした(`52c4414`)。リリースの時期はユーザーの指示待ち。
