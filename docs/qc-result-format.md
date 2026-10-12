@@ -269,6 +269,18 @@ ProteinDF_test の回帰テスト基準値用 `reference.h5` では、ファイ�
 - **実データでの確認**: `/tmp/test_compare/with_xc/pdfresults.h5` において shape=(14, 14), float64 を確認。
 - **保存処理**: `scripts/pdf-archive-h5.py` 136-141行目 `archive_h`, 144-149行目 `archive_h2`。
 
+#### (12) SY行列 (対称行列) の格納仕様と読み込み規則 (PR#61)
+- **ProteinDF_pytoolsにおける出力仕様**:
+  - `scripts/pdf-archive-h5.py` (128-180行目) は、`pdfparam_hdf5.py` の `_set_matrix` (599-611行目、特に605行目 `data=matrix.data`) を通じて SY 行列を保存する。
+  - `SymmetricMatrix` の内部データ (`proteindf_bridge/matrix.py` 475-484行目 `set`) は、下三角 ($r \ge c$) にのみ値が代入され、上三角 ($r < c$) は初期値 0.0 のままである。
+  - したがって、ProteinDFが出力する実際のHDF5ファイルでは、`type="SY"` の行列 (`s`, `P`, `F`, `h`, `h2`) はすべて **下三角のみに値が入り、上三角は0** で格納されている。
+- **`proteindf-bridge` における読み込み規則**:
+  - `type` が SY のデータセットは、下三角 (行 $\ge$ 列) の値から対称行列を作成する。
+  - 上三角 (行 $<$ 列) について:
+    - (a) **すべて 0 の場合**: 下三角だけの格納としてそのまま受け入れ、下三角の値を折り返して対称行列とする。
+    - (b) **0でない値が存在する場合**: 完全対称行列として格納されているとみなし、対応する下三角の値との差が許容誤差 `MATRIX_SYMMETRY_TOLERANCE` ($10^{-8}$) 以内で一致することを確かめる。逸脱した場合は `BridgeError` を返す。
+  - 一般行列 GE (`C`) の読み方は変更せず、すべての要素をそのまま読み込む。
+
 ---
 
 ## 2. 必要なデータの所在 (HDF5内か別ファイルか)

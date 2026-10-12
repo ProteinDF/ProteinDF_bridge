@@ -42,8 +42,14 @@ impl PdfParamHdf5 {
         let orbital_occupations = Self::read_orbital_occupations(file)?;
         let mo_coefficients = Self::read_mo_coefficients(file)?;
         let s_matrix = Self::read_symmetric_matrix(file, "s")?;
-        let density_matrices = Self::read_group_matrices(file, "P")?;
-        let fock_matrices = Self::read_group_matrices(file, "F")?;
+        let density_matrices = Self::read_group_matrices(file, "P")?
+            .into_iter()
+            .map(|(rt, itr, mat)| DensityMatrix::new(rt, itr, mat))
+            .collect();
+        let fock_matrices = Self::read_group_matrices(file, "F")?
+            .into_iter()
+            .map(|(rt, itr, mat)| FockMatrix::new(rt, itr, mat))
+            .collect();
         let h_matrix = Self::read_symmetric_matrix(file, "h")?;
         let h2_matrix = Self::read_symmetric_matrix(file, "h2")?;
         let mulliken_charges = Self::read_mulliken(file)?;
@@ -417,11 +423,70 @@ impl PdfParamHdf5 {
         Ok(list)
     }
 
+    /// Parses an $N \times N$ 2D array into a [`SymmetricMatrix`].
+    ///
+    /// # Symmetry Handling Rules
+    /// 1. The symmetric matrix is constructed from the lower triangle ($r \ge c$).
+    /// 2. For the upper triangle ($r < c$):
+    ///    - (a) If all upper-triangle elements are 0.0, the matrix is accepted as
+    ///      lower-triangle-only storage without symmetry check.
+    ///      In ProteinDF, `pdf-archive-h5.py` (lines 128-180) and `pdfparam_hdf5.py`
+    ///      (`_set_matrix` lines 599-611, line 605) save SY-type matrices with only
+    ///      the lower triangle populated and the upper triangle set to 0.0.
+    ///    - (b) If any non-zero element exists in the upper triangle, every upper-triangle
+    ///      element must match its transposed counterpart within [`MATRIX_SYMMETRY_TOLERANCE`]
+    ///      ($|A_{rc} - A_{cr}| \le 10^{-8}$). If any element violates this tolerance,
+    ///      a [`BridgeError`] is returned.
+    fn parse_symmetric_array(arr: &ndarray::Array2<f64>, path: &str) -> Result<SymmetricMatrix> {
+        let shape = arr.shape();
+        if shape.len() != 2 || shape[0] != shape[1] {
+            return Err(BridgeError::input_error(
+                path,
+                format!("expected square matrix, found shape {:?}", shape),
+            ));
+        }
+
+        let dim = shape[0];
+
+        // Check if all upper-triangle elements (r < c) are exactly 0.0
+        let is_all_upper_zero = (0..dim).all(|r| (r + 1..dim).all(|c| arr[[r, c]] == 0.0));
+
+        if !is_all_upper_zero {
+            for r in 0..dim {
+                for c in 0..r {
+                    let val_lower = arr[[r, c]];
+                    let val_upper = arr[[c, r]];
+                    let diff = (val_lower - val_upper).abs();
+                    if diff > MATRIX_SYMMETRY_TOLERANCE {
+                        return Err(BridgeError::value_error(
+                            format!(
+                                "element ({}, {}) = {}, ({}, {}) = {}, diff = {}",
+                                r, c, val_lower, c, r, val_upper, diff
+                            ),
+                            format!(
+                                "matrix '{}' is not symmetric within tolerance {}",
+                                path, MATRIX_SYMMETRY_TOLERANCE
+                            ),
+                        ));
+                    }
+                }
+            }
+        }
+
+        let mut sym = SymmetricMatrix::new(dim);
+        for r in 0..dim {
+            for c in 0..=r {
+                sym.set(r, c, arr[[r, c]]);
+            }
+        }
+
+        Ok(sym)
+    }
+
     /// Reads a 2D symmetric matrix dataset at a top-level path (e.g. `s`, `h`, `h2`).
     ///
-    /// The HDF5 dataset is stored as a full $N \times N$ matrix. Symmetry is strictly
-    /// verified during loading: for all $0 \le c \le r < N$, $|A_{rc} - A_{cr}| \le 10^{-8}$.
-    /// Non-symmetric datasets return [`BridgeError`].
+    /// Accepts both full symmetric matrices (verified within [`MATRIX_SYMMETRY_TOLERANCE`])
+    /// and lower-triangle-only matrices (as written by ProteinDF tools).
     fn read_symmetric_matrix(file: &File, path: &str) -> Result<Option<SymmetricMatrix>> {
         let ds = match file.dataset(path) {
             Ok(d) => d,
@@ -436,84 +501,69 @@ impl PdfParamHdf5 {
             ));
         }
 
-        let dim = shape[0];
         let arr = ds
             .read_2d::<f64>()
             .map_err(|e| BridgeError::input_error(path, format!("failed to read matrix: {}", e)))?;
 
-        let mut sym = SymmetricMatrix::new(dim);
-        for r in 0..dim {
-            for c in 0..=r {
-                let val_rc = arr[[r, c]];
-                let val_cr = arr[[c, r]];
-                let diff = (val_rc - val_cr).abs();
-                if diff > MATRIX_SYMMETRY_TOLERANCE {
-                    return Err(BridgeError::value_error(
-                        format!(
-                            "element ({}, {}) = {}, ({}, {}) = {}, diff = {}",
-                            r, c, val_rc, c, r, val_cr, diff
-                        ),
-                        format!(
-                            "matrix '{}' is not symmetric within tolerance {}",
-                            path, MATRIX_SYMMETRY_TOLERANCE
-                        ),
-                    ));
-                }
-                sym.set(r, c, val_rc);
-            }
-        }
-
+        let sym = Self::parse_symmetric_array(&arr, path)?;
         Ok(Some(sym))
     }
 
     /// Reads symmetric matrices under a group (e.g. `P`, `F`).
     ///
-    /// Each dataset is stored as a full $N \times N$ matrix. Symmetry is strictly
-    /// verified within [`MATRIX_SYMMETRY_TOLERANCE`].
-    fn read_group_matrices(file: &File, group_name: &str) -> Result<Vec<SymmetricMatrix>> {
+    /// Accepts both full symmetric matrices (verified within [`MATRIX_SYMMETRY_TOLERANCE`])
+    /// and lower-triangle-only matrices (as written by ProteinDF tools).
+    /// Entries are sorted by run type and iteration index.
+    ///
+    /// # Member Name Convention and Filtering
+    /// In ProteinDF (`docs/qc-result-format.md` §1.3 (3), ProteinDF_pytools `pdfparam_hdf5.py`
+    /// `_get_h5path_*` lines 643-690), dataset names under matrix groups follow the format
+    /// `{run_type}_{iteration}` (e.g., `rks_1`, `uks_alpha_39`).
+    /// Members that do not match this naming convention (e.g. metadata datasets or nested groups)
+    /// are not matrix iteration datasets and are skipped.
+    ///
+    /// Any dataset matching the naming convention must be a valid square 2D dataset;
+    /// if opening, reading, non-square shape, or symmetry verification fails, a [`BridgeError`] is returned.
+    fn read_group_matrices(
+        file: &File,
+        group_name: &str,
+    ) -> Result<Vec<(RunType, usize, SymmetricMatrix)>> {
         let group = match file.group(group_name) {
             Ok(g) => g,
             Err(_) => return Ok(Vec::new()),
         };
 
-        let mut members = group.member_names().unwrap_or_default();
-        members.sort();
+        let mut items = Vec::new();
+        for member_name in group.member_names().unwrap_or_default() {
+            let (run_type, iteration) = match Self::parse_member_name(&member_name) {
+                Some(pair) => pair,
+                None => continue, // Skip members not matching {run_type}_{iteration} convention
+            };
 
-        let mut list = Vec::new();
-        for member_name in members {
-            if let Ok(ds) = group.dataset(&member_name) {
-                let shape = ds.shape();
-                if shape.len() == 2 && shape[0] == shape[1] {
-                    let dim = shape[0];
-                    if let Ok(arr) = ds.read_2d::<f64>() {
-                        let mut sym = SymmetricMatrix::new(dim);
-                        for r in 0..dim {
-                            for c in 0..=r {
-                                let val_rc = arr[[r, c]];
-                                let val_cr = arr[[c, r]];
-                                let diff = (val_rc - val_cr).abs();
-                                if diff > MATRIX_SYMMETRY_TOLERANCE {
-                                    return Err(BridgeError::value_error(
-                                        format!(
-                                            "element ({}, {}) = {}, ({}, {}) = {}, diff = {}",
-                                            r, c, val_rc, c, r, val_cr, diff
-                                        ),
-                                        format!(
-                                            "matrix '{}/{}' is not symmetric within tolerance {}",
-                                            group_name, member_name, MATRIX_SYMMETRY_TOLERANCE
-                                        ),
-                                    ));
-                                }
-                                sym.set(r, c, val_rc);
-                            }
-                        }
-                        list.push(sym);
-                    }
-                }
+            let path = format!("{}/{}", group_name, member_name);
+            let ds = group.dataset(&member_name).map_err(|e| {
+                BridgeError::input_error(&path, format!("failed to open dataset: {}", e))
+            })?;
+
+            let shape = ds.shape();
+            if shape.len() != 2 || shape[0] != shape[1] {
+                return Err(BridgeError::input_error(
+                    &path,
+                    format!("expected square matrix, found shape {:?}", shape),
+                ));
             }
+
+            let arr = ds.read_2d::<f64>().map_err(|e| {
+                BridgeError::input_error(&path, format!("failed to read matrix: {}", e))
+            })?;
+
+            let sym = Self::parse_symmetric_array(&arr, &path)?;
+            items.push((run_type, iteration, sym));
         }
 
-        Ok(list)
+        items.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()).then(a.1.cmp(&b.1)));
+
+        Ok(items)
     }
 
     /// Parses dataset name into `(RunType, iteration)`:

@@ -318,10 +318,17 @@ fn str_ascii<const N: usize>(s: &str) -> FixedAscii<N> {
     FixedAscii::<N>::from_ascii(s).expect("valid ascii")
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SyStorageMode {
+    FullSymmetric,
+    AsymmetricUpperNonzero,
+    LowerTriangleOnly,
+}
+
 fn write_synthetic_qc_h5(
     file_path: &Path,
     method: &str,
-    asymmetric_s: bool,
+    sy_mode: SyStorageMode,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let file = hdf5_metno::File::create(file_path)?;
 
@@ -432,16 +439,29 @@ fn write_synthetic_qc_h5(
     };
 
     // 5. Symmetric matrices (s, h, h2)
-    let s_data = if asymmetric_s {
-        // Asymmetric matrix: element (0, 1) = 0.5 != element (1, 0) = 0.2
-        vec![1.0, 0.5, 0.2, 1.0]
-    } else {
-        // Symmetric matrix
-        vec![1.0, 0.2, 0.2, 1.0]
+    let (s_data, h_data, h2_data) = match sy_mode {
+        SyStorageMode::AsymmetricUpperNonzero => (
+            // Asymmetric matrix: element (0, 1) = 0.5 != element (1, 0) = 0.2
+            vec![1.0, 0.5, 0.2, 1.0],
+            vec![-1.2, -0.3, -0.3, -1.2],
+            vec![0.5, 0.1, 0.1, 0.5],
+        ),
+        SyStorageMode::LowerTriangleOnly => (
+            // Lower triangle only: upper triangle element (0, 1) = 0.0, lower (1, 0) = 0.35
+            vec![1.0, 0.0, 0.35, 1.0],
+            vec![-1.2, 0.0, -0.35, -1.2],
+            vec![0.5, 0.0, 0.25, 0.5],
+        ),
+        SyStorageMode::FullSymmetric => (
+            // Fully populated symmetric matrix
+            vec![1.0, 0.2, 0.2, 1.0],
+            vec![-1.2, -0.3, -0.3, -1.2],
+            vec![0.5, 0.1, 0.1, 0.5],
+        ),
     };
     write_mat("s", "SY", s_data)?;
-    write_mat("h", "SY", vec![-1.2, -0.3, -0.3, -1.2])?;
-    write_mat("h2", "SY", vec![0.5, 0.1, 0.1, 0.5])?;
+    write_mat("h", "SY", h_data)?;
+    write_mat("h2", "SY", h2_data)?;
 
     // 6. Spin-specific orbital datasets
     let run_types = match method {
@@ -474,13 +494,40 @@ fn write_synthetic_qc_h5(
         let pop_data = vec![0.50 - delta, 0.50 + delta];
         write_vec(&format!("pop/mulliken/{}_{}", rt, 2), pop_data)?;
 
-        // P matrix: path "P/{run_type}_2" (_get_h5path_density_matrix 664-667行目)
-        let p_data = vec![1.0 - delta, 0.0, 0.0, delta];
-        write_mat(&format!("P/{}_{}", rt, 2), "SY", p_data)?;
+        // P and F matrices across iterations 1 and 2 (_get_h5path_density_matrix 664-667行目, _get_h5path_f_matrix 669-672行目)
+        for itr in 1..=2 {
+            let itr_offset = (itr - 1) as f64 * 0.05;
+            let p_data = match sy_mode {
+                SyStorageMode::LowerTriangleOnly => {
+                    vec![
+                        1.0 - delta + itr_offset,
+                        0.0,
+                        0.15 + itr_offset,
+                        delta + itr_offset,
+                    ]
+                }
+                _ => vec![1.0 - delta + itr_offset, 0.0, 0.0, delta + itr_offset],
+            };
+            write_mat(&format!("P/{}_{}", rt, itr), "SY", p_data)?;
 
-        // F matrix: path "F/{run_type}_2" (_get_h5path_f_matrix 669-672行目)
-        let f_data = vec![-0.50 + delta, 0.05, 0.05, 0.20 + delta];
-        write_mat(&format!("F/{}_{}", rt, 2), "SY", f_data)?;
+            let f_data = match sy_mode {
+                SyStorageMode::LowerTriangleOnly => {
+                    vec![
+                        -0.50 + delta + itr_offset,
+                        0.0,
+                        -0.25 + itr_offset,
+                        0.20 + delta + itr_offset,
+                    ]
+                }
+                _ => vec![
+                    -0.50 + delta + itr_offset,
+                    0.05 + itr_offset,
+                    0.05 + itr_offset,
+                    0.20 + delta + itr_offset,
+                ],
+            };
+            write_mat(&format!("F/{}_{}", rt, itr), "SY", f_data)?;
+        }
     }
 
     Ok(())
@@ -499,7 +546,8 @@ fn test_synthetic_uks_hdf5() {
     std::fs::create_dir_all(&tmp_dir).expect("failed to create temp dir");
     let h5_path = tmp_dir.join("synthetic_uks.h5");
 
-    write_synthetic_qc_h5(&h5_path, "uks", false).expect("failed to write synthetic UKS HDF5");
+    write_synthetic_qc_h5(&h5_path, "uks", SyStorageMode::FullSymmetric)
+        .expect("failed to write synthetic UKS HDF5");
 
     let result = PdfParamHdf5::load(&h5_path).expect("failed to load synthetic UKS HDF5");
 
@@ -538,9 +586,84 @@ fn test_synthetic_uks_hdf5() {
     assert!((h2.get(0, 0).unwrap() - 0.5).abs() < 1e-10);
     assert!((h2.get(0, 1).unwrap() - 0.1).abs() < 1e-10);
 
-    // 3. Group-level matrices (P, F)
-    assert_eq!(result.density_matrices.len(), 2);
-    assert_eq!(result.fock_matrices.len(), 2);
+    // 3. Group-level matrices (P, F): verify retrieval methods, spin separation, and iteration tracking
+    assert_eq!(result.density_matrices.len(), 4);
+    assert_eq!(result.fock_matrices.len(), 4);
+
+    // 3a. Density matrix: retrieval by run_type and iteration
+    let p_alpha_1 = result
+        .get_density_matrix(&RunType::UksAlpha, Some(1))
+        .expect("missing UKS alpha P matrix at iteration 1");
+    let p_alpha_2 = result
+        .get_density_matrix(&RunType::UksAlpha, Some(2))
+        .expect("missing UKS alpha P matrix at iteration 2");
+    let p_alpha_latest = result
+        .get_density_matrix(&RunType::UksAlpha, None)
+        .expect("missing latest UKS alpha P matrix");
+    assert_eq!(p_alpha_latest, p_alpha_2);
+
+    let p_beta_1 = result
+        .get_density_matrix(&RunType::UksBeta, Some(1))
+        .expect("missing UKS beta P matrix at iteration 1");
+    let p_beta_2 = result
+        .get_density_matrix(&RunType::UksBeta, Some(2))
+        .expect("missing UKS beta P matrix at iteration 2");
+    let p_beta_latest = result
+        .get_density_matrix(&RunType::UksBeta, None)
+        .expect("missing latest UKS beta P matrix");
+    assert_eq!(p_beta_latest, p_beta_2);
+
+    // Alpha vs Beta must have distinct values (no confusion between spins)
+    assert_ne!(p_alpha_2.get(0, 0).unwrap(), p_beta_2.get(0, 0).unwrap());
+    assert!((p_alpha_2.get(0, 0).unwrap() - 1.05).abs() < 1e-10);
+    assert!((p_beta_2.get(0, 0).unwrap() - 0.95).abs() < 1e-10);
+
+    // Iteration 1 vs Iteration 2 must have distinct values (no confusion between iterations)
+    assert_ne!(p_alpha_1.get(0, 0).unwrap(), p_alpha_2.get(0, 0).unwrap());
+    assert_ne!(p_beta_1.get(0, 0).unwrap(), p_beta_2.get(0, 0).unwrap());
+    assert!((p_alpha_1.get(0, 0).unwrap() - 1.00).abs() < 1e-10);
+    assert!((p_beta_1.get(0, 0).unwrap() - 0.90).abs() < 1e-10);
+
+    // Non-existent searches
+    assert!(result.get_density_matrix(&RunType::Rks, None).is_none());
+    assert!(result
+        .get_density_matrix(&RunType::UksAlpha, Some(99))
+        .is_none());
+
+    // 3b. Fock matrix: retrieval by run_type and iteration
+    let f_alpha_1 = result
+        .get_fock_matrix(&RunType::UksAlpha, Some(1))
+        .expect("missing UKS alpha F matrix at iteration 1");
+    let f_alpha_2 = result
+        .get_fock_matrix(&RunType::UksAlpha, Some(2))
+        .expect("missing UKS alpha F matrix at iteration 2");
+    let f_alpha_latest = result
+        .get_fock_matrix(&RunType::UksAlpha, None)
+        .expect("missing latest UKS alpha F matrix");
+    assert_eq!(f_alpha_latest, f_alpha_2);
+
+    let f_beta_1 = result
+        .get_fock_matrix(&RunType::UksBeta, Some(1))
+        .expect("missing UKS beta F matrix at iteration 1");
+    let f_beta_2 = result
+        .get_fock_matrix(&RunType::UksBeta, Some(2))
+        .expect("missing UKS beta F matrix at iteration 2");
+    let f_beta_latest = result
+        .get_fock_matrix(&RunType::UksBeta, None)
+        .expect("missing latest UKS beta F matrix");
+    assert_eq!(f_beta_latest, f_beta_2);
+
+    // Alpha vs Beta must have distinct values
+    assert_ne!(f_alpha_2.get(0, 0).unwrap(), f_beta_2.get(0, 0).unwrap());
+    // Iteration 1 vs Iteration 2 must have distinct values
+    assert_ne!(f_alpha_1.get(0, 0).unwrap(), f_alpha_2.get(0, 0).unwrap());
+    assert_ne!(f_beta_1.get(0, 0).unwrap(), f_beta_2.get(0, 0).unwrap());
+
+    // Non-existent searches
+    assert!(result.get_fock_matrix(&RunType::Rks, None).is_none());
+    assert!(result
+        .get_fock_matrix(&RunType::UksAlpha, Some(99))
+        .is_none());
 
     // 4. UKS MO coefficients: alpha vs beta must have distinct values
     let c_alpha = result
@@ -608,7 +731,8 @@ fn test_synthetic_roks_hdf5() {
     std::fs::create_dir_all(&tmp_dir).expect("failed to create temp dir");
     let h5_path = tmp_dir.join("synthetic_roks.h5");
 
-    write_synthetic_qc_h5(&h5_path, "roks", false).expect("failed to write synthetic ROKS HDF5");
+    write_synthetic_qc_h5(&h5_path, "roks", SyStorageMode::FullSymmetric)
+        .expect("failed to write synthetic ROKS HDF5");
 
     let result = PdfParamHdf5::load(&h5_path).expect("failed to load synthetic ROKS HDF5");
 
@@ -662,17 +786,18 @@ fn test_synthetic_roks_hdf5() {
 
 /// Tests that reading a non-symmetric matrix in HDF5 (`s` dataset) triggers a `BridgeError`.
 ///
-/// Verifies the symmetry validation decision from Review Request 1:
-/// Full $N \times N$ symmetric matrix datasets must satisfy $|A_{rc} - A_{cr}| \le 10^{-8}$.
-/// If non-symmetric data is encountered, loading fails with a [`BridgeError`].
+/// Verifies the symmetry validation decision from PR#60 / PR#61:
+/// When the upper triangle contains non-zero elements, each element must match its
+/// lower-triangle counterpart within [`MATRIX_SYMMETRY_TOLERANCE`] ($10^{-8}$).
+/// If an asymmetric non-zero element is found, loading fails with a [`BridgeError`].
 #[test]
 fn test_synthetic_asymmetric_s_matrix_error() {
     let tmp_dir = std::env::temp_dir().join(format!("test_qc_hdf5_asymm_{}", std::process::id()));
     std::fs::create_dir_all(&tmp_dir).expect("failed to create temp dir");
     let h5_path = tmp_dir.join("synthetic_asymm.h5");
 
-    // Write with asymmetric_s = true (element (0, 1) = 0.5, element (1, 0) = 0.2, diff = 0.3)
-    write_synthetic_qc_h5(&h5_path, "rks", true)
+    // Write with AsymmetricUpperNonzero (element (0, 1) = 0.5, element (1, 0) = 0.2, diff = 0.3)
+    write_synthetic_qc_h5(&h5_path, "rks", SyStorageMode::AsymmetricUpperNonzero)
         .expect("failed to write synthetic HDF5 with asymmetric S");
 
     let err = PdfParamHdf5::load(&h5_path).expect_err("loading asymmetric matrix must fail");
@@ -688,4 +813,454 @@ fn test_synthetic_asymmetric_s_matrix_error() {
 
     // Cleanup
     let _ = std::fs::remove_dir_all(&tmp_dir);
+}
+
+/// Tests reading symmetric matrices (`s`, `P`, `F`, `h`, `h2`) stored with lower-triangle
+/// elements only (upper triangle all 0.0), matching `pdf-archive-h5.py` output.
+///
+/// Verifies:
+/// - Upper triangle containing all 0.0 is accepted without error.
+/// - Lower triangle values are mirrored / folded so that symmetric access
+///   (`matrix.get(0, 1) == matrix.get(1, 0)`) returns the correct lower-triangle value.
+#[test]
+fn test_synthetic_lower_triangle_sy_matrix() {
+    let tmp_dir =
+        std::env::temp_dir().join(format!("test_qc_hdf5_lower_tri_{}", std::process::id()));
+    std::fs::create_dir_all(&tmp_dir).expect("failed to create temp dir");
+    let h5_path = tmp_dir.join("synthetic_lower_tri.h5");
+
+    // Write with LowerTriangleOnly:
+    // s: (0, 0)=1.0, (1, 0)=0.35, (0, 1)=0.0, (1, 1)=1.0
+    // h: (0, 0)=-1.2, (1, 0)=-0.35, (0, 1)=0.0, (1, 1)=-1.2
+    // h2: (0, 0)=0.5, (1, 0)=0.25, (0, 1)=0.0, (1, 1)=0.5
+    // P: (0, 0)=1.0, (1, 0)=0.15, (0, 1)=0.0, (1, 1)=0.0
+    // F: (0, 0)=-0.50, (1, 0)=-0.25, (0, 1)=0.0, (1, 1)=0.20
+    write_synthetic_qc_h5(&h5_path, "rks", SyStorageMode::LowerTriangleOnly)
+        .expect("failed to write synthetic lower-triangle HDF5");
+
+    let result =
+        PdfParamHdf5::load(&h5_path).expect("failed to load synthetic lower-triangle HDF5");
+
+    // 1. s matrix: verify folded value (0, 1) equals (1, 0) == 0.35
+    let s = result.s_matrix.as_ref().expect("missing s matrix");
+    assert_eq!(s.dim(), 2);
+    assert!((s.get(0, 0).unwrap() - 1.0).abs() < 1e-10);
+    assert!((s.get(1, 1).unwrap() - 1.0).abs() < 1e-10);
+    assert!((s.get(1, 0).unwrap() - 0.35).abs() < 1e-10);
+    assert!((s.get(0, 1).unwrap() - 0.35).abs() < 1e-10);
+
+    // 2. h matrix: verify folded value
+    let h = result.h_matrix.as_ref().expect("missing h matrix");
+    assert!((h.get(1, 0).unwrap() - (-0.35)).abs() < 1e-10);
+    assert!((h.get(0, 1).unwrap() - (-0.35)).abs() < 1e-10);
+
+    // 3. h2 matrix: verify folded value
+    let h2 = result.h2_matrix.as_ref().expect("missing h2 matrix");
+    assert!((h2.get(1, 0).unwrap() - 0.25).abs() < 1e-10);
+    assert!((h2.get(0, 1).unwrap() - 0.25).abs() < 1e-10);
+
+    // 4. P matrix: verify folded value
+    assert_eq!(result.density_matrices.len(), 2);
+    let p = result
+        .get_density_matrix(&RunType::Rks, Some(1))
+        .expect("missing RKS density matrix at iteration 1");
+    assert!((p.get(1, 0).unwrap() - 0.15).abs() < 1e-10);
+    assert!((p.get(0, 1).unwrap() - 0.15).abs() < 1e-10);
+
+    // 5. F matrix: verify folded value
+    assert_eq!(result.fock_matrices.len(), 2);
+    let f = result
+        .get_fock_matrix(&RunType::Rks, Some(1))
+        .expect("missing RKS Fock matrix at iteration 1");
+    assert!((f.get(1, 0).unwrap() - (-0.25)).abs() < 1e-10);
+    assert!((f.get(0, 1).unwrap() - (-0.25)).abs() < 1e-10);
+
+    // Cleanup
+    let _ = std::fs::remove_dir_all(&tmp_dir);
+}
+
+/// Tests that atoms without basis set definitions (dummy atoms like 'X')
+/// have 0 atomic orbitals and do not disrupt the atom index mapping of subsequent atoms.
+///
+/// Verifies:
+/// - Synthetic molecule: Atom 0 = C (has basis set), Atom 1 = X (dummy, no basis set), Atom 2 = H (has basis set).
+/// - Atom 1 ('X') contributes 0 AOs.
+/// - Subsequent atom 2 ('H') correctly maps its AO to `atom_index = 2`, not shifted to 1.
+#[test]
+fn test_synthetic_dummy_atom_orbital_mapping() {
+    let tmp_dir =
+        std::env::temp_dir().join(format!("test_qc_hdf5_dummy_atom_{}", std::process::id()));
+    std::fs::create_dir_all(&tmp_dir).expect("failed to create temp dir");
+    let h5_path = tmp_dir.join("synthetic_dummy_atom.h5");
+
+    let file = hdf5_metno::File::create(&h5_path).expect("failed to create HDF5 file");
+
+    // 1. Root attributes
+    let write_str_attr = |name: &str, val: &str| {
+        file.new_attr::<FixedAscii<32>>()
+            .create(name)
+            .unwrap()
+            .write_scalar(&str_ascii::<32>(val))
+            .unwrap();
+    };
+    let write_int_attr = |name: &str, val: i64| {
+        file.new_attr::<i64>()
+            .create(name)
+            .unwrap()
+            .write_scalar(&val)
+            .unwrap();
+    };
+    write_str_attr("method", "rks");
+    write_str_attr("xc_functional", "B3LYP");
+    write_int_attr("num_of_atoms", 3);
+    write_int_attr("num_of_AOs", 2);
+    write_int_attr("num_of_MOs", 2);
+    write_int_attr("iterations", 1);
+    file.new_attr::<bool>()
+        .create("scf_converged")
+        .unwrap()
+        .write_scalar(&true)
+        .unwrap();
+
+    // 2. Molecule with 3 atoms: C (index 0), X (index 1, dummy), H (index 2)
+    let xyzc_data = vec![
+        str_ascii::<32>("C"),
+        str_ascii::<32>(""),
+        str_ascii::<32>("0.0"),
+        str_ascii::<32>("0.0"),
+        str_ascii::<32>("0.0"),
+        str_ascii::<32>("6.0"),
+        str_ascii::<32>("X"),
+        str_ascii::<32>(""),
+        str_ascii::<32>("1.0"),
+        str_ascii::<32>("0.0"),
+        str_ascii::<32>("0.0"),
+        str_ascii::<32>("1.0"),
+        str_ascii::<32>("H"),
+        str_ascii::<32>(""),
+        str_ascii::<32>("2.0"),
+        str_ascii::<32>("0.0"),
+        str_ascii::<32>("0.0"),
+        str_ascii::<32>("1.0"),
+    ];
+    let xyzc_arr = ndarray::Array2::from_shape_vec((3, 6), xyzc_data).unwrap();
+    file.new_dataset_builder()
+        .with_data(&xyzc_arr)
+        .create("molecule/xyzc")
+        .unwrap();
+
+    // 3. Basis set definitions: only C and H have basis sets. 'X' is omitted.
+    let name_data = vec![
+        str_ascii::<32>("C-basis"),
+        str_ascii::<32>("C"),
+        str_ascii::<32>("H-basis"),
+        str_ascii::<32>("H"),
+    ];
+    let name_arr = ndarray::Array2::from_shape_vec((2, 2), name_data).unwrap();
+    file.new_dataset_builder()
+        .with_data(&name_arr)
+        .create("basisset/name")
+        .unwrap();
+
+    let cgto_data = vec![
+        str_ascii::<32>("C-basis"),
+        str_ascii::<32>("0"),
+        str_ascii::<32>("s"),
+        str_ascii::<32>("1.0"),
+        str_ascii::<32>("H-basis"),
+        str_ascii::<32>("0"),
+        str_ascii::<32>("s"),
+        str_ascii::<32>("1.0"),
+    ];
+    let cgto_arr = ndarray::Array2::from_shape_vec((2, 4), cgto_data).unwrap();
+    file.new_dataset_builder()
+        .with_data(&cgto_arr)
+        .create("basisset/cgto")
+        .unwrap();
+
+    let pgto_data = vec![
+        str_ascii::<32>("C-basis"),
+        str_ascii::<32>("0"),
+        str_ascii::<32>("0"),
+        str_ascii::<32>("1.0"),
+        str_ascii::<32>("1.0"),
+        str_ascii::<32>("H-basis"),
+        str_ascii::<32>("0"),
+        str_ascii::<32>("0"),
+        str_ascii::<32>("1.0"),
+        str_ascii::<32>("1.0"),
+    ];
+    let pgto_arr = ndarray::Array2::from_shape_vec((2, 5), pgto_data).unwrap();
+    file.new_dataset_builder()
+        .with_data(&pgto_arr)
+        .create("basisset/pgto")
+        .unwrap();
+
+    drop(file);
+
+    let result = PdfParamHdf5::load(&h5_path).expect("failed to load synthetic dummy atom HDF5");
+
+    assert_eq!(result.molecule.atoms.len(), 3);
+    assert_eq!(result.molecule.atoms[0].symbol, "C");
+    assert_eq!(result.molecule.atoms[1].symbol, "X");
+    assert_eq!(result.molecule.atoms[2].symbol, "H");
+
+    let orb_info = &result.orbital_info;
+    assert_eq!(orb_info.num_of_aos, 2);
+    assert_eq!(orb_info.orbitals.len(), 2);
+
+    // AO 0 corresponds to Atom 0 (C)
+    assert_eq!(orb_info.orbitals[0].ao_index, 0);
+    assert_eq!(orb_info.orbitals[0].atom_index, 0);
+    assert_eq!(orb_info.orbitals[0].atom_symbol, "C");
+
+    // AO 1 corresponds to Atom 2 (H). It must NOT be shifted to atom_index 1!
+    assert_eq!(orb_info.orbitals[1].ao_index, 1);
+    assert_eq!(orb_info.orbitals[1].atom_index, 2);
+    assert_eq!(orb_info.orbitals[1].atom_symbol, "H");
+
+    let _ = std::fs::remove_dir_all(&tmp_dir);
+}
+
+/// Helper function to verify mathematical and physical consistency of real QC calculation data:
+/// 1. Structural dimensions (num_of_atoms, num_of_aos, num_of_mos, iterations)
+/// 2. Final SCF energy matches reference within 1e-6 Hartree
+/// 3. MO coefficients satisfy generalized orthogonality condition: $C^T S C = I$ within 1e-8
+/// 4. Density matrix matches orbital-constructed density $P = \sum_i n_i C_i C_i^T$ within 1e-8
+/// 5. $\text{tr}(PS) = N_{\text{electrons}}$ within 1e-8
+#[allow(clippy::needless_range_loop)]
+fn verify_real_qc_result(
+    result: &proteindf_bridge::qc_result::QcResult,
+    expected_atoms: usize,
+    expected_aos: usize,
+    expected_mos: usize,
+    expected_iterations: usize,
+    expected_final_energy: f64,
+    expected_electrons: f64,
+) {
+    // 1. Structural dimensions
+    assert_eq!(result.params.num_of_atoms, expected_atoms);
+    assert_eq!(result.params.num_of_aos, expected_aos);
+    assert_eq!(result.params.num_of_mos, expected_mos);
+    assert_eq!(result.params.iterations, expected_iterations);
+    assert!(result.params.scf_converged);
+
+    // 2. Presence of required matrices
+    let s = result.s_matrix.as_ref().expect("s matrix must be present");
+    assert_eq!(s.dim(), expected_aos);
+    assert!(
+        !result.density_matrices.is_empty(),
+        "density_matrices must not be empty"
+    );
+    assert!(
+        !result.fock_matrices.is_empty(),
+        "fock_matrices must not be empty"
+    );
+    assert!(result.h_matrix.is_some(), "h matrix must be present");
+
+    // 3. Final total energy
+    let final_energy = *result
+        .total_energies
+        .last()
+        .expect("total_energies must not be empty");
+    let energy_diff = (final_energy - expected_final_energy).abs();
+    assert!(
+        energy_diff < 1e-6,
+        "final energy diff {energy_diff} exceeds 1e-6 (got {final_energy}, expected {expected_final_energy})"
+    );
+
+    // 4. C^T S C == I (orthonormality of MOs)
+    let c = result
+        .get_mo_coefficients(&RunType::Rks, Some(expected_iterations))
+        .expect("missing final MO coefficients");
+    assert_eq!(c.n_ao(), expected_aos);
+    assert_eq!(c.n_mo(), expected_mos);
+
+    // Compute SC = S * C (shape: n_ao x n_mo)
+    let mut sc = vec![vec![0.0; expected_mos]; expected_aos];
+    for p in 0..expected_aos {
+        for i in 0..expected_mos {
+            let mut sum = 0.0;
+            for q in 0..expected_aos {
+                sum += s.get(p, q).unwrap() * c.get(q, i).unwrap();
+            }
+            sc[p][i] = sum;
+        }
+    }
+
+    // Compute C^T * (SC) (shape: n_mo x n_mo) and check |(C^T S C)_ij - delta_ij| < 1e-8
+    for i in 0..expected_mos {
+        for j in 0..expected_mos {
+            let mut ct_sc_ij = 0.0;
+            for p in 0..expected_aos {
+                ct_sc_ij += c.get(p, i).unwrap() * sc[p][j];
+            }
+            let expected_val = if i == j { 1.0 } else { 0.0 };
+            let diff = (ct_sc_ij - expected_val).abs();
+            assert!(
+                diff < 1e-8,
+                "C^T S C element ({i}, {j}) diff {diff} exceeds 1e-8 (got {ct_sc_ij}, expected {expected_val})"
+            );
+        }
+    }
+
+    // 5. P_file == P_calc from C and occ: P_pq = sum_i occ_i * C_pi * C_qi
+    let occ = result
+        .get_orbital_occupation(&RunType::Rks)
+        .expect("missing orbital occupations");
+    assert_eq!(occ.occupations.len(), expected_mos);
+
+    let p_entry = result
+        .get_density_matrix(&RunType::Rks, Some(expected_iterations))
+        .expect("missing final density matrix");
+    let p_file = &p_entry.matrix;
+    assert_eq!(p_file.dim(), expected_aos);
+
+    for p in 0..expected_aos {
+        for q in 0..=p {
+            let mut p_calc_pq = 0.0;
+            for i in 0..expected_mos {
+                p_calc_pq += occ.occupations[i] * c.get(p, i).unwrap() * c.get(q, i).unwrap();
+            }
+            let p_file_pq = p_file.get(p, q).unwrap();
+            let diff = (p_file_pq - p_calc_pq).abs();
+            assert!(
+                diff < 1e-8,
+                "P matrix element ({p}, {q}) diff {diff} exceeds 1e-8 (file: {p_file_pq}, calc: {p_calc_pq})"
+            );
+        }
+    }
+
+    // 6. tr(PS) == N_electrons: tr(PS) = sum_p sum_q P_pq * S_qp
+    let mut tr_ps = 0.0;
+    for p in 0..expected_aos {
+        for q in 0..expected_aos {
+            tr_ps += p_file.get(p, q).unwrap() * s.get(q, p).unwrap();
+        }
+    }
+    let elec_diff = (tr_ps - expected_electrons).abs();
+    assert!(
+        elec_diff < 1e-8,
+        "tr(PS) diff {elec_diff} exceeds 1e-8 (got {tr_ps}, expected {expected_electrons})"
+    );
+}
+
+/// Tests real calculation result `CH3COOX_HF.h5` regenerated by ProteinDF.
+///
+/// Marked `#[ignore]`. Runs when `--run-ignored` is specified.
+/// Reads from directory specified by environment variable `PROTEINDF_BRIDGE_QC_DATA`.
+/// Fails with a panic if the environment variable is not set or the file is missing.
+///
+/// # Determination of Expected Values and Verification Process
+/// - System: CH3COOX_HF (acetic acid with dummy charge X).
+/// - Dimensions:
+///   - 8 atoms (including dummy atom X), 42 AOs, 42 MOs, 88 iterations.
+///   - Verified by inspecting root attributes `/num_of_atoms`, `/num_of_AOs`, `/num_of_MOs`,
+///     and `/iterations` in both `ProteinDF_test/serial_dev/CH3COOX_HF.mmap/pdfresults.std.h5`
+///     and the regenerated file using h5py.
+/// - Final total energy:
+///   - ProteinDF_test baseline (`pdfresults.std.h5` dataset `/TEs`[-1]): `-227.32196883081747` Hartree.
+///   - Regenerated file via ProteinDF (`bf581a8` build, dataset `/TEs`[-1]): `-227.32196883082707` Hartree.
+///   - The expected value in this test is set to the ProteinDF_test reference value (`-227.32196883081747`),
+///     verifying that the regenerated calculation matches it within `1e-6` Hartree (actual difference: 9.6e-12).
+/// - Overlap matrix $S$ and MO orthonormality $C^T S C = I$:
+///   - Read dataset `/s` (shape 42x42, type SY, lower-triangle storage) and unfolded symmetric entries.
+///   - Read dataset `/C/rks_88` (shape 42x42, type GE).
+///   - Evaluated matrix product $C^T S C$ via numpy; confirmed max absolute deviation from identity matrix $< 1e-8$.
+/// - Density matrix $P$ consistency and total electrons:
+///   - Read dataset `/occ/rks` (occupation vector, 42 elements; 16 orbitals doubly occupied, 26 unoccupied).
+///   - Constructed density matrix $P_{\text{calc}} = \sum_i \mathrm{occ}_i C_i C_i^T$.
+///   - Verified that $P_{\text{calc}}$ matches dataset `/P/rks_88` (lower-triangle storage) within $1e-8$.
+///   - Computed $\mathrm{tr}(PS) = \sum_{pq} P_{pq} S_{qp} = 32.0$ electrons (neutral acetic acid $CH_3COOH$
+///     has 32 electrons; dummy atom X has no basis functions or electrons), verified within $1e-8$.
+#[test]
+#[ignore]
+fn test_real_qc_data_ch3coox_hf() {
+    let dir_str = std::env::var("PROTEINDF_BRIDGE_QC_DATA").expect(
+        "PROTEINDF_BRIDGE_QC_DATA environment variable not set. \
+         Must point to directory containing regenerated CH3COOX_HF.h5 and GLY.h5",
+    );
+    let dir = std::path::PathBuf::from(dir_str);
+    assert!(
+        dir.is_dir(),
+        "PROTEINDF_BRIDGE_QC_DATA is not a directory: {}",
+        dir.display()
+    );
+    let file_path = dir.join("CH3COOX_HF.h5");
+    assert!(
+        file_path.exists(),
+        "CH3COOX_HF.h5 not found in: {}",
+        file_path.display()
+    );
+
+    let result = PdfParamHdf5::load(&file_path).expect("failed to load CH3COOX_HF.h5");
+    verify_real_qc_result(
+        &result,
+        8,                       // atoms (including dummy atom X)
+        42,                      // AOs
+        42,                      // MOs
+        88,                      // iterations
+        -227.321_968_830_817_47, // final energy from ProteinDF_test pdfresults.std.h5
+        32.0,                    // electrons
+    );
+}
+
+/// Tests real calculation result `GLY.h5` regenerated by ProteinDF.
+///
+/// Marked `#[ignore]`. Runs when `--run-ignored` is specified.
+/// Reads from directory specified by environment variable `PROTEINDF_BRIDGE_QC_DATA`.
+/// Fails with a panic if the environment variable is not set or the file is missing.
+///
+/// # Determination of Expected Values and Verification Process
+/// - System: GLY (glycine molecule).
+/// - Dimensions:
+///   - 10 atoms, 95 AOs, 95 MOs, 49 iterations.
+///   - Verified by inspecting root attributes `/num_of_atoms`, `/num_of_AOs`, `/num_of_MOs`,
+///     and `/iterations` in both `ProteinDF_test/parallel/GLY.omp/pdfresults.std.h5`
+///     and the regenerated file using h5py.
+/// - Final total energy:
+///   - ProteinDF_test baseline (`pdfresults.std.h5` dataset `/TEs`[-1]): `-282.86416358371673` Hartree.
+///   - Regenerated file via ProteinDF (`bf581a8` build, dataset `/TEs`[-1]): `-282.86416358371594` Hartree.
+///   - The expected value in this test is set to the ProteinDF_test reference value (`-282.86416358371673`),
+///     verifying that the regenerated calculation matches it within `1e-6` Hartree (actual difference: 7.9e-13).
+/// - Overlap matrix $S$ and MO orthonormality $C^T S C = I$:
+///   - Read dataset `/s` (shape 95x95, type SY, lower-triangle storage) and unfolded symmetric entries.
+///   - Read dataset `/C/rks_49` (shape 95x95, type GE).
+///   - Evaluated matrix product $C^T S C$ via numpy; confirmed max absolute deviation from identity matrix $< 1e-8$.
+/// - Density matrix $P$ consistency and total electrons:
+///   - Read dataset `/occ/rks` (occupation vector, 95 elements; 20 orbitals doubly occupied, 75 unoccupied).
+///   - Constructed density matrix $P_{\text{calc}} = \sum_i \mathrm{occ}_i C_i C_i^T$.
+///   - Verified that $P_{\text{calc}}$ matches dataset `/P/rks_49` (lower-triangle storage) within $1e-8$.
+///   - Computed $\mathrm{tr}(PS) = \sum_{pq} P_{pq} S_{qp} = 40.0$ electrons (neutral glycine $NH_2CH_2COOH$
+///     has 40 electrons: N(7) + 5*H(5) + 2*C(12) + 2*O(16) = 40), verified within $1e-8$.
+#[test]
+#[ignore]
+fn test_real_qc_data_gly() {
+    let dir_str = std::env::var("PROTEINDF_BRIDGE_QC_DATA").expect(
+        "PROTEINDF_BRIDGE_QC_DATA environment variable not set. \
+         Must point to directory containing regenerated CH3COOX_HF.h5 and GLY.h5",
+    );
+    let dir = std::path::PathBuf::from(dir_str);
+    assert!(
+        dir.is_dir(),
+        "PROTEINDF_BRIDGE_QC_DATA is not a directory: {}",
+        dir.display()
+    );
+    let file_path = dir.join("GLY.h5");
+    assert!(
+        file_path.exists(),
+        "GLY.h5 not found in: {}",
+        file_path.display()
+    );
+
+    let result = PdfParamHdf5::load(&file_path).expect("failed to load GLY.h5");
+    verify_real_qc_result(
+        &result,
+        10,                      // atoms
+        95,                      // AOs
+        95,                      // MOs
+        49,                      // iterations
+        -282.864_163_583_716_73, // final energy from ProteinDF_test pdfresults.std.h5
+        40.0,                    // electrons
+    );
 }
