@@ -100,3 +100,35 @@
 ### 完了の定義(修正後)
 
 1. 上記1・2に対応し、同じブランチに追加コミットする。コードの変更はない。
+
+## PR#59 完了(2026-10-12)
+
+修正コミット`da4e2df`で修正依頼1・2に対応済み(文書のみ)。`reference.h5`と`pdf-archive-h5.py`が作る`pdfresults.h5`の違いの表と、`pdf-archive-h5.py`の引用行(`archive_s` 128〜133行目ほか)をClaudeが実物で確認した。`pdf-archive-h5.py`は`pop/mulliken`を書き出さない。`--no-ff`でdevelopにマージした(`9db1415`)。
+
+## PR#60: ProteinDFのHDF5の読み込み(計画、ユーザー確認済み 2026-10-12)
+
+ブランチ: `feature/qc-hdf5-reader`。形式は`docs/qc-result-format.md`による。
+
+### 対象
+
+1. **機能フラグ**: コアのクレートに機能`hdf5`を設ける(依存は`hdf5-metno`)。既定では無効。wasm32とPythonのwheelには入れない。`hdf5-metno`のHDF5を、ソースからの静的ビルド(`static`機能)にするか、システムのライブラリを使うかは、ローカル(システムにlibhdf5はない。cmakeとCコンパイラはある)とCIの両方でビルドできる方を選び、理由を報告する。
+2. **読み込む内容**(`src/qc_result/`、型の名前は`docs/qc-result-format.md` §4の案を基にしてよい):
+   - ルート属性(手法`method`、交換相関汎関数、原子数・AO数・MO数、反復回数、収束したか)。
+   - 分子(`molecule/xyzc`。座標はbohrのまま保持し、`AtomGroup`への変換ではÅに換算する。換算係数は`format/cube.rs`の`BOHR_TO_ANGSTROM`を使う)。
+   - 基底関数系(`basisset/{name,cgto,pgto}`)と、AOと原子の対応(ProteinDF_pytoolsの`orbinfo.py`と同じ規則。AOの並び順・角運動量の扱いを実物で確かめてドキュメントコメントに書く)。
+   - 軌道エネルギー・占有数・MO係数。反復ごとのデータは既定で最終反復(`iterations`)を使い、反復を指定して読むこともできる。RKS(`rks`)とUKS(`uks-alpha`・`uks-beta`など、実際の名前を確かめる)の両方に対応する。
+   - ファイルにあれば読むもの: `s`・`P`・`F`・`h`・`pop/mulliken`。ないものは`Option`で表し、エラーにしない。
+   - 数値が固定長文字列として格納されている部分(`xyzc`・`cgto`・`pgto`)は数値に変換する。変換できない値は`BridgeError`にする。
+3. **テスト**: `tests/data/`の3ファイル(`H2O_HF_reference.h5`・`Ne_HF_reference.h5`・`N2_UHF_reference.h5`)で、上の各項目を確かめる。期待値は、リポジトリの外の一時環境で`h5py`やProteinDF_pytoolsを使って読んだ値と比べて決め、どう決めたかをテストのコメントに書く。`s`などがないファイルで`None`になることも確かめる。
+4. **CI**: `.github/workflows/ci.yml`に、機能`hdf5`を有効にしたテストとclippyを加える。
+5. `RUST_PORT_SPEC.md` §3.4に実施内容を追記する。
+
+### 完了の定義
+
+1. 対象1〜5に対応している。
+2. 全PR共通のテストに加え、`cargo nextest run --workspace --features proteindf-bridge/hdf5 --status-level fail --final-status-level fail`と、同じ機能でのclippyが通る。機能`hdf5`なしのビルド(既定)と、`cargo check --target wasm32-unknown-unknown`(既存の手順どおり)が、これまでどおり通る。
+3. CIの変更は、ローカルで同じコマンドが通ることを示す(CIでの結果はマージ後にClaudeが確認する)。
+
+## PR#61: 軌道ごとのMulliken寄与(予定)
+
+ユーザーが用意する、`s`を含む多原子分子の`pdfresults.h5`を受け取ってから始める。答え合わせは、(1)各軌道の寄与の原子についての和が1、(2)占有軌道の寄与を占有数で重み付けした和が、ファイル内の`P`と`s`から計算した原子ごとのMulliken gross populationと一致、(3)`pop/mulliken`があればそれとも一致、で行う。
