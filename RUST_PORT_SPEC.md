@@ -95,7 +95,7 @@ ProteinDF本体のC++ツール（`pdf-mkfld-dens`/`pdf-mkfld-mo`/`pdf-mkfld-esp`
      - 読み込み: `Cube::new()`, `Cube::from_file()`, `Cube::load()`, `Cube::parse_str()`。
      - ゲッター: `comment1()`, `comment2()`, `origin()`, `unit()`, `n_grid()`, `spacing()`, `atoms()`, `num_atoms()`, `is_molecular_orbital()`, `orbitals()`, `num_datasets()`。
      - 格子点参照: `grid_point_position(ix, iy, iz)` (生単位での格子点座標算出)、`value(ix, iy, iz)` (データセット0の値)、`orbital_value(dataset_idx, ix, iy, iz)`、`data(dataset_idx)`、`all_data()`。
-     - `AtomGroup` 取り出し: `get_atomgroup()`, `get_atom_group()`。
+     - `AtomGroup` 取り出し: `get_atomgroup()`。
    - 換算定数: `BOHR_TO_ANGSTROM = 0.529_177_210_903` (CODATA 2018 / 2022 推奨ボーア半径 $a_0 = 0.529177210903 \times 10^{-10}$ m に基づく)。
 2. **単位の扱い**:
    - 格子点数の符号で単位を判定する(正なら `CubeUnit::Bohr`、負なら `CubeUnit::Angstrom`)。

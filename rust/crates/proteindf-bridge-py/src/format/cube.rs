@@ -82,11 +82,6 @@ impl PyCube {
     }
 
     #[getter]
-    pub fn num_atoms(&self) -> usize {
-        self.inner.num_atoms()
-    }
-
-    #[getter]
     pub fn is_molecular_orbital(&self) -> bool {
         self.inner.is_molecular_orbital()
     }
@@ -138,9 +133,5 @@ impl PyCube {
     pub fn get_atomgroup(&self) -> PyResult<PyAtomGroup> {
         let ag = self.inner.get_atomgroup().map_err(to_py_err)?;
         Ok(PyAtomGroup::from_core(ag))
-    }
-
-    pub fn get_atom_group(&self) -> PyResult<PyAtomGroup> {
-        self.get_atomgroup()
     }
 }

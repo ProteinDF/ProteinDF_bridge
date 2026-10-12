@@ -307,11 +307,6 @@ impl Cube {
         Ok(ag)
     }
 
-    /// Alias for [`get_atomgroup`].
-    pub fn get_atom_group(&self) -> Result<AtomGroup> {
-        self.get_atomgroup()
-    }
-
     /// Parses Gaussian CUBE format string into this instance.
     pub fn parse(&mut self, content: &str) -> Result<()> {
         let mut lines = content.lines().enumerate();

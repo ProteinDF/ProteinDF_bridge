@@ -50,7 +50,6 @@ Total SCF Density
 
         # Atoms
         self.assertEqual(cube.num_of_atoms, 2)
-        self.assertEqual(cube.num_atoms, 2)
 
         # Molecular orbital attributes
         self.assertFalse(cube.is_molecular_orbital)
@@ -100,10 +99,6 @@ Total SCF Density
         self.assertAlmostEqual(a1.xyz.y, 0.0)
         self.assertAlmostEqual(a1.xyz.z, 0.0)
         self.assertAlmostEqual(a1.charge, 8.0)
-
-        # Test alias get_atom_group
-        ag_alias = cube.get_atom_group()
-        self.assertEqual(ag_alias.get_number_of_atoms(), 2)
 
     def test_cube_molecular_orbitals(self):
         cube_str = """\
