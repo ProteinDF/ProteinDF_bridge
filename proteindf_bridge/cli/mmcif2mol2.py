@@ -4,8 +4,9 @@
 import argparse
 import os
 import pprint
+import msgpack
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 
 def main():
@@ -44,19 +45,21 @@ def main():
     mmcif = None
     if len(read_scratch_path) > 0:
         # read scratch file
-        mmcif = bridge.SimpleMmcif()
-        mmcif.load_msgpack(read_scratch_path)
+        with open(read_scratch_path, "rb") as f:
+            scratch_data = msgpack.unpackb(f.read(), raw=False)
+        mmcif = rs.SimpleMmcif.from_data(scratch_data)
     else:
         # load mmCIF file
         if verbose:
             print("reading: {}".format(mmcif_file_path))
             print("output dir: {}".format(output_path))
-        mmcif = bridge.SimpleMmcif(mmcif_file_path)
+        mmcif = rs.SimpleMmcif(mmcif_file_path)
 
         if len(write_scratch_path) > 0:
             if verbose:
                 print("write scratch file: {}".format(write_scratch_path))
-            mmcif.save_msgpack(write_scratch_path)
+            with open(write_scratch_path, "wb") as f:
+                f.write(msgpack.packb(mmcif.data))
 
     #print(mmcif)
 
@@ -70,7 +73,7 @@ def main():
             mol2_path = os.path.join(output_path, "{}.mol2".format(data_id))
             if verbose:
                 print("make mol2: {}".format(mol2_path))
-            mol2 = bridge.SimpleMol2(ag)
+            mol2 = rs.SimpleMol2(ag)
             if verbose:
                 print("save: {}".format(mol2_path))
             mol2.save(mol2_path)

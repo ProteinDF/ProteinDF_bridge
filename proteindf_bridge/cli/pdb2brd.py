@@ -23,7 +23,7 @@ import sys
 import argparse
 import pprint
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 
 def main():
@@ -66,21 +66,16 @@ def main():
     # load PDB file
     if (verbose == True):
         print("reading: %s\n" % (pdb_file_path))
-    pdb_obj = bridge.Pdb()
-    pdb_obj.debug = debug
+    pdb_obj = rs.Pdb()
     pdb_obj.load(pdb_file_path)
     # print(pdb_obj)
     atom_group = pdb_obj.get_atomgroup(select_model=select_model,
                                        select_altloc=select_altloc)
 
-    # output DfData
-    data = atom_group.get_raw_data()
-    # pprint.pprint(data)
-
     # output file
     if (verbose == True):
         print("writing: %s\n" % (output_path))
-    bridge.save_msgpack(data, output_path)
+    rs.save_atomgroup(atom_group, output_path)
 
     # end
 

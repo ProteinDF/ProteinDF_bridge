@@ -1089,3 +1089,28 @@ fn test_loaders_preserve_explicit_file_bonds() {
         "model_1 must have exactly 3 disulfide bonds"
     );
 }
+
+#[test]
+fn test_atomgroup_setup_determinism_1hls() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/1hls.pdb");
+    let mut pdb1 = Pdb::new(None);
+    pdb1.load(&path).expect("failed to load 1hls.pdb (run 1)");
+    let mut ag1 = pdb1
+        .get_atomgroup(None, None)
+        .expect("failed to get atomgroup (run 1)");
+    ag1.setup().expect("AtomGroup::setup failed (run 1)");
+    let bonds1 = ag1.get_bond_list();
+
+    let mut pdb2 = Pdb::new(None);
+    pdb2.load(&path).expect("failed to load 1hls.pdb (run 2)");
+    let mut ag2 = pdb2
+        .get_atomgroup(None, None)
+        .expect("failed to get atomgroup (run 2)");
+    ag2.setup().expect("AtomGroup::setup failed (run 2)");
+    let bonds2 = ag2.get_bond_list();
+
+    assert_eq!(
+        bonds1, bonds2,
+        "AtomGroup::setup() on 1hls must produce identical bond lists across runs"
+    );
+}

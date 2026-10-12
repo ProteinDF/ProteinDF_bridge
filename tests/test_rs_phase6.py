@@ -12,7 +12,10 @@ import os
 import tempfile
 import unittest
 
+import msgpack
+
 # Pure Python implementation
+import proteindf_bridge.common as py_common
 import proteindf_bridge.functions as py_functions
 import proteindf_bridge.modeling as py_modeling
 import proteindf_bridge.neutralize as py_neutralize
@@ -30,6 +33,7 @@ class TestRsPhase6(unittest.TestCase):
     def setUpClass(cls):
         # Locate test data directory
         test_dir = os.path.dirname(os.path.abspath(__file__))
+        cls.repo_root = os.path.abspath(os.path.join(test_dir, ".."))
         cls.data_dir = os.path.join(test_dir, "..", "rust", "crates", "proteindf-bridge", "tests", "data")
         if not os.path.exists(cls.data_dir):
             cls.data_dir = os.path.join(test_dir, "data")
@@ -696,6 +700,246 @@ class TestRsPhase6(unittest.TestCase):
         ag = rs_br.AtomGroup("test")
         neut = rs_br.Neutralize(ag)
         self.assertIn("Neutralize(atoms=", repr(neut))
+
+    # =========================================================================
+    # 4. AtomGroup.save_csv and SimpleMmcif.data
+    # =========================================================================
+
+    def test_atomgroup_save_csv_parity(self):
+        """
+        Verify that rs_br.AtomGroup.save_csv produces identical CSV output
+        including CRLF line endings as pure Python py_ag.save_csv.
+        """
+        fixture_path = os.path.join(self.data_dir, "ACE_ALA_NME_trans1.brd")
+        py_ag = py_functions.load_atomgroup(fixture_path)
+        rs_ag = rs_br.load_atomgroup(fixture_path)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            py_csv = os.path.join(tmpdir, "py.csv")
+            rs_csv = os.path.join(tmpdir, "rs.csv")
+
+            py_ag.save_csv(py_csv)
+            rs_ag.save_csv(rs_csv)
+
+            self.assertTrue(os.path.exists(py_csv))
+            self.assertTrue(os.path.exists(rs_csv))
+
+            with open(py_csv, "rb") as f:
+                py_bytes = f.read()
+            with open(rs_csv, "rb") as f:
+                rs_bytes = f.read()
+
+            self.assertEqual(rs_bytes, py_bytes)
+            self.assertIn(b"\r\n", rs_bytes)
+
+    def test_atomgroup_save_csv_float_repr(self):
+        """
+        Verify that save_csv formats floats (charges and coordinates) identically
+        to Python repr, including small exponents (1e-05, -2.5e-07), large exponents (1e16),
+        and normal numbers (123.0, 0.1).
+        """
+        test_values = [1e-05, -2.5e-07, 1e16, 123.0, 0.1, 0.0, -0.0]
+        py_ag = PyAtomGroup("test_floats")
+        rs_ag = rs_br.AtomGroup("test_floats")
+
+        for i, val in enumerate(test_values):
+            name = f"C{i}"
+            py_atom = PyAtom(symbol="C", name=name, position=PyPos(val, -val, val * 2.0))
+            py_atom.charge = val
+            py_ag.set_atom(name, py_atom)
+
+            rs_atom = rs_br.Atom(symbol="C", name=name, position=rs_br.Position(val, -val, val * 2.0))
+            rs_atom.charge = val
+            rs_ag.set_atom(name, rs_atom)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            py_csv = os.path.join(tmpdir, "py_floats.csv")
+            rs_csv = os.path.join(tmpdir, "rs_floats.csv")
+
+            py_ag.save_csv(py_csv)
+            rs_ag.save_csv(rs_csv)
+
+            with open(py_csv, "rb") as f:
+                py_bytes = f.read()
+            with open(rs_csv, "rb") as f:
+                rs_bytes = f.read()
+
+            self.assertEqual(rs_bytes, py_bytes)
+            self.assertIn(b"1e-05", rs_bytes)
+            self.assertIn(b"-2.5e-07", rs_bytes)
+            self.assertIn(b"1e+16", rs_bytes)
+            self.assertIn(b"123.0", rs_bytes)
+            self.assertIn(b"0.1", rs_bytes)
+            self.assertIn(b"\r\n", rs_bytes)
+
+    def test_atomgroup_save_csv_atomic_write_on_error(self):
+        """
+        Verify that save_csv does not leave corrupt / partial files on invalid destination.
+        """
+        ag = rs_br.AtomGroup("test")
+        non_existent_path = "/non_existent_directory_for_test_12345/test.csv"
+        with self.assertRaises(Exception):
+            ag.save_csv(non_existent_path)
+        self.assertFalse(os.path.exists(non_existent_path))
+
+    def test_simple_mmcif_data_property(self):
+        """
+        Verify that SimpleMmcif.data returns block dictionaries matching pure Python mmCIF data.
+        """
+        cif_path = os.path.join(self.repo_root, "proteindf_bridge", "data", "ALA.cif")
+        self.assertTrue(os.path.exists(cif_path), f"ALA.cif not found at: {cif_path}")
+        mmcif = rs_br.SimpleMmcif(cif_path)
+        data = mmcif.data
+        self.assertIn("data_ALA", data)
+        block = data["data_ALA"]
+        self.assertEqual(len(block), 2)
+        kv, tables = block
+        self.assertEqual(kv["_chem_comp.id"], "ALA")
+        self.assertGreater(len(tables), 0)
+
+    def test_simple_mmcif_from_data_roundtrip(self):
+        """
+        Verify that SimpleMmcif data -> msgpack -> from_data roundtrip preserves mmCIF contents.
+        """
+        cif_path = os.path.join(self.repo_root, "proteindf_bridge", "data", "ALA.cif")
+        self.assertTrue(os.path.exists(cif_path), f"ALA.cif not found at: {cif_path}")
+        mmcif = rs_br.SimpleMmcif(cif_path)
+        orig_data = mmcif.data
+        packed = msgpack.packb(orig_data)
+        unpacked = msgpack.unpackb(packed, raw=False)
+        restored = rs_br.SimpleMmcif.from_data(unpacked)
+        self.assertEqual(restored.data, orig_data)
+
+    def test_simple_mmcif_from_data_invalid_input(self):
+        """
+        Verify that SimpleMmcif.from_data raises rs_br.BrError on invalid input types or structures.
+        """
+        with self.assertRaises(rs_br.BrError):
+            rs_br.SimpleMmcif.from_data("invalid_string")
+        with self.assertRaises(rs_br.BrError):
+            rs_br.SimpleMmcif.from_data(12345)
+        with self.assertRaises(rs_br.BrError):
+            rs_br.SimpleMmcif.from_data(["not_a_dict"])
+        with self.assertRaises(rs_br.BrError):
+            rs_br.SimpleMmcif.from_data({"data_test": "not_a_list"})
+        with self.assertRaises(rs_br.BrError):
+            rs_br.SimpleMmcif.from_data({"data_test": [{}]})  # length < 2
+        with self.assertRaises(rs_br.BrError):
+            rs_br.SimpleMmcif.from_data({"data_test": ["not_a_dict", []]})
+
+    # =========================================================================
+    # PR#54 Additions: AVOGADRO_CONST, restructure, remove_atom
+    # =========================================================================
+
+    def test_avogadro_const(self):
+        """
+        Verify AVOGADRO_CONST module constant matches pure Python common.py.
+        """
+        self.assertEqual(rs_br.AVOGADRO_CONST, py_common.AVOGADRO_CONST)
+        self.assertEqual(rs_br.AVOGADRO_CONST, 6.02214076e+23)
+
+    def test_atomgroup_remove_atom(self):
+        """
+        Verify remove_atom removes an atom from AtomGroup and returns it.
+        """
+        ag = rs_br.AtomGroup("test_remove")
+        atom1 = rs_br.Atom(symbol="C", name="CA", position=rs_br.Position(1.0, 2.0, 3.0))
+        atom2 = rs_br.Atom(symbol="N", name="N", position=rs_br.Position(4.0, 5.0, 6.0))
+        ag.set_atom("1", atom1)
+        ag.set_atom("2", atom2)
+
+        self.assertEqual(ag.get_number_of_atoms(), 2)
+
+        removed1 = ag.remove_atom("1")
+        self.assertIsNotNone(removed1)
+        self.assertEqual(removed1.name, "CA")
+        self.assertEqual(ag.get_number_of_atoms(), 1)
+        self.assertFalse(ag.has_atom("1"))
+
+        removed2 = ag.remove_atom("2")
+        self.assertIsNotNone(removed2)
+        self.assertEqual(removed2.name, "N")
+        self.assertEqual(ag.get_number_of_atoms(), 0)
+        self.assertFalse(ag.has_atom("2"))
+
+    def test_atomgroup_restructure_parity(self):
+        """
+        Verify AtomGroup.restructure parity with pure Python AtomGroup.restructure on 1hls.pdb.
+        """
+        pdb_path = os.path.join(self.repo_root, "proteindf_bridge", "data", "1hls.pdb")
+        self.assertTrue(os.path.exists(pdb_path), f"1hls.pdb not found at: {pdb_path}")
+
+        # Pure Python
+        py_pdb = PyPdb()
+        py_pdb.load(pdb_path)
+        py_ag = py_pdb.get_atomgroup()
+        py_restructured = py_ag.restructure(py_ag, 1.0e-5)
+
+        # Rust
+        rs_pdb = rs_br.Pdb()
+        rs_pdb.load(pdb_path)
+        rs_ag = rs_pdb.get_atomgroup()
+        rs_restructured = rs_ag.restructure(rs_ag, 1.0e-5)
+
+        # Compare serialized brd data
+        with tempfile.TemporaryDirectory() as tmpdir:
+            py_brd = os.path.join(tmpdir, "py_restruct.brd")
+            rs_brd = os.path.join(tmpdir, "rs_restruct.brd")
+            py_functions.save_msgpack(py_restructured.get_raw_data(), py_brd)
+            rs_br.save_atomgroup(rs_restructured, rs_brd)
+
+            py_data = py_functions.load_msgpack(py_brd)
+            rs_data = py_functions.load_msgpack(rs_brd)
+
+            def canon(obj):
+                if isinstance(obj, dict):
+                    return {str(k): canon(v) for k, v in sorted(obj.items())}
+                elif isinstance(obj, list):
+                    return [canon(x) for x in obj]
+                elif isinstance(obj, float):
+                    return round(obj, 6)
+                else:
+                    return obj
+
+            self.assertEqual(canon(rs_data), canon(py_data))
+
+    def test_atomgroup_restructure_with_rest_atoms(self):
+        """
+        Verify restructure assigns unmatched atoms to model_1/Z/1 (res_name UNK) and copies charges.
+        """
+        # Create reference with model_1/A/1
+        ref_ag = rs_br.AtomGroup()
+        model_1 = rs_br.AtomGroup()
+        chain_a = rs_br.AtomGroup()
+        res_1 = rs_br.AtomGroup("ALA")
+        atom_c = rs_br.Atom(symbol="C", name="CA", position=rs_br.Position(0.0, 0.0, 0.0))
+        res_1.set_atom("CA", atom_c)
+        chain_a.set_group("1", res_1)
+        model_1.set_group("A", chain_a)
+        ref_ag.set_group("model_1", model_1)
+
+        # Create target with matching atom (CA at 0.0 with charge 0.5) and unmatched atom (N at 10.0 with charge -0.3)
+        target_ag = rs_br.AtomGroup()
+        ca = rs_br.Atom(symbol="C", name="CA", position=rs_br.Position(0.0, 0.0, 0.0))
+        ca.charge = 0.5
+        n_unmatched = rs_br.Atom(symbol="N", name="N", position=rs_br.Position(10.0, 10.0, 10.0))
+        n_unmatched.charge = -0.3
+        target_ag.set_atom("CA", ca)
+        target_ag.set_atom("N", n_unmatched)
+
+        restructured = target_ag.restructure(ref_ag, 1.0e-5)
+        # Check matching atom charge copied
+        matched_ca = restructured["model_1"]["A"]["1"]["CA"]
+        self.assertAlmostEqual(matched_ca.charge, 0.5)
+
+        # Check rest atom assigned to model_1/Z/1
+        chain_z = restructured["model_1"]["Z"]
+        res_unk = chain_z["1"]
+        self.assertEqual(res_unk.name, "UNK")
+        self.assertEqual(res_unk.get_number_of_atoms(), 1)
+        rest_n = res_unk["1"]
+        self.assertEqual(rest_n.symbol, "N")
+        self.assertAlmostEqual(rest_n.charge, -0.3)
 
 
 if __name__ == "__main__":

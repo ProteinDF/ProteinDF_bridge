@@ -5,7 +5,7 @@ import os
 import argparse
 import pprint
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 import logging
 import logging.config
@@ -13,7 +13,7 @@ import logging.config
 
 def get_rest_of_frame_molecule(frame_molecule, selected_molecule):
     # calc the rest
-    selector = bridge.Select_AtomGroup(selected_molecule)
+    selector = rs.Select_AtomGroup(selected_molecule)
     selected = frame_molecule.select(selector)
     rest_molecule = frame_molecule ^ selected
 
@@ -22,8 +22,8 @@ def get_rest_of_frame_molecule(frame_molecule, selected_molecule):
 
 def assign_rest_molecule(rest_molecule, output_atom_group,
                          model_id="model_1", chain_id="Z", res_name="UNK"):
-    chain = bridge.AtomGroup()
-    res = bridge.AtomGroup()
+    chain = rs.AtomGroup()
+    res = rs.AtomGroup()
     res.name = res_name
     atom_id = 1
     for atom in rest_molecule.get_atom_list():
@@ -66,11 +66,11 @@ def main():
         print("reference: {}".format(ref_brd_path))
 
     # load
-    target_ag = bridge.load_atomgroup(target_brd_path)
-    ref_ag = bridge.load_atomgroup(ref_brd_path)
+    target_ag = rs.load_atomgroup(target_brd_path)
+    ref_ag = rs.load_atomgroup(ref_brd_path)
 
     # matching
-    #target_selector = bridge.Select_AtomGroup(target_ag)
+    #target_selector = rs.Select_AtomGroup(target_ag)
     #restructured = ref_ag.select(target_selector)
 
     # calc the rest
@@ -82,7 +82,7 @@ def main():
     if output_path:
         if verbose:
             print("output brd file: {}".format(output_path))
-        bridge.save_atomgroup(restructured, output_path)
+        rs.save_atomgroup(restructured, output_path)
 
 
 if __name__ == '__main__':

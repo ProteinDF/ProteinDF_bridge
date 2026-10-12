@@ -37,6 +37,9 @@ fn rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("BrInputError", m.py().get_type::<error::BrInputError>())?;
     m.add("BrValueError", m.py().get_type::<error::BrValueError>())?;
 
+    // Constants (PR#54)
+    m.add("AVOGADRO_CONST", 6.02214076e+23)?;
+
     // Foundation & Data Model (PR#14)
     m.add_class::<periodic_table::PyPeriodicTable>()?;
     m.add_class::<vector::PyVector>()?;

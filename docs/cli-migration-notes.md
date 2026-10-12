@@ -1,0 +1,199 @@
+# docs/cli-migration-notes.md
+
+# CLI移行対応表 (純Python版 → Rust版 `proteindf_bridge.rs`)
+
+本ドキュメントは、`RUST_PORT_SPEC.md` §4.5 および `docs/tasks/TASK_cli-rust-migration.md` に基づき、構造を扱う26本のCLIスクリプト（`proteindf_bridge/cli/`）が使用している純Python版APIと、それに対応するRust版API（`proteindf_bridge.rs`）の有無、移行対象PR（PR#53〜55）、および不足しているAPIを整理した対応表である。
+
+---
+
+## 1. 対象外ツール（構造を扱わない汎用ツール6本）
+
+以下の6本は構造データを扱わない汎用ユーティリティであり、`RUST_PORT_SPEC.md` §4.5の方針決定に基づき、純Python版のままとし移行対象外とする。
+
+1. `db2txt.py`: SQLite3 DBのテキストダンプ
+2. `doctest_runner.py`: doctest実行ランナー
+3. `module_inspect.py`: Pythonモジュールのインスペクト
+4. `mpac2txt.py`: MessagePackバイナリのYAML風テキスト表示
+5. `mpac2yml.py`: MessagePack → YAML 変換
+6. `yml2mpac.py`: YAML → MessagePack 変換
+
+---
+
+## 2. 移行対象26本のAPI対応表
+
+凡例:
+- **移行PR**: PR#53（フォーマット変換10本）、PR#54（構造の操作・表示14本）、PR#55（モデリング2本）
+- **Rust API有無**: ○（利用可能）、△（一部利用可能/代替あり）、×（不足）
+
+| コマンド | 移行PR | 純Python版で使用しているAPI | 対応するRust版API (`proteindf_bridge.rs`) | Rust API有無 | 備考・差異 |
+| :--- | :--- | :--- | :--- | :---: | :--- |
+| `pdb2brd.py` | PR#53 (完了) | `Pdb`, `save_msgpack`, `AtomGroup.get_raw_data` | `Pdb`, `save_atomgroup` | ○ | `save_atomgroup` で1ステップ保存。移行完了。基準ファイルと完全一致。 |
+| `brd2pdb.py` | PR#53 (完了) | `load_msgpack`, `AtomGroup(dict)`, `Pdb.set_by_atomgroup` | `load_atomgroup`, `Pdb.set_by_atomgroup` | ○ | 移行完了。意図した違い: B-factorデフォルト値（純Python版1.00 → Rust版0.00）。 |
+| `brd2gro.py` | PR#53 (完了) | `load_msgpack`, `AtomGroup(dict)`, `SimpleGro` | `load_atomgroup`, `SimpleGro` | ○ | 移行完了。意図した違い: ボックスベクトル行の書式（GRO規格準拠のf10.5固定幅および末尾改行）。 |
+| `gro2brd.py` | PR#53 (完了) | `SimpleGro`, `save_msgpack`, `AtomGroup.get_raw_data` | `SimpleGro`, `save_atomgroup` | ○ | `SimpleGro.get_atomgroup()` 後に `save_atomgroup` で保存。移行完了。基準ファイルと完全一致。 |
+| `brd2xyz.py` | PR#53 (完了) | `load_msgpack`, `AtomGroup(dict)`, `Xyz` | `load_atomgroup`, `Xyz` | ○ | `load_atomgroup` で読み込み、`Xyz.set_by_atomgroup` で出力。移行完了。基準ファイルと完全一致。 |
+| `xyz2brd.py` | PR#53 (完了) | `Xyz`, `save_msgpack`, `AtomGroup.get_raw_data` | `Xyz`, `save_atomgroup` | ○ | `Xyz.get_atomgroup()` 後に `save_atomgroup` で保存。移行完了。基準ファイルと完全一致。 |
+| `brd2txt.py` | PR#53 (完了) | `load_msgpack`, `AtomGroup(dict)`, `AtomGroup.save_csv` | `load_atomgroup`, `AtomGroup.save_csv` | ○ | `AtomGroup.save_csv` をPyO3バインディングに追加（PR#53）。基準ファイルと完全一致。 |
+| `mmcif2txt.py` | PR#53 (完了) | `SimpleMmcif`, `SimpleMmcif.save_msgpack` | `SimpleMmcif.data`, `msgpack` (Python) | ○ | `SimpleMmcif.data` を追加し、スクリプト内で `msgpack` を直接使用。意図した違い: 引用符トークナイズ不具合修正。 |
+| `mmcif2mol2.py` | PR#53 (完了) | `SimpleMmcif`, `SimpleMol2`, `SimpleMmcif.save_msgpack` | `SimpleMmcif`, `SimpleMol2`, `msgpack` (Python) | ○ | スクラッチ保存に `SimpleMmcif.data` + `msgpack`、読込に `from_data` を使用。基準ファイルと完全一致。 |
+| `read_amber_prmtop.py` | PR#53 (完了) | `AmberPrmtop`, `save_msgpack` | `AmberPrmtop`, `msgpack` (Python) | ○ | `AmberPrmtop` で読込後、座標辞書を `msgpack` で書き出し。基準ファイルと完全一致。 |
+| `brd-box.py` | PR#54 (完了) | `load_msgpack`, `AtomGroup(dict)`, `AtomGroup.weight`, `AVOGADRO_CONST` | `load_atomgroup`, `AtomGroup.weight`, `AVOGADRO_CONST` | ○ | `AVOGADRO_CONST` を追加（PR#54）。基準ファイルと完全一致。 |
+| `brd-density.py` | PR#54 (完了) | `load_msgpack`, `AtomGroup(dict)`, `AtomGroup.weight`, `AVOGADRO_CONST` | `load_atomgroup`, `AtomGroup.weight`, `AVOGADRO_CONST` | ○ | `AVOGADRO_CONST` を追加（PR#54）。基準ファイルと完全一致。 |
+| `brd-formula.py` | PR#54 (完了) | `load_msgpack`, `AtomGroup(dict)`, `AtomGroup.formula` | `load_atomgroup`, `AtomGroup.formula` | ○ | 移行完了。意図した違い: 元素出力順（純Python版出現順 → Rust版原子番号順）。 |
+| `brd-show-res.py` | PR#54 (完了) | `load_msgpack`, `AtomGroup(dict)`, `Format.is_models`, `Format.is_protein` | `load_atomgroup`, `Format.is_models`, `Format.is_protein` | ○ | 移行完了。基準ファイルと完全一致。 |
+| `brd-show-bonds.py` | PR#54 (完了) | `load_msgpack`, `AtomGroup(dict)`, `AtomGroup.get_bond_list` | `load_atomgroup`, `AtomGroup.get_bond_list` | ○ | `print(list(bond))` により出力書式維持。基準ファイルと完全一致。 |
+| `brd-setup-bond.py` | PR#54 (完了) | `load_msgpack`, `AtomGroup(dict)`, `Bond.setup`, `AtomGroup.get_dict_data`, `save_msgpack` | `load_atomgroup`, `AtomGroup.setup()`, `save_atomgroup` | ○ | 移行完了。不具合修正: 純Python版のAttributeError解消、CCDテンプレートDB+ヒューリスティックによる結合解決。 |
+| `brd-select.py` | PR#54 (完了) | `load_msgpack`, `AtomGroup`, `Select_Path_wildcard`, `AtomGroup.select`, `save_msgpack` | `load_atomgroup`, `AtomGroup`, `Select_Path_wildcard`, `AtomGroup.select`, `save_atomgroup` | ○ | 移行完了。基準ファイルと完全一致。 |
+| `brd-select-path.py` | PR#54 (完了) | `load_msgpack`, `AtomGroup`, `Select_Path_simple`, `AtomGroup.select`, `save_msgpack` | `load_atomgroup`, `AtomGroup`, `Select_Path_simple`, `AtomGroup.select`, `save_atomgroup` | ○ | 移行完了。基準ファイルと完全一致。 |
+| `brd-divide.py` | PR#54 (完了) | `load_atomgroup`, `AtomGroup`, `save_atomgroup` | `load_atomgroup`, `AtomGroup`, `save_atomgroup` | ○ | 移行完了。基準ファイルと完全一致。 |
+| `brd-divide-mainchain.py` | PR#54 (完了) | `load_atomgroup`, `AtomGroup`, `save_atomgroup` | `load_atomgroup`, `AtomGroup`, `save_atomgroup` | ○ | 移行完了。基準ファイルと完全一致。 |
+| `brd-renumber-resid.py` | PR#54 (完了) | `load_atomgroup`, `AtomGroup`, `save_atomgroup` | `load_atomgroup`, `AtomGroup`, `save_atomgroup` | ○ | 移行完了。基準ファイルと完全一致。 |
+| `brd-restructure.py` | PR#54 (完了) | `load_atomgroup`, `AtomGroup.restructure`, `save_atomgroup` | `load_atomgroup`, `AtomGroup.restructure`, `save_atomgroup` | ○ | `AtomGroup.restructure` を追加（PR#54）。基準ファイルと完全一致。 |
+| `reorder.py` | PR#54 (完了) | `load_atomgroup`, `AtomGroup`, `save_msgpack` | `load_atomgroup`, `AtomGroup`, `save_atomgroup` | ○ | `save_atomgroup` で保存。基準ファイルと完全一致。 |
+| `crystallize.py` | PR#54 (完了) | `load_atomgroup`, `AtomGroup`, `Position`, `AtomGroup.shift_by`, `save_msgpack` | `load_atomgroup`, `AtomGroup`, `Position`, `AtomGroup.shift_by`, `save_atomgroup` | ○ | `save_atomgroup` で保存。基準ファイルと完全一致。 |
+| `neutralize.py` | PR#55 (完了) | `load_atomgroup`, `Neutralize.neutralized`, `save_msgpack` | `load_atomgroup`, `Neutralize.neutralized`, `save_atomgroup` | ○ | `Neutralize` はRust版に実装・公開済み。移行完了。基準ファイルと完全一致。 |
+| `superposer.py` | PR#55 (完了) | `load_atomgroup`, `Superposer`, `Superposer_quaternion` | `load_atomgroup`, `Superposer`, `Superposer_quaternion` | ○ | `Superposer`, `Superposer_quaternion` はRust版に実装・公開済み。移行完了。違いあり: RMSDの浮動小数点最下位桁の丸め誤差（差~6e-16）、既知の問題: AtomGroup文字列表現で入れ子の字下げをしない（コアで別タスク）。 |
+
+---
+
+## 3. 足りないRust版APIの一覧
+
+移行（PR#53〜55）を進めるにあたり、`proteindf_bridge.rs`（Pythonバインディング `rust/crates/proteindf-bridge-py`）への追加が必要となるAPIは以下の通りである。
+
+1. **`proteindf_bridge.rs.AVOGADRO_CONST`**
+   - **用途**: `brd-box.py`, `brd-density.py`
+   - **内容**: アボガドロ定数（`6.02214129e23` または純Python版 `common.py` の定義値 `6.0221415e23`）。モジュールレベル定数として公開。
+2. **`AtomGroup.save_csv(path)`**
+   - **用途**: `brd2txt.py`
+   - **内容**: 原子リストをCSV形式（`path,symbol,name,x,y,z,charge`）でファイル出力するメソッド。
+3. **`AtomGroup.restructure(reference_ag, range_tol)`**
+   - **用途**: `brd_restructure.py`
+   - **内容**: 参照構造の階層ツリーに合わせてターゲット構造の原子を再構築・整列するメソッド。
+4. **汎用MessagePack I/Oヘルパー (`load_msgpack` / `save_msgpack`) または 代替設計**
+   - **用途**: `read_amber_prmtop.py`, `mmcif2txt.py`, `mmcif2mol2.py`
+   - **内容**:
+     - `read_amber_prmtop.py` は原子座標・電荷等のPython辞書を `.brd` 形式のMessagePackとして書き出している。
+     - `mmcif2txt.py` / `mmcif2mol2.py` は `SimpleMmcif.save_msgpack` でmmCIFブロックの辞書データをキャッシュしている。
+     - Python側の標準 `msgpack` パッケージをスクリプト内で使用するか、`proteindf_bridge.rs` にMessagePack保存関数・メソッドを追加するかはPR#53の実装時に判断する。
+5. **純Python版 `brd-setup-bond.py` のバグとPR#54移行時の正しさの基準**
+   - **純Python版の状態**: `proteindf_bridge/__init__.py` で `Bond` がインポートされていないため、純Python版の実行時に `AttributeError: module 'proteindf_bridge' has no attribute 'Bond'` となる。このため、移行前の基準として使える正常出力が存在しない（本PR#52ではこの例外送出をゴールデンテストとして固定している）。
+   - **PR#54での移行方針と正しさの基準**:
+     - Rust版では `AtomGroup.setup()`（CCDテンプレートDB + 共有結合半径ヒューリスティックによる統合結合解決、§3.13〜3.15）または `Bond.setup_heuristic()`（純共有結合半径ヒューリスティックのみ、§3.10）が既に提供されている。
+     - PR#54で `brd-setup-bond.py` をRust版に切り替える際は、`AtomGroup.setup()` を呼び出して結合を解決し、`save_atomgroup` で保存する設計とする。
+     - **実在するテストに基づく正しさの検証基準値**:
+       1. `rust/crates/proteindf-bridge/tests/test_ccd_templates.rs` の `test_atomgroup_setup_1hls_real_pdb` (710行目〜):
+          実PDBフィクスチャ `1hls.pdb` に対し、`ag.setup()` 実行後にCCDテンプレートDB由来の二重結合が付与されること:
+          - GLU 4 の主鎖 `C=O` 結合がちょうど1本で次数2であること:
+            `assert_eq!(glu4_co_bonds.len(), 1, "GLU 4 C=O bond should appear exactly once");`
+            `assert_eq!(glu4_co_bonds[0].order, 2, "GLU 4 C=O bond should have order 2 from CCD template");`
+          - 鎖Bの ARG 22 に次数2の結合（`C=O` および `CZ=NH2`）が2本以上存在すること:
+            `assert!(arg_double_bonds >= 2, "ARG 22 should have at least 2 double bonds (C=O and CZ=NH2)");`
+          - 残基間ペプチド結合（次数1）がヒューリスティックにより検出され、全体として重複結合が存在しないこと:
+            `assert!(seen.insert(key), "Duplicate bond found: {:?}", key);`
+       2. `rust/crates/proteindf-bridge/tests/test_ccd_templates.rs` の `test_resolve_bonds_preserves_existing_file_bonds` (805行目〜):
+          ファイル由来の事前登録結合（CONECTや明示的結合情報）が上書きされず保持され、重複しないこと:
+          - 事前登録した次数1の `C-O` 結合がCCDの次数2で上書きされず維持されること:
+            `assert_eq!(co_bonds.len(), 1, "C-O bond must be unique");`
+            `assert_eq!(co_bonds[0].order, 1, "Pre-existing C-O bond order 1 must be strictly preserved");`
+          - ALAの重原子結合4本が重複なく得られること:
+            `assert_eq!(bonds.len(), 4, "Total bonds should be 4 without duplicates");`
+       3. `rust/crates/proteindf-bridge/tests/test_covalent_bond_detection.rs` の `test_non_covalent_contact_excluded` (45行目〜):
+          共有結合半径（Cordero et al. 2008）+ マージン（0.45Å）による幾何判定により、非結合の接触（2.5ÅのC-Cペアや2.8Åの水素結合ペア）が結合として誤検出されず除外されること:
+          `assert_eq!(bonds.len(), 1, "Expected exactly 1 genuine covalent bond, but found {}", bonds.len());`
+          `assert!(is_c3_c4, "The only detected bond should be C3-C4");`
+       4. `rust/crates/proteindf-bridge/tests/test_covalent_bond_detection.rs` の `test_known_covalent_bonds_1hls` (91行目〜):
+          `1hls.pdb` において残基間ペプチド結合（鎖A残基1-2間、鎖B残基1-2間）、残基内共有結合（GLU 4のCA-CB）、およびジスルフィド結合（鎖A CYS6 SG - CYS11 SG）が正しく検出されること:
+          `assert!(peptide_a1_a2.is_some(), "Peptide bond between Chain A residue 1 C and residue 2 N should be detected");`
+          `assert!(peptide_b1_b2.is_some(), "Peptide bond between Chain B residue 1 C and residue 2 N should be detected");`
+          `assert!(glu4_ca_cb.is_some(), "CA-CB bond in GLU residue 4 should be detected");`
+          `assert!(ssbond_a6_a11.is_some(), "Disulfide bond between Chain A CYS6 SG and CYS11 SG should be detected");`
+
+---
+
+## 4. PR#53（フォーマット変換10本）の移行結果と差分の分類・根拠
+
+PR#53においてフォーマット変換10本（`pdb2brd.py`, `brd2pdb.py`, `brd2gro.py`, `gro2brd.py`, `brd2xyz.py`, `xyz2brd.py`, `brd2txt.py`, `mmcif2txt.py`, `mmcif2mol2.py`, `read_amber_prmtop.py`）を純Python版からRust版（`proteindf_bridge.rs`）へ移行した。
+
+### 4.1 10本ごとの比較結果一覧
+
+| コマンド | 移行結果 | 比較結果 | 違いの分類 | 根拠・内容 |
+| :--- | :--- | :--- | :--- | :--- |
+| `pdb2brd.py` | 移行完了 | **完全一致** | なし | `rs.save_atomgroup` による1ステップ保存。 |
+| `brd2pdb.py` | 移行完了 | **違いあり** | **意図した違い** | ATOMレコードの温度因子（B-factor）未指定時デフォルト値。純Python版は読み込み時の既定値が `0.0`（`proteindf_bridge/biopdb.py` 216行目）なのに、`set_by_atomgroup` の経路でだけ `1.0`（同474行目の `setdefault("temp_factor", 1.0)`）になる不整合があり、Rust版は読み込み（`rust/crates/proteindf-bridge/src/format/pdb.rs` 266〜267行目）および `set_by_atomgroup`（同559〜563行目）の双方で既定値 `0.0` として一貫している。基準ファイルを更新。 |
+| `brd2gro.py` | 移行完了 | **違いあり** | **意図した違い** | ボックスベクトル行（末尾行）の書式。純Python版はスペース区切りの浮動小数点（改行なし）を出力していたが、Rust版はGRO公式規格（GROMACS仕様）に準拠した固定幅 `{:10.5}` カラムおよび末尾改行を出力する。基準ファイルを更新。 |
+| `gro2brd.py` | 移行完了 | **完全一致** | なし | 読み込み・`.brd` 出力ともに一致。 |
+| `brd2xyz.py` | 移行完了 | **完全一致** | なし | 読み込み・`.xyz` 出力ともに一致。 |
+| `xyz2brd.py` | 移行完了 | **完全一致** | なし | 読み込み・`.brd` 出力ともに一致。 |
+| `brd2txt.py` | 移行完了 | **完全一致** | なし | 新設した `AtomGroup.save_csv` により列・書式（CRLF）・浮動小数点表記が純Python版と完全一致。 |
+| `mmcif2txt.py` | 移行完了 | **違いあり** | **意図した違い (不具合修正)** | `_pdbx_chem_comp_identifier` 内のトークナイズ結果。純Python版パーサーは引用符付き空白文字列（例: `"(2S)-2-aminopropanoic acid"`）の分割に失敗しカラムが壊れていたが、Rust版の厳密なトークナイザにより正しくパースされるようになった。基準ファイルを更新。 |
+| `mmcif2mol2.py` | 移行完了 | **完全一致** | なし | `.mol2` 出力およびスクラッチMessagePack保存・復元が一致。 |
+| `read_amber_prmtop.py` | 移行完了 | **完全一致** | なし | PRMTOP読込、内部座標辞書変換、MessagePack出力すべて一致。 |
+
+### 4.2 追加したAPI
+1. **`AtomGroup.save_csv(path)`**:
+   - `rust/crates/proteindf-bridge-py/src/atom_group.rs`
+   - 一時ファイル出力後にアトミックリネームする安全設計。RFC 4180準拠のCRLF改行およびPythonの`repr(float)`互換の浮動小数点書式。
+2. **`SimpleMmcif.data`**:
+   - `rust/crates/proteindf-bridge-py/src/format/mmcif.rs`
+   - mmCIFブロック辞書（`{block_name: [key_values, tables]}`）を返すプロパティ。
+3. **`SimpleMmcif.from_data(dict)`**:
+   - `rust/crates/proteindf-bridge-py/src/format/mmcif.rs`
+   - mmCIFブロック辞書から `SimpleMmcif` を復元する静的メソッド。不正入力時は `BrInputError` を送出。
+
+### 4.3 CLIオプションとAPIの扱いについての決定
+- **`pdb2brd.py` の `-d/--debug` オプションと `Pdb.debug` プロパティの扱い**:
+  純Python版の `Pdb` には `debug` 属性が存在したが、Rust版の `Pdb` コアにはデバッグフラグが存在しない。何もしないgetter/setterを公開APIに追加することは避け、`Pdb.debug` プロパティはバインディングに追加しない方針とした。`pdb2brd.py` 内の `pdb_obj.debug = debug` の代入行は削除したが、全PR共通ルール1（コマンド名・引数・オプションは変えない）に従い、CLIの `-d/--debug` 引数定義はそのまま維持している。
+
+---
+
+## 5. PR#54（構造の操作・表示14本）の移行結果と差分の分類・根拠
+
+PR#54において構造の操作・表示14本（`brd-box.py`, `brd-density.py`, `brd-formula.py`, `brd-show-res.py`, `brd-show-bonds.py`, `brd-setup-bond.py`, `brd-select.py`, `brd-select-path.py`, `brd-divide.py`, `brd-divide-mainchain.py`, `brd-renumber-resid.py`, `brd-restructure.py`, `reorder.py`, `crystallize.py`）を純Python版からRust版（`proteindf_bridge.rs`）へ移行した。
+
+### 5.1 14本ごとの比較結果一覧
+
+| コマンド | 移行結果 | 比較結果 | 違いの分類 | 根拠・内容 |
+| :--- | :--- | :--- | :--- | :--- |
+| `brd-box.py` | 移行完了 | **完全一致** | なし | 追加した `rs.AVOGADRO_CONST` を使用し、標準出力が完全一致。 |
+| `brd-density.py` | 移行完了 | **完全一致** | なし | 追加した `rs.AVOGADRO_CONST` を使用し、標準出力が完全一致。 |
+| `brd-formula.py` | 移行完了 | **違いあり** | **意図した違い** | 元素の出力順序。純Python版（`atomgroup.py` 581〜592行目）は原子リストに出現した順序（1hlsの場合は `N67C254O76H379S6`）で出力していたが、Rust版（`rust/crates/proteindf-bridge/src/atom_group.rs` 547〜564行目の `get_formula`）は周期表（`PeriodicTable`）の原子番号順（`H=1`, `C=6`, `N=7`, `O=8`, `S=16` で `H379C254N67O76S6`）に出力する。純Python版は出現順で入力によって変わる。Rust版は原子番号順で入力によらず決まる。どちらもHill方式（C、H、その後アルファベット順）ではない。「意図した違い（決定的になった）」として基準ファイルを更新。 |
+| `brd-show-res.py` | 移行完了 | **完全一致** | なし | `Format.is_models`, `Format.is_protein` を使用し、標準出力が完全一致。 |
+| `brd-show-bonds.py` | 移行完了 | **完全一致** | なし | `rs.AtomGroup.get_bond_list` はタプルのリストを返すが、`print(list(bond))` により純Python版と同じ角括弧リスト書式（`['...', '...', 1]`）を維持。標準出力が完全一致。 |
+| `brd-setup-bond.py` | 移行完了 | **違いあり** | **不具合修正** | 純Python版は `proteindf_bridge/__init__.py` に `Bond` がエクスポートされていないため `AttributeError` でクラッシュしていた（更新前の基準ファイルは例外テキスト）。Rust版では `AtomGroup.setup()`（CCDテンプレートDB + 共有結合半径ヒューリスティックによる統合結合解決）を呼び出して `.brd` を出力するように改修。1hlsに対し782原子・793結合が重複なく正しく解決されることを確認し、新規 `.brd` 基準ファイルを生成。<br>**既知の問題**: `setup()` 後の鎖レベルの結合の並び順（例: `/groups/model_1/groups/A/bonds`、`.../B/bonds`）が実行ごとに変わる問題は、PR#56でヒューリスティック探索候補を原子添字順にソートすることで解決済み（本タスク）。基準ファイル `brd_setup_bond.brd.json` を更新し、テストでの結合リスト並べ替えも撤廃。 |
+| `brd-select.py` | 移行完了 | **完全一致** | なし | `Select_Path_wildcard` による原子選択および `.brd` 出力が完全一致。 |
+| `brd-select-path.py` | 移行完了 | **完全一致** | なし | `Select_Path_simple` による原子選択および `.brd` 出力が完全一致。 |
+| `brd-divide.py` | 移行完了 | **完全一致** | なし | 残基単位の分割および `.brd` 出力が完全一致。 |
+| `brd-divide-mainchain.py` | 移行完了 | **完全一致** | なし | 主鎖・側鎖分割および `.brd` 出力が完全一致。 |
+| `brd-renumber-resid.py` | 移行完了 | **完全一致** | なし | 残基番号の振り直しおよび `.brd` 出力が完全一致。 |
+| `brd-restructure.py` | 移行完了 | **完全一致** | なし | 追加した `AtomGroup.restructure` を使用し、参照構造に合わせた再構築結果の `.brd` 出力が完全一致。 |
+| `reorder.py` | 移行完了 | **完全一致** | なし | `save_atomgroup` で保存し、`.brd` 出力が完全一致。 |
+| `crystallize.py` | 移行完了 | **完全一致** | なし | `Position` および `shift_by` による並進移動、`save_atomgroup` で保存し、`.brd` 出力が完全一致。 |
+
+### 5.2 追加したAPI
+1. **`proteindf_bridge.rs.AVOGADRO_CONST`**:
+   - `rust/crates/proteindf-bridge-py/src/lib.rs`
+   - CODATA推奨値 `6.02214076e+23`。`brd-box.py`, `brd-density.py` で利用。
+2. **`AtomGroup.restructure(reference, range=1.0e-5)`**:
+   - `rust/crates/proteindf-bridge-py/src/atom_group.rs`
+   - 参照 `AtomGroup` のツリー階層構造に合わせて自身の原子を再配置する。コアの `ag.remove_atom` / `ag.add_atom` を活用した決定論的かつ安全な実装。
+3. **`AtomGroup.remove_atom(path)`**:
+   - `rust/crates/proteindf-bridge-py/src/atom_group.rs`
+   - 指定パスの原子を削除するメソッド。純Python版で非推奨の `erase_atom` はバインディングに追加せず、`remove_atom` のみを提供する。
+
+---
+
+## 6. PR#55（モデリング2本）の移行結果と差分の分類・根拠
+
+PR#55においてモデリング2本（`neutralize.py`, `superposer.py`）を純Python版からRust版（`proteindf_bridge.rs`）へ移行した。
+
+### 6.1 2本ごとの比較結果一覧
+
+| コマンド | 移行結果 | 比較結果 | 違いの分類 | 根拠・内容 |
+| :--- | :--- | :--- | :--- | :--- |
+| `neutralize.py` | 移行完了 | **完全一致** | なし | `rs.Neutralize`（PR#48でバインディング公開済み）を使用し、`rs.save_atomgroup` で保存。基準ファイル（782→792原子、10イオン付加）および標準出力（空）ともに完全一致。アルゴリズムは決定論的であり、複数回実行時もビット単位で完全一致することを確認済み。 |
+| `superposer.py` | 移行完了 | **違いあり** | 1. **意図した違い** (RMSD計算値)<br>2. **不具合修正** (AtomGroup文字列表現) | 1. RMSD計算値: 純Python版は `1.6536679544491055`、Rust版は `1.6536679544491049`。差は倍精度浮動小数点の最下位1〜2ulp（約 `5.995e-16`）。純Python版もRust版も、対称行列の固有値分解を使う同じ手順（純Python版 `proteindf_bridge/superposer.py` 272行目の `trr.eig()`、Rust版 `rust/crates/proteindf-bridge/src/superposer.rs` 305行目の `trr_sym.eig()?`）であり、違いは固有値分解の実装（純Python版は `numpy.linalg.eigh`、Rust版は自前のヤコビ法 `Matrix::eig` / `SymmetricMatrix::eig`）による丸めの差である。アルゴリズム・数式は同一であり、許容誤差 `1e-14` 以内で一致。<br>2. 構造の文字列表現: 純Python版 `atomgroup.py` の `_get_str()` に準拠し、階層ごとのインデント（深さ×2スペース）および `bond` 出力、原子キー重複排除を行うよう `Display for AtomGroup` を改修（PR#56、本タスクにて解決済み）。基準ファイル `superposer.stdout.txt` を更新。 |
+
+### 6.2 追加したAPI
+なし（既存の `proteindf_bridge.rs` APIで全機能充足）。
+
+

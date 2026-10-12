@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+import msgpack
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 
 def atomgroup2pdf(atomgroup):
@@ -45,7 +46,7 @@ def main():
     inpcrd_path = args.inpcrd_file[0]
     output_path = "output.brd"
 
-    ap = bridge.AmberPrmtop(prmtop_path, inpcrd_path)
+    ap = rs.AmberPrmtop(prmtop_path, inpcrd_path)
     # charges = ap.charges
     # for c in charges:
     #     print(c)
@@ -59,7 +60,8 @@ def main():
     # output file
     if (verbose == True):
         print("writing: %s\n" % (output_path))
-    bridge.save_msgpack(raw_data, output_path)
+    with open(output_path, "wb") as f:
+        f.write(msgpack.packb(raw_data))
 
 
 if __name__ == '__main__':

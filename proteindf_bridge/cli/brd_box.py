@@ -5,7 +5,7 @@ import sys
 import argparse
 import math
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 
 def main():
@@ -46,11 +46,9 @@ def main():
         print("molecules: {}".format(num_of_mols))
         print("density: {}".format(density))
         print("use nm: {}".format(is_use_nm))
-    mpac_data = bridge.load_msgpack(mpac_file_path)
-
     # prepare atomgroup
-    atom_group = bridge.AtomGroup(mpac_data)
-    weights = atom_group.weight * num_of_mols / bridge.AVOGADRO_CONST
+    atom_group = rs.load_atomgroup(mpac_file_path)
+    weights = atom_group.weight * num_of_mols / rs.AVOGADRO_CONST
 
     volume = weights / (density / 1.0e-6)
     # output

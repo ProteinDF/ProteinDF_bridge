@@ -158,3 +158,13 @@ agyが修正依頼1の第一候補(スクリプトの1行目を`#!python`にす�
 **別件(PR#49由来)**: Rust版のクラスの`__module__`が`proteindf_bridge_rs`のまま(`#[pyclass(module = "proteindf_bridge_rs")]`が47か所残っている)。→ `docs/tasks/TASK_pyclass-module-name.md`で対応する(ユーザー承認、2026-10-05)。
 
 ユーザー承認のうえ、2026-10-05にdevelopへマージした(`6dffa5a`)。**PR#51は完了。** これで、wheel付きの最初のReleaseを作れる状態になった。
+
+## 最初のwheel付きリリース 2026.10.2(2026-10-05)
+
+リリース前に、公開される配布物の個人情報・秘密情報をClaudeが調査し、Gaussianの出力ファイルの削除と作者のメールアドレスのnoreply化を行った(`TASK_release-privacy-cleanup.md`)。タグ`2026.10.2`のプッシュでReleaseのワークフロー(run 37239182881)が初めて本番で動き、成功した。
+
+- GitHubのRelease`2026.10.2`が自動で作られ、本文に注釈付きタグのメッセージが入った(PR#50の修正依頼3の確認)。
+- 添付ファイル: Linux x86_64・aarch64(manylinux2014)・macOS arm64のwheelとsdist。Claudeがダウンロードして調べ、`*.out`は0件、`data/*.brd`は7件ずつ、個人のメールアドレスやローカルのパスは含まれない(macOSのwheelに入るのはGitHubのビルド用マシンのパス`/Users/runner`のみ)、作者情報はnoreplyのアドレスであることを確認した。
+- 新しい環境で`pip install proteindf_bridge --find-links https://github.com/ProteinDF/ProteinDF_bridge/releases/expanded_assets/2026.10.2`を実行し、x86_64のwheelが選ばれてインストールされ、`proteindf_bridge.rs`の読み込み・`setup()`・`add_missing_hydrogens()`(1hlsで水素15個追加)、32本のコマンドの起動を確認した。
+
+**残っている作業**: PyPIのアカウントができたら、Trusted PublishingでPyPIへの公開を追加する(§4.4)。

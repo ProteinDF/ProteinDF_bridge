@@ -5,7 +5,7 @@ import sys
 import argparse
 import math
 
-import proteindf_bridge as bridge
+import proteindf_bridge.rs as rs
 
 
 def main():
@@ -51,11 +51,9 @@ def main():
         print("box [A]: {} {} {}".format(box_x, box_y, box_z))
         print("use nm: {}".format(is_use_nm))
 
-    mpac_data = bridge.load_msgpack(mpac_file_path)
-
     # prepare atomgroup
-    atom_group = bridge.AtomGroup(mpac_data)
-    weights = atom_group.weight * num_of_mols / bridge.AVOGADRO_CONST
+    atom_group = rs.load_atomgroup(mpac_file_path)
+    weights = atom_group.weight * num_of_mols / rs.AVOGADRO_CONST
     volume = box_x * box_y * box_z * 1.0E-24
     if (verbose == True):
         print("volume [cm^-3]: {}".format(volume))
