@@ -47,3 +47,7 @@
 1. 対象1〜3に対応し、テストを追加している。
 2. 次のテストが通る: 新しい一時環境にパッケージを`pip install`して`python -P -m unittest discover -s tests`、`cargo nextest run --workspace --status-level fail --final-status-level fail`、`cargo test --doc`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check`。
 3. `brd-setup-bond.py`を3回実行し、出力`.brd`の`md5sum`がすべて同じであることを、実際の出力で示す。
+
+## PR#56 完了(2026-10-12)
+
+`0b2587f`・`798f7eb`・`6b00a62`をレビューし、1回で収束した。`brd-setup-bond.py`の3回の出力の`md5sum`が一致すること、`brd_setup_bond`の基準ファイルの違いが結合の並び順と両端の書き順だけであること(結合の集合と原子・座標は同一)、1hlsの`str(ag)`が階層ごとに字下げされることをClaudeが確認した。監査(`HashMap`・`HashSet`の12か所)は、走査している箇所を抜き出して確認した(`CcdTemplateDb::merge`は順序に依存しない)。Pythonテスト一式236件OK(新しい環境)、`cargo nextest` `319 tests run: 319 passed, 2 skipped`、doctest・clippy・fmt OK。`--no-ff`でdevelopにマージした(`e13e477`)。
