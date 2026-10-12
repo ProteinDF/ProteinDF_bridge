@@ -105,8 +105,8 @@ ProteinDF本体のC++ツール（`pdf-mkfld-dens`/`pdf-mkfld-mo`/`pdf-mkfld-esp`
    - 原子数 `NAtoms < 0` の場合、原子行の後に続く軌道数 `NMO` と軌道番号リストをパースし、格子点データを軌道ごとに保持する。
 4. **エラーハンドリング**:
    - 行不足、フィールド不足、数値不正、値の過不足などすべての形式エラーについて、行番号を含む `BridgeError::InputError` を送出する。
-5. **Pythonバインディング (`proteindf-bridge-py` & `proteindf_bridge`)**:
-   - `proteindf_bridge.rs.Cube` および `proteindf_bridge.Cube` (`proteindf_bridge/cube.py`) として公開。
+5. **Pythonバインディング (`proteindf-bridge-py`)**:
+   - `proteindf_bridge.rs.Cube` として公開(純Python版パッケージは変更しない方針)。
    - クラス名・メソッド名は既存の `SimpleGro` や `Xyz` に準拠。
    - `unit` プロパティは文字列 (`"bohr"` / `"angstrom"`) を返す。
 6. **テスト**:

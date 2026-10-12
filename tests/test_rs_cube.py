@@ -12,7 +12,6 @@ import os
 import tempfile
 import unittest
 
-import proteindf_bridge as br
 import proteindf_bridge.rs as rs_br
 
 BOHR_TO_ANGSTROM = 0.529177210903
@@ -34,7 +33,6 @@ Total SCF Density
   0.13  0.14  0.15  0.16  0.17  0.18
   0.19  0.20  0.21  0.22  0.23  0.24
 """
-        # Test both rs_br.Cube and br.Cube
         cube = rs_br.Cube()
         cube.parse_str(cube_str)
 
@@ -123,7 +121,7 @@ Alpha MOs
   1.4  2.4    1.5  2.5
   1.6  2.6    1.7  2.7
 """
-        cube = br.Cube()
+        cube = rs_br.Cube()
         cube.parse_str(cube_str)
 
         self.assertTrue(cube.is_molecular_orbital)
