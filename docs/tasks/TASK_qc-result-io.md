@@ -234,3 +234,9 @@ PR#61のマージ後に詳細を書く。PR#61で作り直した`.h5`の`s`を�
 
 1. 対象1〜4に対応している。
 2. `scripts/ci-local.sh all qc-data`(`PROTEINDF_BRIDGE_QC_DATA`を設定)が全ジョブ成功する。実際の出力の最後の一覧と、nextestのSummaryの行を示す。
+
+## PR#62 完了(2026-10-12)
+
+`2949f99`・`38943d2`・`4c5aba0`をレビューし、1回で収束した。`calc_orbital_mulliken_contributions`が全軌道の原子ごとの寄与 $\sum_{\mu \in A} C_{\mu i}(SC)_{\mu i}$ を`f64`で返すこと、次元の不一致を`BridgeError`にすること、`types.rs`・`population.rs`が機能`hdf5`なしで使え、HDF5の読み込みだけが機能`hdf5`の中にあること、合成データのテスト(`tests/test_qc_population.rs`)と実データのテスト(寄与の和が1e-10以内で1、正味の電荷がProteinDF_testの`pop/mulliken`と1e-6以内で一致)をClaudeが確認した。ドキュメントコメントの正味の電荷の定義「$Z_A - Q_A$」が、実装(`xyzc`の電荷の列、ダミー原子`X`では1.0)と合っていなかったため、1行の修正をClaudeがブランチ上で行った(`c9dd3ed`)。`scripts/ci-local.sh all qc-data`が全ジョブ成功(`328 tests run: 328 passed, 2 skipped`、機能`hdf5`ありで`336 tests run: 336 passed, 4 skipped`、実データ`4 tests run: 4 passed, 336 skipped`)。`--no-ff`でdevelopにマージした(`fd01ba5`)。マージ後のdevelopでも同じく全ジョブ成功した。
+
+これで本TASK(PR#58〜62)の対象はすべて完了した。
