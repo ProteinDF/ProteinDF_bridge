@@ -146,3 +146,7 @@
 
 1. 上記1・2に対応し、同じブランチに追加コミットする。
 2. 完了の定義2(PR#60)のテストが通る。
+
+## PR#60 完了(2026-10-12)
+
+修正コミット(`4fba5c3`・`2907e4b`)で修正依頼1・2に対応済み。独自の`SymmetricMatrix`が削除され、S・P・F・h・h2はコアの`matrix::SymmetricMatrix`、MO係数はコアの`Matrix`を持つ型で表すこと、全要素で格納された行列を読み込み時に対称性検査(許容誤差`1e-8`)すること、合成HDF5によるUKS・ROKS・`s`等・非対称`s`のテスト(`test_synthetic_uks_hdf5`・`test_synthetic_roks_hdf5`・`test_synthetic_asymmetric_s_matrix_error`)をClaudeが確認した。`cargo nextest`は機能`hdf5`ありで`331 tests run: 331 passed, 2 skipped`、なしで`325 tests run: 325 passed, 2 skipped`。clippy(機能あり)・fmt・wasm32のcheck OK。`hdf5-metno`の依存`proc-macro-error2`について将来のRustでの非互換の警告が出る(現状のビルドには影響なし)。`--no-ff`でdevelopにマージした(`4d0333f`)。
