@@ -1,0 +1,69 @@
+>>>>MAIN
+	step-control	= [create integral guess scf]
+
+>>>>INTEGRAL
+	cut-value	= 1.0e-10
+
+>>>>GUESS
+
+>>>>SCF
+	charge-extrapolate-number	= 0
+	scf-start-guess	= harris
+	orbital_independence_threshold  = 0.00
+	orbital_independence_threshold/canonical = 0.00
+	orbital_independence_threshold/lowdin = 0.00
+	orbital-overlap-correspondence	= off
+	orbital-overlap-correspondence-first	= off
+	max-iteration	= 100
+	method	= rks
+	method/rks/electron-number	= 32
+	method/rks/occlevel	= [ 1 - 16 ]
+	convergence/type	= density
+	convergence/threshold	= 1e-5
+	convergence/threshold-energy	= 1e-6
+	scf-acceleration	= damping
+	scf-acceleration/damping/damping-factor	= 0.67
+	scf-acceleration/damping/damping-type = density_matrix
+	scf_acceleration/anderson/start_number = 20
+	scf_acceleration/anderson/damping_factor = 0.5
+	scf_acceleration/DIIS/start = 10
+	scf_acceleration/DIIS/last_items = 7
+	xc-potential	= HF
+	J_engine = CD
+	K_engine = CD
+	XC_engine = grid
+	CDAM_tau = 1.0E-10
+	CD_epsilon = 1.0E-4
+
+        CD/intermediate_file_format = mmap
+
+>>>>MOLECULE
+	geometry/cartesian/unit	= angstrom
+	geometry/cartesian/input	= {
+	 C                 -2.78443121    1.22754489    0.00000000
+	 H                 -2.42777678    0.21873489    0.00000000
+	 H                 -2.42775837    1.73194308   -0.87365150
+	 H                 -3.85443121    1.22755808    0.00000000
+	 C                 -2.27108899    1.95350117    1.25740497
+	 O                 -2.74776371    1.27939829    2.42499502
+	 O                 -0.84108899    1.95348336    1.25740462
+	 X                 -0.90138720    1.74260443    3.01098111      1.00
+	}end
+
+	basis-set/orbital	= {
+		H = "O-6-31G.H"
+		O = "O-6-31G.O"
+		C = "O-6-31G.C"
+	}end
+
+	basis-set/density-auxiliary	= {
+		H = "A-DZVP2.H"
+		O = "A-DZVP2.O"
+		C = "A-DZVP2.C"
+	}end
+
+	basis-set/exchange-auxiliary	= {
+		H = "A-DZVP2.H"
+		O = "A-DZVP2.O"
+		C = "A-DZVP2.C"
+	}end

@@ -43,3 +43,7 @@
 ## PR#57 完了(2026-10-12)
 
 `42f553f`・`fdf18a3`・`0051080`をレビューし、1回で収束した。`get_formula`の実装が仕様1〜6どおりであること、Rustのテストが仕様の例を網羅すること、`brd-formula.py`の1hlsの出力が`C254H379N67O76S6: MW=5779.662000000002`で基準ファイルの違いが化学式だけであること、純Python版のパッケージと`tests/test_atomgroup.py`が変更されていないことをClaudeが確認した。Pythonテスト一式237件OK(新しい環境)、`cargo nextest` `320 tests run: 320 passed, 2 skipped`、doctest・clippy・fmt OK。`--no-ff`でdevelopにマージした(`52c4414`)。リリースの時期はユーザーの指示待ち。
+
+## リリース 2026.10.4(2026-10-12)
+
+PR#57(Hill方式)を含めてリリースした。Releaseワークフローが成功し、wheel 3つとsdistが添付された。Claudeが添付ファイルをすべて展開して確認した。含まれるパスはCIのランナー(`/home/runner`・`/Users/runner`)のみ、メールアドレスはnoreplyと、SBOM(`dist-info/sboms/*.cyclonedx.json`)に載る依存クレートの公開作者情報のみで、ローカルのパス・個人のメールアドレスは含まれていない。`--find-links`でインストールし、`brd-formula.py`が1hlsで`C254H379N67O76S6: MW=5779.662000000002`を出すことを確認した。

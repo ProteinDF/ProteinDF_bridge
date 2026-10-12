@@ -50,7 +50,7 @@ fn rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<bond::PyBond>()?;
     m.add_class::<atom_group::PyAtomGroup>()?;
 
-    // Format I/O (PR#15)
+    // Format I/O (PR#15, PR#58)
     m.add_class::<format::PyFormat>()?;
     m.add_class::<format::PyXyz>()?;
     m.add_class::<format::PySimpleGro>()?;
@@ -58,6 +58,7 @@ fn rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<format::PyAmberPrmtop>()?;
     m.add_class::<format::PyPdb>()?;
     m.add_class::<format::PySimpleMmcif>()?;
+    m.add_class::<format::PyCube>()?;
 
     // Structural Operations (PR#16)
     m.add_class::<amino_acid::PyAminoAcid>()?;

@@ -29,6 +29,8 @@ pub mod superposer;
 pub mod superposer_quaternion;
 pub mod vector;
 
+pub mod qc_result;
+
 pub use amino_acid::AminoAcid;
 pub use atom::Atom;
 pub use atom_group::{AtomGroup, BondRecord, SchemaViolation, Selector};
@@ -49,8 +51,9 @@ pub use ch_pi::{
 };
 pub use error::{BridgeError, Result};
 pub use format::{
-    AmberPrmtop, Format, MmcifStructureReport, MmcifWriteOptions, Pdb, SimpleGro, SimpleMmcif,
-    SimpleMol2, StructConnPartnerUnresolved, StructConnRecord, UnresolvedStructConn, Xyz,
+    AmberPrmtop, Cube, CubeAtom, CubeUnit, Format, MmcifStructureReport, MmcifWriteOptions, Pdb,
+    SimpleGro, SimpleMmcif, SimpleMol2, StructConnPartnerUnresolved, StructConnRecord,
+    UnresolvedStructConn, Xyz, BOHR_TO_ANGSTROM,
 };
 pub use hydrogen_bond::{
     calc_backbone_hbonds, calc_kabsch_sander_energy, calc_pseudo_hydrogen, calc_sidechain_hbonds,
@@ -89,3 +92,13 @@ pub use vector::Vector;
 
 pub mod interaction_set;
 pub use interaction_set::{Interaction, InteractionKind, InteractionSet};
+
+pub use qc_result::{
+    calc_orbital_mulliken_contributions, AtomicOrbital, DensityMatrix, FockMatrix, MoCoefficients,
+    MullikenPopulation, OrbitalContribution, OrbitalEnergy, OrbitalInfo, OrbitalOccupation, QcAtom,
+    QcBasisSet, QcBasisSetDefinition, QcCgto, QcMethod, QcMolecule, QcParameters, QcPgto, QcResult,
+    RunType,
+};
+
+#[cfg(feature = "hdf5")]
+pub use qc_result::PdfParamHdf5;
