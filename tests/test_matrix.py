@@ -3,6 +3,7 @@
 
 import unittest
 import math
+import numpy
 from proteindf_bridge.matrix import Matrix, SymmetricMatrix
 from proteindf_bridge.vector import Vector
 
@@ -41,6 +42,51 @@ class TestMatrix(unittest.TestCase):
         res = m * v
         self.assertAlmostEqual(res[0], 3.0)
         self.assertAlmostEqual(res[1], 7.0)
+
+    def test_buffer_roundtrip_square(self):
+        m = Matrix([[1.0, 2.0], [3.0, 4.0]])
+        buf = m.get_buffer()
+        m2 = Matrix(2, 2)
+        m2.set_buffer(buf)
+        self.assertEqual(m, m2)
+
+    def test_buffer_roundtrip_non_square(self):
+        m = Matrix([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        buf = m.get_buffer()
+        m2 = Matrix(2, 3)
+        m2.set_buffer(buf)
+        self.assertEqual(m, m2)
+
+    def test_buffer_invalid_length(self):
+        m = Matrix([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        with self.assertRaises(ValueError):
+            m.set_buffer(b"too_short")
+        self.assertEqual(m.rows, 2)
+        self.assertEqual(m.cols, 3)
+        self.assertAlmostEqual(m.get(0, 0), 1.0)
+        self.assertAlmostEqual(m.get(1, 2), 6.0)
+
+    def test_buffer_writable_after_set(self):
+        m = Matrix([[1.0, 2.0], [3.0, 4.0]])
+        buf = m.get_buffer()
+        m2 = Matrix(2, 2)
+        m2.set_buffer(buf)
+        m2.set(0, 1, 99.0)
+        self.assertAlmostEqual(m2.get(0, 1), 99.0)
+
+    def test_buffer_bytearray(self):
+        m = Matrix([[1.0, 2.0], [3.0, 4.0]])
+        ba = bytearray(m.get_buffer())
+        m2 = Matrix(2, 2)
+        m2.set_buffer(ba)
+        self.assertEqual(m, m2)
+
+    def test_buffer_memoryview_float(self):
+        m = Matrix([[1.0, 2.0], [3.0, 4.0]])
+        mv = memoryview(numpy.array([[1.0, 2.0], [3.0, 4.0]], dtype=float))
+        m2 = Matrix(2, 2)
+        m2.set_buffer(mv)
+        self.assertEqual(m, m2)
 
 
 class TestSymmetricMatrix(unittest.TestCase):
@@ -82,6 +128,17 @@ class TestSymmetricMatrix(unittest.TestCase):
         self.assertEqual(len(eigvals), 2)
         self.assertAlmostEqual(eigvals[0], 1.0)
         self.assertAlmostEqual(eigvals[1], 3.0)
+
+    def test_symmetric_buffer_roundtrip(self):
+        sm = SymmetricMatrix(3)
+        sm.set(0, 0, 1.0)
+        sm.set(0, 1, 2.0)
+        sm.set(1, 1, 3.0)
+        sm.set(2, 0, 4.0)
+        buf = sm.get_buffer()
+        sm2 = SymmetricMatrix(3)
+        sm2.set_buffer(buf)
+        self.assertEqual(sm, sm2)
 
 
 if __name__ == "__main__":
