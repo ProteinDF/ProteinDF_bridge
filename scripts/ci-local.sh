@@ -6,12 +6,19 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# Prevent mise from auto-creating .venv in the repository
+export MISE_PYTHON_UV_VENV_AUTO=false
+export MISE_PYTHON_VENV_AUTO=false
+
+# Prevent Python bytecode caching (__pycache__) in repository
+export PYTHONDONTWRITEBYTECODE=1
+
 # Configuration
 PYTHON="${PYTHON:-python3}"
 FAIL_FAST=0
 
 # Temporary directory outside the repository (cleaned up on exit)
-TMP_ROOT="$(mktemp -d /tmp/proteindf-bridge-ci-XXXXXX)"
+TMP_ROOT="$(mktemp -d -t proteindf-bridge-ci-XXXXXX)"
 cleanup() {
     rm -rf "$TMP_ROOT"
 }
@@ -48,7 +55,7 @@ Available Jobs:
 
 Environment Variables:
   PYTHON                      Python interpreter to use (default: python3)
-  PROTEINDF_BRIDGE_QC_DATA    Path or flag for QC data tests (required for qc-data job)
+  PROTEINDF_BRIDGE_QC_DATA    Path to directory containing regenerated QC .h5 files (required for qc-data job)
 
 Prerequisites:
   - cargo, rustc (Rust toolchain)
@@ -236,7 +243,7 @@ run_job_wheel() {
     "$venv_pip" install "$dist_dir"/*.whl
 
     echo "==> Running Python unit tests..."
-    "$venv_python" -P -m unittest discover -s tests
+    "$venv_python" -B -P -m unittest discover -s tests
 
     echo "==> Verifying CLI scripts (--help)..."
     "$job_dir/venv/bin/pdb2brd.py" --help >/dev/null
@@ -260,7 +267,7 @@ run_job_sdist() {
     "$venv_pip" install "$dist_dir"/*.tar.gz
 
     echo "==> Running Python unit tests..."
-    "$venv_python" -P -m unittest discover -s tests
+    "$venv_python" -B -P -m unittest discover -s tests
 
     echo "==> Verifying CLI scripts (--help)..."
     "$job_dir/venv/bin/pdb2brd.py" --help >/dev/null
@@ -275,25 +282,34 @@ run_job_docs() {
     local venv_pip="$job_dir/venv/bin/pip"
     local venv_sphinx="$job_dir/venv/bin/sphinx-build"
 
+    local job_src="$job_dir/src"
+    mkdir -p "$job_src"
+    echo "==> Copying working tree files to temporary directory for isolated build..."
+    cp -R docs pyproject.toml README.md proteindf_bridge "$job_src/"
+    if [ -f LICENSE ]; then
+        cp LICENSE "$job_src/"
+    fi
+    mkdir -p "$job_src/rust"
+    cp -R rust/Cargo.toml rust/Cargo.lock rust/crates "$job_src/rust/"
+
     echo "==> Installing package with docs dependencies in isolated venv..."
-    "$venv_pip" install -e .[docs]
+    "$venv_pip" install "$job_src"[docs]
 
     local out_en="$job_dir/out/en"
     local out_ja="$job_dir/out/ja"
     mkdir -p "$out_en" "$out_ja"
 
     echo "==> Building English Sphinx HTML..."
-    "$venv_sphinx" -b html -D language=en docs "$out_en"
+    "$venv_sphinx" -b html -D language=en "$job_src/docs" "$out_en"
 
     echo "==> Building Japanese Sphinx HTML..."
-    "$venv_sphinx" -b html -D language=ja docs "$out_ja"
+    "$venv_sphinx" -b html -D language=ja "$job_src/docs" "$out_ja"
 }
 
 run_job_qc_data() {
     echo "==> Running #[ignore] tests with proteindf-bridge/hdf5 feature..."
-    # Note: QC data tests requiring PROTEINDF_BRIDGE_QC_DATA are planned for PR#61.
-    # At the time of PR#63, there might be no ignored tests matching; running 0 tests
-    # is expected to succeed without failure.
+    # Note: Runs existing #[ignore] benchmark/heavy tests (and future QC tests
+    # requiring PROTEINDF_BRIDGE_QC_DATA planned for PR#61).
     cargo nextest run --workspace --manifest-path rust/Cargo.toml --features proteindf-bridge/hdf5 --run-ignored only --status-level fail --final-status-level fail
 }
 
@@ -311,15 +327,18 @@ for job in "${REQUESTED_JOBS[@]}"; do
     job_status="SUCCESS"
 
     set +e
-    case "$job" in
-        rust) run_job_rust ;;
-        hdf5) run_job_hdf5 ;;
-        wasm) run_job_wasm ;;
-        wheel) run_job_wheel ;;
-        sdist) run_job_sdist ;;
-        docs) run_job_docs ;;
-        qc-data) run_job_qc_data ;;
-    esac
+    (
+        set -euo pipefail
+        case "$job" in
+            rust) run_job_rust ;;
+            hdf5) run_job_hdf5 ;;
+            wasm) run_job_wasm ;;
+            wheel) run_job_wheel ;;
+            sdist) run_job_sdist ;;
+            docs) run_job_docs ;;
+            qc-data) run_job_qc_data ;;
+        esac
+    )
     exit_code=$?
     set -e
 

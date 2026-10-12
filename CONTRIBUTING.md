@@ -54,9 +54,9 @@ Available jobs:
 - `wheel`: Builds a release wheel in an isolated temporary virtual environment, installs it, runs `unittest`, and verifies CLI entry points (`--help`).
 - `sdist`: Builds a source distribution in an isolated temporary virtual environment, installs it, runs `unittest`, and verifies CLI entry points (`--help`).
 - `docs`: Builds English and Japanese Sphinx documentation in an isolated temporary virtual environment.
-- `qc-data`: Runs `#[ignore]` tests with the `hdf5` feature. Not run by default; requires setting `PROTEINDF_BRIDGE_QC_DATA`:
+- `qc-data`: Runs `#[ignore]` tests with the `hdf5` feature. Not run by default; requires setting `PROTEINDF_BRIDGE_QC_DATA` to the directory containing regenerated `.h5` files:
   ```bash
-  PROTEINDF_BRIDGE_QC_DATA=1 ./scripts/ci-local.sh qc-data
+  PROTEINDF_BRIDGE_QC_DATA=/path/to/qc_data ./scripts/ci-local.sh qc-data
   ```
 
 Options:
