@@ -39,7 +39,7 @@
 | `read_amber_prmtop.py` | PR#53 (完了) | `AmberPrmtop`, `save_msgpack` | `AmberPrmtop`, `msgpack` (Python) | ○ | `AmberPrmtop` で読込後、座標辞書を `msgpack` で書き出し。基準ファイルと完全一致。 |
 | `brd-box.py` | PR#54 (完了) | `load_msgpack`, `AtomGroup(dict)`, `AtomGroup.weight`, `AVOGADRO_CONST` | `load_atomgroup`, `AtomGroup.weight`, `AVOGADRO_CONST` | ○ | `AVOGADRO_CONST` を追加（PR#54）。基準ファイルと完全一致。 |
 | `brd-density.py` | PR#54 (完了) | `load_msgpack`, `AtomGroup(dict)`, `AtomGroup.weight`, `AVOGADRO_CONST` | `load_atomgroup`, `AtomGroup.weight`, `AVOGADRO_CONST` | ○ | `AVOGADRO_CONST` を追加（PR#54）。基準ファイルと完全一致。 |
-| `brd-formula.py` | PR#54 (完了) | `load_msgpack`, `AtomGroup(dict)`, `AtomGroup.formula` | `load_atomgroup`, `AtomGroup.formula` | ○ | 移行完了。意図した違い: 元素出力順（純Python版出現順 → Rust版原子番号順）。 |
+| `brd-formula.py` | PR#54 (完了) | `load_msgpack`, `AtomGroup(dict)`, `AtomGroup.formula` | `load_atomgroup`, `AtomGroup.formula` | ○ | 移行完了。意図した違い: 元素出力順（Hill方式に変更(本タスク)）。 |
 | `brd-show-res.py` | PR#54 (完了) | `load_msgpack`, `AtomGroup(dict)`, `Format.is_models`, `Format.is_protein` | `load_atomgroup`, `Format.is_models`, `Format.is_protein` | ○ | 移行完了。基準ファイルと完全一致。 |
 | `brd-show-bonds.py` | PR#54 (完了) | `load_msgpack`, `AtomGroup(dict)`, `AtomGroup.get_bond_list` | `load_atomgroup`, `AtomGroup.get_bond_list` | ○ | `print(list(bond))` により出力書式維持。基準ファイルと完全一致。 |
 | `brd-setup-bond.py` | PR#54 (完了) | `load_msgpack`, `AtomGroup(dict)`, `Bond.setup`, `AtomGroup.get_dict_data`, `save_msgpack` | `load_atomgroup`, `AtomGroup.setup()`, `save_atomgroup` | ○ | 移行完了。不具合修正: 純Python版のAttributeError解消、CCDテンプレートDB+ヒューリスティックによる結合解決。 |
@@ -156,7 +156,7 @@ PR#54において構造の操作・表示14本（`brd-box.py`, `brd-density.py`,
 | :--- | :--- | :--- | :--- | :--- |
 | `brd-box.py` | 移行完了 | **完全一致** | なし | 追加した `rs.AVOGADRO_CONST` を使用し、標準出力が完全一致。 |
 | `brd-density.py` | 移行完了 | **完全一致** | なし | 追加した `rs.AVOGADRO_CONST` を使用し、標準出力が完全一致。 |
-| `brd-formula.py` | 移行完了 | **違いあり** | **意図した違い** | 元素の出力順序。純Python版（`atomgroup.py` 581〜592行目）は原子リストに出現した順序（1hlsの場合は `N67C254O76H379S6`）で出力していたが、Rust版（`rust/crates/proteindf-bridge/src/atom_group.rs` 547〜564行目の `get_formula`）は周期表（`PeriodicTable`）の原子番号順（`H=1`, `C=6`, `N=7`, `O=8`, `S=16` で `H379C254N67O76S6`）に出力する。純Python版は出現順で入力によって変わる。Rust版は原子番号順で入力によらず決まる。どちらもHill方式（C、H、その後アルファベット順）ではない。「意図した違い（決定的になった）」として基準ファイルを更新。 |
+| `brd-formula.py` | 移行完了 | **違いあり** | **意図した違い** | 元素の出力順序。純Python版（`atomgroup.py` 581〜592行目）は原子リストに出現した順序（1hlsの場合は `N67C254O76H379S6`）で出力していたが、Rust版（`rust/crates/proteindf-bridge/src/atom_group.rs` の `get_formula`）はHill方式（C、H、その後アルファベット順、個数1は省略: 1hlsの場合は `C254H379N67O76S6`）に変更（本タスク）。基準ファイルを更新。 |
 | `brd-show-res.py` | 移行完了 | **完全一致** | なし | `Format.is_models`, `Format.is_protein` を使用し、標準出力が完全一致。 |
 | `brd-show-bonds.py` | 移行完了 | **完全一致** | なし | `rs.AtomGroup.get_bond_list` はタプルのリストを返すが、`print(list(bond))` により純Python版と同じ角括弧リスト書式（`['...', '...', 1]`）を維持。標準出力が完全一致。 |
 | `brd-setup-bond.py` | 移行完了 | **違いあり** | **不具合修正** | 純Python版は `proteindf_bridge/__init__.py` に `Bond` がエクスポートされていないため `AttributeError` でクラッシュしていた（更新前の基準ファイルは例外テキスト）。Rust版では `AtomGroup.setup()`（CCDテンプレートDB + 共有結合半径ヒューリスティックによる統合結合解決）を呼び出して `.brd` を出力するように改修。1hlsに対し782原子・793結合が重複なく正しく解決されることを確認し、新規 `.brd` 基準ファイルを生成。<br>**既知の問題**: `setup()` 後の鎖レベルの結合の並び順（例: `/groups/model_1/groups/A/bonds`、`.../B/bonds`）が実行ごとに変わる問題は、PR#56でヒューリスティック探索候補を原子添字順にソートすることで解決済み（本タスク）。基準ファイル `brd_setup_bond.brd.json` を更新し、テストでの結合リスト並べ替えも撤廃。 |
