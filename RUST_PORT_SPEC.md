@@ -1,6 +1,6 @@
 # proteindf-bridge — Rust移植仕様書 (RUST_PORT_SPEC.md)
 
-本ドキュメントは、本リポジトリ（`ProteinDF_bridge`, Python, GPLv3）をRustに1:1移植した新プロジェクト **`proteindf-bridge`** の仕様を定義する。既存の [`SPEC.md`](./SPEC.md) は現行Python実装の仕様書であり、本ドキュメントはそれを"正"としてRust版が満たすべき要件・拡張範囲・新規実装項目を規定する立場にある。
+本ドキュメントは、本リポジトリ（`ProteinDF_bridge`, Python, GPLv3）をRustに1:1移植した新プロジェクト **`proteindf-bridge`** の仕様を定義する。現行Python実装の仕様書(非公開の`SPEC.md`)があり、本ドキュメントはそれを"正"としてRust版が満たすべき要件・拡張範囲・新規実装項目を規定する立場にある。
 
 > **命名について(2026-09-15)**: 当初は `pdf-bridge` という名称を検討していたが、「PDF」(Portable Document Format)との混同を避けるため `proteindf-bridge` に変更した。Pythonバインディングのパッケージ名は既存の純Python版 `proteindf_bridge` と共存できるよう `proteindf_bridge_rs` とする(§4参照)。
 
@@ -462,7 +462,7 @@ CCDの理想化座標をそのまま使える水素と、使えない水素が�
 **スコープ変更(2026-09-24、レビュー4回目、ユーザー承認済み)**: 実装過程で、鎖内残基の主鎖カルボニルOが遊離アミノ酸CCDテンプレートと幾何が異なる問題(§3.16本文参照)への対策として`detect_distorted_terminal_atoms`(末端キャッピング原子の欠損を手がかりに、歪みうる兄弟原子をフィット対象から除外する機構)を追加実装した。タンパク質(`OXT`欠損→主鎖`O`除外)については実データ検証済みで正しく機能する。**核酸のリン酸基(`OP3`欠損→`OP1`/`OP2`/`O5'`の扱い)については、3回のレビューラウンドにわたり本質的に同種の誤判定(架橋酸素`O5'`の誤除外、次いで非架橋酸素`OP1`/`OP2`の誤除外)が繰り返し発生し、かつ核酸の実データ/合成テストフィクスチャが一切無い状態が続いた。** ユーザー判断により、**本PRでは`detect_distorted_terminal_atoms`をタンパク質(`OXT`)専用に縮小し、核酸のリン酸基への対応は行わない(既知の限界としてdocコメントに明記する)こととした。** 核酸のリン酸基周りの歪み検知は、実データ・合成フィクスチャを用意した上で改めて独立したタスクとして計画・着手すること。
 
 **実施内容・検証 (2026-09-26完了、8回のレビューラウンドを経て収束)**:
-実装はagy、レビューはClaudeが担当した(`docs/tasks/TASK_ccd-hydrogenation.md`参照)。最終的な実装は、`hydrogenation.rs`に`add_hydrogens_to_component`/`add_hydrogens_to_component_with_options`/`add_hydrogens_to_component_in_place`(および`_with_options`版)、`HydrogenationOptions`(`fit_heavy_atoms`・`auto_exclude_distorted_atoms`)、`HydrogenationReport`を実装した。主な設計上の到達点:
+実装はagy、レビューはClaudeが担当した(非公開のタスク指示書を参照)。最終的な実装は、`hydrogenation.rs`に`add_hydrogens_to_component`/`add_hydrogens_to_component_with_options`/`add_hydrogens_to_component_in_place`(および`_with_options`版)、`HydrogenationOptions`(`fit_heavy_atoms`・`auto_exclude_distorted_atoms`)、`HydrogenationReport`を実装した。主な設計上の到達点:
 - **主鎖N水素の除外は原子名ではなく結合構造で判定する**: テンプレートが標準アミノ酸主鎖(`N`・`CA`・`C`が存在)である場合、`N`に結合する水素は名前(`H`/`H2`/`H3`)を問わず一律に除外する。これにより、鎖内残基での過剰プロトン化(自由アミノ酸のNH2/NH3+を鎖内アミドに誤って付加)と、プロリンの環状N(鎖内では水素0個)の両方を1つの規則で正しく扱える。主鎖アミドH自体はPR#39が担当する(単一コンポーネントの情報だけでは、鎖内かN末端かを判定できないため)。
 - **末端キャッピング原子の欠損による歪み検知もタンパク質専用の同じ判定でガードする**: `detect_distorted_terminal_atoms`(`OXT`欠損時に主鎖カルボニル`O`をフィット対象から除外)も、同じ`is_amino_acid_template`判定で非タンパク質テンプレート(ユーザー提供CCDでたまたま`OXT`という名前の原子を持つ場合等)への誤発動を防ぐ。
 - `Superposer::new`に共線/縮退した適合点集合を検出するガード(`COLLINEARITY_TOLERANCE_ANGSTROM`)を追加した(既存の`modeling.rs`の`get_ACE`/`get_NME`等、他の呼び出し元にも安全側の恩恵がある)。これに伴い`modeling.rs`のコンフォーマー探索ループ(`find_best_conformer`)を、1コンフォーマーの失敗で全体を中断するのではなく、失敗したコンフォーマーはスキップして次を試す設計に変更した(全滅時のみエラー、個々の失敗理由も保持)。
@@ -482,7 +482,7 @@ CCDの理想化座標をそのまま使える水素と、使えない水素が�
 4. `cargo clippy`/`cargo fmt`を通すこと。
 
 **実施内容・検証 (2026-09-26完了、8回のレビューラウンドを経て収束)**:
-実装はagy、レビューはClaudeが担当した(`docs/tasks/TASK_ccd-hydrogenation.md`参照)。`backbone_hydrogen.rs`を新規実装し、`build_backbone_amide_hydrogen`(鎖内残基、`hydrogen_bond::calc_pseudo_hydrogen`に委譲)・`build_nterm_hydrogens`(N末端、`Modeling::get_NH3`を再利用)・`add_backbone_hydrogens_to_residue_in_place`(統合、`Option<&AtomGroup>`で内部/N末端を切り替え)を提供する。
+実装はagy、レビューはClaudeが担当した(非公開のタスク指示書を参照)。`backbone_hydrogen.rs`を新規実装し、`build_backbone_amide_hydrogen`(鎖内残基、`hydrogen_bond::calc_pseudo_hydrogen`に委譲)・`build_nterm_hydrogens`(N末端、`Modeling::get_NH3`を再利用)・`add_backbone_hydrogens_to_residue_in_place`(統合、`Option<&AtomGroup>`で内部/N末端を切り替え)を提供する。
 
 - **`Modeling::arbitary_rotate_matrix`の実バグを発見・修正**: (1,2)成分が`nx*nz`になっており(標準的なロドリゲスの回転公式では`ny*nz`であるべき)、一般の(軸に沿わない)ベクトル対では有効な回転行列にならないことを、実際にコードを実行して数値検証した上で修正した。**この修正はPython版`proteindf_bridge/modeling.py`にも同一のバグが存在したため、ユーザー指示によりClaudeが直接そちらも修正した(`hotfix/arbitary-rotate-matrix-typo`、`main`/`develop`にマージ、バージョン2026.9.3としてタグ付け)。** ただし、**現在の全呼び出し箇所(`Modeling::add_methyl`・`build_nterm_hydrogens`)は、第2引数が構造的に常にZ軸に沿っているため、このバグは実際にはどの呼び出し箇所の出力にも影響していなかったことが、後のレビューラウンドで判明した**(修正自体は一般には正しく必要だが、影響範囲は限定的だった)。
 - 水素の共有ロジック(主鎖アミドH)は、既存の`hydrogen_bond::calc_pseudo_hydrogen`(Phase 8のDSSP実装)に委譲する形で実装し、重複実装を避けた。
@@ -502,7 +502,7 @@ CCDの理想化座標をそのまま使える水素と、使えない水素が�
 3. `cargo clippy`/`cargo fmt`を通すこと。
 
 **実施内容・検証 (2026-09-27完了、5回のレビューラウンドを経て収束)**:
-実装はagy、レビューはClaudeが担当した(`docs/tasks/TASK_ccd-hydrogenation.md`参照)。新規`orchestrator.rs`に`hydrogenate_atomgroup`/`hydrogenate_chain`/`hydrogenate_single_residue`と`OverallHydrogenationReport`を実装し、`AtomGroup::add_missing_hydrogens(&mut self, db: &CcdTemplateDb) -> Result<OverallHydrogenationReport>`として公開した。
+実装はagy、レビューはClaudeが担当した(非公開のタスク指示書を参照)。新規`orchestrator.rs`に`hydrogenate_atomgroup`/`hydrogenate_chain`/`hydrogenate_single_residue`と`OverallHydrogenationReport`を実装し、`AtomGroup::add_missing_hydrogens(&mut self, db: &CcdTemplateDb) -> Result<OverallHydrogenationReport>`として公開した。
 
 - **階層走査**: `AtomGroup`ツリー(Root/Model/Chain/Residue)を、子グループの形状(子が葉かどうか)から自動判定して再帰的に走査する。子が全て葉(原子を直接持つ残基/コンポーネント)であるグループを「鎖」として扱い、鎖内では`sort_nicely`でソートした順に残基を処理する。
 - **鎖の隣接性判定(§3.16 PR#40の要求通り、距離だけに頼らない)**: 前残基の受け渡しは、実際の鎖走査順序(直前に処理した残基)を基本とし、`is_plausible_peptide_bond`(`C_prev`-`N`間距離0.8〜2.5Å)は「配列上前だと判定された残基同士が本当にペプチド結合を形成しているか」を確認する二次的なフィルタとして使う(距離だけを根拠に前残基を探索するわけではない)。非アミノ酸残基または主鎖`C`を欠く残基に遭遇すると鎖の連続性が切れたとみなし、以降の前残基参照をリセットする。
@@ -588,7 +588,7 @@ SimpleMmcif::save_structure(ag: &AtomGroup, path: impl AsRef<Path>, opts: &Mmcif
 - **PR#43**: `_struct_conn`の書き出し(disulf + covale)と、読み込み側の`covale`対応
 - **PR#44**: Pythonバインディング(`PySimpleMmcif`への書き出しメソッド追加)
 
-実行チェックリスト・完了の定義は`docs/tasks/TASK_mmcif-writer.md`を参照。
+実行チェックリスト・完了の定義は非公開のタスク指示書に置いた。
 
 #### スコープ外(当面)
 
@@ -600,14 +600,14 @@ SimpleMmcif::save_structure(ag: &AtomGroup, path: impl AsRef<Path>, opts: &Mmcif
 
 #### 実施内容・検証 (2026-10-03完了)
 
-実装はagy、レビューはClaudeが担当した(`docs/tasks/TASK_mmcif-writer.md`参照)。
+実装はagy、レビューはClaudeが担当した(非公開のタスク指示書を参照)。
 
 - **PR#42(`_atom_site`の書き出し)**: `format/mmcif_writer.rs`を新設し、`SimpleMmcif::write_structure`(`std::io::Write`へ逐次書き出し)・`SimpleMmcif::save_structure`・`MmcifWriteOptions { data_block_name, charge_to_b_factor }`を実装した。書き出す前に構造全体を検証する`validate_for_mmcif_write`を通し、エラー時は何も書き出さない。`save_structure`は同じディレクトリの一時ファイルに書いてから`rename`するため、エラー時に指定パスへ不完全なファイルが残らない(レビュー1回目で、途中でエラーになると書きかけのファイルが残る不具合を発見して修正)。`charge_to_b_factor`は部分電荷を小数4桁で`B_iso_or_equiv`に書く。実データ(1HLS・2MGOの20モデル、2FB4の挿入コード、3I3Z)の往復、水素付加パイプライン(`1hls.pdb` → `setup()` → `add_missing_hydrogens` → 書き出し → 再読み込み)の往復、原子数100,000超の構造の往復をテストで確認した。100万原子の書き出しはリリースビルドで約1.0秒。書き出した1HLSをgemmi 0.7.5で読み込めることを確認した。
 - **PR#43(`_struct_conn`)**: 残基間の結合を`disulf`(CYSのSG-SG)・`covale`(それ以外。標準アミノ酸同士のペプチド結合と標準核酸同士のO3'-P結合は除外)として書き出す。結合は`&self`で集める`AtomGroup::get_bond_list_ref`を新設して集め、巨大な構造を`clone`しない。読み込み側は`covale`も読み、`pdbx_value_order`を結合次数にする。実データ1WCT(糖鎖・修飾残基を含む、`covale` 8件・`disulf` 2件)を追加し、読み込み・往復・`setup()`との共存(ファイル由来の結合が消えず重複もしない)を確認した。既存のテストデータには`covale`行がないため、既存の読み込み結果は変わらない。100万原子・結合90万本の構造の書き出しは約2.15秒。
 - **PR#44(Pythonバインディング)**: `proteindf_bridge_rs.SimpleMmcif`に`set_by_atomgroup`・`save`・`get_text`・`__str__`(PyPdbと同じ使い方)と、静的メソッド`write_structure`・`save_structure`を追加した。部分電荷のオプション名は`charge_to_b_factor`のみ(PyPdbの`is_charge2tempfactor`は受け付けない。レビュー1回目で、2つの名前の解釈がメソッドごとに食い違う不具合が見つかり、ユーザー判断で1つに統一)。
 - **検証**: `cargo test --workspace`(314件)、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --check`、Pythonの比較テスト(phase1・2・3・7)と`tests/test_rs_mmcif_writer.py`が通ることをClaudeが確認した。
 - **既知の限界**: 上記「設計」「スコープ外」に書いたもの(`label_seq_id`が本来の値でない、altLoc・占有率・B因子を保持しない、`metalc`も`covale`として書き出す、`_struct_conn`は最初のモデルの結合のみ)に加えて、次がある。
-  - ~~読み込み時、`_struct_conn`の相手原子が見つからない結合(altLocで除外された原子など)を黙って捨てる~~ → **解消済み(2026-10-03、`docs/tasks/TASK_struct-conn-unresolved.md`)**。`SimpleMmcif::get_structure_atomgroup_with_report`(および`_for_block_with_report`)が、解決できなかった結合を`MmcifStructureReport.unresolved_struct_conns`として理由付きで返す(altLocによる除外は実データで普通に起こるため、エラーではなく報告にした)。既存の`get_structure_atomgroup`は戻り値を変えず、解決できない結合があれば`log::warn!`で警告する。あわせて、鎖IDが空の`_struct_conn`(書き出し側が`.`と書く)を鎖キー`_`として解決するようになり、空の鎖IDの結合も往復するようになった。
+  - ~~読み込み時、`_struct_conn`の相手原子が見つからない結合(altLocで除外された原子など)を黙って捨てる~~ → **解消済み(2026-10-03)**。`SimpleMmcif::get_structure_atomgroup_with_report`(および`_for_block_with_report`)が、解決できなかった結合を`MmcifStructureReport.unresolved_struct_conns`として理由付きで返す(altLocによる除外は実データで普通に起こるため、エラーではなく報告にした)。既存の`get_structure_atomgroup`は戻り値を変えず、解決できない結合があれば`log::warn!`で警告する。あわせて、鎖IDが空の`_struct_conn`(書き出し側が`.`と書く)を鎖キー`_`として解決するようになり、空の鎖IDの結合も往復するようになった。
   - `_struct_conn`の収集が検証と書き出しで2〜3回走る(性能上の余地。必要になったら最適化する)。
 
 ## 4. 多言語バインディング方針
@@ -686,11 +686,11 @@ proteindf-bridge = { git = "https://github.com/<org>/ProteinDF_bridge", tag = "v
    - 実行方法: `cargo build -p proteindf-bridge-py --features extension-module`で作った`.so`を`proteindf_bridge_rs.abi3.so`として`PYTHONPATH`に置き、`uv run --no-project --with numpy --with pyyaml --with msgpack python -m unittest`で実行する(既存の`.venv`は変更しない)。
 6. **コアクレートは原則として変更しない。** バインディングのためにコア側の変更が必要になった場合は、変更内容と理由を完了報告に書き、レビューで判断する。
 
-実行チェックリスト・完了の定義は`docs/tasks/TASK_py-bindings.md`を参照。
+実行チェックリスト・完了の定義は非公開のタスク指示書に置いた。
 
 #### 実施内容・検証 (2026-10-03完了)
 
-実装はagy、レビューはClaudeが担当した(`docs/tasks/TASK_py-bindings.md`参照)。コアのクレート(`proteindf-bridge`)は4つのPRを通じて変更していない。
+実装はagy、レビューはClaudeが担当した(非公開のタスク指示書を参照)。コアのクレート(`proteindf-bridge`)は4つのPRを通じて変更していない。
 
 - **PR#45(基盤・結合解決)**: `AtomGroup.setup()`・`setup_with_db()`、`CcdTemplateDb`(`builtin()`・`add_from_file()`・`lookup()`など)、`CcdBondTemplate`・`CcdAtom`、`validate_schema()`・`SchemaViolation`・`is_*_level()`、`secondary_structure`プロパティ、`SimpleMmcif.get_structure_atomgroup_with_report()`・`MmcifStructureReport`。レビューで、レポートの`atomgroup`がアクセスのたびにコピーを返し`setup()`の結果が失われる不具合と、`add_from_file()`が壊れたブロックを黙って無視する不具合を修正した。
 - **PR#46(水素付加)**: `AtomGroup.add_missing_hydrogens(db=None)`、`OverallHydrogenationReport`・`HydrogenationReport`。Pythonから「読み込み → `setup()` → 水素付加 → mmCIF書き出し」が通る(1hlsで水素379→394、Rust側の基準値と一致)。レビューで、`residue_reports`の順序を決定的にし、結果の一覧を外から書き換えられないようにした。
@@ -723,7 +723,7 @@ proteindf-bridge = { git = "https://github.com/<org>/ProteinDF_bridge", tag = "v
 - **PR#49**: パッケージの統合(maturinへの移行、`proteindf_bridge.rs`、スクリプトのインストール、テストとドキュメントの更新)
 - **PR#50**: GitHub Actionsによるwheelのビルド・テストと、GitHub Releaseへの自動公開
 
-実行チェックリスト・完了の定義は`docs/tasks/TASK_packaging.md`を参照。
+実行チェックリスト・完了の定義は非公開のタスク指示書に置いた。
 
 ### 4.5 コマンドのRust版への移行(計画: 2026-10-11)
 
@@ -747,7 +747,7 @@ proteindf-bridge = { git = "https://github.com/<org>/ProteinDF_bridge", tag = "v
 2. **グループごとに移行する(PR#53〜55)。** 移行後の出力をPR#52の基準ファイルと比べ、違いが出た場合は「意図した違い(根拠付き)」か「不具合」かを判定する。意図した違いは基準ファイルを更新し、`docs/cli-migration-notes.md`に記録する。不具合は直す。
 3. **新しいコマンドを追加する(PR#56以降、別途計画)。**
 
-実行チェックリスト・完了の定義は`docs/tasks/TASK_cli-rust-migration.md`を参照。
+実行チェックリスト・完了の定義は非公開のタスク指示書に置いた。
 
 ## 5. ライセンス
 
@@ -846,4 +846,4 @@ YUI側の調査で見つかった、bridge側で対応してほしい項目。�
   - `yui`側は`core::atom_group::parse_residue_key()`（フェーズ6e-iii）で挿入コード付き残基キー
     （例: `"52A"` → `(52, Some('A'))`）を扱える設計に既になっているため、本修正と完全に整合する。
   - **実データ検証 (2026-09-23完了)**: wwPDBから多数の挿入コード付き残基および両端が挿入コード付き残基であるSSBOND（CYS 101D - CYS 104B）を含む実エントリ `2FB4`（`2FB4.pdb`, `2FB4.cif`）を `tests/data/` に追加。`tests/test_pdb.rs` の `test_2fb4_real_pdb_insertion_codes_and_ssbond` および `tests/test_mmcif.rs` の `test_2fb4_real_mmcif_insertion_codes_and_struct_conn` において、同一`res_seq`（101A〜101D, 104A〜104D）の分離保持、原子数・残基名の正当性、およびSSBOND/`_struct_conn`結合の解決を実データ上で検証完了。
-  → 2026-09-23、`docs/tasks/TASK_residue-insertion-code-real-data.md`として実データ検証完了。
+  → 2026-09-23、実データ検証完了。

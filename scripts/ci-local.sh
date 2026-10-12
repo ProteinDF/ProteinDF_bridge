@@ -2,8 +2,9 @@
 # scripts/ci-local.sh: Run CI checks locally
 set -euo pipefail
 
-# Always run from the repository root
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Always run from the repository root (CI_LOCAL_ROOT checks another worktree with
+# this copy of the script; devtool/review.sh uses it)
+REPO_ROOT="$(cd "${CI_LOCAL_ROOT:-$(dirname "${BASH_SOURCE[0]}")/..}" && pwd)"
 cd "$REPO_ROOT"
 
 # Prevent mise from auto-creating .venv in the repository
@@ -55,6 +56,7 @@ Available Jobs:
 
 Environment Variables:
   PYTHON                      Python interpreter to use (default: python3)
+  CI_LOCAL_ROOT               Repository root to check (default: the one containing this script)
   PROTEINDF_BRIDGE_QC_DATA    Path to directory containing regenerated QC .h5 files (required for qc-data job)
 
 Prerequisites:

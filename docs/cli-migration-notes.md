@@ -2,7 +2,7 @@
 
 # CLI移行対応表 (純Python版 → Rust版 `proteindf_bridge.rs`)
 
-本ドキュメントは、`RUST_PORT_SPEC.md` §4.5 および `docs/tasks/TASK_cli-rust-migration.md` に基づき、構造を扱う26本のCLIスクリプト（`proteindf_bridge/cli/`）が使用している純Python版APIと、それに対応するRust版API（`proteindf_bridge.rs`）の有無、移行対象PR（PR#53〜55）、および不足しているAPIを整理した対応表である。
+本ドキュメントは、`RUST_PORT_SPEC.md` §4.5 に基づき、構造を扱う26本のCLIスクリプト（`proteindf_bridge/cli/`）が使用している純Python版APIと、それに対応するRust版API（`proteindf_bridge.rs`）の有無、移行対象PR（PR#53〜55）、および不足しているAPIを整理した対応表である。
 
 ---
 

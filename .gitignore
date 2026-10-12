@@ -61,3 +61,8 @@ docs/_build/
 
 # ProteinDF QC regenerated test data
 rust/crates/proteindf-bridge/tests/qc_generated/
+
+# private notes and task files (kept in the private notes repository, linked as private/)
+/private
+/SPEC.md
+/TODO.md
