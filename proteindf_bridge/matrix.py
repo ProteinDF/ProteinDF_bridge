@@ -264,12 +264,23 @@ class Matrix(object):
         return raw
 
     def get_buffer(self):
-        # return buffer(self._data.tostring())
-        return self._data.tostring()
+        """Return the matrix data as raw bytes (float64, native byte order, row-major)."""
+        return self._data.tobytes()
 
     def set_buffer(self, b):
-        self._data = numpy.fromstring(b, dtype=float)
-        self._data.shape = (self.rows, self.cols)
+        """Set matrix data from a byte buffer (float64, native byte order, row-major).
+
+        Raises:
+            ValueError: If the buffer length does not match rows * cols * 8 bytes.
+        """
+        rows, cols = self.rows, self.cols
+        expected_len = rows * cols * 8
+        buf_len = memoryview(b).nbytes
+        if buf_len != expected_len:
+            raise ValueError(
+                f"Buffer length must be {expected_len} bytes, but got {buf_len} bytes"
+            )
+        self._data = numpy.frombuffer(b, dtype=float).copy().reshape((rows, cols))
 
     def get_ndarray(self):
         """

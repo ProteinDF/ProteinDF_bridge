@@ -119,11 +119,21 @@ class Vector(object):
         return self._data.tolist()
 
     def get_buffer(self):
-        # return buffer(self._data.tostring())
-        return self._data.tostring()
+        """Return the vector data as raw bytes (float64, native byte order)."""
+        return self._data.tobytes()
 
     def set_buffer(self, buf):
-        self._data = numpy.fromstring(buf)
+        """Set vector data from a byte buffer (float64, native byte order).
+
+        Raises:
+            ValueError: If the buffer length is not a multiple of 8 bytes.
+        """
+        buf_len = memoryview(buf).nbytes
+        if buf_len % 8 != 0:
+            raise ValueError(
+                f"Buffer length must be a multiple of 8 bytes, but got {buf_len} bytes"
+            )
+        self._data = numpy.frombuffer(buf, dtype=float).copy()
 
     def get_ndarray(self):
         return copy.deepcopy(self._data)
