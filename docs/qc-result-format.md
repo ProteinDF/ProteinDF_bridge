@@ -50,36 +50,70 @@
 
 ### 1.2 グループ・データセットの木構造一覧
 
-`serial_dev` の `reference.h5` を網羅的に走査した結果、計算手法 (`rks` と `uks`) およびアーカイブ状態により保持するグループが異なる。
+`serial_dev` の `reference.h5` (回帰テスト用基準値)、および `pdf-archive-h5.py` が生成する `pdfresults.h5` (標準計算結果アーカイブ) を走査した結果、木構造の基本骨格は共通しているが、含まれるデータセットの範囲が異なる。
 
-#### RKS計算 (例: `H2O_HF`, `Ne_HF`, `N2_RHF`, `CH3CHO_SVWN_GF` 等)
+#### (A) 標準アーカイブ `pdfresults.h5` (`pdf-archive-h5.py` 出力、実例: Ne B3LYP)
+`pdf-archive-h5.py` により生成される標準の計算結果ファイルでは、重なり行列 `s`、Fock行列 `F`、密度行列 `P`、ハミルトニアン `h`, `h2` を含め、全反復の行列・ベクトルが完全に保存される。
 ```text
 /
-├── C/                                  [Group] 分子軌道(MO)係数行列
-│   └── rks_{iterations}               [Dataset] shape=(N_AO, N_MO), dtype=float64
+├── C/                                  [Group] 分子軌道(MO)係数行列 (全反復 1..iterations)
+│   ├── rks_1                           [Dataset] shape=(N_AO, N_MO), dtype=float64
+│   └── ...                             (rks_1..rks_{iterations})
+├── F/                                  [Group] Fock行列 (全反復 1..iterations)
+│   ├── rks_1                           [Dataset] shape=(N_AO, N_AO), dtype=float64
+│   └── ...                             (rks_1..rks_{iterations})
+├── P/                                  [Group] 密度行列 (全反復 1..iterations)
+│   ├── rks_1                           [Dataset] shape=(N_AO, N_AO), dtype=float64
+│   └── ...                             (rks_1..rks_{iterations})
 ├── TEs                                 [Dataset] shape=(iterations,), dtype=float64 (各SCFの全エネルギー)
 ├── basisset/                           [Group] 基底関数系定義
 │   ├── cgto                            [Dataset] shape=(N_cgto, 4), dtype=|S32 (固定長バイト文字列)
-│   ├── name                            [Dataset] shape=(N_spec, 2), dtype=object または |S32 (基底名と元素)
+│   ├── name                            [Dataset] shape=(N_spec, 2), dtype=object または |S32
 │   └── pgto                            [Dataset] shape=(N_pgto, 5), dtype=|S32 (原始ガウス関数)
 ├── control/                            [Group]
-│   └── file_base_name                  [Group] 外部ファイル名テンプレート (属性に格納)
-├── energy_level/                       [Group] 軌道エネルギー
+│   └── file_base_name                  [Group] 外部ファイル名テンプレート
+├── energy_level/                       [Group] 軌道エネルギー (全反復 1..iterations)
 │   ├── rks_1                           [Dataset] shape=(N_MO,), dtype=float64
-│   └── ...                             (イテレーション 1..iterations 各回分のデータセット)
+│   └── ...                             (rks_1..rks_{iterations})
+├── h                                   [Dataset] shape=(N_AO, N_AO), dtype=float64 (1電子ハミルトニアン)
+├── h2                                  [Dataset] shape=(N_AO, N_AO), dtype=float64 (2電子ハミルトニアン成分)
 ├── molecule/                           [Group] 分子構造
 │   └── xyzc                            [Dataset] shape=(N_atom, 6), dtype=|S32 (元素, ラベル, x, y, z, 電荷)
 ├── occ/                                [Group] 軌道占有数
 │   └── rks                             [Dataset] shape=(N_MO,), dtype=float64
-└── pop/                                [Group] ポピュレーション解析結果
+└── s                                   [Dataset] shape=(N_AO, N_AO), dtype=float64 (重なり行列 S)
+```
+> [!NOTE]
+> `pdfresults.h5` には `s`, `h`, `h2`, `P`, `F` が含まれる一方、`pop/mulliken` は保存されない（`pdf-archive-h5.py` にMulliken電荷を保存する呼び出しがない）。また、`C`, `F`, `P`, `energy_level` は全SCF反復（`1..iterations`）分が格納される。
+
+#### (B) テストデータ `reference.h5` (RKS計算例: `H2O_HF`, `Ne_HF`, `N2_RHF` 等)
+ProteinDF_test の回帰テスト基準値用 `reference.h5` では、ファイルサイズ節約のため最終反復データや特定項目のみが保持されている。
+```text
+/
+├── C/                                  [Group] 分子軌道(MO)係数行列 (最終反復のみ)
+│   └── rks_{iterations}               [Dataset] shape=(N_AO, N_MO), dtype=float64
+├── TEs                                 [Dataset] shape=(iterations,), dtype=float64 (各SCFの全エネルギー)
+├── basisset/                           [Group] 基底関数系定義
+│   ├── cgto                            [Dataset] shape=(N_cgto, 4), dtype=|S32
+│   ├── name                            [Dataset] shape=(N_spec, 2), dtype=object または |S32
+│   └── pgto                            [Dataset] shape=(N_pgto, 5), dtype=|S32
+├── control/file_base_name              [Group] 外部ファイル名テンプレート
+├── energy_level/                       [Group] 軌道エネルギー (各反復 1..iterations)
+│   ├── rks_1                           [Dataset] shape=(N_MO,), dtype=float64
+│   └── ...
+├── molecule/                           [Group] 分子構造
+│   └── xyzc                            [Dataset] shape=(N_atom, 6), dtype=|S32
+├── occ/                                [Group] 軌道占有数
+│   └── rks                             [Dataset] shape=(N_MO,), dtype=float64
+└── pop/                                [Group] ポピュレーション解析結果 (最終反復のみ)
     └── mulliken/
         └── rks_{iterations}           [Dataset] shape=(N_atom,), dtype=float64 (最終反復のMulliken原子電荷)
 ```
 
-#### UKS計算 (例: `O2_UHF`, `O2_UB3LYP` 等)
+#### (C) テストデータ `reference.h5` (UKS計算例: `O2_UHF`, `O2_UB3LYP` 等)
 ```text
 /
-├── P/                                  [Group] 密度行列 (対称行列)
+├── P/                                  [Group] 密度行列 (スピンα, β別の最終反復)
 │   ├── uks_alpha_{iterations}         [Dataset] shape=(N_AO, N_AO), dtype=float64
 │   └── uks_beta_{iterations}          [Dataset] shape=(N_AO, N_AO), dtype=float64
 ├── TEs                                 [Dataset] shape=(iterations,), dtype=float64
@@ -88,7 +122,7 @@
 ├── energy_level/                       [Group] 軌道エネルギー (スピンα, β別)
 │   ├── uks_alpha_{iterations}         [Dataset] shape=(N_MO,), dtype=float64
 │   └── uks_beta_{iterations}          [Dataset] shape=(N_MO,), dtype=float64
-├── molecule/xyzc                       [Dataset] shape=(N_atom, 6), dtype=|S32 (RKSと同形式)
+├── molecule/xyzc                       [Dataset] shape=(N_atom, 6), dtype=|S32
 └── occ/                                [Group] 軌道占有数 (スピンα, β別)
     ├── uks_alpha                       [Dataset] shape=(N_MO,), dtype=float64
     └── uks_beta                        [Dataset] shape=(N_MO,), dtype=float64
@@ -210,21 +244,54 @@
   - `occupation_vtr = "occupation.%s.vtr"` (占有数)
   - `pop/mulliken = "pop.mulliken.%s.vtr"` (Mulliken電荷)
 
+#### (9) `s` (重なり行列: S行列)
+- **パス**: `/s`
+- **データ型**: `float64`
+- **形状**: `(N_AO, N_AO)` (対称行列)
+- **属性**: `type: "SY"`, `row: N_AO`, `col: N_AO`
+- **内容**: 原子基底関数間の重なり積分行列 $S_{\mu\nu} = \langle \chi_\mu | \chi_\nu \rangle$。
+- **実データでの確認**: `/tmp/test_compare/with_xc/pdfresults.h5` において shape=(14, 14), float64, 属性 `row=14, col=14, type="SY"` を確認。
+- **保存処理**: `scripts/pdf-archive-h5.py` 128-133行目 `archive_s` (`entry.save_s_matrix(S)`)。
+
+#### (10) `P` (密度行列)・`F` (Fock行列)
+- **パス**: `P/{run_type}_{iteration}`, `F/{run_type}_{iteration}`
+- **データ型**: `float64`
+- **形状**: `(N_AO, N_AO)`
+- **属性**: `type: "SY"`, `row: N_AO`, `col: N_AO`, `iteration: itr`
+- **実データでの確認**: `/tmp/test_compare/with_xc/pdfresults.h5` に全反復 (1..27) 分が存在。
+- **保存処理**: `scripts/pdf-archive-h5.py` 162-170行目 `archive_p`, 172-180行目 `archive_f`。
+
+#### (11) `h`, `h2` (1電子・2電子ハミルトニアン行列)
+- **パス**: `/h`, `/h2`
+- **データ型**: `float64`
+- **形状**: `(N_AO, N_AO)`
+- **属性**: `type: "SY"`, `row: N_AO`, `col: N_AO`
+- **実データでの確認**: `/tmp/test_compare/with_xc/pdfresults.h5` において shape=(14, 14), float64 を確認。
+- **保存処理**: `scripts/pdf-archive-h5.py` 136-141行目 `archive_h`, 144-149行目 `archive_h2`。
+
 ---
 
 ## 2. 必要なデータの所在 (HDF5内か別ファイルか)
 
-| データ項目 | HDF5内 (`reference.h5`) | 外部バイナリファイル | 備考 |
-| --- | --- | --- | --- |
-| **基底関数系** | **あり** (`basisset/cgto`, `name`, `pgto`) | なし | 全 `reference.h5` に存在 |
-| **分子構造 (原子・座標)** | **あり** (`molecule/xyzc`) | なし | 全 `reference.h5` に存在 (Bohr単位) |
-| **全エネルギー (TEs)** | **あり** (`TEs`) | なし | 各イテレーションの推移ベクトル |
-| **軌道エネルギー** | **あり** (`energy_level/{run_type}_{itr}`) | あり (`eigenvalues.{run_type}.vtr`) | RKSおよび一部UKSでHDF5内に保持 |
-| **占有数** | **あり** (`occ/{run_type}`) | あり (`occupation.{run_type}.vtr`) | RKSおよび一部UKSでHDF5内に保持 |
-| **MO係数行列 (C)** | **あり** (`C/{run_type}_{itr}`) | あり (`C.{run_type}.mat`) | RKSの `reference.h5` に最終イテレーション分を保持 |
-| **Mulliken原子電荷** | **あり** (`pop/mulliken/{run_type}_{itr}`) | あり (`pop.mulliken.{run_type}.vtr`) | RKSの `reference.h5` に最終イテレーション分を保持 |
-| **密度行列 (P)** | UKSのみあり (`P/uks_alpha_*`, `beta_*`) | あり (`Ppq.{run_type}.mat`) | UKSの `reference.h5` に保持 |
-| **重なり行列 (S)** | **なし** (データセット `s` は存在せず) | **あり** (`Spq.mat`) | `serial_dev` の全 `reference.h5` で未保持 |
+`reference.h5`(ProteinDF_testの比較用の参照ファイル)と、`pdf-archive-h5.py`が作る`pdfresults.h5`(標準計算結果アーカイブ)は、同じ形式の木構造であるが、含まれるデータセットが異なる。後者には `s`・`h`・`h2`・`P`・`F` が常に保存され、前者には保存されていない。
+
+### `reference.h5` と `pdfresults.h5` のデータセット比較表
+
+| データ項目 | HDF5パス / データセット | テスト参照ファイル `reference.h5` | 標準アーカイブ `pdfresults.h5` | `pdf-archive-h5.py` 該当行と処理 | 外部バイナリファイル名 (`control/file_base_name`) | 備考 |
+| --- | --- | --- | --- | --- | --- | --- |
+| **分子構造 (原子・座標)** | `/molecule/xyzc` | **あり** | **あり** | 65行目: `entry.save_model()` | なし | 全HDF5に存在 (Bohr単位) |
+| **基底関数系** | `/basisset/{cgto, name, pgto}` | **あり** | **あり** | 65行目: `entry.save_model()` | なし | 全HDF5に存在 |
+| **外部ファイル名対応** | `/control/file_base_name` | **あり** | **あり** | 65行目: `entry.save_model()` | なし | 全HDF5に存在 |
+| **全エネルギー推移** | `/TEs` | **あり** | **あり** | 68, 106-113行目: `archive_TEs` (`entry.save_TEs`) | なし | 全SCF反復の全エネルギー |
+| **重なり行列 (S)** | `/s` | **なし** (存在せず) | **あり** (14×14) | 71, 128-133行目: `archive_s` (`entry.save_s_matrix(S)`) | `Spq_matrix = "Spq.mat"` | `pdf-archive-h5.py` は常にSを保存 |
+| **1電子ハミルトニアン (h)** | `/h` | **なし** | **あり** (14×14) | 74, 136-141行目: `archive_h` (`entry.save_h_matrix(h)`) | 未確認 | 対称行列 (SY) |
+| **2電子ハミルトニアン (h2)** | `/h2` | **なし** | **あり** (14×14) | 75, 144-149行目: `archive_h2` (`entry.save_h2_matrix(h2)`) | 未確認 | 対称行列 (SY) |
+| **軌道占有数** | `/occ/{run_type}` | **あり** | **あり** | 81, 96-103行目: `archive_occ` (`entry.save_occ`) | `occupation_vtr = "occupation.%s.vtr"` | RKSおよび一部UKS |
+| **軌道エネルギー** | `/energy_level/{run_type}_{itr}` | **あり** (全反復) | **あり** (全反復) | 84, 116-126行目: `archive_energy_level` (`entry.save_energy_level`) | `eigenvalues = "eigenvalues.%s.vtr"` | 1..iterations反復分 |
+| **MO係数行列 (C)** | `/C/{run_type}_{itr}` | **あり** (最終反復のみ) | **あり** (全反復 1..iterations) | 87, 152-160行目: `archive_c` (`entry.save_c_matrix`) | `C_matrix = "C.%s.mat"` | 一般行列 (GE) |
+| **密度行列 (P)** | `/P/{run_type}_{itr}` | UKSのみ最終反復あり (RKSなし) | **あり** (全反復 1..iterations) | 90, 162-170行目: `archive_p` (`entry.save_density_matrix`) | `Ppq_matrix = "Ppq.%s.mat"` | 対称行列 (SY) |
+| **Fock行列 (F)** | `/F/{run_type}_{itr}` | **なし** | **あり** (全反復 1..iterations) | 93, 172-180行目: `archive_f` (`entry.save_f_matrix`) | 未確認 | 対称行列 (SY) |
+| **Mulliken原子電荷** | `/pop/mulliken/{run_type}_{itr}` | **あり** (RKS最終反復のみ) | **なし** (保存処理なし) | なし (`archive` 内に呼び出しなし) | `pop/mulliken = "pop.mulliken.%s.vtr"` | `reference.h5` はテスト用基準値として保持 |
 
 ### 外部バイナリファイルの形式 (`matrix.py`, `vector.py`)
 
@@ -274,23 +341,26 @@ Mullikenポピュレーション解析の定式化:
 2. **重なり行列 $S$** ($N_{\text{AO}} \times N_{\text{AO}}$ 対称行列)
 3. **基底関数 (AO) と原子の対応付け** ($p \mapsto A$)
 
-### 3.2 テストデータでの充足性判断と根拠
+### 3.2 充足性判断と根拠
 
-**判断: テストデータ (`reference.h5`) 単体ではそろわない。重なり行列 $S$ が不足している。**
+**判断**:
+- **テストデータ (`reference.h5`) 単体**: 重なり行列 $S$ が含まれていないためそろわない。
+- **標準計算結果アーカイブ (`pdfresults.h5`)**: `pdf-archive-h5.py` が生成するHDF5であれば、重なり行列 $S$ (`/s`)、MO係数行列 $C$ (`/C/...`)、基底関数系 (`/basisset/...`)、分子構造 (`/molecule/xyzc`) がすべて含まれているため、**完全にそろう**。
 
 **根拠**:
 1. **MO係数行列 $C$**:
-   - `H2O_HF`, `Ne_HF`, `N2_RHF` などのRKSテストデータにおいて、`C/rks_{iterations}` として **完全にそろう**。
-2. **基底関数と原子の対応付け ($p \mapsto A$)**:
+   - `reference.h5` では `H2O_HF`, `Ne_HF`, `N2_RHF` などのRKSテストデータにおいて、`C/rks_{iterations}` として最終反復分がそろう。
+   - `pdfresults.h5` では全反復 (`rks_1`〜`rks_{iterations}`) が `C` 配下に保存され、完全にそろう (`pdf-archive-h5.py` 152-160行目 `archive_c`)。
+2. **重なり行列 $S$**:
+   - `reference.h5` (ProteinDF_test の回帰テスト用基準値) にはデータセット `s` が保存されていない（サイズ節約等のため除外）。
+   - 一方、ProteinDFの計算結果をHDF5にまとめる標準スクリプト `pdf-archive-h5.py` は、`archive_s`(128-133行目、`logger.debug("save S")` → `filepath = pdfparam.get_s_mat_path()` → `S = pdf.SymmetricMatrix(); S.load(filepath)` → `entry.save_s_matrix(S)`) により、**常に重なり行列をデータセット `s` として書き出す**。
+   - 実データ (`/tmp/test_compare/with_xc/pdfresults.h5`、Ne B3LYP計算) においても、データセット `s` (shape=(14, 14), float64, type="SY") が存在することを確認済み。
+3. **基底関数と原子の対応付け ($p \mapsto A$)**:
    - `molecule/xyzc` と `basisset` (`name`, `cgto`, `pgto`) から **完全に導出可能**。
    - ProteinDFの規約 (`orbinfo.py` 71-97行目 `OrbInfo._setup_by_param`):
      - 各原子 $A$ (0-index) について、`basisset/name` で指定された基底セット内の各 CGTO を走査。
      - 各 CGTO の `shell_type` (`s`, `p`, `d`) に応じて、$2 \times l + 1$ 個の基底関数 (s=1, p=3, d=5) を順番に展開して AO インデックスを割り振る。
      - これにより、各 AO $p \in \{0, \dots, N_{\text{AO}}-1\}$ がどの原子 $A$ に属するかが一意に確定する。
-3. **重なり行列 $S$ (不足)**:
-   - `ProteinDF_test/serial_dev/*/reference.h5` の全ファイルを検査したが、データセット `s` または `S` を含むファイルは **0件** であった。
-   - `pdfparam_hdf5.py` (390-405行目 `save_s_matrix`) にはHDF5へ `s` を書き込む機能自体は定義されているが、既存のテスト用基準値作成時 (`pdf-archive-h5.py`) には保存されていなかった。
-   - ProteinDFの実行環境では作業ディレクトリ `fl_Work/Spq.mat` に外部バイナリファイルとして出力されるが、`ProteinDF_test/serial_dev/` には `.mat` ファイルは同梱されていない。
 
 ---
 
@@ -318,22 +388,21 @@ Mullikenポピュレーション解析の定式化:
 4. **テスト**:
    - `tests/test_qc_hdf5.rs`: 今回コピーした3つのテストフィクスチャを用いた単体テスト。
 
-### PR#61: 軌道別Mulliken寄与の計算とS行列入力 (スコープ案)
+### PR#61: 軌道別Mulliken寄与の計算 (スコープ案)
 
-重なり行列 $S$ が既存の `reference.h5` に含まれていない問題への対応を含める。
+`pdf-archive-h5.py` が生成する標準HDF5では重なり行列 $S$ (`/s`) が常に提供されるため、S行列の入力はHDF5からの読み込みで足りる。外部バイナリファイル `Spq.mat` の読み込みは範囲から外す（必要になったら別途検討）。また、テストは合成のS行列ではなく、実際の計算結果で行う（テストデータとして `s` を含む多原子分子のHDF5をユーザーが用意する、ユーザー確認済み、2026-10-12）。
 
 1. **計算コア (`qc_result/population.rs`)**:
    - `OrbitalContribution { orbital_index: usize, atom_contributions: Vec<(usize, f64)> }` の定義。
    - 計算関数: `calc_orbital_mulliken_contributions(mo_coeffs: &MoCoefficients, s_matrix: &SymmetricMatrix, orb_info: &OrbitalInfo) -> Result<Vec<OrbitalContribution>>`
    - 各軌道 $i$ について $q_p^{(i)} = C_{pi} (\mathbf{S}\mathbf{C}_i)_p$ を計算し、原子ごとに総和をとる。
    - 規格化検証: 各軌道の原子寄与総和が $1.0 \pm 10^{-5}$ になることをアサート。
-2. **S行列の入力サポート案 (2系統)**:
-   - **案A (HDF5データセット `s` からの読み込み)**: HDF5内に `s` データセット（対称行列または一般行列）が存在する場合はそれを読み込む。
-   - **案B (外部バイナリ行列 `.mat` からの読み込み)**: `format/matrix.rs` にProteinDFのバイナリ対称行列 (`Spq.mat`) パーサを実装し、外部ファイルから $S$ をロード可能にする。
+2. **S行列の入力**:
+   - HDF5データセット `/s` (対称行列) から重なり行列 $S$ をロードする（PR#60のHDF5ローダー機能を利用）。
+   - 外部バイナリファイル `Spq.mat` のパーサは本PRの対象外とする。
 3. **テスト戦略**:
-   - テストデータ `H2O_HF` (MO係数 $C$ あり) に対して、以下の2通りのテストを用意:
-     1. **合成S行列テスト (自己完結)**: $C$ が直交化されていると仮定した単位行列 $S=I$、または $S = (C C^T)^{-1}$ による正定値対称行列をテスト内で構築して計算アルゴリズムの厳密性を検証。
-     2. **既知の基準値との整合性検証**: 全占有軌道 (occ=2.0) について原子別寄与を足し合わせ、核電荷 $Z_A$ を引いた正味の電荷が、`pop/mulliken/rks_49` の全Mulliken電荷と一致することの検証。
+   - ユーザーから提供される実計算結果（データセット `s` を含む多原子分子のHDF5ファイル）をテストフィクスチャとして使用する。
+   - 実際の計算結果に対して、各軌道の原子寄与の和が 1.0 になること（MOの規格化条件）を検証する。
 
 ---
 
