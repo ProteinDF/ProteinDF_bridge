@@ -350,7 +350,11 @@ class TestRsPhase1(unittest.TestCase):
         self.assertAlmostEqual(rs_bmax.x, py_bmax.x, places=5)
 
         # Formula & counts
-        self.assertEqual(rs_root.get_formula(), py_root.get_formula())
+        # Note on formula difference:
+        # Python's get_formula() formats by atomic number without omitting count 1 ("C2N1").
+        # Rust's get_formula() uses the Hill system ("C2N"), intentionally differing from pure Python.
+        self.assertEqual(rs_root.get_formula(), "C2N")
+        self.assertEqual(rs_root.formula(), "C2N")
         self.assertEqual(rs_root.get_atom_kinds_count(), py_root.get_atom_kinds_count())
 
         # Bond setup
@@ -482,6 +486,62 @@ class TestRsPhase1(unittest.TestCase):
         removed_group = root.del_group("chainA")
         self.assertIsNotNone(removed_group)
         self.assertFalse(root.has_group("chainA"))
+
+    def test_atom_group_formula_hill(self):
+        """Test AtomGroup.get_formula() and AtomGroup.formula() Hill system formatting."""
+        # 1. Empty group
+        empty = rs_br.AtomGroup(name="empty")
+        self.assertEqual(empty.get_formula(), "")
+        self.assertEqual(empty.formula(), "")
+
+        # 2. Carbon with H (methane: CH4)
+        ch4 = rs_br.AtomGroup(name="methane")
+        ch4.set_atom("C1", rs_br.Atom(symbol="C"))
+        for i in range(1, 5):
+            ch4.set_atom(f"H{i}", rs_br.Atom(symbol="H"))
+        self.assertEqual(ch4.get_formula(), "CH4")
+        self.assertEqual(ch4.formula(), "CH4")
+
+        # 3. Carbon with H and other elements (ethanol: C2H6O)
+        c2h6o = rs_br.AtomGroup(name="ethanol")
+        c2h6o.set_atom("C1", rs_br.Atom(symbol="C"))
+        c2h6o.set_atom("C2", rs_br.Atom(symbol="C"))
+        for i in range(1, 7):
+            c2h6o.set_atom(f"H{i}", rs_br.Atom(symbol="H"))
+        c2h6o.set_atom("O1", rs_br.Atom(symbol="O"))
+        self.assertEqual(c2h6o.get_formula(), "C2H6O")
+        self.assertEqual(c2h6o.formula(), "C2H6O")
+
+        # 4. Carbon without H (carbon dioxide: CO2)
+        co2 = rs_br.AtomGroup(name="co2")
+        co2.set_atom("C1", rs_br.Atom(symbol="C"))
+        co2.set_atom("O1", rs_br.Atom(symbol="O"))
+        co2.set_atom("O2", rs_br.Atom(symbol="O"))
+        self.assertEqual(co2.get_formula(), "CO2")
+        self.assertEqual(co2.formula(), "CO2")
+
+        # 5. Non-carbon (water: H2O)
+        h2o = rs_br.AtomGroup(name="water")
+        h2o.set_atom("H1", rs_br.Atom(symbol="H"))
+        h2o.set_atom("H2", rs_br.Atom(symbol="H"))
+        h2o.set_atom("O1", rs_br.Atom(symbol="O"))
+        self.assertEqual(h2o.get_formula(), "H2O")
+        self.assertEqual(h2o.formula(), "H2O")
+
+        # 6. Non-carbon alphabetical (sodium chloride: ClNa)
+        nacl = rs_br.AtomGroup(name="nacl")
+        nacl.set_atom("Na1", rs_br.Atom(symbol="Na"))
+        nacl.set_atom("Cl1", rs_br.Atom(symbol="Cl"))
+        self.assertEqual(nacl.get_formula(), "ClNa")
+        self.assertEqual(nacl.formula(), "ClNa")
+
+        # 7. With unknown dummy atom X
+        grp_x = rs_br.AtomGroup(name="with_x")
+        grp_x.set_atom("C1", rs_br.Atom(symbol="C"))
+        grp_x.set_atom("X1", rs_br.Atom(symbol="X"))
+        grp_x.set_atom("X2", rs_br.Atom(symbol="X"))
+        self.assertEqual(grp_x.get_formula(), "CX2")
+        self.assertEqual(grp_x.formula(), "CX2")
 
 
 if __name__ == "__main__":
