@@ -77,3 +77,18 @@
 ## PR#58 完了(2026-10-12)
 
 修正コミット(`7e7de3a`・`fbbc0d9`)で修正依頼1・2に対応済み。`git diff develop -- proteindf_bridge/`が空であること、Pythonのテストが`proteindf_bridge.rs.Cube`だけを使うこと、別名(`num_atoms`・`get_atom_group`)が削除されたことをClaudeが確認した。Pythonテスト一式242件OK(新しい環境)、`cargo nextest` `325 tests run: 325 passed, 2 skipped`、clippy・fmt OK。`--no-ff`でdevelopにマージした(`64d88f0`)。
+
+## PR#59 レビュー結果(1回目、2026-10-12、要修正・文書のみ)
+
+`feature/qc-hdf5-survey`(`daec449`・`9761241`・`c2c6498`)をレビューした。`H2O_HF_reference.h5`の木構造(ルート属性、`C/rks_49`(24×24)、`energy_level/rks_N`、`occ/rks`、`pop/mulliken/rks_49`、`molecule/xyzc`(固定長文字列、座標はbohr)、`basisset/{name,cgto,pgto}`)をClaudeが`h5py`で確認し、`docs/qc-result-format.md`の記述と一致した。テストデータ3ファイルに個人データがないことも確認した。
+
+### 修正依頼
+
+1. **【結論の誤り】「重なり行列SはHDF5内には存在しない」は、テストデータ(`reference.h5`)についてのみ正しい。** ProteinDF_pytoolsの`scripts/pdf-archive-h5.py`(ProteinDFの計算結果をHDF5にまとめる標準のスクリプト)は、`archive_s`(129〜133行目付近、`logger.debug("save S")`→`entry.save_s_matrix(S)`)で常にS行列をデータセット`s`として書き出す。Claudeが、このスクリプトで作られた実際のファイル(Ne原子のB3LYP計算の`pdfresults.h5`)を確認したところ、`s`(14×14)・`h`・`h2`・`C/rks_1`・`P/rks_1`・`F/rks_1`があった(`pop/mulliken`はなかった)。`docs/qc-result-format.md`と報告を、次のように事実どおりに直す。
+   - `reference.h5`(ProteinDF_testの比較用の参照ファイル)と、`pdf-archive-h5.py`が作る`pdfresults.h5`は、同じ形式の木構造だが、含まれるデータセットが違う。後者には`s`・`h`・`h2`・`P`・`F`があり、前者にはない。各データセットがどちらに含まれるかを表にする(確認していないものは「未確認」)。`pdf-archive-h5.py`の該当行を実物で確かめて書く。
+   - 軌道ごとのMulliken寄与に必要なデータは、`pdf-archive-h5.py`が作るHDF5ならそろう(S・C・基底関数系・分子)。
+2. **【PR#61の案の修正】** テストは合成のS行列ではなく、実際の計算結果で行う。テストデータ(`s`を含む多原子分子のHDF5)はユーザーが用意する(ユーザー確認済み、2026-10-12)。PR#61の案のうち、外部ファイル`Spq.mat`の読み込みは、HDF5の`s`で足りるため範囲から外す(必要になったら別途)。
+
+### 完了の定義(修正後)
+
+1. 上記1・2に対応し、同じブランチに追加コミットする。コードの変更はない。
