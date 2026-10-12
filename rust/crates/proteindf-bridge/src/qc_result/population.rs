@@ -19,7 +19,9 @@
 //! - For dummy atoms (such as 'X' without basis functions), the contribution is 0.0.
 //! - The total gross Mulliken population on atom $A$ across all occupied orbitals is:
 //!   $$Q_A = \sum_i \mathrm{occ}_i \cdot q_A^{(i)}$$
-//!   and the net Mulliken atomic charge is $Z_A - Q_A$.
+//!   and the net Mulliken atomic charge is $Z_A - Q_A$, where $Z_A$ is the charge column
+//!   of `molecule/xyzc` (`QcAtom::charge`): the nuclear charge for real atoms, and the
+//!   assigned point charge for dummy atoms (e.g. 1.0 for `X` in ProteinDF_test `CH3COOX_HF`).
 
 use crate::error::{BridgeError, Result};
 use crate::matrix::SymmetricMatrix;
