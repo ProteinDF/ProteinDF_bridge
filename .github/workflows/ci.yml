@@ -1,11 +1,10 @@
+# Note: Regular CI checks should be run locally using scripts/ci-local.sh.
+# This GitHub Actions workflow is retained for manual verification via workflow_dispatch only.
 name: CI
 
 on:
-  push:
-    branches: [main, master, develop]
-  pull_request:
-    branches: [main, master, develop]
   workflow_dispatch:
+
 
 permissions:
   contents: read
