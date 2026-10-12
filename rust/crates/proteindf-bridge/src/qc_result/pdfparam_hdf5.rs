@@ -9,6 +9,7 @@ use hdf5_metno::types::{FixedAscii, VarLenAscii, VarLenUnicode};
 use hdf5_metno::File;
 
 use crate::error::{BridgeError, Result};
+use crate::matrix::{Matrix, SymmetricMatrix};
 use crate::position::Position;
 use crate::qc_result::types::*;
 
@@ -368,7 +369,8 @@ impl PdfParamHdf5 {
                         let n_mo = shape[1];
                         if let Ok(arr) = ds.read_2d::<f64>() {
                             let (data, _) = arr.into_raw_vec_and_offset();
-                            list.push(MoCoefficients::new(run_type, iteration, n_ao, n_mo, data)?);
+                            let matrix = Matrix::from_vec(n_ao, n_mo, data);
+                            list.push(MoCoefficients::new(run_type, iteration, matrix));
                         }
                     }
                 }
@@ -416,6 +418,10 @@ impl PdfParamHdf5 {
     }
 
     /// Reads a 2D symmetric matrix dataset at a top-level path (e.g. `s`, `h`, `h2`).
+    ///
+    /// The HDF5 dataset is stored as a full $N \times N$ matrix. Symmetry is strictly
+    /// verified during loading: for all $0 \le c \le r < N$, $|A_{rc} - A_{cr}| \le 10^{-8}$.
+    /// Non-symmetric datasets return [`BridgeError`].
     fn read_symmetric_matrix(file: &File, path: &str) -> Result<Option<SymmetricMatrix>> {
         let ds = match file.dataset(path) {
             Ok(d) => d,
@@ -435,26 +441,73 @@ impl PdfParamHdf5 {
             .read_2d::<f64>()
             .map_err(|e| BridgeError::input_error(path, format!("failed to read matrix: {}", e)))?;
 
-        let (data, _) = arr.into_raw_vec_and_offset();
-        Ok(Some(SymmetricMatrix::from_full(dim, data)?))
+        let mut sym = SymmetricMatrix::new(dim);
+        for r in 0..dim {
+            for c in 0..=r {
+                let val_rc = arr[[r, c]];
+                let val_cr = arr[[c, r]];
+                let diff = (val_rc - val_cr).abs();
+                if diff > MATRIX_SYMMETRY_TOLERANCE {
+                    return Err(BridgeError::value_error(
+                        format!(
+                            "element ({}, {}) = {}, ({}, {}) = {}, diff = {}",
+                            r, c, val_rc, c, r, val_cr, diff
+                        ),
+                        format!(
+                            "matrix '{}' is not symmetric within tolerance {}",
+                            path, MATRIX_SYMMETRY_TOLERANCE
+                        ),
+                    ));
+                }
+                sym.set(r, c, val_rc);
+            }
+        }
+
+        Ok(Some(sym))
     }
 
     /// Reads symmetric matrices under a group (e.g. `P`, `F`).
+    ///
+    /// Each dataset is stored as a full $N \times N$ matrix. Symmetry is strictly
+    /// verified within [`MATRIX_SYMMETRY_TOLERANCE`].
     fn read_group_matrices(file: &File, group_name: &str) -> Result<Vec<SymmetricMatrix>> {
         let group = match file.group(group_name) {
             Ok(g) => g,
             Err(_) => return Ok(Vec::new()),
         };
 
+        let mut members = group.member_names().unwrap_or_default();
+        members.sort();
+
         let mut list = Vec::new();
-        for member_name in group.member_names().unwrap_or_default() {
+        for member_name in members {
             if let Ok(ds) = group.dataset(&member_name) {
                 let shape = ds.shape();
                 if shape.len() == 2 && shape[0] == shape[1] {
                     let dim = shape[0];
                     if let Ok(arr) = ds.read_2d::<f64>() {
-                        let (data, _) = arr.into_raw_vec_and_offset();
-                        list.push(SymmetricMatrix::from_full(dim, data)?);
+                        let mut sym = SymmetricMatrix::new(dim);
+                        for r in 0..dim {
+                            for c in 0..=r {
+                                let val_rc = arr[[r, c]];
+                                let val_cr = arr[[c, r]];
+                                let diff = (val_rc - val_cr).abs();
+                                if diff > MATRIX_SYMMETRY_TOLERANCE {
+                                    return Err(BridgeError::value_error(
+                                        format!(
+                                            "element ({}, {}) = {}, ({}, {}) = {}, diff = {}",
+                                            r, c, val_rc, c, r, val_cr, diff
+                                        ),
+                                        format!(
+                                            "matrix '{}/{}' is not symmetric within tolerance {}",
+                                            group_name, member_name, MATRIX_SYMMETRY_TOLERANCE
+                                        ),
+                                    ));
+                                }
+                                sym.set(r, c, val_rc);
+                            }
+                        }
+                        list.push(sym);
                     }
                 }
             }

@@ -9,6 +9,7 @@ use crate::atom::Atom;
 use crate::atom_group::AtomGroup;
 use crate::error::{BridgeError, Result};
 use crate::format::cube::BOHR_TO_ANGSTROM;
+use crate::matrix::{Matrix, SymmetricMatrix};
 use crate::position::Position;
 
 /// Spin calculation method.
@@ -63,6 +64,10 @@ pub enum RunType {
     UksAlpha,
     /// UKS Beta spin component (`"uks_beta"`).
     UksBeta,
+    /// ROKS closed shell component (`"roks_close"`).
+    RoksClose,
+    /// ROKS open shell component (`"roks_open"`).
+    RoksOpen,
     /// Custom / arbitrary run type identifier.
     Other(String),
 }
@@ -74,6 +79,8 @@ impl RunType {
             "rks" => RunType::Rks,
             "uks_alpha" => RunType::UksAlpha,
             "uks_beta" => RunType::UksBeta,
+            "roks_close" => RunType::RoksClose,
+            "roks_open" => RunType::RoksOpen,
             other => RunType::Other(other.to_string()),
         }
     }
@@ -84,6 +91,8 @@ impl RunType {
             RunType::Rks => "rks",
             RunType::UksAlpha => "uks_alpha",
             RunType::UksBeta => "uks_beta",
+            RunType::RoksClose => "roks_close",
+            RunType::RoksOpen => "roks_open",
             RunType::Other(s) => s.as_str(),
         }
     }
@@ -435,99 +444,62 @@ pub struct OrbitalOccupation {
 /// - Row $p$: AO index ($0 \le p < N_{\text{AO}}$)
 /// - Column $i$: MO index ($0 \le i < N_{\text{MO}}$)
 /// - Value: $C_{pi}$ (expansion coefficient of AO $p$ in MO $i$)
+///
+/// Represented internally using [`Matrix`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct MoCoefficients {
     /// Run type.
     pub run_type: RunType,
     /// Iteration index.
     pub iteration: usize,
-    /// Number of rows ($N_{\text{AO}}$).
-    pub n_ao: usize,
-    /// Number of columns ($N_{\text{MO}}$).
-    pub n_mo: usize,
-    /// Flat row-major coefficient data (length $N_{\text{AO}} \times N_{\text{MO}}$).
-    pub data: Vec<f64>,
+    /// MO coefficient matrix ($N_{\text{AO}} \times N_{\text{MO}}$).
+    pub matrix: Matrix,
 }
 
 impl MoCoefficients {
-    /// Creates a new `MoCoefficients` matrix.
-    pub fn new(
-        run_type: RunType,
-        iteration: usize,
-        n_ao: usize,
-        n_mo: usize,
-        data: Vec<f64>,
-    ) -> Result<Self> {
-        if data.len() != n_ao * n_mo {
-            return Err(BridgeError::value_error(
-                format!("data length {}", data.len()),
-                format!("expected {} (n_ao {} * n_mo {})", n_ao * n_mo, n_ao, n_mo),
-            ));
-        }
-        Ok(Self {
+    /// Creates a new `MoCoefficients` container.
+    pub fn new(run_type: RunType, iteration: usize, matrix: Matrix) -> Self {
+        Self {
             run_type,
             iteration,
-            n_ao,
-            n_mo,
-            data,
-        })
+            matrix,
+        }
+    }
+
+    /// Number of rows ($N_{\text{AO}}$).
+    pub fn n_ao(&self) -> usize {
+        self.matrix.rows()
+    }
+
+    /// Number of columns ($N_{\text{MO}}$).
+    pub fn n_mo(&self) -> usize {
+        self.matrix.cols()
     }
 
     /// Coefficient $C_{pi}$ for AO $p$ and MO $i$.
     pub fn get(&self, ao_idx: usize, mo_idx: usize) -> Option<f64> {
-        if ao_idx < self.n_ao && mo_idx < self.n_mo {
-            Some(self.data[ao_idx * self.n_mo + mo_idx])
-        } else {
-            None
-        }
+        self.matrix.get(ao_idx, mo_idx).ok()
     }
 
     /// Column vector $\mathbf{C}_i$ for MO $i$ (length $N_{\text{AO}}$).
     pub fn mo_vector(&self, mo_idx: usize) -> Result<Vec<f64>> {
-        if mo_idx >= self.n_mo {
+        if mo_idx >= self.matrix.cols() {
             return Err(BridgeError::value_error(
                 format!("mo_idx {}", mo_idx),
-                format!("MO index out of range (n_mo: {})", self.n_mo),
+                format!("MO index out of range (n_mo: {})", self.matrix.cols()),
             ));
         }
-        let mut vec = Vec::with_capacity(self.n_ao);
-        for p in 0..self.n_ao {
-            vec.push(self.data[p * self.n_mo + mo_idx]);
+        let mut vec = Vec::with_capacity(self.matrix.rows());
+        for p in 0..self.matrix.rows() {
+            vec.push(self.matrix.get(p, mo_idx)?);
         }
         Ok(vec)
     }
 }
 
-/// Symmetric matrix (e.g. Overlap matrix $S$, Hamiltonian $h$, Fock matrix $F$, Density matrix $P$).
-#[derive(Debug, Clone, PartialEq)]
-pub struct SymmetricMatrix {
-    /// Dimension ($N \times N$).
-    pub dim: usize,
-    /// Flat row-major $N \times N$ matrix elements (or lower-triangular).
-    pub data: Vec<f64>,
-}
-
-impl SymmetricMatrix {
-    /// Creates a new symmetric matrix from full $N \times N$ row-major data.
-    pub fn from_full(dim: usize, data: Vec<f64>) -> Result<Self> {
-        if data.len() != dim * dim {
-            return Err(BridgeError::value_error(
-                format!("data length {}", data.len()),
-                format!("expected {} (dim {} * dim {})", dim * dim, dim, dim),
-            ));
-        }
-        Ok(Self { dim, data })
-    }
-
-    /// Element $(r, c)$.
-    pub fn get(&self, r: usize, c: usize) -> Option<f64> {
-        if r < self.dim && c < self.dim {
-            Some(self.data[r * self.dim + c])
-        } else {
-            None
-        }
-    }
-}
+/// Tolerance for verifying matrix symmetry ($|A_{ij} - A_{ji}| \le 10^{-8}$)
+/// when reading full $N \times N$ symmetric matrix datasets from HDF5.
+pub const MATRIX_SYMMETRY_TOLERANCE: f64 = 1.0e-8;
 
 /// Mulliken population analysis result (net atomic charges).
 #[derive(Debug, Clone, PartialEq)]
@@ -560,14 +532,26 @@ pub struct QcResult {
     /// MO coefficient matrices by run type (`/C`).
     pub mo_coefficients: Vec<MoCoefficients>,
     /// Overlap matrix $S$ (`/s`), present in `pdfresults.h5`.
+    ///
+    /// Stored in HDF5 as full $N_{\text{AO}} \times N_{\text{AO}}$ data.
+    /// During reading, symmetry is verified ($|A_{ij} - A_{ji}| \le 10^{-8}$);
+    /// non-symmetric data results in [`BridgeError`].
     pub s_matrix: Option<SymmetricMatrix>,
     /// Density matrices by run type (`/P`).
+    ///
+    /// Stored as full $N_{\text{AO}} \times N_{\text{AO}}$ data; verified for symmetry.
     pub density_matrices: Vec<SymmetricMatrix>,
     /// Fock matrices by run type (`/F`).
+    ///
+    /// Stored as full $N_{\text{AO}} \times N_{\text{AO}}$ data; verified for symmetry.
     pub fock_matrices: Vec<SymmetricMatrix>,
     /// One-electron Hamiltonian $h$ (`/h`).
+    ///
+    /// Stored as full $N_{\text{AO}} \times N_{\text{AO}}$ data; verified for symmetry.
     pub h_matrix: Option<SymmetricMatrix>,
     /// Two-electron Hamiltonian component $h_2$ (`/h2`).
+    ///
+    /// Stored as full $N_{\text{AO}} \times N_{\text{AO}}$ data; verified for symmetry.
     pub h2_matrix: Option<SymmetricMatrix>,
     /// Mulliken atomic charges (`/pop/mulliken`).
     pub mulliken_charges: Vec<MullikenPopulation>,

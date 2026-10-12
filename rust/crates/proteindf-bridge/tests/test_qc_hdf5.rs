@@ -125,8 +125,10 @@ fn test_h2o_hf_reference() {
     let c = result
         .get_mo_coefficients(&RunType::Rks, Some(49))
         .expect("missing MO coefficients for iteration 49");
-    assert_eq!(c.n_ao, 24);
-    assert_eq!(c.n_mo, 24);
+    assert_eq!(c.n_ao(), 24);
+    assert_eq!(c.n_mo(), 24);
+    assert_eq!(c.matrix.rows(), 24);
+    assert_eq!(c.matrix.cols(), 24);
     assert_eq!(c.iteration, 49);
     // C[0, 0] = 1.00053064, C[0, 1] = -0.228648715, C[1, 0] = -0.00684479965 (from h5py)
     assert!((c.get(0, 0).unwrap() - 1.000_530_64).abs() < 1e-6);
@@ -214,8 +216,10 @@ fn test_ne_hf_reference() {
     let c = result
         .get_mo_coefficients(&RunType::Rks, None)
         .expect("missing MO coefficients");
-    assert_eq!(c.n_ao, 14);
-    assert_eq!(c.n_mo, 14);
+    assert_eq!(c.n_ao(), 14);
+    assert_eq!(c.n_mo(), 14);
+    assert_eq!(c.matrix.rows(), 14);
+    assert_eq!(c.matrix.cols(), 14);
     assert_eq!(c.iteration, 30);
     assert!((c.get(0, 0).unwrap() - 0.998_877_889).abs() < 1e-6);
 
