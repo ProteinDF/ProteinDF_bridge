@@ -49,8 +49,9 @@ pub use ch_pi::{
 };
 pub use error::{BridgeError, Result};
 pub use format::{
-    AmberPrmtop, Format, MmcifStructureReport, MmcifWriteOptions, Pdb, SimpleGro, SimpleMmcif,
-    SimpleMol2, StructConnPartnerUnresolved, StructConnRecord, UnresolvedStructConn, Xyz,
+    AmberPrmtop, Cube, CubeAtom, CubeUnit, Format, MmcifStructureReport, MmcifWriteOptions, Pdb,
+    SimpleGro, SimpleMmcif, SimpleMol2, StructConnPartnerUnresolved, StructConnRecord,
+    UnresolvedStructConn, Xyz, BOHR_TO_ANGSTROM,
 };
 pub use hydrogen_bond::{
     calc_backbone_hbonds, calc_kabsch_sander_energy, calc_pseudo_hydrogen, calc_sidechain_hbonds,
