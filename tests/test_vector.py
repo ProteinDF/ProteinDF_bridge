@@ -56,6 +56,35 @@ class TestVector(unittest.TestCase):
         v_mul = v1 * 2.0
         self.assertEqual(list(v_mul), [2.0, 4.0, 6.0])
 
+    def test_buffer_roundtrip(self):
+        v = Vector([1.0, 2.5, -3.0])
+        buf = v.get_buffer()
+        v2 = Vector()
+        v2.set_buffer(buf)
+        self.assertEqual(list(v), list(v2))
+
+    def test_buffer_resize(self):
+        v = Vector(2)
+        v_target = Vector([1.0, 2.0, 3.0, 4.0])
+        v.set_buffer(v_target.get_buffer())
+        self.assertEqual(len(v), 4)
+        self.assertEqual(list(v), [1.0, 2.0, 3.0, 4.0])
+
+    def test_buffer_invalid_length(self):
+        v = Vector([1.0, 2.0, 3.0])
+        with self.assertRaises(ValueError):
+            v.set_buffer(b"1234567")
+        self.assertEqual(len(v), 3)
+        self.assertEqual(list(v), [1.0, 2.0, 3.0])
+
+    def test_buffer_writable(self):
+        v = Vector(3)
+        buf = v.get_buffer()
+        v2 = Vector(3)
+        v2.set_buffer(buf)
+        v2[0] = 42.0
+        self.assertEqual(v2[0], 42.0)
+
 
 if __name__ == "__main__":
     unittest.main()
