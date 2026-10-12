@@ -8,7 +8,6 @@ use std::path::Path;
 use hdf5_metno::types::{FixedAscii, VarLenAscii, VarLenUnicode};
 use hdf5_metno::File;
 
-
 use crate::error::{BridgeError, Result};
 use crate::position::Position;
 use crate::qc_result::types::*;
@@ -70,12 +69,15 @@ impl PdfParamHdf5 {
     fn read_parameters(file: &File, source: &str) -> Result<QcParameters> {
         let method = Self::read_str_attr(file, "method")?.unwrap_or_default();
         let xc_functional = Self::read_str_attr(file, "xc_functional")?.unwrap_or_default();
-        let num_of_atoms = Self::read_int_attr(file, "num_of_atoms")?
-            .ok_or_else(|| BridgeError::input_error(source, "missing root attribute 'num_of_atoms'"))?;
-        let num_of_aos = Self::read_int_attr(file, "num_of_AOs")?
-            .ok_or_else(|| BridgeError::input_error(source, "missing root attribute 'num_of_AOs'"))?;
-        let num_of_mos = Self::read_int_attr(file, "num_of_MOs")?
-            .ok_or_else(|| BridgeError::input_error(source, "missing root attribute 'num_of_MOs'"))?;
+        let num_of_atoms = Self::read_int_attr(file, "num_of_atoms")?.ok_or_else(|| {
+            BridgeError::input_error(source, "missing root attribute 'num_of_atoms'")
+        })?;
+        let num_of_aos = Self::read_int_attr(file, "num_of_AOs")?.ok_or_else(|| {
+            BridgeError::input_error(source, "missing root attribute 'num_of_AOs'")
+        })?;
+        let num_of_mos = Self::read_int_attr(file, "num_of_MOs")?.ok_or_else(|| {
+            BridgeError::input_error(source, "missing root attribute 'num_of_MOs'")
+        })?;
         let iterations = Self::read_int_attr(file, "iterations")?.unwrap_or(0);
         let max_iterations = Self::read_int_attr(file, "max_iterations")?.unwrap_or(0);
         let scf_converged = Self::read_bool_attr(file, "scf_converged")?.unwrap_or(false);
@@ -146,7 +148,10 @@ impl PdfParamHdf5 {
                 BridgeError::input_error(z_str, format!("invalid z coordinate at atom {}", i))
             })?;
             let charge = charge_str.parse::<f64>().map_err(|_| {
-                BridgeError::input_error(charge_str, format!("invalid charge/atomic number at atom {}", i))
+                BridgeError::input_error(
+                    charge_str,
+                    format!("invalid charge/atomic number at atom {}", i),
+                )
             })?;
 
             atoms.push(QcAtom {
@@ -237,11 +242,7 @@ impl PdfParamHdf5 {
             pgtos_map
                 .entry((name, cgto_id))
                 .or_default()
-                .push(QcPgto {
-                    pgto_id,
-                    coef,
-                    exp,
-                });
+                .push(QcPgto { pgto_id, coef, exp });
         }
 
         // Parse CGTO entries: group by name
@@ -261,7 +262,9 @@ impl PdfParamHdf5 {
                 BridgeError::input_error(scale_str, format!("invalid scale_factor at cgto {}", i))
             })?;
 
-            let mut pgtos = pgtos_map.remove(&(name.clone(), cgto_id)).unwrap_or_default();
+            let mut pgtos = pgtos_map
+                .remove(&(name.clone(), cgto_id))
+                .unwrap_or_default();
             pgtos.sort_by_key(|p| p.pgto_id);
 
             cgtos_map.entry(name).or_default().push(QcCgto {
@@ -367,7 +370,6 @@ impl PdfParamHdf5 {
                             let (data, _) = arr.into_raw_vec_and_offset();
                             list.push(MoCoefficients::new(run_type, iteration, n_ao, n_mo, data)?);
                         }
-
                     }
                 }
             }
@@ -429,9 +431,9 @@ impl PdfParamHdf5 {
         }
 
         let dim = shape[0];
-        let arr = ds.read_2d::<f64>().map_err(|e| {
-            BridgeError::input_error(path, format!("failed to read matrix: {}", e))
-        })?;
+        let arr = ds
+            .read_2d::<f64>()
+            .map_err(|e| BridgeError::input_error(path, format!("failed to read matrix: {}", e)))?;
 
         let (data, _) = arr.into_raw_vec_and_offset();
         Ok(Some(SymmetricMatrix::from_full(dim, data)?))
@@ -457,7 +459,6 @@ impl PdfParamHdf5 {
                 }
             }
         }
-
 
         Ok(list)
     }

@@ -11,7 +11,6 @@ use crate::error::{BridgeError, Result};
 use crate::format::cube::BOHR_TO_ANGSTROM;
 use crate::position::Position;
 
-
 /// Spin calculation method.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QcMethod {
@@ -323,17 +322,24 @@ impl OrbitalInfo {
             let def = basisset.find_by_atom_label(&atom_label).ok_or_else(|| {
                 BridgeError::input_error(
                     &atom_label,
-                    format!("basis set definition not found for atom label '{}'", atom_label),
+                    format!(
+                        "basis set definition not found for atom label '{}'",
+                        atom_label
+                    ),
                 )
             })?;
 
             for cgto in &def.cgtos {
-                let basis_components = Self::shell_components(&cgto.shell_type).ok_or_else(|| {
-                    BridgeError::input_error(
-                        &cgto.shell_type,
-                        format!("unsupported shell type '{}' in basis set '{}'", cgto.shell_type, def.name),
-                    )
-                })?;
+                let basis_components =
+                    Self::shell_components(&cgto.shell_type).ok_or_else(|| {
+                        BridgeError::input_error(
+                            &cgto.shell_type,
+                            format!(
+                                "unsupported shell type '{}' in basis set '{}'",
+                                cgto.shell_type, def.name
+                            ),
+                        )
+                    })?;
 
                 for b_type in basis_components {
                     orbitals.push(AtomicOrbital {
@@ -445,7 +451,13 @@ pub struct MoCoefficients {
 
 impl MoCoefficients {
     /// Creates a new `MoCoefficients` matrix.
-    pub fn new(run_type: RunType, iteration: usize, n_ao: usize, n_mo: usize, data: Vec<f64>) -> Result<Self> {
+    pub fn new(
+        run_type: RunType,
+        iteration: usize,
+        n_ao: usize,
+        n_mo: usize,
+        data: Vec<f64>,
+    ) -> Result<Self> {
         if data.len() != n_ao * n_mo {
             return Err(BridgeError::value_error(
                 format!("data length {}", data.len()),
@@ -565,7 +577,11 @@ impl QcResult {
     /// Returns the MO coefficients for a run type at a given iteration.
     ///
     /// If iteration is `None`, the latest iteration is returned.
-    pub fn get_mo_coefficients(&self, run_type: &RunType, iteration: Option<usize>) -> Option<&MoCoefficients> {
+    pub fn get_mo_coefficients(
+        &self,
+        run_type: &RunType,
+        iteration: Option<usize>,
+    ) -> Option<&MoCoefficients> {
         let matching: Vec<&MoCoefficients> = self
             .mo_coefficients
             .iter()
@@ -581,7 +597,11 @@ impl QcResult {
     /// Returns the orbital energies for a run type at a given iteration.
     ///
     /// If iteration is `None`, the latest iteration is returned.
-    pub fn get_orbital_energy(&self, run_type: &RunType, iteration: Option<usize>) -> Option<&OrbitalEnergy> {
+    pub fn get_orbital_energy(
+        &self,
+        run_type: &RunType,
+        iteration: Option<usize>,
+    ) -> Option<&OrbitalEnergy> {
         let matching: Vec<&OrbitalEnergy> = self
             .orbital_energies
             .iter()
@@ -602,7 +622,11 @@ impl QcResult {
     }
 
     /// Returns the Mulliken atomic charges for a run type.
-    pub fn get_mulliken_population(&self, run_type: &RunType, iteration: Option<usize>) -> Option<&MullikenPopulation> {
+    pub fn get_mulliken_population(
+        &self,
+        run_type: &RunType,
+        iteration: Option<usize>,
+    ) -> Option<&MullikenPopulation> {
         let matching: Vec<&MullikenPopulation> = self
             .mulliken_charges
             .iter()

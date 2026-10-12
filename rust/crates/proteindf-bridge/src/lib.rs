@@ -32,7 +32,6 @@ pub mod vector;
 #[cfg(feature = "hdf5")]
 pub mod qc_result;
 
-
 pub use amino_acid::AminoAcid;
 pub use atom::Atom;
 pub use atom_group::{AtomGroup, BondRecord, SchemaViolation, Selector};
@@ -101,4 +100,3 @@ pub use qc_result::{
     OrbitalOccupation, PdfParamHdf5, QcAtom, QcBasisSet, QcBasisSetDefinition, QcCgto, QcMethod,
     QcMolecule, QcParameters, QcPgto, QcResult, RunType,
 };
-

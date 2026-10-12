@@ -43,7 +43,10 @@ fn test_h2o_hf_reference() {
     assert_eq!(result.params.iterations, 49);
     assert_eq!(result.params.max_iterations, 100);
     assert!(result.params.scf_converged);
-    assert_eq!(result.params.step_control, "create integral guess scf force");
+    assert_eq!(
+        result.params.step_control,
+        "create integral guess scf force"
+    );
     assert_eq!(result.params.guess, "core");
     assert_eq!(result.params.cut_value, "1.0e-10");
     assert_eq!(result.params.cdam_tau, "1.0E-10");
@@ -75,7 +78,10 @@ fn test_h2o_hf_reference() {
     assert_eq!(h2.pos_bohr.z, 0.0);
 
     // AtomGroup conversion: Bohr to Angstrom conversion check (1.8897261254578281 Bohr * BOHR_TO_ANGSTROM ≈ 1.0 Å)
-    let ag = result.molecule.get_atomgroup(Some("water")).expect("failed to convert to AtomGroup");
+    let ag = result
+        .molecule
+        .get_atomgroup(Some("water"))
+        .expect("failed to convert to AtomGroup");
     assert_eq!(ag.name, "water");
     assert_eq!(ag.get_number_of_atoms(), 3);
     let atom_h1 = ag.get_atom("1").expect("atom 1 not found");
@@ -268,8 +274,12 @@ fn test_n2_uhf_reference() {
 
     // Absent groups in this file should be safely empty / None
     assert!(result.mo_coefficients.is_empty());
-    assert!(result.get_mo_coefficients(&RunType::UksAlpha, None).is_none());
-    assert!(result.get_mo_coefficients(&RunType::UksBeta, None).is_none());
+    assert!(result
+        .get_mo_coefficients(&RunType::UksAlpha, None)
+        .is_none());
+    assert!(result
+        .get_mo_coefficients(&RunType::UksBeta, None)
+        .is_none());
     assert!(result.orbital_energies.is_empty());
     assert!(result.orbital_occupations.is_empty());
     assert!(result.mulliken_charges.is_empty());
