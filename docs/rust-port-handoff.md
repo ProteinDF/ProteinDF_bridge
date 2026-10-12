@@ -186,13 +186,13 @@ Phase 10 において実証された、大規模構造処理に関する性能�
 
 ### mmCIF書き出し (PR#42〜44, 完了 2026-10-03)
 - **新規モジュール**: `format/mmcif_writer.rs`。
-- **成果**: `_atom_site`の書き出し(エラー時は何も書かない事前検証、一時ファイル経由の保存)、`_struct_conn`の書き出し(`disulf`・`covale`)と読み込み側の`covale`対応、`AtomGroup::get_bond_list_ref`、Pythonバインディング(`SimpleMmcif.save`等)。詳細は`RUST_PORT_SPEC.md` §3.17、`docs/tasks/TASK_mmcif-writer.md`。
-- **関連して完了した作業**: pyo3 0.29の`FromPyObject`非推奨警告の解消(`TASK_pyo3-from-py-object.md`)、Python比較テストphase1の結合本数テストの更新(`TASK_phase1-bond-count-test.md`)。
+- **成果**: `_atom_site`の書き出し(エラー時は何も書かない事前検証、一時ファイル経由の保存)、`_struct_conn`の書き出し(`disulf`・`covale`)と読み込み側の`covale`対応、`AtomGroup::get_bond_list_ref`、Pythonバインディング(`SimpleMmcif.save`等)。詳細は`RUST_PORT_SPEC.md` §3.17。
+- **関連して完了した作業**: pyo3 0.29の`FromPyObject`非推奨警告の解消、Python比較テストphase1の結合本数テストの更新。
 - **教訓**: agyの完了報告の数字(テスト件数・ファイル一覧)が実際と食い違うことが複数回あった(存在しないテストファイルの一覧を含む)。レビューでは報告を鵜呑みにせず、コマンドを実際に実行して確認すること。
 
 ### Pythonバインディングの拡充 (PR#45〜48, 完了 2026-10-03)
 - **新規モジュール(`proteindf-bridge-py`)**: `ccd_templates.rs`, `schema.rs`, `hydrogenation.rs`, `hydrogen_bond.rs`, `secondary_structure.rs`, `ch_pi.rs`, `interaction_set.rs`, `brd.rs`, `modeling.rs`, `neutralize.rs`。
-- **成果**: Phase 6以降の機能(結合解決・CCDテンプレートDB・水素付加・水素結合・DSSP・CH-π・`InteractionSet`・`.brd`・`Modeling`・`Neutralize`)をPythonから使えるようにした。詳細は`RUST_PORT_SPEC.md` §4.3、`docs/tasks/TASK_py-bindings.md`。
+- **成果**: Phase 6以降の機能(結合解決・CCDテンプレートDB・水素付加・水素結合・DSSP・CH-π・`InteractionSet`・`.brd`・`Modeling`・`Neutralize`)をPythonから使えるようにした。詳細は`RUST_PORT_SPEC.md` §4.3。
 - **教訓**: Pythonのプロパティが大きな構造(`AtomGroup`)のコピーを毎回返すと、`report.atomgroup.setup()`のような操作が黙って失われる。大きな構造は同じオブジェクトを返し、逆に小さな結果の一覧は毎回新しいコンテナを返して外からの変更を防ぐ。
 
 ## 5. スコープ外・将来課題（未決事項）
@@ -208,4 +208,4 @@ Phase 10 において実証された、大規模構造処理に関する性能�
 - **近傍探索最適化の他モジュール展開**:
   - `secondary_structure.rs`, `hydrogen_bond.rs`, `ch_pi.rs` へのセルリスト適用（現時点では対象構造規模において十分高速であるため未適用）。
 - **~~CCD参照構造による水素付加（`RUST_PORT_SPEC.md` §3.16）~~**:
-  - **完了済み（PR#37〜40、2026-09-27にdevelopにマージ。PR#41で後片付け完了）**: §3実績および `RUST_PORT_SPEC.md` §3.16、`docs/tasks/TASK_ccd-hydrogenation.md` 参照。
+  - **完了済み（PR#37〜40、2026-09-27にdevelopにマージ。PR#41で後片付け完了）**: §3実績および `RUST_PORT_SPEC.md` §3.16 参照。
