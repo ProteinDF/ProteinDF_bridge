@@ -42,8 +42,14 @@ impl PdfParamHdf5 {
         let orbital_occupations = Self::read_orbital_occupations(file)?;
         let mo_coefficients = Self::read_mo_coefficients(file)?;
         let s_matrix = Self::read_symmetric_matrix(file, "s")?;
-        let density_matrices = Self::read_group_matrices(file, "P")?;
-        let fock_matrices = Self::read_group_matrices(file, "F")?;
+        let density_matrices = Self::read_group_matrices(file, "P")?
+            .into_iter()
+            .map(|(rt, itr, mat)| DensityMatrix::new(rt, itr, mat))
+            .collect();
+        let fock_matrices = Self::read_group_matrices(file, "F")?
+            .into_iter()
+            .map(|(rt, itr, mat)| FockMatrix::new(rt, itr, mat))
+            .collect();
         let h_matrix = Self::read_symmetric_matrix(file, "h")?;
         let h2_matrix = Self::read_symmetric_matrix(file, "h2")?;
         let mulliken_charges = Self::read_mulliken(file)?;
@@ -508,7 +514,20 @@ impl PdfParamHdf5 {
     /// Accepts both full symmetric matrices (verified within [`MATRIX_SYMMETRY_TOLERANCE`])
     /// and lower-triangle-only matrices (as written by ProteinDF tools).
     /// Entries are sorted by run type and iteration index.
-    fn read_group_matrices(file: &File, group_name: &str) -> Result<Vec<SymmetricMatrix>> {
+    ///
+    /// # Member Name Convention and Filtering
+    /// In ProteinDF (`docs/qc-result-format.md` §1.3 (3), ProteinDF_pytools `pdfparam_hdf5.py`
+    /// `_get_h5path_*` lines 643-690), dataset names under matrix groups follow the format
+    /// `{run_type}_{iteration}` (e.g., `rks_1`, `uks_alpha_39`).
+    /// Members that do not match this naming convention (e.g. metadata datasets or nested groups)
+    /// are not matrix iteration datasets and are skipped.
+    ///
+    /// Any dataset matching the naming convention must be a valid square 2D dataset;
+    /// if opening, reading, non-square shape, or symmetry verification fails, a [`BridgeError`] is returned.
+    fn read_group_matrices(
+        file: &File,
+        group_name: &str,
+    ) -> Result<Vec<(RunType, usize, SymmetricMatrix)>> {
         let group = match file.group(group_name) {
             Ok(g) => g,
             Err(_) => return Ok(Vec::new()),
@@ -516,23 +535,35 @@ impl PdfParamHdf5 {
 
         let mut items = Vec::new();
         for member_name in group.member_names().unwrap_or_default() {
-            if let Some((run_type, iteration)) = Self::parse_member_name(&member_name) {
-                if let Ok(ds) = group.dataset(&member_name) {
-                    let shape = ds.shape();
-                    if shape.len() == 2 && shape[0] == shape[1] {
-                        if let Ok(arr) = ds.read_2d::<f64>() {
-                            let path = format!("{}/{}", group_name, member_name);
-                            let sym = Self::parse_symmetric_array(&arr, &path)?;
-                            items.push((run_type, iteration, sym));
-                        }
-                    }
-                }
+            let (run_type, iteration) = match Self::parse_member_name(&member_name) {
+                Some(pair) => pair,
+                None => continue, // Skip members not matching {run_type}_{iteration} convention
+            };
+
+            let path = format!("{}/{}", group_name, member_name);
+            let ds = group.dataset(&member_name).map_err(|e| {
+                BridgeError::input_error(&path, format!("failed to open dataset: {}", e))
+            })?;
+
+            let shape = ds.shape();
+            if shape.len() != 2 || shape[0] != shape[1] {
+                return Err(BridgeError::input_error(
+                    &path,
+                    format!("expected square matrix, found shape {:?}", shape),
+                ));
             }
+
+            let arr = ds.read_2d::<f64>().map_err(|e| {
+                BridgeError::input_error(&path, format!("failed to read matrix: {}", e))
+            })?;
+
+            let sym = Self::parse_symmetric_array(&arr, &path)?;
+            items.push((run_type, iteration, sym));
         }
 
         items.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()).then(a.1.cmp(&b.1)));
 
-        Ok(items.into_iter().map(|(_, _, sym)| sym).collect())
+        Ok(items)
     }
 
     /// Parses dataset name into `(RunType, iteration)`:
