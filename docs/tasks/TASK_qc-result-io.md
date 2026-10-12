@@ -150,3 +150,42 @@
 ## PR#60 完了(2026-10-12)
 
 修正コミット(`4fba5c3`・`2907e4b`)で修正依頼1・2に対応済み。独自の`SymmetricMatrix`が削除され、S・P・F・h・h2はコアの`matrix::SymmetricMatrix`、MO係数はコアの`Matrix`を持つ型で表すこと、全要素で格納された行列を読み込み時に対称性検査(許容誤差`1e-8`)すること、合成HDF5によるUKS・ROKS・`s`等・非対称`s`のテスト(`test_synthetic_uks_hdf5`・`test_synthetic_roks_hdf5`・`test_synthetic_asymmetric_s_matrix_error`)をClaudeが確認した。`cargo nextest`は機能`hdf5`ありで`331 tests run: 331 passed, 2 skipped`、なしで`325 tests run: 325 passed, 2 skipped`。clippy(機能あり)・fmt・wasm32のcheck OK。`hdf5-metno`の依存`proc-macro-error2`について将来のRustでの非互換の警告が出る(現状のビルドには影響なし)。`--no-ff`でdevelopにマージした(`4d0333f`)。
+
+## 計画の変更(ユーザー確認済み、2026-10-12)
+
+PR#61の検証データは、ユーザーが用意する結果ファイルではなく、ProteinDF_testの入力ファイル(`fl_Userinput`)をコピーし、ProteinDFを実行して作り直せるようにする。結果ファイル(`.h5`)はコミットしない。Claudeが手元で試した結果は次のとおり。
+
+- ProteinDF(`ProteinDF` `bf581a8`のビルド)で、ProteinDF_test(`8150fc0`)の`serial_dev/CH3COOX_HF.mmap`と`parallel/GLY.omp`の入力を実行すると、それぞれ約18秒・約46秒で収束し、最終の全エネルギーはProteinDF_testの`pdfresults.std.h5`と1e-11の差で一致した(CH3COOX_HF `-227.32196883082707`、GLY `-282.86416358371594`、反復回数88・49)。
+- `pdf-archive-h5.py`(ProteinDF_pytools)の出力には`s`・`h`・`h2`・`P`・`F`がある。**ただし、`type`がSYの行列はすべて、下三角だけに値が入り、上三角は0で格納されている**(ProteinDF_pytoolsの`pdfparam_hdf5.py`の`_set_matrix`が`matrix.data`をそのまま書くため)。下三角を折り返した`s`は、(CCᵀ)⁻¹と1e-14で一致し、これと`C`・占有数から計算したMulliken電荷は、ProteinDF_testの`pdfresults.std.h5`の`pop/mulliken`と小数点以下8桁で一致した(ダミー原子`X`は基底関数を持たないので、電荷は`xyzc`の電荷の列の値1.0)。
+- PR#60の読み込みは、全要素の対称性を確かめて外れたらエラーにするため、`pdf-archive-h5.py`の実際の出力のSY行列をすべて拒否する(PR#60のテストデータ`reference.h5`にはSYの行列がなかったため、気づかなかった)。
+- 力の計算(`force`)を含む入力(`serial_dev/H2O_HF`)では、`pdf-archive-h5.py`が`pdfparam_object.py`の`set_by_raw_data`(1355行目)で`KeyError: 0`になる。ProteinDF_pytools側の問題で、本タスクの対象外。
+
+これに伴い、PR#61を「SY行列の読み込みの修正と検証データの作り直しの仕組み」、PR#62を「軌道ごとのMulliken寄与」とする。
+
+## PR#61: SY行列の読み込みの修正と、検証データを作り直す仕組み(計画、ユーザー確認済み 2026-10-12)
+
+ブランチ: `feature/qc-regen-testdata`。
+
+### 対象
+
+1. **SY行列の読み込みの修正**(`src/qc_result/pdfparam_hdf5.rs`の`read_symmetric_matrix`と、グループ内の行列を読む部分): `type`がSYのデータセットは、下三角(行≥列)の値から対称行列を作る。上三角(行<列)は、(a)すべて0なら下三角だけの格納として受け入れ、(b)0でない値があれば、対応する下三角の値と許容誤差`MATRIX_SYMMETRY_TOLERANCE`以内で一致することを確かめ、外れたら`BridgeError`にする。この規則と、`pdf-archive-h5.py`が下三角だけを書くこと(根拠の行番号は実際のファイルで確かめる)をドキュメントコメントと`docs/qc-result-format.md`に書く。GEの行列(`C`)の読み方は変えない。
+2. **合成HDF5のテスト**(`tests/test_qc_hdf5.rs`): 下三角だけで格納した`s`・`P`・`F`を読めて、折り返した値になることを確かめるテストを追加する。既存の`test_synthetic_asymmetric_s_matrix_error`は、上三角に下三角と合わない0でない値がある場合のエラーとして残す(必要なら名前とコメントを直す)。
+3. **入力ファイルのコピー**: ProteinDF_test(`8150fc0`)の`serial_dev/CH3COOX_HF.mmap/fl_Userinput`と`parallel/GLY.omp/fl_Userinput`を、`rust/crates/proteindf-bridge/tests/qc_inputs/CH3COOX_HF/fl_Userinput`・`.../GLY/fl_Userinput`に、内容を変えずにコピーする。同じディレクトリの`README.md`に、出典(リポジトリのURL・コミット・元のパス)、ライセンス(GPLv3)、作り直し方、ProteinDF_testの`pdfresults.std.h5`の最終の全エネルギーと反復回数(上記)を書く。
+4. **作り直すスクリプト**: `rust/crates/proteindf-bridge/tests/qc_inputs/regenerate.sh`(bash)。出力先ディレクトリを引数で受け取り、入力ごとに一時ディレクトリへ`fl_Userinput`をコピーして`pdf-setup.sh`・`PDF.x`・`pdf-archive-h5.py`を実行し、`<出力先>/<名前>.h5`に置く。`PDF_HOME`が未設定のとき、または必要なコマンド(`PDF.x`・`pdf-setup.sh`・`pdf-archive-h5.py`)が見つからないときは、理由を出して0以外で終わる。SCFが収束しなかったとき(`pdf.log`に`SCF is well converged`がない)もエラーにする。ローカルのパスを書き込まない。リポジトリ内に出力する場合の置き場として`rust/crates/proteindf-bridge/tests/qc_generated/`を`.gitignore`に加える。
+5. **実データのテスト**(`tests/test_qc_hdf5.rs`、機能`hdf5`): `#[ignore]`を付け、環境変数`PROTEINDF_BRIDGE_QC_DATA`(作り直した`.h5`のディレクトリ)から読む。`--run-ignored`で実行したときに環境変数がない・ファイルがない場合は、黙って飛ばさずに失敗させる。2つのファイルについて、次を確かめる。
+   - 読み込みが成功し、`s`・`P`・`F`・`h`があり、原子数・AO数・MO数・反復回数が期待どおり(CH3COOX_HF: 原子8(ダミー原子`X`を含む)・AO42・MO42・反復88、GLY: 原子10・AO95・MO95・反復49。値は作り直したファイルで確かめる)。
+   - 最終の全エネルギーが上記の値と1e-6以内で一致する。
+   - CᵀSCが単位行列と1e-8以内で一致する。
+   - 最終反復の`P`が、`C`と占有数から作った密度行列と1e-8以内で一致し、tr(PS)が電子数(CH3COOX_HF 32、GLY 40)と1e-8以内で一致する。
+   - 期待値をどう決めたか(どのツールで、どのファイルから)をテストのコメントに書く。
+6. **CI**: 実データのテストは`#[ignore]`のため実行されない。合成HDF5のテストは、既存の機能`hdf5`のステップで実行される。CIの設定の変更は不要のはず(変更した場合は理由を報告する)。
+
+### 完了の定義
+
+1. 対象1〜6に対応している。
+2. 全PR共通のテストと、機能`hdf5`ありの`cargo nextest`・clippy、wasm32のcheckが通る。
+3. `regenerate.sh`でリポジトリの外に2つの`.h5`を作り、`PROTEINDF_BRIDGE_QC_DATA`を設定して`cargo nextest run --workspace --features proteindf-bridge/hdf5 --run-ignored ignored-only --status-level fail --final-status-level fail`(または同等)が通ることを、実際の出力で示す。環境変数なしで同じコマンドを実行すると失敗することも示す。
+
+## PR#62: 軌道ごとのMulliken寄与(予定)
+
+PR#61のマージ後に詳細を書く。PR#61で作り直した`.h5`の`s`を使い、(1)各軌道の寄与の原子についての和が1、(2)占有数で重み付けした和を`xyzc`の電荷の列から引いた値が、ProteinDF_testの`pdfresults.std.h5`の`pop/mulliken`と一致、を確かめる。
