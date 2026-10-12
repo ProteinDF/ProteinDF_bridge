@@ -98,7 +98,31 @@
 
 ### 3.5 軌道別Mulliken寄与計算（`OrbitalContribution`）
 
-YUIのMOブラウザ機能（`architecture.md` 12.2節）向けに、MO係数ベクトルと重なり行列(S)から**軌道ごとの原子別Mulliken寄与**を計算する関数を `qc_result/population.rs` に新設し、`OrbitalContribution { orbital_index, atom_contributions: Vec<(AtomId, f32)> }` として出力する。
+YUIのMOブラウザ機能（`architecture.md` 12.2節）向けに、MO係数行列 $C$ と重なり行列 $S$ から**軌道ごとの原子別Mulliken寄与**を計算する関数を `qc_result/population.rs` に新設し、`OrbitalContribution { orbital_index, atom_contributions: Vec<(usize, f64)> }` として出力する。
+
+#### 実施内容 (2026-10-12完了、PR#62)
+
+1. **計算コア (`rust/crates/proteindf-bridge/src/qc_result/population.rs`)**:
+   - 分子軌道 $i$ に対する原子 $A$ の寄与:
+     $$q_A^{(i)} = \sum_{\mu \in A} C_{\mu i} (\mathbf{S}\mathbf{C})_{\mu i}$$
+     （Mulliken gross population の軌道ごとの分割）。
+   - 出力構造体: `OrbitalContribution { orbital_index: usize, atom_contributions: Vec<(usize, f64)> }`。
+     - `atom_contributions` は分子の原子順に全原子を含み、原子インデックスと寄与のタプルを保持。
+     - 基底関数を持たないダミー原子（`X` 等）の寄与は `0.0`。
+   - 計算関数:
+     `calc_orbital_mulliken_contributions(mo_coeffs: &MoCoefficients, s_matrix: &SymmetricMatrix, orb_info: &OrbitalInfo, num_atoms: usize) -> Result<Vec<OrbitalContribution>>`
+     全分子軌道（$0 \le i < N_{\text{MO}}$）の寄与ベクトルを計算して返す。
+   - 次元不整合検査: $S$ の次元、`OrbitalInfo` のAO数、AOの親原子インデックスと `num_atoms` の整合性を検証し、不整合時は `BridgeError::ValueError` を送出。
+2. **数値型の変更 (`f64`)**:
+   - 当初の仕様（`f32`）から `f64` に変更。
+   - 変更の理由: ProteinDF の計算結果（$10^{-8}$ 基準）との厳密な答え合わせ・規格化条件（各軌道における全原子寄与の和が $1.0$）の精度を維持するため。表示側（GUI等）で必要な場合に `f32` へ縮小変換する方針とする。
+3. **機能 `hdf5` との分離**:
+   - `types.rs` および `population.rs` をオプション機能 `hdf5` なしでも利用可能に分離。HDF5ファイル読み込み（`pdfparam_hdf5.rs`）のみを `#[cfg(feature = "hdf5")]` でゲート。
+   - `wasm32-unknown-unknown` ビルド（WebAssembly環境）でも `population.rs` がコンパイル・利用可能であることを確認。
+4. **テスト**:
+   - 合成データテスト (`tests/test_qc_population.rs`): 2原子・2AO系における手計算の解析解との比較、ダミー原子を含む系（寄与が `0.0`）、各種次元不整合エラーハンドリングを検証（CI環境で機能フラグなしで常時実行）。
+   - 実データテスト (`tests/test_qc_hdf5.rs`, `#[ignore]`): ProteinDFで再生成した `CH3COOX_HF.h5` および `GLY.h5` を用い、全軌道で原子寄与の和が $1.0$（誤差 $10^{-10}$ 以内）、および占有軌道での重み付け総和から算出した net Mulliken 電荷が ProteinDF_test 基準値（`pdfresults.std.h5` の `pop/mulliken`）と $10^{-6}$ 以内で完全に一致することを検証（実測最大差: $3 \times 10^{-13}$）。
+
 
 ### 3.6 Gaussian CUBEファイルの読み込みパーサ (完了: 2026-10-12)
 
