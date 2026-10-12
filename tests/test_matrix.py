@@ -3,6 +3,7 @@
 
 import unittest
 import math
+import numpy
 from proteindf_bridge.matrix import Matrix, SymmetricMatrix
 from proteindf_bridge.vector import Vector
 
@@ -78,6 +79,13 @@ class TestMatrix(unittest.TestCase):
         ba = bytearray(m.get_buffer())
         m2 = Matrix(2, 2)
         m2.set_buffer(ba)
+        self.assertEqual(m, m2)
+
+    def test_buffer_memoryview_float(self):
+        m = Matrix([[1.0, 2.0], [3.0, 4.0]])
+        mv = memoryview(numpy.array([[1.0, 2.0], [3.0, 4.0]], dtype=float))
+        m2 = Matrix(2, 2)
+        m2.set_buffer(mv)
         self.assertEqual(m, m2)
 
 

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import unittest
+import numpy
 from proteindf_bridge.vector import Vector
 
 
@@ -84,6 +85,13 @@ class TestVector(unittest.TestCase):
         v2.set_buffer(buf)
         v2[0] = 42.0
         self.assertEqual(v2[0], 42.0)
+
+    def test_buffer_memoryview_float(self):
+        v = Vector([1.0, 2.5, -3.0])
+        mv = memoryview(numpy.array([1.0, 2.5, -3.0], dtype=float))
+        v2 = Vector()
+        v2.set_buffer(mv)
+        self.assertEqual(list(v), list(v2))
 
 
 if __name__ == "__main__":
