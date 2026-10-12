@@ -29,7 +29,6 @@ pub mod superposer;
 pub mod superposer_quaternion;
 pub mod vector;
 
-#[cfg(feature = "hdf5")]
 pub mod qc_result;
 
 pub use amino_acid::AminoAcid;
@@ -94,9 +93,12 @@ pub use vector::Vector;
 pub mod interaction_set;
 pub use interaction_set::{Interaction, InteractionKind, InteractionSet};
 
-#[cfg(feature = "hdf5")]
 pub use qc_result::{
-    AtomicOrbital, MoCoefficients, MullikenPopulation, OrbitalEnergy, OrbitalInfo,
-    OrbitalOccupation, PdfParamHdf5, QcAtom, QcBasisSet, QcBasisSetDefinition, QcCgto, QcMethod,
-    QcMolecule, QcParameters, QcPgto, QcResult, RunType,
+    calc_orbital_mulliken_contributions, AtomicOrbital, DensityMatrix, FockMatrix, MoCoefficients,
+    MullikenPopulation, OrbitalContribution, OrbitalEnergy, OrbitalInfo, OrbitalOccupation, QcAtom,
+    QcBasisSet, QcBasisSetDefinition, QcCgto, QcMethod, QcMolecule, QcParameters, QcPgto, QcResult,
+    RunType,
 };
+
+#[cfg(feature = "hdf5")]
+pub use qc_result::PdfParamHdf5;
