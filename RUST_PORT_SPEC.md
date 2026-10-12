@@ -82,9 +82,36 @@
 
 YUIのMOブラウザ機能（`architecture.md` 12.2節）向けに、MO係数ベクトルと重なり行列(S)から**軌道ごとの原子別Mulliken寄与**を計算する関数を `qc_result/population.rs` に新設し、`OrbitalContribution { orbital_index, atom_contributions: Vec<(AtomId, f32)> }` として出力する。
 
-### 3.6 Gaussian CUBEファイルの読み込みパーサ
+### 3.6 Gaussian CUBEファイルの読み込みパーサ (完了: 2026-10-12)
 
-ProteinDF本体のC++ツール（`pdf-mkfld-dens`/`pdf-mkfld-mo`/`pdf-mkfld-esp`）が標準Gaussian CUBE形式で既にファイル出力するため、**生成処理（GTOのグリッド展開）は不要**。標準Gaussian CUBEファイルの読み込みパーサのみを `format/cube.rs` に新規実装すればよい。
+ProteinDF本体のC++ツール（`pdf-mkfld-dens`/`pdf-mkfld-mo`/`pdf-mkfld-esp`）が標準Gaussian CUBE形式で既にファイル出力するため、**生成処理（GTOのグリッド展開）は不要**。標準Gaussian CUBEファイルの読み込みパーサのみを `format/cube.rs` に新規実装した(PR#58)。
+
+#### 実施内容 (2026-10-12完了、PR#58)
+
+1. **型・関数の新設 (`rust/crates/proteindf-bridge/src/format/cube.rs`)**:
+   - `CubeUnit`: 長さの単位を表す列挙型(`Bohr`, `Angstrom`)。
+   - `CubeAtom`: 原子の情報を保持する構造体(`atomic_number`, `charge`, `x`, `y`, `z`)。
+   - `Cube`: CUBEファイルのヘッダー、原子情報、格子点データを保持・パースする構造体。
+     - 読み込み: `Cube::new()`, `Cube::from_file()`, `Cube::load()`, `Cube::parse_str()`。
+     - ゲッター: `comment1()`, `comment2()`, `origin()`, `unit()`, `n_grid()`, `spacing()`, `atoms()`, `num_atoms()`, `is_molecular_orbital()`, `orbitals()`, `num_datasets()`。
+     - 格子点参照: `grid_point_position(ix, iy, iz)` (生単位での格子点座標算出)、`value(ix, iy, iz)` (データセット0の値)、`orbital_value(dataset_idx, ix, iy, iz)`、`data(dataset_idx)`、`all_data()`。
+     - `AtomGroup` 取り出し: `get_atomgroup()`。
+   - 換算定数: `BOHR_TO_ANGSTROM = 0.529_177_210_903` (CODATA 2018 / 2022 推奨ボーア半径 $a_0 = 0.529177210903 \times 10^{-10}$ m に基づく)。
+2. **単位の扱い**:
+   - 格子点数の符号で単位を判定する(正なら `CubeUnit::Bohr`、負なら `CubeUnit::Angstrom`)。
+   - 読み込んだ値、原点、刻みベクトル、原子座標は単位情報とともにそのまま保持し、パーサ内で勝手に換算しない。
+   - `AtomGroup` を取り出す関数(`get_atomgroup()`)においてのみ、単位がBohrの場合は `BOHR_TO_ANGSTROM` を乗じてÅに換算する(Å単位の場合はそのまま)。
+3. **分子軌道(MO) CUBEの対応**:
+   - 原子数 `NAtoms < 0` の場合、原子行の後に続く軌道数 `NMO` と軌道番号リストをパースし、格子点データを軌道ごとに保持する。
+4. **エラーハンドリング**:
+   - 行不足、フィールド不足、数値不正、値の過不足などすべての形式エラーについて、行番号を含む `BridgeError::InputError` を送出する。
+5. **Pythonバインディング (`proteindf-bridge-py`)**:
+   - `proteindf_bridge.rs.Cube` として公開(純Python版パッケージは変更しない方針)。
+   - クラス名・メソッド名は既存の `SimpleGro` や `Xyz` に準拠。
+   - `unit` プロパティは文字列 (`"bohr"` / `"angstrom"`) を返す。
+6. **テスト**:
+   - Rust (`tests/test_cube.rs`): 2×3×4 格子のBohr単位CUBE、分子軌道CUBE、Å単位CUBE、各種形式誤り(行番号検証含む)、ファイルI/Oの計5テスト。
+   - Python (`tests/test_rs_cube.py`): Pythonバインディング経由での同等の5テスト。
 
 ### 3.7 QCLObotプレイブック連携のためのパス構文共有
 

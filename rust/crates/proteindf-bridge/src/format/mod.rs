@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 pub mod amber_prmtop;
+pub mod cube;
 pub mod gro;
 pub mod mmcif;
 pub mod mmcif_writer;
@@ -10,6 +11,7 @@ pub mod pdb;
 pub mod xyz;
 
 pub use amber_prmtop::{AmberPrmtop, AMBER_CHARGE_FACTOR};
+pub use cube::{Cube, CubeAtom, CubeUnit, BOHR_TO_ANGSTROM};
 pub use gro::SimpleGro;
 pub use mmcif::{
     MmcifDataBlock, MmcifStructureReport, SimpleMmcif, StructConnPartnerUnresolved,
