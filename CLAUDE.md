@@ -17,6 +17,7 @@
 6. **リリースする**: ユーザーの指示があれば`devtool/flow.sh start release/<YYYY.M.PATCH>`(版の更新を含む)→確認→承認後に`devtool/flow.sh finish release/<version>`(`main`へのマージ・タグ・`develop`への取り込み)→pushする。Releaseワークフローの添付ファイルに、ローカルのパスや個人データが含まれていないことを展開して確認する。
 7. **pushしない**: pushはユーザーの指示があったときだけ行う。リモート名は`github`(HTTPS)。
 8. **まとめる**: 状況を聞かれたら`devtool/tasks.sh`(未マージのTASKと作業ブランチの一覧。`--all`でマージ済みも)で確認して報告する。`devtool/`やドキュメントの自分の変更も`chore/*`ブランチで行い、ユーザーの承認を得てからマージする。
+9. **ほかのリポジトリとやり取りする**: ProteinDF・ProteinDF_pytoolsなどへの依頼と返事は、非公開リポジトリの`requests/`(`private/`の1つ上)に置き、非公開リポジトリにコミットする。決まりは`requests/README.md`。作業を始めるときに、bridge宛ての未完了の依頼(`*-to-bridge_*.md`)がないか確認する。
 
 ## Claudeがやらないこと
 
