@@ -59,3 +59,17 @@
 ### 完了の定義
 
 1. 対象1〜5に対応している。コードの変更はない(テストデータの追加と文書のみ)。
+
+## PR#58 レビュー結果(1回目、2026-10-12、要修正)
+
+`feature/cube-reader`(`19790cb`・`63bdb8b`・`1a2aad3`)をレビューした。CUBEの読み込みは仕様どおり(単位を格子点数の符号で判定し換算しない、原子数が負なら軌道番号の行を読み、格子点の値は軌道が最も内側に並ぶ形で軌道ごとに分ける、1行あたりの値の数を決め打ちしない、形式の誤りは行番号付きの`BridgeError`)。テストも分子軌道の並び(`1.0 2.0 1.1 2.1 ...`)を区別して確かめている。Pythonテスト一式242件、`cargo nextest`(`325 tests run: 325 passed, 2 skipped`)、clippy・fmtをClaudeが新しい環境で確認した。
+
+### 修正依頼
+
+1. **【方針】純Python版のパッケージを変更している。** `proteindf_bridge/cube.py`を新設し、`proteindf_bridge/__init__.py`に`from .cube import Cube`を足している。これにより、純Python版の`import proteindf_bridge`が初めてRustの拡張モジュールを読み込むことになる(これまで純Python版のモジュールは`proteindf_bridge.rs`をimportしていない)。Rust版のクラスは`proteindf_bridge.rs`から使う方針(`RUST_PORT_SPEC.md` §4.4)なので、`proteindf_bridge/cube.py`を削除し、`__init__.py`の変更を元に戻す。Pythonのテストも`proteindf_bridge.rs.Cube`だけを使うようにする。
+2. **【API】同じ機能に2つの名前を付けている。** 新しいクラスなので互換のための別名は不要。既存のクラス(`SimpleGro`の`num_of_atoms`・`get_atomgroup`)にそろえ、Pythonの`Cube`からは`num_atoms`と`get_atom_group`を削除する。コアの`Cube`も、`get_atomgroup`と`get_atom_group`のように同じ機能の別名があれば1つにする。
+
+### 完了の定義(修正後)
+
+1. 上記1・2に対応し、同じブランチに追加コミットする。
+2. 全PR共通のテストが通る。`git diff develop -- proteindf_bridge/`の出力が空であることを示す。
