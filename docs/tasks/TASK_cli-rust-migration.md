@@ -207,3 +207,7 @@
 1. コアの修正(`docs/tasks/TASK_core-determinism-display.md`): `setup()`後の結合の並び順を決定的にする/`Display for AtomGroup`を階層ごとに字下げする。
 2. リリース(2026.10.3)。
 3. その後、化学式(`get_formula`)をHill方式にする。
+
+## リリース 2026.10.3(2026-10-12)
+
+CLI移行(PR#52〜55)とコアの修正(PR#56)を含めてリリースした。タグ`2026.10.3`のpushでReleaseワークフローが成功し、wheel 3つ(manylinux2014 x86_64・aarch64、macOS arm64)とsdistが添付された。Claudeが添付ファイルをすべて展開して確認し、ローカルのパス・個人のメールアドレス・ホスト名は含まれていない(含まれるパスはCIのランナーの`/Users/runner`のみ、メールアドレスはnoreplyのみ)。`--find-links`でwheelをインストールし、`brd-formula.py`と`brd-setup-bond.py`(2回の出力の`md5sum`が一致)が動くことを確認した。
