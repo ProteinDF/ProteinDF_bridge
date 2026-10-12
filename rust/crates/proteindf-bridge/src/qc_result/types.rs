@@ -328,15 +328,11 @@ impl OrbitalInfo {
 
         for (atom_idx, atom) in molecule.atoms.iter().enumerate() {
             let atom_label = atom.atom_label();
-            let def = basisset.find_by_atom_label(&atom_label).ok_or_else(|| {
-                BridgeError::input_error(
-                    &atom_label,
-                    format!(
-                        "basis set definition not found for atom label '{}'",
-                        atom_label
-                    ),
-                )
-            })?;
+            // In ProteinDF (pdfparam_object.py lines 661-670 `_get_basisset_common`), atoms without
+            // a basis set definition (e.g. dummy atoms like 'X') return an empty BasisSet (0 AOs).
+            let Some(def) = basisset.find_by_atom_label(&atom_label) else {
+                continue;
+            };
 
             for cgto in &def.cgtos {
                 let basis_components =
@@ -533,25 +529,24 @@ pub struct QcResult {
     pub mo_coefficients: Vec<MoCoefficients>,
     /// Overlap matrix $S$ (`/s`), present in `pdfresults.h5`.
     ///
-    /// Stored in HDF5 as full $N_{\text{AO}} \times N_{\text{AO}}$ data.
-    /// During reading, symmetry is verified ($|A_{ij} - A_{ji}| \le 10^{-8}$);
-    /// non-symmetric data results in [`BridgeError`].
+    /// Accepts lower-triangle-only storage (upper triangle all 0.0) or full symmetric data
+    /// verified within [`MATRIX_SYMMETRY_TOLERANCE`] ($10^{-8}$).
     pub s_matrix: Option<SymmetricMatrix>,
     /// Density matrices by run type (`/P`).
     ///
-    /// Stored as full $N_{\text{AO}} \times N_{\text{AO}}$ data; verified for symmetry.
+    /// Accepts lower-triangle-only storage or full symmetric data.
     pub density_matrices: Vec<SymmetricMatrix>,
     /// Fock matrices by run type (`/F`).
     ///
-    /// Stored as full $N_{\text{AO}} \times N_{\text{AO}}$ data; verified for symmetry.
+    /// Accepts lower-triangle-only storage or full symmetric data.
     pub fock_matrices: Vec<SymmetricMatrix>,
     /// One-electron Hamiltonian $h$ (`/h`).
     ///
-    /// Stored as full $N_{\text{AO}} \times N_{\text{AO}}$ data; verified for symmetry.
+    /// Accepts lower-triangle-only storage or full symmetric data.
     pub h_matrix: Option<SymmetricMatrix>,
     /// Two-electron Hamiltonian component $h_2$ (`/h2`).
     ///
-    /// Stored as full $N_{\text{AO}} \times N_{\text{AO}}$ data; verified for symmetry.
+    /// Accepts lower-triangle-only storage or full symmetric data.
     pub h2_matrix: Option<SymmetricMatrix>,
     /// Mulliken atomic charges (`/pop/mulliken`).
     pub mulliken_charges: Vec<MullikenPopulation>,
