@@ -38,3 +38,21 @@
 2. `scripts/ci-local.sh`(引数なし)がすべて成功し、最後の一覧を実際の出力で示す。`scripts/ci-local.sh rust`のようにジョブを選んで実行できることも示す。
 3. 実行の前後で`git status --porcelain`が変わらない(リポジトリの中にファイルが増えない)ことを、実際の出力で示す。
 4. `shellcheck`が使えれば、`shellcheck scripts/ci-local.sh`の結果を示す(使えなければその旨を書く)。
+
+## PR#63 レビュー結果(1回目、2026-10-12、要修正)
+
+`feature/local-ci`(`42651b6`・`6225afa`・`f5578aa`)をレビューした。ジョブの構成、`--fail-fast`、前提ツールの確認、`ci.yml`を`workflow_dispatch`だけにした変更、`CONTRIBUTING.md`の書き換えは指示どおり。
+
+### 修正依頼
+
+1. **【失敗を見逃す】`scripts/ci-local.sh`の313〜324行目は、`set +e`にしてからジョブの関数を呼んでいるため、関数の中でも`errexit`が無効になり、最後のコマンド以外の失敗が無視される。** 例えば`rust`ジョブで`cargo fmt --check`や`clippy`が失敗しても、最後の`cargo test --doc`が成功すれば`SUCCESS`になる(Claudeが`bash -c 'set -euo pipefail; f(){ false; echo continued; }; set +e; f; echo rc=$?'`で`rc=0`になることを確認した)。各ジョブをサブシェルで`set -e`を有効にして実行する(`( set -e; run_job_x )`の終了コードを取る)などで直す。**ジョブの途中のコマンドが失敗したときに`FAILED`になることを確かめるテスト**を用意する(例: 環境変数で途中のコマンドをわざと失敗させる仕組みは公開しない。代わりに、`cargo fmt --check`が失敗するようにリポジトリの外の一時コピーで書式を崩して実行する、など。方法は任せるが、リポジトリに失敗用の仕組みを足さない)。
+2. **【リポジトリの中にファイルを作っている】`git status --porcelain`は変わらないが、`.gitignore`で無視されたファイルがリポジトリの中にできている。** `docs`ジョブの`pip install -e .[docs]`(編集可能インストール)で`proteindf_bridge/rs.abi3.so`が、Sphinxの日本語ビルドで`docs/locale/ja/LC_MESSAGES/**/*.mo`ができる(Claudeが`git status --porcelain --ignored`で確認した)。TASKの「リポジトリの中には、cargoの`target/`以外のファイルを作らない」に反する。`docs`ジョブは、編集可能インストールをやめ、作業ツリーの必要なファイルをリポジトリの外の一時ディレクトリにコピーして、そこでインストールとビルドを行うなどで直す。完了の定義3の確認は`git status --porcelain --ignored`の実行前後の比較で行う(`rust/target/`は除いてよい)。
+3. **【後片付け】worktreeに、作業中に作られた`.venv/`・`proteindf_bridge/rs.abi3.so`・`__pycache__/`・`docs/locale/ja/LC_MESSAGES/**/*.mo`が残っている。** 消してから完了の定義3の確認を行う。
+4. **【コメントの誤り】`run_job_qc_data`のコメント(294〜296行目)は「対象のテストが0件のこともある」としているが、既に`#[ignore]`のテストが2件あり、`--run-ignored only`で実行される(Claudeの確認: `2 tests run: 2 passed, 325 skipped`)。実際の状態に合わせて直す。`--help`の`PROTEINDF_BRIDGE_QC_DATA`の説明「Path or flag」も、作り直した`.h5`のディレクトリのパスであることに直す。
+5. **【未確認の記述】報告の「気になった点」の、sdistで出る`error: manifest path 'Cargo.toml' does not exist`について、どのコマンドのどの段階で出ているのかを実際の出力行で示し、原因を調べて書く。** 害がないと判断する場合は、その根拠(どの段階で、なぜ最終的に正しく動くのか)を示す。
+6. 一時ディレクトリは`mktemp -d -t proteindf-bridge-ci-XXXXXX`のように`TMPDIR`に従う形にする。
+
+### 完了の定義(修正後)
+
+1. 上記1〜6に対応し、同じブランチに追加コミットする。
+2. 完了の定義2〜3(PR#63)を、修正後のスクリプトで改めて示す。修正依頼1のテストで`FAILED`になる実際の出力を示す。
