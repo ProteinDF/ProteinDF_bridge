@@ -73,3 +73,7 @@
 
 1. 上記1・2に対応し、同じブランチに追加コミットする。
 2. 全PR共通のテストが通る。`git diff develop -- proteindf_bridge/`の出力が空であることを示す。
+
+## PR#58 完了(2026-10-12)
+
+修正コミット(`7e7de3a`・`fbbc0d9`)で修正依頼1・2に対応済み。`git diff develop -- proteindf_bridge/`が空であること、Pythonのテストが`proteindf_bridge.rs.Cube`だけを使うこと、別名(`num_atoms`・`get_atom_group`)が削除されたことをClaudeが確認した。Pythonテスト一式242件OK(新しい環境)、`cargo nextest` `325 tests run: 325 passed, 2 skipped`、clippy・fmt OK。`--no-ff`でdevelopにマージした(`64d88f0`)。
