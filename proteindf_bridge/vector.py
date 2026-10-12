@@ -128,9 +128,10 @@ class Vector(object):
         Raises:
             ValueError: If the buffer length is not a multiple of 8 bytes.
         """
-        if len(buf) % 8 != 0:
+        buf_len = memoryview(buf).nbytes
+        if buf_len % 8 != 0:
             raise ValueError(
-                f"Buffer length must be a multiple of 8 bytes, but got {len(buf)} bytes"
+                f"Buffer length must be a multiple of 8 bytes, but got {buf_len} bytes"
             )
         self._data = numpy.frombuffer(buf, dtype=float).copy()
 

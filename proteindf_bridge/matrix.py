@@ -275,9 +275,10 @@ class Matrix(object):
         """
         rows, cols = self.rows, self.cols
         expected_len = rows * cols * 8
-        if len(b) != expected_len:
+        buf_len = memoryview(b).nbytes
+        if buf_len != expected_len:
             raise ValueError(
-                f"Buffer length must be {expected_len} bytes, but got {len(b)} bytes"
+                f"Buffer length must be {expected_len} bytes, but got {buf_len} bytes"
             )
         self._data = numpy.frombuffer(b, dtype=float).copy().reshape((rows, cols))
 
