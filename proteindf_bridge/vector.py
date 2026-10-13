@@ -23,7 +23,7 @@ import os
 import struct
 import copy
 import numpy
-from types import *
+import numbers
 
 
 class Vector(object):
@@ -69,10 +69,18 @@ class Vector(object):
         elif isinstance(obj, (list, numpy.ndarray)):
             self._data = numpy.array(obj)
         elif isinstance(obj, dict):
-            size = raw_data.get("size", 0)
-            buf = raw_data.get("data", None)
-            if buf != None:
-                self._data = numpy.array([0.0 for x in range(size)])
+            size = obj.get("size", 0)
+            buf = obj.get("data", None)
+            if buf is not None:
+                if len(buf) != size:
+                    raise ValueError(
+                        "Vector data length ({}) does not match size ({})".format(
+                            len(buf), size
+                        )
+                    )
+                self._data = numpy.array(buf, dtype=float)
+            else:
+                self._data = numpy.array([0.0 for _ in range(size)])
         elif isinstance(obj, Vector):
             self._data = copy.copy(obj._data)
         else:
@@ -202,31 +210,29 @@ class Vector(object):
         return self
 
     def __mul__(self, other):
-        answer = None
-        if isinstance(other, float):
+        if isinstance(other, numbers.Real) and not isinstance(other, bool):
             answer = Vector(self)
             answer *= other
+            return answer
         elif isinstance(other, Vector):
-            answer = float(self._data.dot(other._data))
+            return float(self._data.dot(other._data))
         else:
-            raise
-        return answer
+            return NotImplemented
 
     def __rmul__(self, other):
-        answer = None
-        if isinstance(other, float):
+        if isinstance(other, numbers.Real) and not isinstance(other, bool):
             answer = Vector(self)
             answer *= other
+            return answer
         else:
-            raise
-        return answer
+            return NotImplemented
 
     def __imul__(self, other):
-        if isinstance(other, float):
+        if isinstance(other, numbers.Real) and not isinstance(other, bool):
             self._data *= other
+            return self
         else:
-            raise
-        return self
+            return NotImplemented
 
     def __neg__(self):
         answer = Vector(self)

@@ -94,5 +94,61 @@ class TestVector(unittest.TestCase):
         self.assertEqual(list(v), list(v2))
 
 
+    def test_init_with_dict(self):
+        v = Vector({"size": 3, "data": [1.0, 2.0, 3.0]})
+        self.assertEqual(len(v), 3)
+        self.assertEqual(list(v), [1.0, 2.0, 3.0])
+
+        v_empty = Vector({"size": 3})
+        self.assertEqual(len(v_empty), 3)
+        self.assertEqual(list(v_empty), [0.0, 0.0, 0.0])
+
+        with self.assertRaises(ValueError):
+            Vector({"size": 3, "data": [1.0, 2.0]})
+
+    def test_multiplication_scalars_and_types(self):
+        v = Vector([1.0, 2.0, 3.0])
+
+        # int
+        self.assertEqual(list(v * 2), [2.0, 4.0, 6.0])
+        self.assertEqual(list(3 * v), [3.0, 6.0, 9.0])
+        v_inplace = Vector([1.0, 2.0, 3.0])
+        v_inplace *= 2
+        self.assertEqual(list(v_inplace), [2.0, 4.0, 6.0])
+
+        # numpy real numbers
+        np_f = numpy.float64(2.5)
+        np_i = numpy.int64(3)
+        self.assertEqual(list(v * np_f), [2.5, 5.0, 7.5])
+        self.assertEqual(list(np_f * v), [2.5, 5.0, 7.5])
+        v_inplace_np = Vector([1.0, 2.0, 3.0])
+        v_inplace_np *= np_f
+        self.assertEqual(list(v_inplace_np), [2.5, 5.0, 7.5])
+
+        self.assertEqual(list(v * np_i), [3.0, 6.0, 9.0])
+        self.assertEqual(list(np_i * v), [3.0, 6.0, 9.0])
+        v_inplace_np2 = Vector([1.0, 2.0, 3.0])
+        v_inplace_np2 *= np_i
+        self.assertEqual(list(v_inplace_np2), [3.0, 6.0, 9.0])
+
+        # unsupported types (TypeError)
+        with self.assertRaises(TypeError):
+            _ = v * "str"
+        with self.assertRaises(TypeError):
+            _ = "str" * v
+        with self.assertRaises(TypeError):
+            v_err = Vector([1.0, 2.0, 3.0])
+            v_err *= "str"
+
+        # bool must raise TypeError
+        with self.assertRaises(TypeError):
+            _ = v * True
+        with self.assertRaises(TypeError):
+            _ = True * v
+        with self.assertRaises(TypeError):
+            v_err = Vector([1.0, 2.0, 3.0])
+            v_err *= True
+
+
 if __name__ == "__main__":
     unittest.main()
