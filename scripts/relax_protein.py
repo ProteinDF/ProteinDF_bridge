@@ -70,7 +70,7 @@ def main():
     elif step == 3:
         r.step3()
     else:
-        raise
+        raise bridge.BrValueError(step, 'invalid step (expected 1, 2, or 3)')
 
     print('finish')
     exit
@@ -515,7 +515,7 @@ class Relax(object):
                 res.set_atom('Cl- ', atom)
                 chain.set_group(num_of_residues + 1, res)
             else:
-                raise
+                raise bridge.BrValueError(atom.symbol, 'invalid ion symbol (expected Na or Cl)')
         num_of_chains = self._model.get_number_of_groups()
         self._model.set_group(chr(ord('A') + num_of_chains + 1), chain)
 
@@ -755,8 +755,8 @@ class Relax(object):
         retcode = proc.returncode
 
         if retcode == 1:
-            raise ScriptRunningError('This script could not run $ %s\n%s' %
-                                     (str(cmd), str(stderr)))
+            raise bridge.BrError('This script could not run $ %s (exit code %s)\n%s' %
+                                 (str(cmd), retcode, str(stderr)))
         else:
             return True
 
