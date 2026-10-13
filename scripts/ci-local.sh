@@ -241,7 +241,7 @@ run_job_lint() {
     "$venv_pip" install --quiet "ruff==0.17.0"
 
     echo "==> Running ruff check (F821, PLE0704) on proteindf_bridge..."
-    "$venv_ruff" check --select F821,PLE0704 proteindf_bridge
+    "$venv_ruff" check --no-cache --select F821,PLE0704 proteindf_bridge
 }
 
 run_job_wheel() {
