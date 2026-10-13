@@ -26,7 +26,7 @@ cleanup() {
 trap cleanup EXIT
 
 # Available and default jobs
-ALL_DEFAULT_JOBS=("rust" "hdf5" "wasm" "wheel" "sdist" "docs")
+ALL_DEFAULT_JOBS=("rust" "hdf5" "wasm" "lint" "wheel" "sdist" "docs")
 REQUESTED_JOBS=()
 
 show_help() {
@@ -47,6 +47,7 @@ Available Jobs:
   rust             Run cargo fmt, cargo clippy, cargo nextest, and cargo test --doc
   hdf5             Run cargo clippy and cargo nextest with proteindf-bridge/hdf5 feature
   wasm             Run cargo check for wasm32-unknown-unknown target
+  lint             Run ruff check (F821, PLE0704) on proteindf_bridge in isolated venv
   wheel            Build release wheel in isolated venv and run unit tests + CLI checks
   sdist            Build sdist package in isolated venv and run unit tests + CLI checks
   docs             Build English and Japanese Sphinx documentation in isolated venv
@@ -89,7 +90,7 @@ while [ $# -gt 0 ]; do
             REQUESTED_JOBS+=("${ALL_DEFAULT_JOBS[@]}")
             shift
             ;;
-        rust|hdf5|wasm|wheel|sdist|docs|qc-data)
+        rust|hdf5|wasm|lint|wheel|sdist|docs|qc-data)
             REQUESTED_JOBS+=("$1")
             shift
             ;;
@@ -131,7 +132,7 @@ verify_prerequisites() {
             rust) has_rust=1 ;;
             hdf5) has_hdf5=1 ;;
             wasm) has_wasm=1 ;;
-            wheel|sdist|docs) has_py=1 ;;
+            lint|wheel|sdist|docs) has_py=1 ;;
             qc-data) has_qc=1 ;;
         esac
     done
@@ -227,6 +228,20 @@ setup_python_env() {
             MATURIN_BIN="$env_dir/venv/bin/maturin"
         fi
     fi
+}
+
+run_job_lint() {
+    local job_dir="$TMP_ROOT/lint"
+    setup_python_env "$job_dir" 0
+
+    local venv_pip="$job_dir/venv/bin/pip"
+    local venv_ruff="$job_dir/venv/bin/ruff"
+
+    echo "==> Installing ruff in isolated venv..."
+    "$venv_pip" install --quiet "ruff==0.17.0"
+
+    echo "==> Running ruff check (F821, PLE0704) on proteindf_bridge..."
+    "$venv_ruff" check --select F821,PLE0704 proteindf_bridge
 }
 
 run_job_wheel() {
@@ -335,6 +350,7 @@ for job in "${REQUESTED_JOBS[@]}"; do
             rust) run_job_rust ;;
             hdf5) run_job_hdf5 ;;
             wasm) run_job_wasm ;;
+            lint) run_job_lint ;;
             wheel) run_job_wheel ;;
             sdist) run_job_sdist ;;
             docs) run_job_docs ;;
