@@ -41,10 +41,8 @@ class SimpleMmcif(object):
 
     def load(self, file_path):
         rs_cif = rs.SimpleMmcif(str(file_path))
-        self._data = {
-            block_name: (kv, tables)
-            for block_name, (kv, tables) in rs_cif.data.items()
-        }
+        for block_name, (kv, tables) in rs_cif.data.items():
+            self._data[block_name] = (kv, tables)
 
     def load_msgpack(self, file_path):
         self._data = load_msgpack(file_path)

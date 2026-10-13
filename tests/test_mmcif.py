@@ -135,6 +135,19 @@ _cell.length_c 30.0
         with self.assertRaises(Exception):
             SimpleMmcif(nonexistent)
 
+    def test_load_multiple_files_accumulates_blocks(self):
+        """Test that loading multiple files into the same instance accumulates blocks."""
+        cif_path_ala = os.path.join(DATA_DIR, "ALA.cif")
+        cif_path_1hls = os.path.join(DATA_DIR, "1HLS.cif")
+
+        cif = SimpleMmcif(cif_path_ala)
+        self.assertIn("data_ALA", cif.get_molecule_names())
+
+        cif.load(cif_path_1hls)
+        names = cif.get_molecule_names()
+        self.assertIn("data_ALA", names)
+        self.assertIn("data_1HLS", names)
+
 
 if __name__ == "__main__":
     unittest.main()
