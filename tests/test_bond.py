@@ -33,6 +33,88 @@ class TestBond(unittest.TestCase):
         self.assertEqual(bond._bondmat.get(2, 0), 0)
         self.assertEqual(bond._bondmat.get(2, 1), 0)
 
+    def test_covalent_criteria_and_no_duplicate(self):
+        # 1. from proteindf_bridge import Bond ができる
+        from proteindf_bridge import Bond as ExportedBond
+
+        self.assertIs(ExportedBond, Bond)
+
+        # 2. C-C 3.0 Å (旧基準では結合 1.7+1.7+0.4=3.8 Å) が結合にならない
+        ag_cc = AtomGroup("mol_cc")
+        c1 = Atom(symbol="C", xyz=Position([0.0, 0.0, 0.0]))
+        c2 = Atom(symbol="C", xyz=Position([3.0, 0.0, 0.0]))
+        ag_cc.set_atom("1", c1)
+        ag_cc.set_atom("2", c2)
+
+        bond = Bond()
+        bond.setup(ag_cc)
+        self.assertEqual(bond._bondmat.get(1, 0), 0)
+        self.assertEqual(len(ag_cc.get_bond_list()), 0)
+
+        # 3. C-H 1.1 Å (cov_C(0.76) + cov_H(0.31) + 0.45 = 1.52 Å) が結合になる
+        ag_ch = AtomGroup("mol_ch")
+        c = Atom(symbol="C", xyz=Position([0.0, 0.0, 0.0]))
+        h = Atom(symbol="H", xyz=Position([1.1, 0.0, 0.0]))
+        ag_ch.set_atom("1", c)
+        ag_ch.set_atom("2", h)
+
+        bond = Bond()
+        bond.setup(ag_ch)
+        self.assertEqual(bond._bondmat.get(1, 0), 1)
+        self.assertEqual(len(ag_ch.get_bond_list()), 1)
+        self.assertEqual(ag_ch.get_bond_list()[0][2], 1)
+
+        # 4. 既存の結合が重複しない
+        # 既存結合(例えば次数2)がある状態でsetupを実行しても二重登録されず、既存の次数が保持される
+        ag_dup = AtomGroup("mol_dup")
+        c_a = Atom(symbol="C", xyz=Position([0.0, 0.0, 0.0]))
+        c_b = Atom(symbol="C", xyz=Position([1.5, 0.0, 0.0]))
+        ag_dup.set_atom("1", c_a)
+        ag_dup.set_atom("2", c_b)
+        ag_dup.add_bond(ag_dup["1"], ag_dup["2"], order=2)
+        self.assertEqual(len(ag_dup.get_bond_list()), 1)
+        self.assertEqual(ag_dup.get_bond_list()[0][2], 2)
+
+        bond = Bond()
+        bond.setup(ag_dup)
+        self.assertEqual(len(ag_dup.get_bond_list()), 1)
+        self.assertEqual(ag_dup.get_bond_list()[0][2], 2)
+
+    def test_setup_1hls_pdb_bond_count_matches_rust(self):
+        import os
+        from proteindf_bridge.biopdb import Pdb as PyPdb
+        import proteindf_bridge.rs as rs_br
+
+        pdb_path = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "rust",
+                "crates",
+                "proteindf-bridge",
+                "tests",
+                "data",
+                "1hls.pdb",
+            )
+        )
+        self.assertTrue(os.path.exists(pdb_path), f"File not found: {pdb_path}")
+
+        # 純Python版 Pdb で読み込み、Bond().setup
+        py_pdb = PyPdb(pdb_path)
+        py_ag = py_pdb.get_atomgroup()
+        py_bond = Bond()
+        py_bond.setup(py_ag)
+        py_bonds = py_ag.get_bond_list()
+
+        # Rust版 (proteindf_bridge.rs) の Pdb と Bond
+        rs_pdb = rs_br.Pdb(pdb_path)
+        rs_ag = rs_pdb.get_atomgroup()
+        rs_bond = rs_br.Bond()
+        rs_bond.setup(rs_ag)
+        rs_bonds = rs_ag.get_bond_list()
+
+        self.assertEqual(len(py_bonds), len(rs_bonds))
+
 
 if __name__ == "__main__":
     unittest.main()

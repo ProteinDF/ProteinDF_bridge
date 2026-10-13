@@ -21,6 +21,9 @@
 
 from .matrix import SymmetricMatrix
 from .atomgroup import AtomGroup
+from .periodictable import PeriodicTable
+
+COVALENT_BOND_TOLERANCE = 0.45
 
 
 class Bond(object):
@@ -40,26 +43,42 @@ class Bond(object):
         self._make_distance_matrix()
         self._make_bond_matrix()
 
+        existing_bonds = set()
+        for b in mol.get_bond_list():
+            p1, p2 = b[0], b[1]
+            if p1 <= p2:
+                existing_bonds.add((p1, p2))
+            else:
+                existing_bonds.add((p2, p1))
+
         num_of_atoms = len(self._atoms)
         for p in range(num_of_atoms):
             for q in range(p):
                 b = self._bondmat.get(p, q)
                 if b > 0:
-                    mol.add_bond(self._atoms[p], self._atoms[q], int(b))
-        
-        
+                    p1 = self._atoms[p].path
+                    p2 = self._atoms[q].path
+                    key = (p1, p2) if p1 <= p2 else (p2, p1)
+                    if key not in existing_bonds:
+                        existing_bonds.add(key)
+                        mol.add_bond(self._atoms[p], self._atoms[q], 1)
+
     def _make_bond_matrix(self):
         """
         Create the bond matrix.
         """
         num_of_atoms = len(self._atoms)
         self._bondmat = SymmetricMatrix(num_of_atoms)
+        cov_radii = [
+            PeriodicTable.covalent_radius(atom.atomic_number)
+            for atom in self._atoms
+        ]
         for p in range(num_of_atoms):
-            vdw_p = self._atoms[p].vdw
+            cov_p = cov_radii[p]
             for q in range(p):
-                vdw_q = self._atoms[q].vdw
+                cov_q = cov_radii[q]
                 r = self._distmat.get(p, q)
-                if r <= (vdw_p + vdw_q) + 0.4:
+                if r <= (cov_p + cov_q) + COVALENT_BOND_TOLERANCE:
                     self._bondmat.set(p, q, 1)
                 else:
                     self._bondmat.set(p, q, 0)

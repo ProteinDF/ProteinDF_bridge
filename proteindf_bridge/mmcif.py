@@ -20,13 +20,11 @@
 
 from .atomgroup import AtomGroup
 from .atom import Atom
-from .error import BrInputError, BrValueError
+from .error import BrInputError
 from .functions import load_msgpack, save_msgpack
-from .position import Position
+from . import rs
 
 import re
-import pprint
-
 import logging
 logger = logging.getLogger(__name__)
 
@@ -34,10 +32,6 @@ logger = logging.getLogger(__name__)
 class SimpleMmcif(object):
     """
     """
-    _re_data_block = re.compile(r"(data_\S+)")
-    _re_keyvalue = re.compile(r"^(_\S+)\s+(\S+|\".*\"|\'.*\')\s*$")
-    _re_loop_block = re.compile(r"^\s*loop_\s*$")
-    _re_loop_header = re.compile(r"^(_\S+)\s*$")
 
     def __init__(self, file_path=None):
         self._data = {}
@@ -46,167 +40,9 @@ class SimpleMmcif(object):
             self.load(file_path)
 
     def load(self, file_path):
-        with open(file_path) as file_obj:
-            while True:
-                line = self._get_line(file_obj)
-                if len(line) == 0:
-                    break
-
-                match_obj = self._re_data_block.match(line)
-                if match_obj:
-                    name = match_obj.group(1)
-                    # print("data: {}".format(name))
-                    self._data[name] = self._load_data_block(file_obj)
-
-    def _get_line(self, file_obj):
-        line = ""
-        start_semicolon = False  # flag of start ";" block
-        while True:
-            failback_pos = file_obj.tell()
-            current_line = file_obj.readline()
-            #print("{}> '{}'".format(str(start_semicolon)[0], current_line))
-            if (len(current_line) == 0) and (start_semicolon == False):
-                break
-
-            if current_line[0] == "#":
-                continue
-
-            current_line = current_line.strip()
-            if len(line) == 0:
-                # if "line" is empty, then this reading time is the first content.
-                line = current_line
-                continue
-
-            if len(current_line) == 0:
-                continue
-
-            #print("{}>> '{}'".format(str(start_semicolon)[0], current_line))
-            if current_line[0] == ";":
-                if start_semicolon == False:
-                    line += ' "'
-                    start_semicolon = True
-                    line += current_line[1:]
-                    continue
-                else:
-                    line += '"'
-                    start_semicolon = False
-                    break
-            elif current_line[0] == '"':
-                line += " " + current_line
-                continue
-            else:
-                # if start_semicolon:
-                #    line += '"'
-                #    start_semicolon = False
-                if start_semicolon == True:
-                    line += current_line
-                    continue
-                #print("getline cont.: [{}]".format(current_line))
-                file_obj.seek(failback_pos)
-                break
-
-        #print("getline: [{}]".format(line))
-        return line
-
-    def _get_value(self, value):
-        if (value[0] == '"' and value[-1] == '"'):
-            value = value[1:-1]
-
-        return value
-
-    def _load_data_block(self, file_obj):
-        kv = {}
-        tables = []
-        while True:
-            failback_pos = file_obj.tell()
-            line = self._get_line(file_obj)
-            if len(line) == 0:
-                # print("break data block: {}".format(line))
-                break
-            #print("check 109: {}".format(line))
-
-            kv_match_obj = self._re_keyvalue.match(line)
-            if kv_match_obj:
-                # read key-value component
-                key = kv_match_obj.group(1)
-                value = kv_match_obj.group(2)
-                kv[key] = self._get_value(value)
-                continue
-            else:
-                loop_block_match_obj = self._re_loop_block.match(line)
-                if loop_block_match_obj:
-                    # read "_loop" component
-                    tables.append(self._load_loop_block(file_obj))
-                else:
-                    # check end of "_data"
-                    match_obj = self._re_data_block.match(line)
-                    if match_obj:
-                        logger.debug("end of data: {}".format(line))
-                        # print("end of data: {}".format(line))
-                        file_obj.seek(failback_pos)
-                        break
-                    else:
-                        logger.warning("illegal end of data: {}".format(line))
-                    continue
-                # break
-
-        return (kv, tables)
-
-    def _load_loop_block(self, file_obj):
-        data = []
-
-        re_contents = None
-        is_reading_loop_header = True
-        last_contents_filepointer = None
-        header = []
-        # print(">>>> begin loop!")
-        while True:
-            line = self._get_line(file_obj)
-            # print(line)
-
-            if is_reading_loop_header:
-                loop_header_match_obj = self._re_loop_header.match(line)
-                if loop_header_match_obj:
-                    name = loop_header_match_obj.group(1)
-                    header.append(name)
-                    continue
-                else:
-                    is_reading_header = False
-
-                    # make contents re_contents
-                    num_of_columns = len(header)
-
-                    re_str = r"^\s*" + r"(\S+|\".*\")\s+" * num_of_columns
-                    re_str = re_str[:-1]
-                    re_str += r"*$"
-                    # print("re_str:> ", re_str)
-                    re_contents = re.compile(re_str)
-
-            data_match_obj = self._re_data_block.match(line)
-            if data_match_obj:
-                # logger.debug("end of loop by data_: {}".format(line))
-                # print("<<<< end of loop by data_: {}".format(line))
-                file_obj.seek(last_contents_filepointer)
-                last_contents_filepointer = None
-                break
-
-            contents_match_obj = re_contents.match(line)
-            if contents_match_obj:
-                row = {}
-                num_of_columns = len(header)
-                for i in range(num_of_columns):
-                    value = contents_match_obj.group(i + 1)
-                    row[header[i]] = self._get_value(value)
-                data.append(row)
-                last_contents_filepointer = file_obj.tell()
-            else:
-                # logger.debug("end of loop: {}".format(line))
-                # print("<<<< end of loop: {}".format(line))
-                file_obj.seek(last_contents_filepointer)
-                last_contents_filepointer = None
-                break
-
-        return data
+        rs_cif = rs.SimpleMmcif(str(file_path))
+        for block_name, (kv, tables) in rs_cif.data.items():
+            self._data[block_name] = (kv, tables)
 
     def load_msgpack(self, file_path):
         self._data = load_msgpack(file_path)

@@ -37,7 +37,7 @@ from .position import Position
 from .periodictable import PeriodicTable
 from .atom import Atom
 from .atomgroup import AtomGroup
-#from bond import Bond
+from .bond import Bond
 
 from .path import Path
 from .aminoacid import AminoAcid

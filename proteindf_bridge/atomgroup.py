@@ -162,20 +162,27 @@ class AtomGroup(object):
 
     # family -------------------------------------------------------------------
     def get_family(self, query_path):
+        if not query_path.endswith("/"):
+            query_path = query_path + "/"
+
         if query_path == self.path:
             return self
 
-        common_path = StrUtils.get_common_str(self.path, query_path)
-        if len(common_path) == 0:
-            return None
+        if query_path.startswith(self.path):
+            curr = self
+            while curr.path != query_path:
+                matched = None
+                for key, grp in curr.groups():
+                    if query_path.startswith(grp.path):
+                        matched = grp
+                        break
+                if matched is None:
+                    return None
+                curr = matched
+            return curr
 
-        if len(common_path) < len(self.path):
+        if self.parent is not None:
             return self.parent.get_family(query_path)
-        else:
-            for key, grp in self.groups():
-                answer = grp.get_family(query_path)
-                if answer is not None:
-                    return answer
 
         return None
 
