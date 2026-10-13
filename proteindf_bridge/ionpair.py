@@ -22,6 +22,7 @@
 from .aminoacid import AminoAcid
 from .atomgroup import AtomGroup
 from .position import Position
+from .error import BrValueError
 
 import logging
 logger = logging.getLogger(__name__)
@@ -122,7 +123,7 @@ class IonPair(object):
             xyz = res['NZ'].xyz
         else:
             logger.critical('The LYS has no "NZ" atom.')
-            raise
+            raise BrValueError(res, 'The LYS has no "NZ" atom')
         return xyz
 
     def _get_center_ARG(self, res, case=0):

@@ -94,5 +94,97 @@ class TestVector(unittest.TestCase):
         self.assertEqual(list(v), list(v2))
 
 
+    def test_init_with_dict(self):
+        v = Vector({"size": 3, "data": [1.0, 2.0, 3.0]})
+        self.assertEqual(len(v), 3)
+        self.assertEqual(list(v), [1.0, 2.0, 3.0])
+
+        v_empty = Vector({"size": 3})
+        self.assertEqual(len(v_empty), 3)
+        self.assertEqual(list(v_empty), [0.0, 0.0, 0.0])
+
+        with self.assertRaises(ValueError):
+            Vector({"size": 3, "data": [1.0, 2.0]})
+
+    def test_multiplication_scalars_and_types(self):
+        v = Vector([1.0, 2.0, 3.0])
+
+        # int
+        res_i1 = v * 2
+        self.assertIsInstance(res_i1, Vector)
+        self.assertEqual(list(res_i1), [2.0, 4.0, 6.0])
+
+        res_i2 = 3 * v
+        self.assertIsInstance(res_i2, Vector)
+        self.assertEqual(list(res_i2), [3.0, 6.0, 9.0])
+
+        v_inplace = Vector([1.0, 2.0, 3.0])
+        v_inplace *= 2
+        self.assertIsInstance(v_inplace, Vector)
+        self.assertEqual(list(v_inplace), [2.0, 4.0, 6.0])
+
+        # float
+        res_f1 = v * 2.0
+        self.assertIsInstance(res_f1, Vector)
+        self.assertEqual(list(res_f1), [2.0, 4.0, 6.0])
+
+        res_f2 = 3.0 * v
+        self.assertIsInstance(res_f2, Vector)
+        self.assertEqual(list(res_f2), [3.0, 6.0, 9.0])
+
+        v_inplace_f = Vector([1.0, 2.0, 3.0])
+        v_inplace_f *= 2.0
+        self.assertIsInstance(v_inplace_f, Vector)
+        self.assertEqual(list(v_inplace_f), [2.0, 4.0, 6.0])
+
+        # numpy real numbers
+        np_f = numpy.float64(2.5)
+        np_i = numpy.int64(3)
+
+        res_np_f1 = v * np_f
+        self.assertIsInstance(res_np_f1, Vector)
+        self.assertEqual(list(res_np_f1), [2.5, 5.0, 7.5])
+
+        res_np_f2 = np_f * v
+        self.assertIsInstance(res_np_f2, Vector)
+        self.assertEqual(list(res_np_f2), [2.5, 5.0, 7.5])
+
+        v_inplace_np = Vector([1.0, 2.0, 3.0])
+        v_inplace_np *= np_f
+        self.assertIsInstance(v_inplace_np, Vector)
+        self.assertEqual(list(v_inplace_np), [2.5, 5.0, 7.5])
+
+        res_np_i1 = v * np_i
+        self.assertIsInstance(res_np_i1, Vector)
+        self.assertEqual(list(res_np_i1), [3.0, 6.0, 9.0])
+
+        res_np_i2 = np_i * v
+        self.assertIsInstance(res_np_i2, Vector)
+        self.assertEqual(list(res_np_i2), [3.0, 6.0, 9.0])
+
+        v_inplace_np2 = Vector([1.0, 2.0, 3.0])
+        v_inplace_np2 *= np_i
+        self.assertIsInstance(v_inplace_np2, Vector)
+        self.assertEqual(list(v_inplace_np2), [3.0, 6.0, 9.0])
+
+        # unsupported types (TypeError)
+        with self.assertRaises(TypeError):
+            _ = v * "str"
+        with self.assertRaises(TypeError):
+            _ = "str" * v
+        with self.assertRaises(TypeError):
+            v_err = Vector([1.0, 2.0, 3.0])
+            v_err *= "str"
+
+        # bool must raise TypeError
+        with self.assertRaises(TypeError):
+            _ = v * True
+        with self.assertRaises(TypeError):
+            _ = True * v
+        with self.assertRaises(TypeError):
+            v_err = Vector([1.0, 2.0, 3.0])
+            v_err *= True
+
+
 if __name__ == "__main__":
     unittest.main()

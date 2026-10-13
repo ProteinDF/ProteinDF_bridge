@@ -23,9 +23,12 @@ import os
 import struct
 import copy
 import math
+import logging
 import numpy
 
 from .vector import Vector
+
+logger = logging.getLogger(__name__)
 
 """
 Matrix (for general matrix) and SymmetricMatrix (for symmetric matrix) class

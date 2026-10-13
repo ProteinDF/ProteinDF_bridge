@@ -68,13 +68,6 @@ class DbManager(object):
     def __del__(self):
         self._connection.close()
 
-    def __getitem__(self, key):
-        answer = None
-        if (self.has_table(key)):
-            answer = DbTable(db_manager=self,
-                             table_name=key)
-        return answer
-
     # table ==================================================================
     def create_table(self, table_name, field_names, primary_key=None):
         """

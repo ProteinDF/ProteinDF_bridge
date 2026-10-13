@@ -25,7 +25,7 @@ from .atomgroup import AtomGroup
 from .atom import Atom
 from .functions import load_msgpack
 from .position import Position
-from .error import BrInputError
+from .error import BrInputError, BrValueError
 
 # from .xyz import Xyz
 
@@ -642,7 +642,7 @@ class Modeling:
         elif ag.has_atom("OP1"):
             POO1.set_atom("O1", ag["OP1"])
         else:
-            raise
+            raise BrValueError(ag, 'missing atom "O1P" or "OP1"')
 
         # amber format: OP2, pdb: O2P
         if ag.has_atom("O2P"):
@@ -650,7 +650,7 @@ class Modeling:
         elif ag.has_atom("OP2"):
             POO1.set_atom("O2", ag["OP2"])
         else:
-            raise
+            raise BrValueError(ag, 'missing atom "O2P" or "OP2"')
 
         Na1 = Atom(symbol="Na", name="Na", position=self._get_neutralize_pos_POO_type(POO1))
 

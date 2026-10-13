@@ -6,6 +6,7 @@ from proteindf_bridge.ionpair import IonPair
 from proteindf_bridge.atomgroup import AtomGroup
 from proteindf_bridge.atom import Atom
 from proteindf_bridge.position import Position
+from proteindf_bridge.error import BrValueError
 
 
 class TestIonPair(unittest.TestCase):
@@ -35,6 +36,14 @@ class TestIonPair(unittest.TestCase):
         self.assertEqual(len(pairs), 1)
         self.assertEqual(pairs[0][2], "GLU")
         self.assertEqual(pairs[0][3], "LYS")
+
+    def test_lys_missing_nz_raises_br_value_error(self):
+        lys = AtomGroup("2")
+        lys.name = "LYS"
+        ip = IonPair(AtomGroup())
+        with self.assertRaises(BrValueError) as cm:
+            ip._get_center_LYS(lys)
+        self.assertIn("NZ", str(cm.exception))
 
 
 if __name__ == "__main__":
