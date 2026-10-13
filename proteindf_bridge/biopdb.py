@@ -388,7 +388,6 @@ class Pdb(object):
         atomgroup = self.get_modpdb_atomgroup(atomgroup)
 
         re_model_serial = re.compile(r"^model_(\d+)")
-        re_res_seq = re.compile(r"^(\d+)")
         re_atom_serial = re.compile(r"^(\d+)")
         self._data = {}
         item = {}

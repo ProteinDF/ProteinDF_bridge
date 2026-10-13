@@ -94,6 +94,16 @@ class PdbTests(unittest.TestCase):
         selected_none = modeling.select_residues(chain, 103, 105)
         self.assertEqual(len(selected_none.get_atom_list()), 0)
 
+        # Invalid residue key raises ValueError without being suppressed
+        invalid_chain = AtomGroup()
+        invalid_chain.name = "H"
+        invalid_res = AtomGroup()
+        invalid_res.name = "ALA"
+        invalid_res.set_atom("CA", Atom(name="CA", symbol="C", xyz=Position(0.0, 0.0, 0.0)))
+        invalid_chain.set_group("INVALID", invalid_res)
+        with self.assertRaises(ValueError):
+            modeling.select_residues(invalid_chain, 100, 100)
+
     def test_2fb4_pdb_icode(self):
         import proteindf_bridge.rs as rs_br
 

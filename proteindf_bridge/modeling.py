@@ -409,10 +409,7 @@ class Modeling:
         """
         answer = AtomGroup()
         for resid_key, res in chain.groups():
-            try:
-                resid_int, _ = split_residue_key(resid_key)
-            except ValueError:
-                continue
+            resid_int, _ = split_residue_key(resid_key)
             if from_resid <= resid_int <= to_resid:
                 answer |= res
 
