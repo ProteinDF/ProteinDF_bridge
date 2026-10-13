@@ -26,6 +26,24 @@ from .periodictable import PeriodicTable
 COVALENT_BOND_TOLERANCE = 0.45
 
 
+def _extract_model(path):
+    parts = [p for p in str(path).split("/") if p]
+    if not parts:
+        return None
+    first = parts[0]
+    if first.startswith("model_"):
+        num_str = first[6:]
+        if num_str.isdigit():
+            val = int(num_str)
+            if val >= 1:
+                return val
+    return None
+
+
+def _is_cross_model(m1, m2):
+    return m1 is not None and m2 is not None and m1 != m2
+
+
 class Bond(object):
     """
     """
@@ -39,6 +57,8 @@ class Bond(object):
     def setup(self, mol):
         """
         """
+        if hasattr(mol, "_update_path"):
+            mol._update_path(force=True)
         self._list_atoms(mol)
         self._make_distance_matrix()
         self._make_bond_matrix()
@@ -73,12 +93,15 @@ class Bond(object):
             PeriodicTable.covalent_radius(atom.atomic_number)
             for atom in self._atoms
         ]
+        model_ids = [_extract_model(atom.path) for atom in self._atoms]
         for p in range(num_of_atoms):
             cov_p = cov_radii[p]
+            model_p = model_ids[p]
             for q in range(p):
                 cov_q = cov_radii[q]
                 r = self._distmat.get(p, q)
-                if r <= (cov_p + cov_q) + COVALENT_BOND_TOLERANCE:
+                cross_model = _is_cross_model(model_p, model_ids[q])
+                if not cross_model and r <= (cov_p + cov_q) + COVALENT_BOND_TOLERANCE:
                     self._bondmat.set(p, q, 1)
                 else:
                     self._bondmat.set(p, q, 0)

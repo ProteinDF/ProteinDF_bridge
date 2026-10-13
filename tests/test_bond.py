@@ -115,6 +115,110 @@ class TestBond(unittest.TestCase):
 
         self.assertEqual(len(py_bonds), len(rs_bonds))
 
+    def test_bond_cross_model_avoided(self):
+        # 1モデル単独の構造: 2つの炭素原子が共有結合距離
+        single_m = AtomGroup("model_1")
+        c1 = Atom(symbol="C", xyz=Position([0.0, 0.0, 0.0]))
+        c2 = Atom(symbol="C", xyz=Position([1.5, 0.0, 0.0]))
+        single_m.set_atom("C1", c1)
+        single_m.set_atom("C2", c2)
+        single_root = AtomGroup("mol_single")
+        single_root.set_group("model_1", single_m)
+        single_bond = Bond()
+        single_bond.setup(single_root)
+        single_bonds = single_root.get_bond_list()
+        self.assertEqual(len(single_bonds), 1)
+
+        # 2モデルを同じ座標に重ねた構造
+        root = AtomGroup("mol")
+        m1 = AtomGroup("model_1")
+        m2 = AtomGroup("model_2")
+
+        c1_1 = Atom(symbol="C", xyz=Position([0.0, 0.0, 0.0]))
+        c2_1 = Atom(symbol="C", xyz=Position([1.5, 0.0, 0.0]))
+        m1.set_atom("C1", c1_1)
+        m1.set_atom("C2", c2_1)
+
+        c1_2 = Atom(symbol="C", xyz=Position([0.0, 0.0, 0.0]))
+        c2_2 = Atom(symbol="C", xyz=Position([1.5, 0.0, 0.0]))
+        m2.set_atom("C1", c1_2)
+        m2.set_atom("C2", c2_2)
+
+        root.set_group("model_1", m1)
+        root.set_group("model_2", m2)
+
+        bond = Bond()
+        bond.setup(root)
+
+        bonds = root.get_bond_list()
+        self.assertEqual(len(bonds), len(single_bonds) * 2)
+
+        # 各結合が同一モデル内の原子どうしであることを確認
+        from proteindf_bridge.bond import _extract_model
+
+        for b in bonds:
+            m_a = _extract_model(b[0])
+            m_b = _extract_model(b[1])
+            self.assertIsNotNone(m_a)
+            self.assertEqual(m_a, m_b)
+
+        # 密行列 (bondmat) でも別モデル間が 0 であることを確認
+        self.assertIsNotNone(bond._bondmat)
+        for p in range(len(bond._atoms)):
+            m_p = _extract_model(bond._atoms[p].path)
+            for q in range(p):
+                m_q = _extract_model(bond._atoms[q].path)
+                if m_p is not None and m_q is not None and m_p != m_q:
+                    self.assertEqual(bond._bondmat.get(p, q), 0)
+
+    def test_setup_2mgo_pdb_cross_model_avoided(self):
+        import os
+        from proteindf_bridge.biopdb import Pdb as PyPdb
+        import proteindf_bridge.rs as rs_br
+        from proteindf_bridge.bond import _extract_model
+
+        pdb_path = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "rust",
+                "crates",
+                "proteindf-bridge",
+                "tests",
+                "data",
+                "2MGO.pdb",
+            )
+        )
+        self.assertTrue(os.path.exists(pdb_path), f"File not found: {pdb_path}")
+
+        # 純Python版 Pdb で読み込み、Bond().setup
+        py_pdb = PyPdb(pdb_path)
+        py_ag = py_pdb.get_atomgroup()
+        py_bond = Bond()
+        py_bond.setup(py_ag)
+        py_bonds = py_ag.get_bond_list()
+
+        # 純Python版: 結合が2720本で、別モデル間の結合が0本
+        self.assertEqual(len(py_bonds), 2720)
+        py_cross_bonds = [
+            b for b in py_bonds if _extract_model(b[0]) != _extract_model(b[1])
+        ]
+        self.assertEqual(len(py_cross_bonds), 0)
+
+        # Rust版 (proteindf_bridge.rs) の Pdb と Bond
+        rs_pdb = rs_br.Pdb(pdb_path)
+        rs_ag = rs_pdb.get_atomgroup()
+        rs_bond = rs_br.Bond()
+        rs_bond.setup(rs_ag)
+        rs_bonds = rs_ag.get_bond_list()
+
+        # Rust版: 結合が2720本で、別モデル間の結合が0本
+        self.assertEqual(len(rs_bonds), 2720)
+        rs_cross_bonds = [
+            b for b in rs_bonds if _extract_model(b[0]) != _extract_model(b[1])
+        ]
+        self.assertEqual(len(rs_cross_bonds), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
