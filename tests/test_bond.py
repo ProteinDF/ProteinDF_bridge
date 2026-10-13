@@ -80,6 +80,41 @@ class TestBond(unittest.TestCase):
         self.assertEqual(len(ag_dup.get_bond_list()), 1)
         self.assertEqual(ag_dup.get_bond_list()[0][2], 2)
 
+    def test_setup_1hls_pdb_bond_count_matches_rust(self):
+        import os
+        from proteindf_bridge.biopdb import Pdb as PyPdb
+        import proteindf_bridge.rs as rs_br
+
+        pdb_path = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "rust",
+                "crates",
+                "proteindf-bridge",
+                "tests",
+                "data",
+                "1hls.pdb",
+            )
+        )
+        self.assertTrue(os.path.exists(pdb_path), f"File not found: {pdb_path}")
+
+        # 純Python版 Pdb で読み込み、Bond().setup
+        py_pdb = PyPdb(pdb_path)
+        py_ag = py_pdb.get_atomgroup()
+        py_bond = Bond()
+        py_bond.setup(py_ag)
+        py_bonds = py_ag.get_bond_list()
+
+        # Rust版 (proteindf_bridge.rs) の Pdb と Bond
+        rs_pdb = rs_br.Pdb(pdb_path)
+        rs_ag = rs_pdb.get_atomgroup()
+        rs_bond = rs_br.Bond()
+        rs_bond.setup(rs_ag)
+        rs_bonds = rs_ag.get_bond_list()
+
+        self.assertEqual(len(py_bonds), len(rs_bonds))
+
 
 if __name__ == "__main__":
     unittest.main()
