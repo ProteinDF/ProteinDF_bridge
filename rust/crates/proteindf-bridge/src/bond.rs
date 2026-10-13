@@ -6,6 +6,7 @@ use std::collections::HashSet;
 use crate::atom::Atom;
 use crate::atom_group::AtomGroup;
 use crate::error::Result;
+use crate::format::Format;
 use crate::matrix::SymmetricMatrix;
 use crate::position::Position;
 use crate::spatial::CellList;
@@ -110,9 +111,16 @@ impl Bond {
         let max_cutoff = 2.0 * max_cov + COVALENT_BOND_TOLERANCE;
         let cell_size = max_cutoff.max(3.0);
 
-        // Collect model IDs for all atoms to avoid cross-model bonds
-        let model_ids: Vec<Option<usize>> =
-            self.atoms.iter().map(|a| extract_model(&a.path)).collect();
+        // Determine whether mol represents a multi-model collection
+        let model_ids: Option<Vec<usize>> = if Format::is_models(mol) {
+            let mut ids = Vec::with_capacity(n);
+            for (model_idx, (_, child)) in mol.groups().enumerate() {
+                ids.resize(ids.len() + child.get_number_of_all_atoms(), model_idx);
+            }
+            Some(ids)
+        } else {
+            None
+        };
 
         // Build dense matrices only for small structures (backward compatibility)
         if n <= MAX_DENSE_MATRIX_ATOMS {
@@ -120,11 +128,13 @@ impl Bond {
             let mut bondmat = SymmetricMatrix::new(n);
             for p in 0..n {
                 let cov_p = cov_radii[p];
-                let model_p = model_ids[p];
                 for (q, &cov_q) in cov_radii.iter().enumerate().take(p) {
                     let d = self.atoms[p].xyz.distance_from(&self.atoms[q].xyz);
                     distmat.set(p, q, d);
-                    let cross_model = is_cross_model(model_p, model_ids[q]);
+                    let cross_model = match &model_ids {
+                        Some(ids) => ids[p] != ids[q],
+                        None => false,
+                    };
                     if !cross_model && d <= (cov_p + cov_q) + COVALENT_BOND_TOLERANCE {
                         bondmat.set(p, q, 1.0);
                     } else {
@@ -146,7 +156,10 @@ impl Bond {
         let mut bonds_to_add = Vec::new();
         cell_list.for_each_neighbor_pair(max_cutoff, |p, q, dist| {
             // p < q is guaranteed by CellList
-            let cross_model = is_cross_model(model_ids[p], model_ids[q]);
+            let cross_model = match &model_ids {
+                Some(ids) => ids[p] != ids[q],
+                None => false,
+            };
             if !cross_model && dist <= (cov_radii[p] + cov_radii[q]) + COVALENT_BOND_TOLERANCE {
                 let p1 = &self.atoms[p].path;
                 let p2 = &self.atoms[q].path;
@@ -169,25 +182,6 @@ impl Bond {
         }
 
         Ok(())
-    }
-}
-
-fn extract_model(path: &str) -> Option<usize> {
-    let first = path.split('/').find(|s| !s.is_empty())?;
-    let rest = first.strip_prefix("model_")?;
-    if rest.chars().all(|c| c.is_ascii_digit()) && !rest.is_empty() {
-        let val: usize = rest.parse().ok()?;
-        if val >= 1 {
-            return Some(val);
-        }
-    }
-    None
-}
-
-fn is_cross_model(m1: Option<usize>, m2: Option<usize>) -> bool {
-    match (m1, m2) {
-        (Some(a), Some(b)) => a != b,
-        _ => false,
     }
 }
 
@@ -380,51 +374,67 @@ mod tests {
         assert!(num_bonds > 0);
     }
 
+    fn make_test_protein(name: &str, pos1: Position, pos2: Position) -> AtomGroup {
+        let mut model = AtomGroup::with_name(name);
+        let mut chain = AtomGroup::with_name("A");
+        let mut res = AtomGroup::with_name("ALA_1");
+        let c1 = Atom::new_with_pos("C", pos1).unwrap();
+        let c2 = Atom::new_with_pos("C", pos2).unwrap();
+        res.set_atom("C1", c1);
+        res.set_atom("C2", c2);
+        chain.set_group("ALA_1", res);
+        model.set_group("A", chain);
+        model
+    }
+
     #[test]
-    fn test_bond_cross_model_avoided() {
-        // 1モデル単独の構造: 2つの炭素原子が共有結合距離
-        let mut single_model = AtomGroup::with_name("model_1");
-        let c1 = Atom::new_with_pos("C", Position::new(0.0, 0.0, 0.0)).unwrap();
-        let c2 = Atom::new_with_pos("C", Position::new(1.5, 0.0, 0.0)).unwrap();
-        single_model.set_atom("C1", c1);
-        single_model.set_atom("C2", c2);
-        let mut single_root = AtomGroup::with_name("mol_single");
-        single_root.set_group("model_1", single_model);
+    fn test_bond_cross_model_avoided_with_custom_names() {
+        // (a) 子グループの名前が model_* でなくても、is_models を満たす2モデルを重ねると別モデル間に結合しない
+        let single_m = make_test_protein(
+            "prot_A",
+            Position::new(0.0, 0.0, 0.0),
+            Position::new(1.5, 0.0, 0.0),
+        );
+        let mut single_root = AtomGroup::with_name("single_root");
+        single_root.set_group("prot_A", single_m);
+        assert!(Format::is_models(&single_root));
         let mut bond_single = Bond::new();
         bond_single.setup_heuristic(&mut single_root).unwrap();
         let single_bonds = single_root.get_bond_list();
         assert_eq!(single_bonds.len(), 1);
 
-        // 2モデルを同じ座標に重ねた構造
-        let mut root = AtomGroup::with_name("mol");
-        let mut m1 = AtomGroup::with_name("model_1");
-        let mut m2 = AtomGroup::with_name("model_2");
-
-        let c1_1 = Atom::new_with_pos("C", Position::new(0.0, 0.0, 0.0)).unwrap();
-        let c2_1 = Atom::new_with_pos("C", Position::new(1.5, 0.0, 0.0)).unwrap();
-        m1.set_atom("C1", c1_1);
-        m1.set_atom("C2", c2_1);
-
-        let c1_2 = Atom::new_with_pos("C", Position::new(0.0, 0.0, 0.0)).unwrap();
-        let c2_2 = Atom::new_with_pos("C", Position::new(1.5, 0.0, 0.0)).unwrap();
-        m2.set_atom("C1", c1_2);
-        m2.set_atom("C2", c2_2);
-
-        root.set_group("model_1", m1);
-        root.set_group("model_2", m2);
+        // 2つのモデル (名前は "prot_A", "prot_B") を同じ座標に重ねる
+        let m1 = make_test_protein(
+            "prot_A",
+            Position::new(0.0, 0.0, 0.0),
+            Position::new(1.5, 0.0, 0.0),
+        );
+        let m2 = make_test_protein(
+            "prot_B",
+            Position::new(0.0, 0.0, 0.0),
+            Position::new(1.5, 0.0, 0.0),
+        );
+        let mut root = AtomGroup::with_name("root");
+        root.set_group("prot_A", m1);
+        root.set_group("prot_B", m2);
+        assert!(Format::is_models(&root));
 
         let mut bond = Bond::new();
         bond.setup_heuristic(&mut root).unwrap();
 
-        // 結合は各モデル内だけで、本数は1モデルの2倍 (2本)
         let bonds = root.get_bond_list();
         assert_eq!(bonds.len(), single_bonds.len() * 2);
 
         // 各結合が同一モデル内の原子どうしであることを確認
-        for b in bonds {
-            let m_a = extract_model(&b.atom1_path);
-            let m_b = extract_model(&b.atom2_path);
-            assert!(m_a.is_some());
+        for b in &bonds {
+            let m_a = b
+                .atom1_path
+                .split('/')
+                .find(|s| !s.is_empty() && *s != "root");
+            let m_b = b
+                .atom2_path
+                .split('/')
+                .find(|s| !s.is_empty() && *s != "root");
             assert_eq!(m_a, m_b);
         }
 
@@ -432,13 +442,92 @@ mod tests {
         assert!(bond.bondmat.is_some());
         let bondmat = bond.bondmat.as_ref().unwrap();
         for p in 0..bond.atoms.len() {
-            let m_p = extract_model(&bond.atoms[p].path);
+            let m_p = bond.atoms[p]
+                .path
+                .split('/')
+                .find(|s| !s.is_empty() && *s != "root");
             for q in 0..p {
-                let m_q = extract_model(&bond.atoms[q].path);
-                if m_p.is_some() && m_q.is_some() && m_p != m_q {
+                let m_q = bond.atoms[q]
+                    .path
+                    .split('/')
+                    .find(|s| !s.is_empty() && *s != "root");
+                if m_p != m_q {
                     assert_eq!(bondmat.get(p, q).unwrap() as usize, 0);
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_bond_cross_group_allowed_when_not_models() {
+        // (b) is_models を満たさない木では、別の最上位グループの原子どうしでも距離が近ければ結合する
+        let mut root = AtomGroup::with_name("root");
+        let mut g1 = AtomGroup::with_name("g1");
+        let mut g2 = AtomGroup::with_name("g2");
+        let c1 = Atom::new_with_pos("C", Position::new(0.0, 0.0, 0.0)).unwrap();
+        let c2 = Atom::new_with_pos("C", Position::new(1.5, 0.0, 0.0)).unwrap();
+        g1.set_atom("C1", c1);
+        g2.set_atom("C2", c2);
+        root.set_group("g1", g1);
+        root.set_group("g2", g2);
+        // ルート直下に原子を追加して is_models を確実に false にする
+        let c_extra = Atom::new_with_pos("C", Position::new(100.0, 100.0, 100.0)).unwrap();
+        root.set_atom("C_root", c_extra);
+
+        assert!(!Format::is_models(&root));
+
+        let mut bond = Bond::new();
+        bond.setup_heuristic(&mut root).unwrap();
+
+        let bonds = root.get_bond_list();
+        let cross_bond = bonds.iter().find(|b| {
+            let p1 = &b.atom1_path;
+            let p2 = &b.atom2_path;
+            (p1.contains("g1") && p2.contains("g2")) || (p1.contains("g2") && p2.contains("g1"))
+        });
+        assert!(
+            cross_bond.is_some(),
+            "Bonds across groups must form when is_models is false"
+        );
+    }
+
+    #[test]
+    fn test_bond_2mgo_cross_model_avoided_rust() {
+        use crate::format::Pdb;
+        use std::path::Path;
+
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("data")
+            .join("2MGO.pdb");
+        if !path.exists() {
+            return;
+        }
+
+        let pdb = Pdb::from_file(&path, None).expect("failed to load 2MGO.pdb");
+        let mut ag = pdb
+            .get_atomgroup(None, None)
+            .expect("failed to get atomgroup");
+        assert!(Format::is_models(&ag));
+
+        let mut bond = Bond::new();
+        bond.setup_heuristic(&mut ag).unwrap();
+
+        let bonds = ag.get_bond_list();
+        // (c) 2MGO で 2720本・別モデル間0本
+        assert_eq!(bonds.len(), 2720);
+
+        for b in &bonds {
+            let m_a = b.atom1_path.split('/').find(|s| s.starts_with("model_"));
+            let m_b = b.atom2_path.split('/').find(|s| s.starts_with("model_"));
+            assert_eq!(m_a, m_b);
+        }
+
+        // (d) ag["model_3"] だけを渡すと 136本
+        let mut model_3 = ag.get_group("model_3").unwrap().clone();
+        assert!(!Format::is_models(&model_3));
+        let mut bond3 = Bond::new();
+        bond3.setup_heuristic(&mut model_3).unwrap();
+        assert_eq!(model_3.get_bond_list().len(), 136);
     }
 }

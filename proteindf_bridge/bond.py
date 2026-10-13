@@ -21,27 +21,10 @@
 
 from .matrix import SymmetricMatrix
 from .atomgroup import AtomGroup
+from .format import Format
 from .periodictable import PeriodicTable
 
 COVALENT_BOND_TOLERANCE = 0.45
-
-
-def _extract_model(path):
-    parts = [p for p in str(path).split("/") if p]
-    if not parts:
-        return None
-    first = parts[0]
-    if first.startswith("model_"):
-        num_str = first[6:]
-        if num_str.isdigit():
-            val = int(num_str)
-            if val >= 1:
-                return val
-    return None
-
-
-def _is_cross_model(m1, m2):
-    return m1 is not None and m2 is not None and m1 != m2
 
 
 class Bond(object):
@@ -61,7 +44,7 @@ class Bond(object):
             mol._update_path(force=True)
         self._list_atoms(mol)
         self._make_distance_matrix()
-        self._make_bond_matrix()
+        self._make_bond_matrix(mol)
 
         existing_bonds = set()
         for b in mol.get_bond_list():
@@ -83,7 +66,7 @@ class Bond(object):
                         existing_bonds.add(key)
                         mol.add_bond(self._atoms[p], self._atoms[q], 1)
 
-    def _make_bond_matrix(self):
+    def _make_bond_matrix(self, mol=None):
         """
         Create the bond matrix.
         """
@@ -93,14 +76,20 @@ class Bond(object):
             PeriodicTable.covalent_radius(atom.atomic_number)
             for atom in self._atoms
         ]
-        model_ids = [_extract_model(atom.path) for atom in self._atoms]
+        model_ids = None
+        if mol is not None and Format.is_models(mol):
+            model_ids = []
+            for model_idx, (_, child) in enumerate(mol.groups()):
+                model_ids.extend([model_idx] * child.get_number_of_all_atoms())
+
         for p in range(num_of_atoms):
             cov_p = cov_radii[p]
-            model_p = model_ids[p]
             for q in range(p):
                 cov_q = cov_radii[q]
                 r = self._distmat.get(p, q)
-                cross_model = _is_cross_model(model_p, model_ids[q])
+                cross_model = (
+                    model_ids is not None and model_ids[p] != model_ids[q]
+                )
                 if not cross_model and r <= (cov_p + cov_q) + COVALENT_BOND_TOLERANCE:
                     self._bondmat.set(p, q, 1)
                 else:
