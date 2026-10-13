@@ -26,6 +26,7 @@ from typing import Optional, List, Dict, Any, Union
 from .atomgroup import AtomGroup
 from .atom import Atom
 from .position import Position
+from .functions import split_residue_key
 import sys
 import os
 import optparse
@@ -163,7 +164,10 @@ class Pdb(object):
                     seqNum2 = int(line[31:35])
                     icode2 = str(line[35])
 
-                    ssbond = ({"chain_id": chainID1, "seq_num": seqNum1}, {"chain_id": chainID2, "seq_num": seqNum2})
+                    ssbond = (
+                        {"chain_id": chainID1, "seq_num": seqNum1, "i_code": icode1},
+                        {"chain_id": chainID2, "seq_num": seqNum2, "i_code": icode2},
+                    )
                     self._ssbonds.append(ssbond)
 
                 elif (record_name == "ATOM  ") or (record_name == "HETATM"):
@@ -328,7 +332,7 @@ class Pdb(object):
                             chain.name = chain_id
                             model.set_group(chain_id, chain)
 
-                        res_key = "%d" % (res_seq)
+                        res_key = "%d%s" % (res_seq, i_code.strip())
                         if model[chain_id].has_group(res_key) == False:
                             residue = AtomGroup()
                             residue.name = res_name
@@ -354,14 +358,25 @@ class Pdb(object):
                 for ssbond in self._ssbonds:
                     chain_id1 = ssbond[0]["chain_id"]
                     seq_num1 = ssbond[0]["seq_num"]
+                    icode1 = ssbond[0].get("i_code", " ").strip()
+                    res_key1 = "%d%s" % (seq_num1, icode1)
+
                     chain_id2 = ssbond[1]["chain_id"]
                     seq_num2 = ssbond[1]["seq_num"]
+                    icode2 = ssbond[1].get("i_code", " ").strip()
+                    res_key2 = "%d%s" % (seq_num2, icode2)
 
-                    path1 = "/{chain_id}/{res_key}/SG".format(chain_id=chain_id1, res_key=seq_num1)
-                    path2 = "/{chain_id}/{res_key}/SG".format(chain_id=chain_id2, res_key=seq_num2)
-                    SG1 = model[chain_id1][seq_num1]["SG"]
-                    SG2 = model[chain_id2][seq_num2]["SG"]
-                    model.add_bond(SG1, SG2, 1)
+                    if (
+                        model.has_group(chain_id1)
+                        and model[chain_id1].has_group(res_key1)
+                        and model[chain_id1][res_key1].has_atomname("SG")
+                        and model.has_group(chain_id2)
+                        and model[chain_id2].has_group(res_key2)
+                        and model[chain_id2][res_key2].has_atomname("SG")
+                    ):
+                        SG1 = model[chain_id1][res_key1]["SG"]
+                        SG2 = model[chain_id2][res_key2]["SG"]
+                        model.add_bond(SG1, SG2, 1)
 
                 root.set_group(model_name, model)
 
@@ -392,10 +407,12 @@ class Pdb(object):
                     item["chain_id"] = " "
 
                 for res_key, residue in chain.groups():
-                    res_seq = 0
-                    res_seq_match_obj = re_res_seq.match(res_key)
-                    if res_seq_match_obj != None:
-                        res_seq = int(res_seq_match_obj.group(1))
+                    try:
+                        res_seq, i_code_part = split_residue_key(res_key)
+                        i_code = i_code_part if i_code_part != "" else " "
+                    except ValueError:
+                        res_seq = 0
+                        i_code = " "
                     item["res_seq"] = res_seq
 
                     # resname
@@ -408,7 +425,7 @@ class Pdb(object):
                         serial += 1
 
                         item["alt_loc"] = " "
-                        item["i_code"] = " "
+                        item["i_code"] = i_code
 
                         # name
                         name = atom.name
