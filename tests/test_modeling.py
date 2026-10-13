@@ -24,6 +24,9 @@ import unittest
 
 from proteindf_bridge.modeling import Modeling
 from proteindf_bridge.position import Position
+from proteindf_bridge.atomgroup import AtomGroup
+from proteindf_bridge.atom import Atom
+from proteindf_bridge.error import BrValueError
 
 
 class ModelingTests(unittest.TestCase):
@@ -101,6 +104,24 @@ class ModelingTests(unittest.TestCase):
             h = methyl[name]
             dist = (h.xyz - c1.xyz).distance_from()
             self.assertAlmostEqual(dist, template_c1_h11_dist, delta=1.0e-4)
+
+
+    def test_neutralize_fad_missing_atoms_raises_br_value_error(self):
+        ag = AtomGroup()
+        ag.set_atom("P", Atom(name="P", xyz=Position([0.0, 0.0, 0.0])))
+
+        # missing O1P / OP1
+        with self.assertRaises(BrValueError) as cm1:
+            self.modeling.neutralize_FAD(ag)
+        err1 = str(cm1.exception)
+        self.assertTrue("O1P" in err1 or "OP1" in err1)
+
+        # has OP1, missing O2P / OP2
+        ag.set_atom("OP1", Atom(name="OP1", xyz=Position([1.0, 0.0, 0.0])))
+        with self.assertRaises(BrValueError) as cm2:
+            self.modeling.neutralize_FAD(ag)
+        err2 = str(cm2.exception)
+        self.assertTrue("O2P" in err2 or "OP2" in err2)
 
 
 if __name__ == "__main__":
