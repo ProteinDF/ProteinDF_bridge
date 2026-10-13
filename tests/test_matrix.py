@@ -88,6 +88,14 @@ class TestMatrix(unittest.TestCase):
         m2.set_buffer(mv)
         self.assertEqual(m, m2)
 
+    def test_get_symmetric_matrix_warning(self):
+        m = Matrix([[1.0, 2.0], [3.0, 4.0]])
+        with self.assertLogs("proteindf_bridge.matrix", level="WARNING") as cm:
+            sm = m.get_symmetric_matrix()
+        self.assertIsNotNone(sm)
+        self.assertIsInstance(sm, SymmetricMatrix)
+        self.assertTrue(any("warning:" in msg for msg in cm.output))
+
 
 class TestSymmetricMatrix(unittest.TestCase):
     def test_symmetric_indexing(self):
