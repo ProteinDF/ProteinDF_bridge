@@ -98,13 +98,18 @@ class StrUtils(object):
     @classmethod
     def to_unicode_dict(cls, d):
         """
-        Convert a dict whose keys are stored as bytes into a dict
-        keyed by str (utf-8).
+        Convert a dict whose keys may include bytes into a dict
+        where bytes keys are decoded as utf-8 str, and other keys
+        (int, float, tuple, etc.) are preserved as-is.
+        Values are converted recursively.
         """
         assert isinstance(d, dict)
         answer = {}
         for k, v in d.items():
-            new_key = cls.to_unicode(k)
+            if isinstance(k, bytes):
+                new_key = k.decode('utf-8')
+            else:
+                new_key = k
             if isinstance(v, list):
                 v = cls.to_unicode_list(v)
             elif isinstance(v, dict):

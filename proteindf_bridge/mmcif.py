@@ -34,10 +34,10 @@ logger = logging.getLogger(__name__)
 class SimpleMmcif(object):
     """
     """
-    _re_data_block = re.compile("(data_\S+)")
-    _re_keyvalue = re.compile("^(_\S+)\s+(\S+|\".*\"|\'.*\')\s*$")
-    _re_loop_block = re.compile("^\s*loop_\s*$")
-    _re_loop_header = re.compile("^(_\S+)\s*$")
+    _re_data_block = re.compile(r"(data_\S+)")
+    _re_keyvalue = re.compile(r"^(_\S+)\s+(\S+|\".*\"|\'.*\')\s*$")
+    _re_loop_block = re.compile(r"^\s*loop_\s*$")
+    _re_loop_header = re.compile(r"^(_\S+)\s*$")
 
     def __init__(self, file_path=None):
         self._data = {}
@@ -176,9 +176,9 @@ class SimpleMmcif(object):
                     # make contents re_contents
                     num_of_columns = len(header)
 
-                    re_str = "^\s*" + "(\S+|\".*\")\s+" * num_of_columns
+                    re_str = r"^\s*" + r"(\S+|\".*\")\s+" * num_of_columns
                     re_str = re_str[:-1]
-                    re_str += "*$"
+                    re_str += r"*$"
                     # print("re_str:> ", re_str)
                     re_contents = re.compile(re_str)
 
@@ -247,7 +247,7 @@ class SimpleMmcif(object):
         assert(isinstance(output_atomgroup, AtomGroup))
         assert(isinstance(dict_item, dict))
 
-        re_numbers = re.compile("^[\+\-]?\d*(\.\d+)?$")
+        re_numbers = re.compile(r"^[\+\-]?\d*(\.\d+)?$")
         # check input coordinates(x, y, z)
 
         def get_coordinates(xyz, dict_item):
