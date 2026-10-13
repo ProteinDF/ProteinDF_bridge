@@ -110,6 +110,106 @@ class PeriodicTable(object):
                 break
         return answer
 
+    __covalent_radius = [
+        0.0,  # X (dummy)
+        0.31, # 1: H
+        0.28, # 2: He
+        1.28, # 3: Li
+        0.96, # 4: Be
+        0.84, # 5: B
+        0.76, # 6: C
+        0.71, # 7: N
+        0.66, # 8: O
+        0.57, # 9: F
+        0.58, # 10: Ne
+        1.66, # 11: Na
+        1.41, # 12: Mg
+        1.21, # 13: Al
+        1.11, # 14: Si
+        1.07, # 15: P
+        1.05, # 16: S
+        1.02, # 17: Cl
+        1.06, # 18: Ar
+        2.03, # 19: K
+        1.76, # 20: Ca
+        1.70, # 21: Sc
+        1.60, # 22: Ti
+        1.53, # 23: V
+        1.39, # 24: Cr
+        1.39, # 25: Mn
+        1.32, # 26: Fe
+        1.26, # 27: Co
+        1.24, # 28: Ni
+        1.32, # 29: Cu
+        1.22, # 30: Zn
+        1.22, # 31: Ga
+        1.20, # 32: Ge
+        1.19, # 33: As
+        1.20, # 34: Se
+        1.20, # 35: Br
+        1.16, # 36: Kr
+        2.20, # 37: Rb
+        1.95, # 38: Sr
+        1.90, # 39: Y
+        1.75, # 40: Zr
+        1.64, # 41: Nb
+        1.54, # 42: Mo
+        1.47, # 43: Tc
+        1.46, # 44: Ru
+        1.42, # 45: Rh
+        1.39, # 46: Pd
+        1.45, # 47: Ag
+        1.44, # 48: Cd
+        1.42, # 49: In
+        1.39, # 50: Sn
+        1.39, # 51: Sb
+        1.38, # 52: Te
+        1.39, # 53: I
+        1.40, # 54: Xe
+        2.44, # 55: Cs
+        2.15, # 56: Ba
+        2.07, # 57: La
+        2.04, # 58: Ce
+        2.03, # 59: Pr
+        2.01, # 60: Nd
+        1.99, # 61: Pm
+        1.98, # 62: Sm
+        1.98, # 63: Eu
+        1.96, # 64: Gd
+        1.94, # 65: Tb
+        1.92, # 66: Dy
+        1.92, # 67: Ho
+        1.89, # 68: Er
+        1.90, # 69: Tm
+        1.87, # 70: Yb
+        1.87, # 71: Lu
+        1.75, # 72: Hf
+        1.70, # 73: Ta
+        1.62, # 74: W
+        1.51, # 75: Re
+        1.44, # 76: Os
+        1.41, # 77: Ir
+        1.36, # 78: Pt
+        1.36, # 79: Au
+        1.32, # 80: Hg
+        1.45, # 81: Tl
+        1.46, # 82: Pb
+        1.48, # 83: Bi
+        1.40, # 84: Po
+        1.50, # 85: At
+        1.50, # 86: Rn
+        2.60, # 87: Fr
+        2.21, # 88: Ra
+        2.15, # 89: Ac
+        2.06, # 90: Th
+        2.00, # 91: Pa
+        1.96, # 92: U
+        1.90, # 93: Np
+        1.87, # 94: Pu
+        1.80, # 95: Am
+        1.69, # 96: Cm
+    ]
+
     @staticmethod
     def vdw(atom):
         if isinstance(atom, str):
@@ -118,6 +218,19 @@ class PeriodicTable(object):
             return PeriodicTable.__vdw[atom]
         except (IndexError, KeyError):
             logger.error("PeriodicTable.vdw(): no VDW radius for atom %s", atom)
+            raise
+
+    @staticmethod
+    def covalent_radius(atom):
+        if isinstance(atom, str):
+            atom = PeriodicTable.get_atomic_number(atom)
+        if atom == 0:
+            logger.error("PeriodicTable.covalent_radius(): atomic number 0 has no covalent radius")
+            raise IndexError("PeriodicTable.covalent_radius(): atomic number 0 has no covalent radius")
+        try:
+            return PeriodicTable.__covalent_radius[atom]
+        except (IndexError, KeyError):
+            logger.error("PeriodicTable.covalent_radius(): no covalent radius for atom %s", atom)
             raise
 
     @staticmethod
