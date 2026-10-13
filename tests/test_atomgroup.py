@@ -436,7 +436,31 @@ class AtomGroupTests(unittest.TestCase):
         group1.set_group('grp', subgrp)
 
         formula = group1.get_formula()
-        self.assertEqual(formula, "H2C1")
+        self.assertEqual(formula, "CH2")
+
+        # Empty group
+        empty = AtomGroup()
+        self.assertEqual(empty.get_formula(), "")
+
+        def make_group(symbols):
+            ag = AtomGroup()
+            for i, sym in enumerate(symbols):
+                ag.set_atom("atom_{}".format(i), Atom(symbol=sym))
+            return ag
+
+        # Single count omission: CH4
+        self.assertEqual(make_group(["C", "H", "H", "H", "H"]).get_formula(), "CH4")
+
+        # Non-carbon: H2O, ClNa
+        self.assertEqual(make_group(["H", "H", "O"]).get_formula(), "H2O")
+        self.assertEqual(make_group(["Na", "Cl"]).get_formula(), "ClNa")
+
+        # With dummy element X
+        self.assertEqual(make_group(["X"]).get_formula(), "X")
+        self.assertEqual(make_group(["X", "X"]).get_formula(), "X2")
+        self.assertEqual(make_group(["C", "X"]).get_formula(), "CX")
+        self.assertEqual(make_group(["C", "X", "X"]).get_formula(), "CX2")
+        self.assertEqual(make_group(["H", "H", "O", "X"]).get_formula(), "H2OX")
 
     def test_ixor_operator(self):
         ag1 = AtomGroup()
