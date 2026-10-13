@@ -21,6 +21,7 @@
 
 from .matrix import SymmetricMatrix
 from .atomgroup import AtomGroup
+from .format import Format
 from .periodictable import PeriodicTable
 
 COVALENT_BOND_TOLERANCE = 0.45
@@ -39,9 +40,11 @@ class Bond(object):
     def setup(self, mol):
         """
         """
+        if hasattr(mol, "_update_path"):
+            mol._update_path(force=True)
         self._list_atoms(mol)
         self._make_distance_matrix()
-        self._make_bond_matrix()
+        self._make_bond_matrix(mol)
 
         existing_bonds = set()
         for b in mol.get_bond_list():
@@ -63,7 +66,7 @@ class Bond(object):
                         existing_bonds.add(key)
                         mol.add_bond(self._atoms[p], self._atoms[q], 1)
 
-    def _make_bond_matrix(self):
+    def _make_bond_matrix(self, mol=None):
         """
         Create the bond matrix.
         """
@@ -73,12 +76,21 @@ class Bond(object):
             PeriodicTable.covalent_radius(atom.atomic_number)
             for atom in self._atoms
         ]
+        model_ids = None
+        if mol is not None and Format.is_models(mol):
+            model_ids = []
+            for model_idx, (_, child) in enumerate(mol.groups()):
+                model_ids.extend([model_idx] * child.get_number_of_all_atoms())
+
         for p in range(num_of_atoms):
             cov_p = cov_radii[p]
             for q in range(p):
                 cov_q = cov_radii[q]
                 r = self._distmat.get(p, q)
-                if r <= (cov_p + cov_q) + COVALENT_BOND_TOLERANCE:
+                cross_model = (
+                    model_ids is not None and model_ids[p] != model_ids[q]
+                )
+                if not cross_model and r <= (cov_p + cov_q) + COVALENT_BOND_TOLERANCE:
                     self._bondmat.set(p, q, 1)
                 else:
                     self._bondmat.set(p, q, 0)
