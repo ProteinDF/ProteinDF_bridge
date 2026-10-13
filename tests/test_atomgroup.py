@@ -473,6 +473,100 @@ class AtomGroupTests(unittest.TestCase):
         self.assertTrue(ag1.has_atom("C1"))
         self.assertTrue(ag1.has_atom("N1"))
 
+    def test_add_bond_sibling_20_2(self):
+        """(a) 兄弟 20・2 があるとき mol.add_bond(mol["2"]["N"], mol["2"]["CA"]) が再帰せず、結合が 2 のグループに入る"""
+        mol = AtomGroup()
+        grp20 = AtomGroup()
+        grp20.set_atom("N", Atom(symbol="N"))
+        grp20.set_atom("CA", Atom(symbol="C"))
+        grp2 = AtomGroup()
+        grp2.set_atom("N", Atom(symbol="N"))
+        grp2.set_atom("CA", Atom(symbol="C"))
+
+        mol.set_group("20", grp20)
+        mol.set_group("2", grp2)
+
+        mol.add_bond(mol["2"]["N"], mol["2"]["CA"])
+        self.assertEqual(len(mol["2"]._bonds), 1)
+        self.assertEqual(len(mol["20"]._bonds), 0)
+        self.assertEqual(len(mol._bonds), 0)
+        self.assertEqual(len(mol["2"].get_bond_list()), 1)
+        self.assertEqual(len(mol["20"].get_bond_list()), 0)
+
+    def test_add_bond_sibling_2_20(self):
+        """(b) 兄弟の順序を 2 -> 20 にしても同じ"""
+        mol = AtomGroup()
+        grp2 = AtomGroup()
+        grp2.set_atom("N", Atom(symbol="N"))
+        grp2.set_atom("CA", Atom(symbol="C"))
+        grp20 = AtomGroup()
+        grp20.set_atom("N", Atom(symbol="N"))
+        grp20.set_atom("CA", Atom(symbol="C"))
+
+        mol.set_group("2", grp2)
+        mol.set_group("20", grp20)
+
+        mol.add_bond(mol["2"]["N"], mol["2"]["CA"])
+        self.assertEqual(len(mol["2"]._bonds), 1)
+        self.assertEqual(len(mol["20"]._bonds), 0)
+        self.assertEqual(len(mol._bonds), 0)
+        self.assertEqual(len(mol["2"].get_bond_list()), 1)
+        self.assertEqual(len(mol["20"].get_bond_list()), 0)
+
+    def test_get_family_self_descendant_sibling(self):
+        """(c) get_family が自分・子孫・(子から呼んだときの)兄弟のグループを返し、存在しないパスで None を返す"""
+        root = AtomGroup()
+        child_a = AtomGroup()
+        child_b = AtomGroup()
+        grandchild = AtomGroup()
+        child_a.set_group("sub", grandchild)
+        root.set_group("a", child_a)
+        root.set_group("b", child_b)
+
+        target_a = root["a"]
+        target_b = root["b"]
+        target_sub = root["a"]["sub"]
+
+        # 自分
+        self.assertIs(root.get_family(root.path), root)
+        self.assertIs(target_a.get_family(target_a.path), target_a)
+
+        # 子孫
+        self.assertIs(root.get_family("/a/"), target_a)
+        self.assertIs(root.get_family("/a/sub/"), target_sub)
+        self.assertIs(target_a.get_family("/a/sub/"), target_sub)
+
+        # 子から呼んだときの兄弟
+        self.assertIs(target_a.get_family("/b/"), target_b)
+        self.assertIs(target_sub.get_family("/b/"), target_b)
+
+        # 存在しないパスで None を返す
+        self.assertIsNone(root.get_family("/c/"))
+        self.assertIsNone(target_a.get_family("/c/"))
+        self.assertIsNone(target_a.get_family("/a/other/"))
+
+    def test_get_family_without_trailing_slash(self):
+        """(d) 末尾 / なしの query_path"""
+        root = AtomGroup()
+        child_a = AtomGroup()
+        child_b = AtomGroup()
+        grandchild = AtomGroup()
+        child_a.set_group("sub", grandchild)
+        root.set_group("a", child_a)
+        root.set_group("b", child_b)
+
+        target_a = root["a"]
+        target_b = root["b"]
+        target_sub = root["a"]["sub"]
+
+        self.assertIs(root.get_family("/a"), target_a)
+        self.assertIs(root.get_family("/a/sub"), target_sub)
+        self.assertIs(target_a.get_family("/a"), target_a)
+        self.assertIs(target_a.get_family("/b"), target_b)
+        self.assertIsNone(root.get_family("/c"))
+        self.assertIsNone(root.get_family("/a/other"))
+
+
 
 def load_tests(loader, tests, ignore):
     from proteindf_bridge import atomgroup
