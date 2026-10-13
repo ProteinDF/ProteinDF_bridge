@@ -53,6 +53,7 @@ class Vector(object):
     __header_struct_big_endian = ">i"
     __body_struct_little_endian = "<d"
     __body_struct_big_endian = ">d"
+    __array_priority__ = 100
 
     def __init__(self, obj=None):
         """
