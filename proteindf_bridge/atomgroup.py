@@ -470,19 +470,59 @@ class AtomGroup(object):
         return answer
 
     def get_formula(self):
-        """Return the molecular formula (composition formula)."""
+        """
+        Return the molecular formula using the Hill system.
+
+        Rules (Hill system):
+
+        1. If Carbon (C) is present: C first, then H (if present), followed by
+           all other elements in alphabetical order of their chemical symbols.
+        2. If Carbon is not present: all elements (including H) in alphabetical
+           order of their chemical symbols.
+        3. If the count of an element is 1, the number is omitted (e.g. CH4, NaCl, H2O).
+        4. Unknown/dummy atoms (X) are appended at the very end as X{count} (or X if count is 1).
+        5. If there are no atoms, returns an empty string "".
+        6. Alphabetical ordering is based on standard ASCII/string ordering of the
+           element symbols (e.g. Cl < Na < O).
+        """
         kinds = self.get_atom_kinds_count()
+        if not kinds:
+            return ""
 
-        formula = ""
-        max_atom_id = PeriodicTable.get_num_of_atoms()
-        for atom_id in range(1, max_atom_id):
-            symbol = PeriodicTable.get_symbol(atom_id)
-            if symbol in kinds:
-                formula += "{}{}".format(symbol, kinds[symbol])
-        if "X" in kinds:
-            formula += "X{}".format(kinds["X"])
+        parts = []
 
-        return formula
+        def append_element(sym, count):
+            parts.append(sym)
+            if count > 1:
+                parts.append(str(count))
+
+        has_c = kinds.get("C", 0) > 0
+        x_count = kinds.get("X", 0)
+
+        if has_c:
+            append_element("C", kinds["C"])
+
+            if "H" in kinds and kinds["H"] > 0:
+                append_element("H", kinds["H"])
+
+            others = sorted(
+                sym for sym in kinds if sym not in ("C", "H", "X")
+            )
+            for sym in others:
+                cnt = kinds[sym]
+                if cnt > 0:
+                    append_element(sym, cnt)
+        else:
+            others = sorted(sym for sym in kinds if sym != "X")
+            for sym in others:
+                cnt = kinds[sym]
+                if cnt > 0:
+                    append_element(sym, cnt)
+
+        if x_count > 0:
+            append_element("X", x_count)
+
+        return "".join(parts)
 
     # name ---------------------------------------------------------------------
     def _get_name(self):

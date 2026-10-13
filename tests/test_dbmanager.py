@@ -63,5 +63,11 @@ class TestDbManager(unittest.TestCase):
         self.assertEqual(res2, [])
 
 
+    def test_no_getitem(self):
+        self.assertFalse(hasattr(self.db, "__getitem__"))
+        with self.assertRaises(TypeError):
+            _ = self.db["items"]
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -350,10 +350,10 @@ class TestRsPhase1(unittest.TestCase):
         self.assertAlmostEqual(rs_bmax.x, py_bmax.x, places=5)
 
         # Formula & counts
-        # Note on formula difference:
-        # Python's get_formula() formats by atomic number without omitting count 1 ("C2N1").
-        # Rust's get_formula() uses the Hill system ("C2N"), intentionally differing from pure Python.
+        # Both pure Python and Rust get_formula() use the Hill system ("C2N").
         self.assertEqual(rs_root.get_formula(), "C2N")
+        self.assertEqual(py_root.get_formula(), "C2N")
+        self.assertEqual(rs_root.get_formula(), py_root.get_formula())
         self.assertEqual(rs_root.formula(), "C2N")
         self.assertEqual(rs_root.get_atom_kinds_count(), py_root.get_atom_kinds_count())
 
