@@ -82,6 +82,30 @@ class TestRelaxExecIon(unittest.TestCase):
             finally:
                 os.chdir(orig_cwd)
 
+    def test_get_ion_residues_custom_filepath(self):
+        # PDB containing Na+ and Cl- with insertion codes
+        pdb_content = (
+            "ATOM      1  NA  Na+ A  10      10.000  10.000  10.000  1.00  0.00          NA\n"
+            "ATOM      2  NA  Na+ A  20A     12.000  12.000  12.000  1.00  0.00          NA\n"
+            "ATOM      3  CL  Cl- A  15      15.000  15.000  15.000  1.00  0.00          CL\n"
+            "ATOM      4  CL  Cl- A  35B     20.000  20.000  20.000  1.00  0.00          CL\n"
+            "END\n"
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            orig_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                with open("ions.pdb", "w") as f:
+                    f.write(pdb_content)
+
+                start, end = self.relax._get_ion_residues("ions.pdb")
+                self.assertIsInstance(start, int)
+                self.assertIsInstance(end, int)
+                self.assertEqual(start, 10)
+                self.assertEqual(end, 35)
+            finally:
+                os.chdir(orig_cwd)
+
 
 if __name__ == "__main__":
     unittest.main()
