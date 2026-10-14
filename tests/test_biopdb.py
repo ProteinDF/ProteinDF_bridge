@@ -185,6 +185,55 @@ class PdbTests(unittest.TestCase):
             if os.path.exists(temp_path):
                 os.remove(temp_path)
 
+    def test_rs_pdb_negative_resseq_roundtrip(self):
+        import proteindf_bridge.rs as rs_br
+        import tempfile
+
+        pdb_content = (
+            "ATOM      1  N   GLY A  -3       0.000   0.000   0.000  1.00  0.00           N  \n"
+            "ATOM      2  CA  GLY A  -3       1.000   0.000   0.000  1.00  0.00           C  \n"
+            "ATOM      3  N   ALA A  -2A      2.000   0.000   0.000  1.00  0.00           N  \n"
+            "ATOM      4  CA  ALA A  -2A      3.000   0.000   0.000  1.00  0.00           C  \n"
+            "ATOM      5  N   VAL A   5       4.000   0.000   0.000  1.00  0.00           N  \n"
+            "ATOM      6  CA  VAL A   5       5.000   0.000   0.000  1.00  0.00           C  \n"
+        )
+
+        with tempfile.NamedTemporaryFile("w+", suffix=".pdb", delete=False) as f_in:
+            f_in.write(pdb_content)
+            input_path = f_in.name
+
+        with tempfile.NamedTemporaryFile("w+", suffix=".pdb", delete=False) as f_out:
+            output_path = f_out.name
+
+        try:
+            # 1. Read with rs.Pdb
+            pdb1 = rs_br.Pdb(input_path)
+            ag1 = pdb1.get_atomgroup()
+
+            residues1 = {k: res.get_number_of_atoms() for k, res in ag1["model_1"]["A"].groups()}
+            self.assertEqual(set(residues1.keys()), {"-3", "-2A", "5"})
+            self.assertEqual(ag1.get_number_of_all_atoms(), 6)
+
+            # 2. Write via set_by_atomgroup and save
+            pdb2 = rs_br.Pdb()
+            pdb2.set_by_atomgroup(ag1)
+            pdb2.save(output_path)
+
+            # 3. Read again with rs.Pdb
+            pdb3 = rs_br.Pdb(output_path)
+            ag2 = pdb3.get_atomgroup()
+
+            residues2 = {k: res.get_number_of_atoms() for k, res in ag2["model_1"]["A"].groups()}
+            # Residue keys and atom counts must not change
+            self.assertEqual(set(residues2.keys()), set(residues1.keys()))
+            self.assertEqual(residues2, residues1)
+            self.assertEqual(ag2.get_number_of_all_atoms(), ag1.get_number_of_all_atoms())
+        finally:
+            if os.path.exists(input_path):
+                os.remove(input_path)
+            if os.path.exists(output_path):
+                os.remove(output_path)
+
 
 def load_tests(loader, tests, ignore):
     from proteindf_bridge import biopdb
