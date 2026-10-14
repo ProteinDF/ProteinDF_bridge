@@ -50,6 +50,7 @@ operation on a bridge (`.brd`) file. Run any of them with `-h` for full options.
 | `brd-box.py` | calc box size |
 | `brd-density.py` | calc density |
 | `brd-formula.py` | print molecular formula |
+| `brd-ramachandran.py` | calculate Ramachandran angles (phi/psi) |
 
 ## Development
 

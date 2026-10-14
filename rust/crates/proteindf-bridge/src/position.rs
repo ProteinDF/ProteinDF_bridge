@@ -154,6 +154,7 @@ impl Position {
 /// Computes the dihedral angle between four 3D points `p1, p2, p3, p4` in degrees using
 /// the IUPAC standard `atan2` method.
 ///
+/// Sign convention follows IUPAC: looking along the p2 -> p3 axis, clockwise rotation from p1 to p4 is positive.
 /// Returns an angle in degrees in the range `[-180.0, 180.0]`.
 /// Returns `0.0` if any bond vector length is zero or vectors are collinear.
 pub fn dihedral_angle(p1: &Position, p2: &Position, p3: &Position, p4: &Position) -> f64 {
@@ -170,7 +171,7 @@ pub fn dihedral_angle(p1: &Position, p2: &Position, p3: &Position, p4: &Position
     let n1 = b1.cross(&b2);
     let n2 = b2.cross(&b3);
 
-    let m1 = n1.cross(&b2_u);
+    let m1 = b2_u.cross(&n1);
 
     let x = n1.dot(&n2);
     let y = m1.dot(&n2);
@@ -179,7 +180,12 @@ pub fn dihedral_angle(p1: &Position, p2: &Position, p3: &Position, p4: &Position
         return 0.0;
     }
 
-    y.atan2(x).to_degrees()
+    let angle = y.atan2(x).to_degrees();
+    if angle == 0.0 {
+        0.0
+    } else {
+        angle
+    }
 }
 
 impl FromStr for Position {
@@ -465,5 +471,35 @@ mod tests {
     fn test_position_test_py() {
         let p = Position::from_slice(&[5.0, 3.0, -1.2]).unwrap();
         assert!((p.x - 5.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_dihedral_angle_iupac_sign() {
+        let p1 = Position::new(0.0, 1.0, 0.0);
+        let p2 = Position::new(0.0, 0.0, 0.0);
+        let p3 = Position::new(1.0, 0.0, 0.0);
+
+        // p4=(1,0,-1) gives -90 deg
+        let p4_neg = Position::new(1.0, 0.0, -1.0);
+        let angle_neg = dihedral_angle(&p1, &p2, &p3, &p4_neg);
+        assert!((angle_neg - (-90.0)).abs() < 1e-10);
+        assert!((p1.dihedral(&p2, &p3, &p4_neg) - (-90.0)).abs() < 1e-10);
+
+        // p4=(1,0,1) gives +90 deg
+        let p4_pos = Position::new(1.0, 0.0, 1.0);
+        let angle_pos = dihedral_angle(&p1, &p2, &p3, &p4_pos);
+        assert!((angle_pos - 90.0).abs() < 1e-10);
+        assert!((p1.dihedral(&p2, &p3, &p4_pos) - 90.0).abs() < 1e-10);
+
+        // Cis (0 deg) and Trans (180 deg)
+        let p4_cis = Position::new(1.0, 1.0, 0.0);
+        assert!((dihedral_angle(&p1, &p2, &p3, &p4_cis) - 0.0).abs() < 1e-10);
+
+        let p4_trans = Position::new(1.0, -1.0, 0.0);
+        assert!((dihedral_angle(&p1, &p2, &p3, &p4_trans).abs() - 180.0).abs() < 1e-10);
+
+        // Degenerate collinear case: returns 0.0
+        let p_collinear = Position::new(2.0, 0.0, 0.0);
+        assert!((dihedral_angle(&p1, &p2, &p3, &p_collinear) - 0.0).abs() < 1e-10);
     }
 }

@@ -30,9 +30,14 @@ impl RamachandranAngle {
     }
 }
 
+/// Maximum distance in Angstroms between C(i-1) and N(i) to be considered a continuous peptide bond.
+pub const PEPTIDE_BOND_MAX_DISTANCE: f64 = 2.0;
+
 /// Calculates backbone dihedral angles (phi and psi) in degrees for all residues in a protein chain.
 ///
 /// - Residues missing any of the essential backbone atoms (`N`, `CA`, `C`) are safely skipped.
+/// - Adjacent residues are considered connected only if sequential in order and the C(i-1)–N(i)
+///   distance does not exceed `PEPTIDE_BOND_MAX_DISTANCE` (2.0 Å).
 /// - For the first residue in a contiguous segment, `phi` is `None` (no preceding `C` atom).
 /// - For the last residue in a contiguous segment, `psi` is `None` (no following `N` atom).
 pub fn calc_phi_psi(chain: &AtomGroup) -> Vec<RamachandranAngle> {
@@ -73,7 +78,11 @@ pub fn calc_phi_psi(chain: &AtomGroup) -> Vec<RamachandranAngle> {
         let curr = &valid_residues[i];
 
         // phi is defined if the immediately preceding residue in the chain sequence exists
-        let phi = if i > 0 && valid_residues[i - 1].orig_idx == curr.orig_idx - 1 {
+        // and the C(i-1)–N(i) distance does not exceed PEPTIDE_BOND_MAX_DISTANCE.
+        let phi = if i > 0
+            && valid_residues[i - 1].orig_idx == curr.orig_idx - 1
+            && valid_residues[i - 1].c_pos.distance_from(&curr.n_pos) <= PEPTIDE_BOND_MAX_DISTANCE
+        {
             Some(dihedral_angle(
                 &valid_residues[i - 1].c_pos,
                 &curr.n_pos,
@@ -85,8 +94,10 @@ pub fn calc_phi_psi(chain: &AtomGroup) -> Vec<RamachandranAngle> {
         };
 
         // psi is defined if the immediately following residue in the chain sequence exists
+        // and the C(i)–N(i+1) distance does not exceed PEPTIDE_BOND_MAX_DISTANCE.
         let psi = if i + 1 < valid_residues.len()
             && valid_residues[i + 1].orig_idx == curr.orig_idx + 1
+            && curr.c_pos.distance_from(&valid_residues[i + 1].n_pos) <= PEPTIDE_BOND_MAX_DISTANCE
         {
             Some(dihedral_angle(
                 &curr.n_pos,
