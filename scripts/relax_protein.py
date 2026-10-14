@@ -690,17 +690,18 @@ class Relax(object):
         for model_name, model in Na_s.groups():
             for chain_name, chain in model.groups():
                 for resid, res in chain.groups():
-                    i = int(resid)
+                    i = int(bridge.split_residue_key(resid)[0])
                     start = min(start, i)
                     end = max(end, i)
 
         select_Cl = bridge.Select_Name('Cl-')
-        Cl_s = models.select(select_Na)
+        Cl_s = models.select(select_Cl)
         for model_name, model in Cl_s.groups():
             for chain_name, chain in model.groups():
                 for resid, res in chain.groups():
-                    start = min(start, resid)
-                    end = max(end, resid)
+                    i = int(bridge.split_residue_key(resid)[0])
+                    start = min(start, i)
+                    end = max(end, i)
 
         return (start, end)
 
@@ -754,7 +755,7 @@ class Relax(object):
         stdout, stderr = proc.communicate()
         retcode = proc.returncode
 
-        if retcode == 1:
+        if retcode != 0:
             raise bridge.BrError('This script could not run $ %s (exit code %s)\n%s' %
                                  (str(cmd), retcode, str(stderr)))
         else:
