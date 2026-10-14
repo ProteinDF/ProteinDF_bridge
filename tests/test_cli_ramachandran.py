@@ -240,6 +240,52 @@ class TestBrdRamachandranCli(unittest.TestCase):
         self.assertTrue(os.path.exists(plot_path))
         self.assertGreater(os.path.getsize(plot_path), 0)
 
+    def test_verbose_stdout_header(self):
+        """Test that with -v and no -o, first line of stdout is CSV header and verbose is on stderr."""
+        stdout_buf = io.StringIO()
+        stderr_buf = io.StringIO()
+
+        with mock.patch("sys.stdout", stdout_buf):
+            with mock.patch("sys.stderr", stderr_buf):
+                brd_ramachandran.main([self.brd_path, "-v"])
+
+        stdout_lines = stdout_buf.getvalue().splitlines()
+        self.assertGreater(len(stdout_lines), 0)
+        self.assertEqual(
+            stdout_lines[0].strip(),
+            "model,chain,residue_key,residue_name,phi,psi",
+        )
+        self.assertIn("reading:", stderr_buf.getvalue())
+
+    def test_missing_matplotlib_no_csv_created(self):
+        """Test that missing matplotlib with --plot and -o prevents CSV creation."""
+        plot_path = os.path.join(self.temp_dir, "ramachandran.png")
+        csv_path = os.path.join(self.temp_dir, "output.csv")
+        stderr_buf = io.StringIO()
+        stdout_buf = io.StringIO()
+
+        with mock.patch.dict(
+            sys.modules, {"matplotlib": None, "matplotlib.pyplot": None}
+        ):
+            with mock.patch("sys.stdout", stdout_buf):
+                with mock.patch("sys.stderr", stderr_buf):
+                    with self.assertRaises(SystemExit) as cm:
+                        brd_ramachandran.main(
+                            [self.brd_path, "--plot", plot_path, "-o", csv_path]
+                        )
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertFalse(
+            os.path.exists(csv_path), "CSV file should not be created"
+        )
+        self.assertFalse(
+            os.path.exists(plot_path), "Plot file should not be created"
+        )
+        self.assertIn(
+            "pip install proteindf_bridge[plot]", stderr_buf.getvalue()
+        )
+        self.assertEqual(stdout_buf.getvalue(), "")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -97,20 +97,25 @@ def write_csv(records, output_path=None):
             out_f.close()
 
 
-def generate_plot(records, plot_path, verbose=False):
-    """Generate Ramachandran scatter plot and save to plot_path."""
+def _ensure_matplotlib():
     try:
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
+        return plt
     except ImportError:
         sys.stderr.write(
             "matplotlib is required for plotting. Please install it with: pip install proteindf_bridge[plot]\n"
         )
         sys.exit(1)
 
+
+def generate_plot(records, plot_path, verbose=False):
+    """Generate Ramachandran scatter plot and save to plot_path."""
+    plt = _ensure_matplotlib()
+
     if verbose:
-        print(f"generating plot: {plot_path}")
+        print(f"generating plot: {plot_path}", file=sys.stderr)
 
     general_phi, general_psi = [], []
     gly_phi, gly_psi = [], []
@@ -163,14 +168,17 @@ def main(argv=None):
     plot_path = args.plot
     verbose = args.verbose
 
+    if plot_path:
+        _ensure_matplotlib()
+
     if verbose:
-        print(f"reading: {brd_path}")
+        print(f"reading: {brd_path}", file=sys.stderr)
 
     models = rs.load_atomgroup(brd_path)
     records = calculate_angles(models)
 
     if verbose and output_path:
-        print(f"writing CSV: {output_path}")
+        print(f"writing CSV: {output_path}", file=sys.stderr)
 
     write_csv(records, output_path)
 
