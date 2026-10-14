@@ -19,10 +19,7 @@ from proteindf_bridge.biopdb import Pdb as PyPdb
 from proteindf_bridge.ionpair import IonPair as PyIonPair
 from proteindf_bridge.position import Position as PyPos
 from proteindf_bridge.select import (
-    Select_Atom as PySelect_Atom,
-    Select_AtomGroup as PySelect_AtomGroup,
     Select_Name as PySelect_Name,
-    Select_Path as PySelect_Path,
     Select_Path_simple as PySelect_Path_simple,
     Select_Path_wildcard as PySelect_Path_wildcard,
     Select_PathRegex as PySelect_PathRegex,
@@ -31,7 +28,6 @@ from proteindf_bridge.select import (
 )
 from proteindf_bridge.ssbond import SSBond as PySSBond
 from proteindf_bridge.superposer import Superposer as PySuperposer
-from proteindf_bridge.superposer_quaternion import Superposer_quaternion as PySuperposer_quaternion
 
 # Rust PyO3 bindings
 import proteindf_bridge.rs as rs_br

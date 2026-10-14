@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
 import argparse
-import math
 
 import proteindf_bridge.rs as rs
 

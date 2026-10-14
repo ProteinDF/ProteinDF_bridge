@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-import pickle
 import doctest
 
 from proteindf_bridge.atom import Atom

@@ -3,8 +3,6 @@
 import logging
 logger = logging.getLogger(__name__)
 
-from .position import Position
-from .atom import Atom
 from .atomgroup import AtomGroup
 from .select import Select_Path
 

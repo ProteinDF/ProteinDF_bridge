@@ -3,7 +3,6 @@
 
 import argparse
 import os
-import pprint
 import msgpack
 
 import proteindf_bridge.rs as rs

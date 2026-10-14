@@ -1,14 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
 import argparse
-import pprint
 
 import proteindf_bridge.rs as rs
 
-import logging
-import logging.config
 
 
 def get_rest_of_frame_molecule(frame_molecule, selected_molecule):

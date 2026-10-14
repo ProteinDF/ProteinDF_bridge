@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import pprint
 
 import proteindf_bridge.rs as rs
 

@@ -6,12 +6,9 @@ Comparison test suite for Phase 5 (PR#14):
 Validating proteindf_bridge.rs (PyO3 Rust bindings) against pure Python proteindf_bridge.
 """
 
-import math
 import unittest
-import numpy as np
 
 # Pure Python implementation
-import proteindf_bridge as py_br
 from proteindf_bridge.periodictable import PeriodicTable as PyPT
 from proteindf_bridge.vector import Vector as PyVec
 from proteindf_bridge.matrix import Matrix as PyMat, SymmetricMatrix as PySymMat
@@ -19,7 +16,6 @@ from proteindf_bridge.position import Position as PyPos
 from proteindf_bridge.atom import Atom as PyAtom
 from proteindf_bridge.bond import Bond as PyBond
 from proteindf_bridge.atomgroup import AtomGroup as PyAtomGroup
-from proteindf_bridge.error import BrError as PyBrError, BrInputError as PyBrInputError, BrValueError as PyBrValueError
 
 # Rust PyO3 bindings
 import proteindf_bridge.rs as rs_br

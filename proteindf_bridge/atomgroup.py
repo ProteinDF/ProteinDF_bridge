@@ -25,7 +25,7 @@ import copy
 import csv
 import warnings
 from collections import OrderedDict
-from typing import Optional, Iterator, Tuple, List, Dict, Any, Union, Sequence
+from typing import Optional, Iterator, Tuple, List
 
 from .error import BrInputError
 from .vector import Vector
@@ -33,7 +33,6 @@ from .select import Select_Atom, Select_AtomGroup
 from .select import Select
 from .atom import Atom
 from .position import Position
-from .periodictable import PeriodicTable
 from .str_processing import StrUtils
 
 import logging

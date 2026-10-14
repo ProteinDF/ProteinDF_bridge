@@ -1,6 +1,5 @@
 import os
 import unittest
-import pickle
 import doctest
 
 from proteindf_bridge.gro import SimpleGro
