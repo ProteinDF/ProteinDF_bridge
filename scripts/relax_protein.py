@@ -678,7 +678,6 @@ class Relax(object):
         # load PDB file
         pdb_obj = bridge.Pdb()
         # pdb_obj.debug = debug
-        pdb_filepath = 'md3_before.pdb'
         pdb_obj.load(pdb_filepath)
         models = pdb_obj.get_atomgroup()
 
