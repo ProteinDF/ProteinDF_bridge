@@ -47,7 +47,7 @@ Available Jobs:
   rust             Run cargo fmt, cargo clippy, cargo nextest, and cargo test --doc
   hdf5             Run cargo clippy and cargo nextest with proteindf-bridge/hdf5 feature
   wasm             Run cargo check for wasm32-unknown-unknown target
-  lint             Run ruff check (F821, PLE0704) on proteindf_bridge and scripts in isolated venv
+  lint             Run ruff check (F821, PLE0704, F401) on proteindf_bridge and scripts in isolated venv
   wheel            Build release wheel in isolated venv and run unit tests + CLI checks
   sdist            Build sdist package in isolated venv and run unit tests + CLI checks
   docs             Build English and Japanese Sphinx documentation in isolated venv
@@ -240,8 +240,8 @@ run_job_lint() {
     echo "==> Installing ruff in isolated venv..."
     "$venv_pip" install --quiet "ruff==0.17.0"
 
-    echo "==> Running ruff check (F821, PLE0704) on proteindf_bridge and scripts..."
-    "$venv_ruff" check --no-cache --select F821,PLE0704 proteindf_bridge scripts
+    echo "==> Running ruff check (F821, PLE0704, F401) on proteindf_bridge and scripts..."
+    "$venv_ruff" check --no-cache --select F821,PLE0704,F401 proteindf_bridge scripts
 }
 
 run_job_wheel() {

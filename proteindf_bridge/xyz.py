@@ -19,10 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
 import os
-import argparse
-import re
 
 from .error import BrInputError
 from .position import Position

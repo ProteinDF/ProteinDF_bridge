@@ -3,7 +3,6 @@ import unittest
 import doctest
 
 from proteindf_bridge.biopdb import Pdb
-from proteindf_bridge.atomgroup import AtomGroup
 from proteindf_bridge.format import Format
 
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "proteindf_bridge", "data"))

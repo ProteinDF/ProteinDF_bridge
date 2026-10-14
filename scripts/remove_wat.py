@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import re
 
 import proteindf_bridge as bridge
 

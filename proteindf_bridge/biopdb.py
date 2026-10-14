@@ -21,7 +21,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional
 
 from .atomgroup import AtomGroup
 from .atom import Atom

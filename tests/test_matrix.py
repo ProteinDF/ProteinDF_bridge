@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-import math
 import numpy
 from proteindf_bridge.matrix import Matrix, SymmetricMatrix
 from proteindf_bridge.vector import Vector

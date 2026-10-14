@@ -21,14 +21,12 @@
 
 from __future__ import annotations
 
-from typing import Union, Sequence, Optional, Dict, Any
+from typing import Union, Sequence, Any
 
 from .position import Position
 from .periodictable import PeriodicTable
 from .str_processing import StrUtils
 from .error import BrInputError
-import copy
-import math
 import logging
 
 logger = logging.getLogger(__name__)
@@ -36,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 class Atom(object):
     """
+    >>> import math
     >>> a = Atom()
     >>> a.symbol = 'Fe'
     >>> a.atomic_number

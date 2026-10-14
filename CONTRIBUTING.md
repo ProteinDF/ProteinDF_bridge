@@ -51,7 +51,7 @@ Available jobs:
 - `rust`: Rust formatting check (`cargo fmt`), clippy (`-D warnings`), unit tests (`cargo nextest`), and doc tests (`cargo test --doc`).
 - `hdf5`: Clippy and tests with `proteindf-bridge/hdf5` feature enabled (`cargo nextest`).
 - `wasm`: Compilation check for `wasm32-unknown-unknown` target.
-- `lint`: Runs Ruff lint check (`F821`, `PLE0704`) on `proteindf_bridge` and `scripts` in an isolated temporary virtual environment.
+- `lint`: Runs Ruff lint check (`F821`, `PLE0704`, `F401`) on `proteindf_bridge` and `scripts` in an isolated temporary virtual environment.
 - `wheel`: Builds a release wheel in an isolated temporary virtual environment, installs it, runs `unittest`, and verifies CLI entry points (`--help`).
 - `sdist`: Builds a source distribution in an isolated temporary virtual environment, installs it, runs `unittest`, and verifies CLI entry points (`--help`).
 - `docs`: Builds English and Japanese Sphinx documentation in an isolated temporary virtual environment.

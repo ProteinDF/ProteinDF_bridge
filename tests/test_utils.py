@@ -1,6 +1,5 @@
 import os
 import unittest
-import doctest
 
 from proteindf_bridge.utils import Utils
 from proteindf_bridge.biopdb import Pdb

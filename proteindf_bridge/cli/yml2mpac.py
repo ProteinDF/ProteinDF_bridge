@@ -23,7 +23,6 @@
 convert YAML file to MsgPack.
 """
 
-import sys
 import argparse
 
 import proteindf_bridge as bridge

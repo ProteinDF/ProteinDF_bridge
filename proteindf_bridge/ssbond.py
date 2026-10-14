@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from .select import Select_Path
 from .atomgroup import AtomGroup
 from .atom import Atom
-from .biopdb import Pdb
 
 import logging
 logger = logging.getLogger(__name__)
@@ -14,6 +12,7 @@ class SSBond(object):
     """ find disulfide bonds in protein models
 
     >>> import os
+    >>> from proteindf_bridge import Pdb
     >>> tmp_pdb = Pdb(os.path.join(os.path.dirname(__file__), 'data', '1hls.pdb'))
     >>> models = tmp_pdb.get_atomgroup()
     >>> model = models.get_group('model_1')
@@ -66,7 +65,6 @@ class SSBond(object):
 
 
 if __name__ == "__main__":
-    from .biopdb import Pdb
 
     import doctest
     doctest.testmod()

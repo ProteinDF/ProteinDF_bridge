@@ -4,7 +4,6 @@
 import unittest
 import doctest
 
-from proteindf_bridge.ssbond import SSBond
 
 
 class SSBondTest(unittest.TestCase):
