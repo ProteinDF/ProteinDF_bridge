@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import os
+import re
 import yaml
 from typing import Any, List, Dict, Tuple, Optional
 
@@ -111,3 +112,22 @@ def save_atomgroup(atomgroup: AtomGroup, file_path: str) -> None:
     """
     data = atomgroup.get_raw_data()
     save_msgpack(data, file_path)
+
+
+_RESIDUE_KEY_RE = re.compile(r"^(-?\d+)(\S?)$")
+
+
+def split_residue_key(key: Any) -> Tuple[int, str]:
+    """Split a residue key into (sequence number, insertion code).
+
+    Accepts keys matching ^(-?\d+)(\S?)$ and returns (int(res_seq), i_code).
+    If there is no insertion code, i_code is "".
+    Raises ValueError if key does not match.
+    """
+    if not isinstance(key, str):
+        key = str(key)
+    match = _RESIDUE_KEY_RE.match(key)
+    if not match:
+        raise ValueError(f"Invalid residue key format: {key!r}")
+    return int(match.group(1)), match.group(2)
+

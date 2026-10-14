@@ -70,7 +70,7 @@ def main():
     elif step == 3:
         r.step3()
     else:
-        raise
+        raise bridge.BrValueError(step, 'invalid step (expected 1, 2, or 3)')
 
     print('finish')
     exit
@@ -515,7 +515,7 @@ class Relax(object):
                 res.set_atom('Cl- ', atom)
                 chain.set_group(num_of_residues + 1, res)
             else:
-                raise
+                raise bridge.BrValueError(atom.symbol, 'invalid ion symbol (expected Na or Cl)')
         num_of_chains = self._model.get_number_of_groups()
         self._model.set_group(chr(ord('A') + num_of_chains + 1), chain)
 
@@ -690,17 +690,18 @@ class Relax(object):
         for model_name, model in Na_s.groups():
             for chain_name, chain in model.groups():
                 for resid, res in chain.groups():
-                    i = int(resid)
+                    i = int(bridge.split_residue_key(resid)[0])
                     start = min(start, i)
                     end = max(end, i)
 
         select_Cl = bridge.Select_Name('Cl-')
-        Cl_s = models.select(select_Na)
+        Cl_s = models.select(select_Cl)
         for model_name, model in Cl_s.groups():
             for chain_name, chain in model.groups():
                 for resid, res in chain.groups():
-                    start = min(start, resid)
-                    end = max(end, resid)
+                    i = int(bridge.split_residue_key(resid)[0])
+                    start = min(start, i)
+                    end = max(end, i)
 
         return (start, end)
 
@@ -754,9 +755,9 @@ class Relax(object):
         stdout, stderr = proc.communicate()
         retcode = proc.returncode
 
-        if retcode == 1:
-            raise ScriptRunningError('This script could not run $ %s\n%s' %
-                                     (str(cmd), str(stderr)))
+        if retcode != 0:
+            raise bridge.BrError('This script could not run $ %s (exit code %s)\n%s' %
+                                 (str(cmd), retcode, str(stderr)))
         else:
             return True
 

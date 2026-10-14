@@ -23,7 +23,7 @@ from .superposer import Superposer
 from .matrix import Matrix
 from .atomgroup import AtomGroup
 from .atom import Atom
-from .functions import load_msgpack
+from .functions import load_msgpack, split_residue_key
 from .position import Position
 from .error import BrInputError, BrValueError
 
@@ -409,7 +409,7 @@ class Modeling:
         """
         answer = AtomGroup()
         for resid_key, res in chain.groups():
-            resid_int = int(resid_key)
+            resid_int, _ = split_residue_key(resid_key)
             if from_resid <= resid_int <= to_resid:
                 answer |= res
 
