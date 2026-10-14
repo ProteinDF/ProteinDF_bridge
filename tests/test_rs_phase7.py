@@ -42,15 +42,15 @@ class TestRsPhase7(unittest.TestCase):
         self.assertAlmostEqual(abs(angle_trans_func), 180.0, places=7)
         self.assertAlmostEqual(abs(angle_trans_method), 180.0, places=7)
 
-        # +90 degrees (rotated towards -Z in right-handed system looking along +X)
-        p4_pos90 = rs_br.Position(1.0, 0.0, -1.0)
-        angle_pos90 = rs_br.dihedral_angle(p1, p2, p3, p4_pos90)
-        self.assertAlmostEqual(angle_pos90, 90.0, places=7)
-
-        # -90 degrees (rotated towards +Z in right-handed system looking along +X)
-        p4_neg90 = rs_br.Position(1.0, 0.0, 1.0)
+        # -90 degrees (rotated towards -Z in right-handed system looking along +X)
+        p4_neg90 = rs_br.Position(1.0, 0.0, -1.0)
         angle_neg90 = rs_br.dihedral_angle(p1, p2, p3, p4_neg90)
         self.assertAlmostEqual(angle_neg90, -90.0, places=7)
+
+        # +90 degrees (rotated towards +Z in right-handed system looking along +X)
+        p4_pos90 = rs_br.Position(1.0, 0.0, 1.0)
+        angle_pos90 = rs_br.dihedral_angle(p1, p2, p3, p4_pos90)
+        self.assertAlmostEqual(angle_pos90, 90.0, places=7)
 
         # Flexible argument extraction: accept lists and strings
         angle_list = rs_br.dihedral_angle(
@@ -102,23 +102,23 @@ class TestRsPhase7(unittest.TestCase):
         self.assertIsNone(last.psi)
 
         # Verification against independently computed ground truth in docs/rust-port-handoff.md:
-        # Residue 4 (GLU): phi=70.5993, psi=3.3945
+        # Residue 4 (GLU): phi=-70.5993, psi=-3.3945
         res4 = next(a for a in angles if a.residue_key == "4")
         self.assertEqual(res4.residue_name, "GLU")
-        self.assertAlmostEqual(res4.phi, 70.5993, places=3)
-        self.assertAlmostEqual(res4.psi, 3.3945, places=3)
+        self.assertAlmostEqual(res4.phi, -70.5993, places=3)
+        self.assertAlmostEqual(res4.psi, -3.3945, places=3)
 
-        # Residue 5 (GLN): phi=121.6311, psi=26.5618
+        # Residue 5 (GLN): phi=-121.6311, psi=-26.5618
         res5 = next(a for a in angles if a.residue_key == "5")
         self.assertEqual(res5.residue_name, "GLN")
-        self.assertAlmostEqual(res5.phi, 121.6311, places=3)
-        self.assertAlmostEqual(res5.psi, 26.5618, places=3)
+        self.assertAlmostEqual(res5.phi, -121.6311, places=3)
+        self.assertAlmostEqual(res5.psi, -26.5618, places=3)
 
-        # Residue 10 (ILE): phi=84.5507, psi=-99.6314
+        # Residue 10 (ILE): phi=-84.5507, psi=99.6314
         res10 = next(a for a in angles if a.residue_key == "10")
         self.assertEqual(res10.residue_name, "ILE")
-        self.assertAlmostEqual(res10.phi, 84.5507, places=3)
-        self.assertAlmostEqual(res10.psi, -99.6314, places=3)
+        self.assertAlmostEqual(res10.phi, -84.5507, places=3)
+        self.assertAlmostEqual(res10.psi, 99.6314, places=3)
 
         # __repr__ test
         self.assertIn("RamachandranAngle", repr(res4))
@@ -212,6 +212,77 @@ class TestRsPhase7(unittest.TestCase):
         # Res 3: phi is None because res 2 is broken; psi is None because it is the last residue
         self.assertIsNone(angles[1].phi)
         self.assertIsNone(angles[1].psi)
+
+    # --------------------------------------------------------------------------
+    # 5. Ideal Alpha-Helix Phi/Psi Validation
+    # --------------------------------------------------------------------------
+    def test_ramachandran_ideal_alpha_helix(self):
+        """
+        Verify that an ideal alpha-helix backbone (phi ~ -57 deg, psi ~ -47 deg)
+        yields negative phi and psi angles via calc_phi_psi.
+        """
+        def nerf(a, b, c, length, theta_deg, chi_deg):
+            theta = math.radians(theta_deg)
+            chi = math.radians(chi_deg)
+            def sub(x, y): return [x[i] - y[i] for i in range(3)]
+            def cross(x, y): return [x[1]*y[2]-x[2]*y[1], x[2]*y[0]-x[0]*y[2], x[0]*y[1]-x[1]*y[0]]
+            def dot(x, y): return sum(x[i]*y[i] for i in range(3))
+            def norm(x): return math.sqrt(dot(x, x))
+            bc = [x / norm(sub(c, b)) for x in sub(c, b)]
+            ab = sub(b, a)
+            n = cross(ab, bc)
+            n = [x / norm(n) for x in n]
+            nbc = cross(n, bc)
+            d = [-length * math.cos(theta), length * math.sin(theta) * math.cos(chi), length * math.sin(theta) * math.sin(chi)]
+            return [c[i] + d[0]*bc[i] + d[1]*nbc[i] + d[2]*n[i] for i in range(3)]
+
+        # Construct 3-residue backbone with phi = -57, psi = -47, omega = 180
+        n1 = [0.0, 0.0, 0.0]
+        ca1 = [1.46, 0.0, 0.0]
+        c1 = [1.46 - 1.52 * math.cos(math.radians(111.0)), 1.52 * math.sin(math.radians(111.0)), 0.0]
+
+        n2 = nerf(n1, ca1, c1, 1.33, 116.0, -47.0)
+        ca2 = nerf(ca1, c1, n2, 1.46, 122.0, 180.0)
+        c2 = nerf(c1, n2, ca2, 1.52, 111.0, -57.0)
+
+        n3 = nerf(n2, ca2, c2, 1.33, 116.0, -47.0)
+        ca3 = nerf(ca2, c2, n3, 1.46, 122.0, 180.0)
+        c3 = nerf(c2, n3, ca3, 1.52, 111.0, -57.0)
+
+        chain = rs_br.AtomGroup("A")
+
+        res1 = rs_br.AtomGroup("1")
+        res1.name = "ALA"
+        res1.set_atom("N", rs_br.Atom(symbol="N", name="N", position=rs_br.Position(*n1)))
+        res1.set_atom("CA", rs_br.Atom(symbol="C", name="CA", position=rs_br.Position(*ca1)))
+        res1.set_atom("C", rs_br.Atom(symbol="C", name="C", position=rs_br.Position(*c1)))
+        chain.set_group("1", res1)
+
+        res2 = rs_br.AtomGroup("2")
+        res2.name = "ALA"
+        res2.set_atom("N", rs_br.Atom(symbol="N", name="N", position=rs_br.Position(*n2)))
+        res2.set_atom("CA", rs_br.Atom(symbol="C", name="CA", position=rs_br.Position(*ca2)))
+        res2.set_atom("C", rs_br.Atom(symbol="C", name="C", position=rs_br.Position(*c2)))
+        chain.set_group("2", res2)
+
+        res3 = rs_br.AtomGroup("3")
+        res3.name = "ALA"
+        res3.set_atom("N", rs_br.Atom(symbol="N", name="N", position=rs_br.Position(*n3)))
+        res3.set_atom("CA", rs_br.Atom(symbol="C", name="CA", position=rs_br.Position(*ca3)))
+        res3.set_atom("C", rs_br.Atom(symbol="C", name="C", position=rs_br.Position(*c3)))
+        chain.set_group("3", res3)
+
+        angles = rs_br.calc_phi_psi(chain)
+        self.assertEqual(len(angles), 3)
+
+        res2_angle = angles[1]
+        self.assertEqual(res2_angle.residue_key, "2")
+        self.assertIsNotNone(res2_angle.phi)
+        self.assertIsNotNone(res2_angle.psi)
+        self.assertAlmostEqual(res2_angle.phi, -57.0, places=1)
+        self.assertAlmostEqual(res2_angle.psi, -47.0, places=1)
+        self.assertLess(res2_angle.phi, 0.0)
+        self.assertLess(res2_angle.psi, 0.0)
 
 
 if __name__ == "__main__":

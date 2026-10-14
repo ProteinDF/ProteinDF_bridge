@@ -48,22 +48,22 @@ fn test_dihedral_angle_geometric_sanity() {
         angle_trans
     );
 
-    // +90 degrees: rotated towards -Z in right-handed system looking along +X (p2->p3)
-    let p4_pos90 = Position::new(1.0, 0.0, -1.0);
-    let angle_pos90 = dihedral_angle(&p1, &p2, &p3, &p4_pos90);
-    assert!(
-        (angle_pos90 - 90.0).abs() < 1e-10,
-        "+90 angle expected 90, got {}",
-        angle_pos90
-    );
-
-    // -90 degrees: rotated towards +Z in right-handed system looking along +X (p2->p3)
-    let p4_neg90 = Position::new(1.0, 0.0, 1.0);
+    // -90 degrees: rotated towards -Z in right-handed system looking along +X (p2->p3)
+    let p4_neg90 = Position::new(1.0, 0.0, -1.0);
     let angle_neg90 = dihedral_angle(&p1, &p2, &p3, &p4_neg90);
     assert!(
         (angle_neg90 - (-90.0)).abs() < 1e-10,
         "-90 angle expected -90, got {}",
         angle_neg90
+    );
+
+    // +90 degrees: rotated towards +Z in right-handed system looking along +X (p2->p3)
+    let p4_pos90 = Position::new(1.0, 0.0, 1.0);
+    let angle_pos90 = dihedral_angle(&p1, &p2, &p3, &p4_pos90);
+    assert!(
+        (angle_pos90 - 90.0).abs() < 1e-10,
+        "+90 angle expected 90, got {}",
+        angle_pos90
     );
 
     // Degenerate collinear case: does not crash, returns 0.0
@@ -102,51 +102,51 @@ fn test_ramachandran_real_fixture_1hls() {
     assert!(last.psi.is_none());
 
     // Verification against independently computed ground truth in docs/rust-port-handoff.md:
-    // Residue 4: phi=70.5993, psi=3.3945
+    // Residue 4: phi=-70.5993, psi=-3.3945
     let res4 = angles.iter().find(|a| a.residue_key == "4").unwrap();
     assert_eq!(res4.residue_name, "GLU");
     let phi4 = res4.phi.unwrap();
     let psi4 = res4.psi.unwrap();
     assert!(
-        (phi4 - 70.5993).abs() < 1e-3,
-        "Residue 4 phi mismatch: expected 70.5993, got {}",
+        (phi4 - (-70.5993)).abs() < 1e-3,
+        "Residue 4 phi mismatch: expected -70.5993, got {}",
         phi4
     );
     assert!(
-        (psi4 - 3.3945).abs() < 1e-3,
-        "Residue 4 psi mismatch: expected 3.3945, got {}",
+        (psi4 - (-3.3945)).abs() < 1e-3,
+        "Residue 4 psi mismatch: expected -3.3945, got {}",
         psi4
     );
 
-    // Residue 5: phi=121.6311, psi=26.5618
+    // Residue 5: phi=-121.6311, psi=-26.5618
     let res5 = angles.iter().find(|a| a.residue_key == "5").unwrap();
     assert_eq!(res5.residue_name, "GLN");
     let phi5 = res5.phi.unwrap();
     let psi5 = res5.psi.unwrap();
     assert!(
-        (phi5 - 121.6311).abs() < 1e-3,
-        "Residue 5 phi mismatch: expected 121.6311, got {}",
+        (phi5 - (-121.6311)).abs() < 1e-3,
+        "Residue 5 phi mismatch: expected -121.6311, got {}",
         phi5
     );
     assert!(
-        (psi5 - 26.5618).abs() < 1e-3,
-        "Residue 5 psi mismatch: expected 26.5618, got {}",
+        (psi5 - (-26.5618)).abs() < 1e-3,
+        "Residue 5 psi mismatch: expected -26.5618, got {}",
         psi5
     );
 
-    // Residue 10: phi=84.5507, psi=-99.6314
+    // Residue 10: phi=-84.5507, psi=99.6314
     let res10 = angles.iter().find(|a| a.residue_key == "10").unwrap();
     assert_eq!(res10.residue_name, "ILE");
     let phi10 = res10.phi.unwrap();
     let psi10 = res10.psi.unwrap();
     assert!(
-        (phi10 - 84.5507).abs() < 1e-3,
-        "Residue 10 phi mismatch: expected 84.5507, got {}",
+        (phi10 - (-84.5507)).abs() < 1e-3,
+        "Residue 10 phi mismatch: expected -84.5507, got {}",
         phi10
     );
     assert!(
-        (psi10 - (-99.6314)).abs() < 1e-3,
-        "Residue 10 psi mismatch: expected -99.6314, got {}",
+        (psi10 - 99.6314).abs() < 1e-3,
+        "Residue 10 psi mismatch: expected 99.6314, got {}",
         psi10
     );
 }
