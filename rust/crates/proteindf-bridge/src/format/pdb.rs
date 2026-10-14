@@ -536,15 +536,9 @@ impl Pdb {
                 };
 
                 for (res_key, residue) in chain.groups() {
-                    let digits: String =
-                        res_key.chars().take_while(|c| c.is_ascii_digit()).collect();
-                    let res_seq = digits.parse::<i32>().unwrap_or(0);
-                    let i_code_str: String =
-                        res_key.chars().skip_while(|c| c.is_ascii_digit()).collect();
-                    let i_code = if i_code_str.is_empty() {
-                        " ".to_string()
-                    } else {
-                        i_code_str
+                    let (res_seq, i_code) = match super::mmcif_writer::parse_residue_key(res_key) {
+                        Ok((seq, ins)) => (seq, ins.unwrap_or(" ").to_string()),
+                        Err(_) => (0, " ".to_string()),
                     };
 
                     let res_name = residue.name.clone();

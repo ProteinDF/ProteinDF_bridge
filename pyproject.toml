@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "proteindf_bridge"
-version = "2026.10.12"
+version = "2026.10.13"
 description = "bridge scripts the ProteinDF package and other data/package"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -86,4 +86,12 @@ features = ["pyo3/extension-module"]
 include = [
     { path = "proteindf_bridge/data/*.brd", format = ["wheel", "sdist"] },
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"proteindf_bridge/common.py" = ["F401"]
+"proteindf_bridge/functions.py" = ["F401"]
+"proteindf_bridge/str_processing.py" = ["F401"]
+"proteindf_bridge/format.py" = ["F401"]
+"proteindf_bridge/select.py" = ["F401"]
 

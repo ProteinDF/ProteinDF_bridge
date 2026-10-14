@@ -555,3 +555,43 @@ fn test_2fb4_real_pdb_insertion_codes_and_ssbond() {
     );
     assert_eq!(ssbond_101d_104b.unwrap().order, 1);
 }
+
+#[test]
+fn test_pdb_negative_resseq_and_icode() {
+    use proteindf_bridge::atom::Atom;
+    use proteindf_bridge::position::Position;
+
+    let mut model = AtomGroup::with_name("model_1");
+    let mut chain = AtomGroup::with_name("A");
+
+    for &(res_key, res_name) in &[("-3", "GLY"), ("-2A", "ALA"), ("5", "VAL"), ("101A", "LEU")] {
+        let mut res = AtomGroup::with_name(res_name);
+        let mut ca = Atom::new_with_pos("C", Position::new(0.0, 0.0, 0.0)).unwrap();
+        ca.name = "CA".to_string();
+        res.set_atom("CA", ca);
+        chain.set_group(res_key, res);
+    }
+    model.set_group("A", chain);
+
+    let mut ag = AtomGroup::new();
+    ag.set_group("model_1", model);
+
+    let mut pdb = Pdb::new(None);
+    pdb.set_by_atomgroup(&ag, false)
+        .expect("set_by_atomgroup failed");
+
+    let text = pdb.get_text();
+    let atom_lines: Vec<&str> = text
+        .lines()
+        .filter(|line| line.starts_with("ATOM  "))
+        .collect();
+
+    assert_eq!(atom_lines.len(), 4);
+
+    let expected = [("  -3", " "), ("  -2", "A"), ("   5", " "), (" 101", "A")];
+
+    for (line, (exp_resseq, exp_icode)) in atom_lines.iter().zip(expected.iter()) {
+        assert_eq!(&line[22..26], *exp_resseq);
+        assert_eq!(&line[26..27], *exp_icode);
+    }
+}

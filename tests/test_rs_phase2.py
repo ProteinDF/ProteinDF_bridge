@@ -9,10 +9,8 @@ Validating proteindf_bridge.rs (PyO3 Rust bindings) format I/O against pure Pyth
 import os
 import tempfile
 import unittest
-import numpy as np
 
 # Pure Python implementation
-from proteindf_bridge.format import Format as PyFormat
 from proteindf_bridge.xyz import Xyz as PyXyz
 from proteindf_bridge.gro import SimpleGro as PySimpleGro
 from proteindf_bridge.mol2 import SimpleMol2 as PySimpleMol2

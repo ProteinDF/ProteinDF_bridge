@@ -29,8 +29,6 @@ from .error import BrInputError, BrValueError
 
 # from .xyz import Xyz
 
-import os
-import sys
 import math
 import re
 from importlib.resources import files

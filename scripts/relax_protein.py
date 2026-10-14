@@ -678,7 +678,6 @@ class Relax(object):
         # load PDB file
         pdb_obj = bridge.Pdb()
         # pdb_obj.debug = debug
-        pdb_filepath = 'md3_before.pdb'
         pdb_obj.load(pdb_filepath)
         models = pdb_obj.get_atomgroup()
 
@@ -779,7 +778,7 @@ class Relax(object):
         self._do_leap(self._leapin_premd_filepath)
 
         self._registered_group = set()
-        re_grp_block = re.compile('^Loading:\s+(\S+)')
+        re_grp_block = re.compile(r'^Loading:\s+(\S+)')
         f_leaplog = open('leap.log', 'r')
         for line in f_leaplog:
             line = line.strip()

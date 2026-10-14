@@ -4,8 +4,6 @@
 import unittest
 import doctest
 
-from proteindf_bridge.biopdb import Pdb
-from proteindf_bridge.path import Path
 
 
 class PathTest(unittest.TestCase):

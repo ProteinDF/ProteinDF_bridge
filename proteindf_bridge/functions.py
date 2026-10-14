@@ -118,7 +118,7 @@ _RESIDUE_KEY_RE = re.compile(r"^(-?\d+)(\S?)$")
 
 
 def split_residue_key(key: Any) -> Tuple[int, str]:
-    """Split a residue key into (sequence number, insertion code).
+    r"""Split a residue key into (sequence number, insertion code).
 
     Accepts keys matching ^(-?\d+)(\S?)$ and returns (int(res_seq), i_code).
     If there is no insertion code, i_code is "".
