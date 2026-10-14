@@ -82,6 +82,99 @@ class PositionTests(unittest.TestCase):
         with self.assertRaises(AssertionError):
             pos.__setstate__({1.0, 2.0, 3.0})
 
+    def test_indexing_and_iteration(self):
+        p = Position([1.0, 2.0, 3.0])
+        self.assertEqual(list(p), [1.0, 2.0, 3.0])
+        self.assertEqual(len(p), 3)
+        self.assertEqual(p[-1], 3.0)
+        self.assertEqual(p[-2], 2.0)
+        self.assertEqual(p[-3], 1.0)
+        self.assertEqual(p[0], 1.0)
+        self.assertEqual(p[1], 2.0)
+        self.assertEqual(p[2], 3.0)
+
+        with self.assertRaises(IndexError):
+            _ = p[3]
+        with self.assertRaises(IndexError):
+            _ = p[-4]
+
+        with self.assertRaises(IndexError):
+            p[3] = 0.0
+        with self.assertRaises(IndexError):
+            p[-4] = 0.0
+
+        p[-1] = 9.0
+        self.assertEqual(p[2], 9.0)
+        self.assertEqual(p[-1], 9.0)
+
+    def test_multiplication_scalars_and_dot(self):
+        import numpy as np
+        from proteindf_bridge.error import BrInputError
+
+        p = Position([1.0, 2.0, 3.0])
+
+        r1 = p * 2
+        self.assertEqual(list(r1), [2.0, 4.0, 6.0])
+        r2 = 2 * p
+        self.assertEqual(list(r2), [2.0, 4.0, 6.0])
+
+        r3 = p * np.int64(2)
+        self.assertEqual(list(r3), [2.0, 4.0, 6.0])
+        r4 = np.int64(2) * p
+        self.assertEqual(list(r4), [2.0, 4.0, 6.0])
+
+        r5 = p * np.float64(2)
+        self.assertEqual(list(r5), [2.0, 4.0, 6.0])
+        r6 = np.float64(2) * p
+        self.assertEqual(list(r6), [2.0, 4.0, 6.0])
+
+        p2 = Position([2.0, 3.0, 4.0])
+        self.assertEqual(p * p2, 20.0)
+
+        with self.assertRaises(BrInputError):
+            _ = p * "a"
+
+    def test_parity_with_rust(self):
+        try:
+            import proteindf_bridge.rs as rs_br
+        except ImportError:
+            self.skipTest("proteindf_bridge.rs is not available")
+
+        import numpy as np
+
+        py_p = Position([1.0, 2.0, 3.0])
+        rs_p = rs_br.Position(1.0, 2.0, 3.0)
+
+        self.assertEqual(list(py_p), list(rs_p))
+
+        for idx in range(-3, 3):
+            self.assertEqual(py_p[idx], rs_p[idx])
+
+        for out_idx in [3, 4, -4, -5]:
+            with self.assertRaises(IndexError):
+                _ = py_p[out_idx]
+            with self.assertRaises(IndexError):
+                _ = rs_p[out_idx]
+
+        for out_idx in [3, -4]:
+            with self.assertRaises(IndexError):
+                py_p[out_idx] = 0.0
+            with self.assertRaises(IndexError):
+                rs_p[out_idx] = 0.0
+
+        for factor in [2, 2.0, np.int64(2), np.float64(2)]:
+            py_mul = py_p * factor
+            rs_mul = rs_p * factor
+            self.assertEqual(list(py_mul), list(rs_mul))
+
+            py_rmul = factor * py_p
+            rs_rmul = factor * rs_p
+            self.assertEqual(list(py_rmul), list(rs_rmul))
+
+        py_p2 = Position([2.0, 3.0, 4.0])
+        rs_p2 = rs_br.Position(2.0, 3.0, 4.0)
+        self.assertEqual(py_p * py_p2, rs_p * rs_p2)
+
 
 def load_tests(loader, tests, ignore):
     from proteindf_bridge import position

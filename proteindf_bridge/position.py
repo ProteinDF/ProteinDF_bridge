@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import math
+import numbers
 import numpy
 from typing import Union, Sequence, List, Optional, Any
 
@@ -245,8 +246,8 @@ class Position(object):
         rhs1 = Position(self)
         if isinstance(rhs2, Position):
             return sum([x * y for x, y in zip(rhs1._position, rhs2._position)])
-        elif isinstance(rhs2, float):
-            rhs1._position = [x * rhs2 for x in rhs1._position]
+        elif isinstance(rhs2, numbers.Real):
+            rhs1._position = [float(x * rhs2) for x in rhs1._position]
             return rhs1
         else:
             raise BrInputError("position.__add__",
@@ -268,14 +269,22 @@ class Position(object):
     def __itruediv__(self, rhs):
         return self.__imul__(1.0 / float(rhs))
 
+    def __len__(self):
+        return 3
+
+    def __iter__(self):
+        return iter(self._position)
+
     def __getitem__(self, i):
         i = int(i)
-        assert(0 <= i and i < 3)
+        if not (-3 <= i <= 2):
+            raise IndexError("position index out of range")
         return self._position[i]
 
     def __setitem__(self, i, v):
         i = int(i)
-        assert(0 <= i and i < 3)
+        if not (-3 <= i <= 2):
+            raise IndexError("position index out of range")
         self._position[i] = v
 
     # ------------------------------------------------------------------
