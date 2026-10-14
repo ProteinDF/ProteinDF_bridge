@@ -40,6 +40,9 @@ docs = [
     "sphinx-copybutton",
     "sphinx-autodoc-typehints",
 ]
+plot = [
+    "matplotlib",
+]
 
 [project.scripts]
 "brd-box.py" = "proteindf_bridge.cli.brd_box:main"
@@ -47,6 +50,7 @@ docs = [
 "brd-divide-mainchain.py" = "proteindf_bridge.cli.brd_divide_mainchain:main"
 "brd-divide.py" = "proteindf_bridge.cli.brd_divide:main"
 "brd-formula.py" = "proteindf_bridge.cli.brd_formula:main"
+"brd-ramachandran.py" = "proteindf_bridge.cli.brd_ramachandran:main"
 "brd-renumber-resid.py" = "proteindf_bridge.cli.brd_renumber_resid:main"
 "brd-restructure.py" = "proteindf_bridge.cli.brd_restructure:main"
 "brd-select-path.py" = "proteindf_bridge.cli.brd_select_path:main"
