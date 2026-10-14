@@ -5,6 +5,7 @@ import sys
 import argparse
 
 import proteindf_bridge.rs as rs
+from proteindf_bridge import split_residue_key
 
 
 def main():
@@ -58,7 +59,9 @@ def main():
             new_chain = rs.AtomGroup()
             new_chain.name = chain.name
             for res_id, res in chain.groups():
-                new_chain.set_group(int(res_id) + increment, res)
+                seq, icode = split_residue_key(res_id)
+                new_key = "%d%s" % (seq + increment, icode)
+                new_chain.set_group(new_key, res)
 
             new_model.set_group(chain_key, new_chain)
         new_models.set_group(model_key, new_model)

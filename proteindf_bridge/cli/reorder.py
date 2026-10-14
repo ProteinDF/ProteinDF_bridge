@@ -4,6 +4,7 @@
 import argparse
 
 import proteindf_bridge.rs as rs
+from proteindf_bridge import split_residue_key
 
 import logging
 import logging.config
@@ -32,7 +33,8 @@ def get_max_resid(model):
     max_resid = 0
     for chain_name, chain in model.groups():
         for resid, res in chain.groups():
-            max_resid = max(int(resid), max_resid)
+            resid_int, _ = split_residue_key(resid)
+            max_resid = max(resid_int, max_resid)
     return max_resid
 
 
