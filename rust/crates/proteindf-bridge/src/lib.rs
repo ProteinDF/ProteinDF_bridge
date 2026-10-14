@@ -72,7 +72,7 @@ pub use neutralize::Neutralize;
 pub use orchestrator::{hydrogenate_atomgroup, OverallHydrogenationReport};
 pub use periodic_table::PeriodicTable;
 pub use position::{dihedral_angle, Position};
-pub use ramachandran::{calc_phi_psi, RamachandranAngle};
+pub use ramachandran::{calc_phi_psi, RamachandranAngle, PEPTIDE_BOND_MAX_DISTANCE};
 pub use secondary_structure::{
     apply_secondary_structure, calc_secondary_structure, SecondaryStructure, SsCode,
 };

@@ -272,3 +272,51 @@ fn test_ramachandran_unsorted_chain_keys() {
         }
     }
 }
+
+#[test]
+fn test_ramachandran_chain_break_distance() {
+    assert_eq!(proteindf_bridge::PEPTIDE_BOND_MAX_DISTANCE, 2.0);
+
+    let mut chain = AtomGroup::with_name("A");
+
+    let mut res1 = AtomGroup::with_name("1");
+    res1.name = "ALA".to_string();
+    res1.set_atom("N", make_backbone_atom("N", Position::new(0.0, 0.0, 0.0)));
+    res1.set_atom("CA", make_backbone_atom("CA", Position::new(1.0, 0.0, 0.0)));
+    res1.set_atom("C", make_backbone_atom("C", Position::new(1.5, 1.0, 0.0)));
+
+    let mut res2 = AtomGroup::with_name("2");
+    res2.name = "GLY".to_string();
+    res2.set_atom("N", make_backbone_atom("N", Position::new(2.5, 1.0, 0.0)));
+    res2.set_atom("CA", make_backbone_atom("CA", Position::new(3.5, 1.0, 0.0)));
+    res2.set_atom("C", make_backbone_atom("C", Position::new(4.0, 2.0, 0.0)));
+
+    let mut res3 = AtomGroup::with_name("3");
+    res3.name = "VAL".to_string();
+    // Distance between res2 C (4.0, 2.0, 0.0) and res3 N (9.0, 2.0, 0.0) is 5.0 Angstroms
+    res3.set_atom("N", make_backbone_atom("N", Position::new(9.0, 2.0, 0.0)));
+    res3.set_atom(
+        "CA",
+        make_backbone_atom("CA", Position::new(10.0, 2.0, 0.0)),
+    );
+    res3.set_atom("C", make_backbone_atom("C", Position::new(10.5, 3.0, 0.0)));
+
+    chain.set_group("1", res1);
+    chain.set_group("2", res2);
+    chain.set_group("3", res3);
+
+    let angles = calc_phi_psi(&chain);
+    assert_eq!(angles.len(), 3);
+
+    // Residue 1: phi is None; psi has a value (C-N distance is 1.0 Å <= 2.0 Å)
+    assert!(angles[0].phi.is_none());
+    assert!(angles[0].psi.is_some());
+
+    // Residue 2: phi has a value (C-N distance is 1.0 Å <= 2.0 Å); psi is None (C-N distance is 5.0 Å > 2.0 Å)
+    assert!(angles[1].phi.is_some());
+    assert!(angles[1].psi.is_none());
+
+    // Residue 3: phi is None (C-N distance is 5.0 Å > 2.0 Å); psi is None (last residue)
+    assert!(angles[2].phi.is_none());
+    assert!(angles[2].psi.is_none());
+}
