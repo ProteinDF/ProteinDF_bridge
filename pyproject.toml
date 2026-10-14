@@ -87,3 +87,11 @@ include = [
     { path = "proteindf_bridge/data/*.brd", format = ["wheel", "sdist"] },
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"proteindf_bridge/common.py" = ["F401"]
+"proteindf_bridge/functions.py" = ["F401"]
+"proteindf_bridge/str_processing.py" = ["F401"]
+"proteindf_bridge/format.py" = ["F401"]
+"proteindf_bridge/select.py" = ["F401"]
+
