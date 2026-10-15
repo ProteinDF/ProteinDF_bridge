@@ -28,6 +28,7 @@ pub mod selector;
 pub mod ssbond;
 pub mod superposer;
 pub mod superposer_quaternion;
+pub mod value;
 pub mod vector;
 
 #[pymodule]

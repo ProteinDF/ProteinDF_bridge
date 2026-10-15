@@ -249,6 +249,7 @@ impl PyAtomGroup {
     }
 
     pub(crate) fn deep_clone(&self, py: Python<'_>) -> PyResult<Self> {
+        let current_path = self.compute_path(py);
         let mut atoms = IndexMap::with_capacity(self.atoms.len());
         for (k, atom_py) in &self.atoms {
             let atom_copy = atom_py.borrow(py).__copy__(py)?;
@@ -270,7 +271,7 @@ impl PyAtomGroup {
             secondary_structure: self.secondary_structure,
             parent: None,
             my_key: None,
-            root_path: self.root_path.clone(),
+            root_path: Some(current_path),
         })
     }
 
@@ -398,6 +399,12 @@ impl PyAtomGroup {
             let first = args.get_item(0)?;
             if let Ok(other) = first.extract::<PyRef<PyAtomGroup>>() {
                 group = other.deep_clone(py)?;
+            } else if let Ok(dict) = first.cast::<pyo3::types::PyDict>() {
+                let val = crate::value::py_to_value(py, dict.as_any())?;
+                let mut core = CoreAtomGroup::new();
+                proteindf_bridge::brd::atomgroup_set_by_dict_data(&mut core, &val)
+                    .map_err(to_py_err)?;
+                group = PyAtomGroup::from_core(py, core)?;
             } else if let Ok(name) = first.extract::<String>() {
                 group.name = name;
             } else {
@@ -1169,14 +1176,124 @@ impl PyAtomGroup {
         Python::attach(|py| format!("{}", self.to_core(py)))
     }
 
+    pub fn get_raw_data<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let core = self.to_core(py);
+        let val = proteindf_bridge::brd::atomgroup_get_raw_data(&core);
+        crate::value::value_to_py(py, &val)
+    }
+
+    pub fn set_by_dict_data<'py>(
+        slf: &Bound<'py, Self>,
+        data: &Bound<'_, pyo3::types::PyDict>,
+    ) -> PyResult<Bound<'py, Self>> {
+        let py = slf.py();
+        let val = crate::value::py_to_value(py, data.as_any())?;
+        let mut core = CoreAtomGroup::new();
+        proteindf_bridge::brd::atomgroup_set_by_dict_data(&mut core, &val).map_err(to_py_err)?;
+        let mut borrow = slf.borrow_mut();
+        borrow.update_from_core(py, core)?;
+        drop(borrow);
+        for (k, g) in &slf.borrow().groups {
+            ensure_child_link(slf, k, g)?;
+        }
+        Ok(slf.clone())
+    }
+
     pub fn __copy__(slf: &Bound<'_, Self>) -> PyResult<Py<Self>> {
         let py = slf.py();
         let clone = slf.borrow().deep_clone(py)?;
-        Py::new(py, clone)
+        let new_py = Py::new(py, clone)?;
+        for (k, child_py) in &new_py.borrow(py).groups {
+            let mut b = child_py.borrow_mut(py);
+            if b.parent.is_none() {
+                b.parent = Some(new_py.clone_ref(py));
+            }
+            b.my_key = Some(k.clone());
+        }
+        Ok(new_py)
     }
 
     pub fn __deepcopy__(slf: &Bound<'_, Self>, _memo: &Bound<'_, PyAny>) -> PyResult<Py<Self>> {
         Self::__copy__(slf)
+    }
+
+    pub fn __getstate__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let core = self.to_core(py);
+        let val = proteindf_bridge::brd::atomgroup_get_raw_data(&core);
+        let raw_py = crate::value::value_to_py(py, &val)?;
+        let path = self.compute_path(py);
+
+        let mut ss_list = Vec::new();
+        collect_secondary_structures(&core, &mut ss_list);
+
+        let ss_list_py = pyo3::types::PyList::empty(py);
+        for (p, ss) in ss_list {
+            let tup = (p, ss).into_pyobject(py)?;
+            ss_list_py.append(tup)?;
+        }
+
+        let state_tuple = pyo3::types::PyTuple::new(
+            py,
+            &[
+                raw_py,
+                path.into_pyobject(py)?.into_any(),
+                ss_list_py.into_any(),
+            ],
+        )?;
+        Ok(state_tuple.into_any())
+    }
+
+    pub fn __setstate__(&mut self, py: Python<'_>, state: &Bound<'_, PyAny>) -> PyResult<()> {
+        let tup = state.cast::<pyo3::types::PyTuple>()?;
+        if tup.len() != 3 {
+            return Err(PyValueError::new_err("Invalid state tuple for AtomGroup"));
+        }
+        let raw_obj = tup.get_item(0)?;
+        let path_obj = tup.get_item(1)?;
+        let ss_obj = tup.get_item(2)?;
+
+        let val = crate::value::py_to_value(py, &raw_obj)?;
+        let mut core = CoreAtomGroup::new();
+        proteindf_bridge::brd::atomgroup_set_by_dict_data(&mut core, &val).map_err(to_py_err)?;
+
+        let path = path_obj.extract::<String>()?;
+        let depth = path
+            .trim_matches('/')
+            .split('/')
+            .filter(|s| !s.is_empty())
+            .count();
+        core.set_path_with_depth(path.clone(), depth);
+
+        let ss_list = ss_obj.extract::<Vec<(String, String)>>()?;
+        for (p, ss_str) in ss_list {
+            let ss_code = match ss_str.as_str() {
+                "H" => Some(SsCode::Helix),
+                "E" => Some(SsCode::Strand),
+                "-" => Some(SsCode::Loop),
+                _ => None,
+            };
+            if let Some(target) = find_group_mut_by_path(&mut core, &p) {
+                target.set_secondary_structure(ss_code);
+            }
+        }
+
+        let restored = PyAtomGroup::from_core(py, core)?;
+        *self = restored;
+        Ok(())
+    }
+
+    pub fn __reduce__<'py>(
+        slf: Bound<'py, Self>,
+    ) -> PyResult<(
+        Bound<'py, PyAny>,
+        Bound<'py, pyo3::types::PyTuple>,
+        Bound<'py, PyAny>,
+    )> {
+        let py = slf.py();
+        let cls = slf.get_type().into_any();
+        let empty_args = pyo3::types::PyTuple::empty(py);
+        let state = slf.borrow().__getstate__(py)?;
+        Ok((cls, empty_args, state))
     }
 
     pub fn save_csv(&self, py: Python<'_>, path: &str) -> PyResult<()> {
@@ -1358,4 +1475,28 @@ fn assign_rest_molecule(
     } else {
         Err(PyKeyError::new_err(model_id.to_string()))
     }
+}
+
+fn collect_secondary_structures(group: &CoreAtomGroup, out: &mut Vec<(String, String)>) {
+    if let Some(ss) = group.secondary_structure() {
+        out.push((group.path().to_string(), ss.as_char().to_string()));
+    }
+    for (_, child) in group.groups() {
+        collect_secondary_structures(child, out);
+    }
+}
+
+fn find_group_mut_by_path<'a>(
+    group: &'a mut CoreAtomGroup,
+    path: &str,
+) -> Option<&'a mut CoreAtomGroup> {
+    if group.path() == path {
+        return Some(group);
+    }
+    for (_, child) in group.groups_mut() {
+        if let Some(found) = find_group_mut_by_path(child, path) {
+            return Some(found);
+        }
+    }
+    None
 }

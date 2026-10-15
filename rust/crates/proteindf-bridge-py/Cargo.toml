@@ -17,3 +17,4 @@ extension-module = ["pyo3/extension-module"]
 pyo3 = { version = "0.29", features = ["abi3-py39"] }
 proteindf-bridge = { path = "../proteindf-bridge" }
 indexmap = "2.7"
+rmpv = "1.3"
