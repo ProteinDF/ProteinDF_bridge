@@ -8,7 +8,8 @@ use crate::hydrogenation::PyOverallHydrogenationReport;
 use crate::matrix::PyMatrix;
 use crate::position::PyPosition;
 use crate::schema::PySchemaViolation;
-use proteindf_bridge::atom_group::{AtomGroup as CoreAtomGroup, Selector};
+use indexmap::IndexMap;
+use proteindf_bridge::atom_group::{AtomGroup as CoreAtomGroup, BondRecord, Selector};
 use proteindf_bridge::ccd_templates::CcdTemplateDb as CoreCcdTemplateDb;
 use proteindf_bridge::position::Position;
 use proteindf_bridge::secondary_structure::{
@@ -19,29 +20,340 @@ use pyo3::prelude::*;
 use std::collections::HashMap;
 use std::str::FromStr;
 
-#[pyclass(name = "AtomGroup", module = "proteindf_bridge.rs", from_py_object)]
-#[derive(Clone, Default)]
+#[pyclass(
+    name = "AtomGroup",
+    module = "proteindf_bridge.rs",
+    weakref,
+    from_py_object
+)]
 pub struct PyAtomGroup {
-    pub(crate) inner: CoreAtomGroup,
+    pub(crate) name: String,
+    pub(crate) atoms: IndexMap<String, Py<PyAtom>>,
+    pub(crate) groups: IndexMap<String, Py<PyAtomGroup>>,
+    pub(crate) bonds: Vec<BondRecord>,
+    pub(crate) secondary_structure: Option<SsCode>,
+    pub(crate) parent: Option<Py<PyAny>>,
+    pub(crate) my_key: Option<String>,
+    pub(crate) root_path: Option<String>,
+}
+
+impl Default for PyAtomGroup {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            atoms: IndexMap::new(),
+            groups: IndexMap::new(),
+            bonds: Vec::new(),
+            secondary_structure: None,
+            parent: None,
+            my_key: None,
+            root_path: Some("/".to_string()),
+        }
+    }
+}
+
+impl Clone for PyAtomGroup {
+    fn clone(&self) -> Self {
+        Python::attach(|py| self.deep_clone(py).expect("failed to clone PyAtomGroup"))
+    }
 }
 
 impl PyAtomGroup {
-    pub(crate) fn to_core(&self, _py: Python<'_>) -> CoreAtomGroup {
-        self.inner.clone()
+    pub(crate) fn get_parent(&self, py: Python<'_>) -> Option<Py<PyAtomGroup>> {
+        let weak = self.parent.as_ref()?;
+        let bound = weak.bind(py);
+        let resolved = bound.call0().ok()?;
+        if resolved.is_none() {
+            None
+        } else {
+            resolved.extract::<Py<PyAtomGroup>>().ok()
+        }
     }
 
-    pub(crate) fn from_core(_py: Python<'_>, ag: CoreAtomGroup) -> PyResult<Self> {
-        Ok(Self { inner: ag })
+    pub(crate) fn compute_path(&self, py: Python<'_>) -> String {
+        if let Some(parent_py) = self.get_parent(py) {
+            let parent_path = parent_py.borrow(py).compute_path(py);
+            if let Some(key) = &self.my_key {
+                format!("{}{}/", parent_path, key)
+            } else {
+                format!("{}{}/", parent_path, self.name)
+            }
+        } else {
+            let mut p = self.root_path.clone().unwrap_or_else(|| "/".to_string());
+            if p.is_empty() || !p.ends_with('/') {
+                p.push('/');
+            }
+            p
+        }
     }
 
-    pub(crate) fn update_from_core(&mut self, _py: Python<'_>, ag: CoreAtomGroup) -> PyResult<()> {
-        self.inner = ag;
+    pub(crate) fn compute_depth(&self, py: Python<'_>) -> usize {
+        if let Some(parent_py) = self.get_parent(py) {
+            parent_py.borrow(py).compute_depth(py) + 1
+        } else {
+            0
+        }
+    }
+
+    pub(crate) fn to_core(&self, py: Python<'_>) -> CoreAtomGroup {
+        let path = self.compute_path(py);
+        let depth = self.compute_depth(py);
+        self.to_core_with_path(py, path, depth)
+    }
+
+    pub(crate) fn to_core_with_path(
+        &self,
+        py: Python<'_>,
+        path: String,
+        depth: usize,
+    ) -> CoreAtomGroup {
+        let mut core = CoreAtomGroup::with_name(&self.name);
+        core.set_path_with_depth(path.clone(), depth);
+        for (k, g) in &self.groups {
+            let child_path = format!("{}{}/", path, k);
+            let child_core = g.borrow(py).to_core_with_path(py, child_path, depth + 1);
+            core.set_group(k, child_core);
+        }
+        for (k, a) in &self.atoms {
+            core.set_atom(k, a.borrow(py).to_core(py));
+        }
+        core.set_bonds(self.bonds.clone());
+        core.set_secondary_structure(self.secondary_structure);
+        core
+    }
+
+    pub(crate) fn from_core(py: Python<'_>, ag: CoreAtomGroup) -> PyResult<Self> {
+        let root_path = ag.path().to_string();
+        let name = ag.name.clone();
+        let bonds = ag.bonds().to_vec();
+        let secondary_structure = ag.secondary_structure();
+
+        let mut atoms = IndexMap::with_capacity(ag.get_number_of_atoms());
+        for (k, a) in ag.atoms() {
+            let py_atom = PyAtom::from_core(py, a.clone())?;
+            atoms.insert(k.clone(), Py::new(py, py_atom)?);
+        }
+
+        let mut groups = IndexMap::with_capacity(ag.get_number_of_groups());
+        for (k, child_core) in ag.groups() {
+            let child_py = Self::from_core_py(py, child_core, None, Some(k.clone()), None)?;
+            groups.insert(k.clone(), child_py);
+        }
+
+        Ok(Self {
+            name,
+            atoms,
+            groups,
+            bonds,
+            secondary_structure,
+            parent: None,
+            my_key: None,
+            root_path: Some(root_path),
+        })
+    }
+
+    pub(crate) fn from_core_py(
+        py: Python<'_>,
+        ag: &CoreAtomGroup,
+        parent: Option<Py<PyAny>>,
+        my_key: Option<String>,
+        root_path: Option<String>,
+    ) -> PyResult<Py<PyAtomGroup>> {
+        let mut atoms = IndexMap::with_capacity(ag.get_number_of_atoms());
+        for (k, a) in ag.atoms() {
+            let py_atom = PyAtom::from_core(py, a.clone())?;
+            atoms.insert(k.clone(), Py::new(py, py_atom)?);
+        }
+
+        let new_group = PyAtomGroup {
+            name: ag.name.clone(),
+            atoms,
+            groups: IndexMap::new(),
+            bonds: ag.bonds().to_vec(),
+            secondary_structure: ag.secondary_structure(),
+            parent,
+            my_key,
+            root_path,
+        };
+        let new_group_py = Py::new(py, new_group)?;
+
+        let weakref_mod = py.import("weakref")?;
+        let parent_ref = weakref_mod.call_method1("ref", (&new_group_py,))?;
+        let parent_weak: Py<PyAny> = parent_ref.unbind();
+
+        for (k, child_core) in ag.groups() {
+            let child_py = Self::from_core_py(
+                py,
+                child_core,
+                Some(parent_weak.clone_ref(py)),
+                Some(k.clone()),
+                None,
+            )?;
+            new_group_py
+                .borrow_mut(py)
+                .groups
+                .insert(k.clone(), child_py);
+        }
+
+        Ok(new_group_py)
+    }
+
+    pub(crate) fn update_from_core(
+        &mut self,
+        py: Python<'_>,
+        mut core: CoreAtomGroup,
+    ) -> PyResult<()> {
+        self.name = core.name.clone();
+        self.bonds = core.bonds().to_vec();
+        self.secondary_structure = core.secondary_structure();
+
+        // 1. atoms
+        let mut new_atoms = IndexMap::with_capacity(core.get_number_of_atoms());
+        for (k, atom_core) in core.atoms_mut() {
+            if let Some(existing_atom) = self.atoms.shift_remove(k) {
+                let mut b = existing_atom.borrow_mut(py);
+                b.atomic_number = atom_core.atomic_number();
+                b.name = atom_core.name.clone();
+                b.label = atom_core.label.clone();
+                b.charge = atom_core.charge;
+                b.path = atom_core.path.clone();
+                b.xyz.borrow_mut(py).inner = atom_core.xyz;
+                b.force.borrow_mut(py).inner = atom_core.force;
+                drop(b);
+                new_atoms.insert(k.clone(), existing_atom);
+            } else {
+                let atom = PyAtom::from_core(py, atom_core.clone())?;
+                new_atoms.insert(k.clone(), Py::new(py, atom)?);
+            }
+        }
+        self.atoms = new_atoms;
+
+        // 2. groups
+        let mut new_groups = IndexMap::with_capacity(core.get_number_of_groups());
+        let mut to_recurse = Vec::new();
+        for (k, child_core) in core.groups_mut() {
+            if let Some(existing_child) = self.groups.shift_remove(k) {
+                to_recurse.push((existing_child.clone_ref(py), std::mem::take(child_core)));
+                new_groups.insert(k.clone(), existing_child);
+            } else {
+                let child = PyAtomGroup::from_core(py, std::mem::take(child_core))?;
+                let child_py = Py::new(py, child)?;
+                child_py.borrow_mut(py).my_key = Some(k.clone());
+                new_groups.insert(k.clone(), child_py);
+            }
+        }
+        let parent_path = core.path().to_string();
+        for (k, removed_child) in self.groups.drain(..) {
+            let mut b = removed_child.borrow_mut(py);
+            let old_path = format!("{}{}/", parent_path, k);
+            b.parent = None;
+            b.my_key = None;
+            b.root_path = Some(old_path);
+        }
+        self.groups = new_groups;
+
+        for (child_py, child_core) in to_recurse {
+            child_py.borrow_mut(py).update_from_core(py, child_core)?;
+        }
+
         Ok(())
     }
 
-    fn from_core_raw(group: CoreAtomGroup) -> Self {
-        Self { inner: group }
+    pub(crate) fn deep_clone(&self, py: Python<'_>) -> PyResult<Self> {
+        let mut atoms = IndexMap::with_capacity(self.atoms.len());
+        for (k, atom_py) in &self.atoms {
+            let atom_copy = atom_py.borrow(py).__copy__(py)?;
+            atoms.insert(k.clone(), Py::new(py, atom_copy)?);
+        }
+
+        let mut groups = IndexMap::with_capacity(self.groups.len());
+        for (k, child_py) in &self.groups {
+            let child_borrow = child_py.borrow(py);
+            let child_clone = Self::deep_clone_py(py, &child_borrow, None, Some(k.clone()))?;
+            groups.insert(k.clone(), child_clone);
+        }
+
+        Ok(Self {
+            name: self.name.clone(),
+            atoms,
+            groups,
+            bonds: self.bonds.clone(),
+            secondary_structure: self.secondary_structure,
+            parent: None,
+            my_key: None,
+            root_path: self.root_path.clone(),
+        })
     }
+
+    pub(crate) fn deep_clone_py(
+        py: Python<'_>,
+        original: &PyAtomGroup,
+        parent: Option<Py<PyAny>>,
+        my_key: Option<String>,
+    ) -> PyResult<Py<PyAtomGroup>> {
+        let mut atoms = IndexMap::with_capacity(original.atoms.len());
+        for (k, atom_py) in &original.atoms {
+            let atom_copy = atom_py.borrow(py).__copy__(py)?;
+            atoms.insert(k.clone(), Py::new(py, atom_copy)?);
+        }
+
+        let new_group = PyAtomGroup {
+            name: original.name.clone(),
+            atoms,
+            groups: IndexMap::new(),
+            bonds: original.bonds.clone(),
+            secondary_structure: original.secondary_structure,
+            parent,
+            my_key,
+            root_path: original.root_path.clone(),
+        };
+        let new_group_py = Py::new(py, new_group)?;
+
+        let weakref_mod = py.import("weakref")?;
+        let parent_ref = weakref_mod.call_method1("ref", (&new_group_py,))?;
+        let parent_weak: Py<PyAny> = parent_ref.unbind();
+
+        for (k, child_py) in &original.groups {
+            let child_borrow = child_py.borrow(py);
+            let child_clone = Self::deep_clone_py(
+                py,
+                &child_borrow,
+                Some(parent_weak.clone_ref(py)),
+                Some(k.clone()),
+            )?;
+            new_group_py
+                .borrow_mut(py)
+                .groups
+                .insert(k.clone(), child_clone);
+        }
+
+        Ok(new_group_py)
+    }
+
+    fn shift_by_position(&mut self, py: Python<'_>, pos: Position) {
+        for a in self.atoms.values() {
+            a.borrow(py).xyz.borrow_mut(py).inner += pos;
+        }
+        for g in self.groups.values() {
+            g.borrow_mut(py).shift_by_position(py, pos);
+        }
+    }
+}
+
+fn ensure_child_link(
+    slf: &Bound<'_, PyAtomGroup>,
+    key: &str,
+    child: &Py<PyAtomGroup>,
+) -> PyResult<()> {
+    let py = slf.py();
+    let mut b = child.borrow_mut(py);
+    if b.parent.is_none() {
+        let weakref_mod = py.import("weakref")?;
+        let parent_ref = weakref_mod.call_method1("ref", (slf,))?;
+        b.parent = Some(parent_ref.unbind());
+    }
+    b.my_key = Some(key.to_string());
+    Ok(())
 }
 
 fn extract_key(key: &Bound<'_, PyAny>) -> PyResult<String> {
@@ -74,15 +386,16 @@ impl PyAtomGroup {
     #[new]
     #[pyo3(signature = (*args, **kwargs))]
     pub fn new(
+        py: Python<'_>,
         args: &Bound<'_, pyo3::types::PyTuple>,
         kwargs: Option<&Bound<'_, pyo3::types::PyDict>>,
     ) -> PyResult<Self> {
-        let mut group = CoreAtomGroup::new();
+        let mut group = Self::default();
 
         if args.len() == 1 {
             let first = args.get_item(0)?;
             if let Ok(other) = first.extract::<PyRef<PyAtomGroup>>() {
-                group = other.inner.clone();
+                group = other.deep_clone(py)?;
             } else if let Ok(name) = first.extract::<String>() {
                 group.name = name;
             } else {
@@ -98,84 +411,101 @@ impl PyAtomGroup {
             if let Some(name) = kw.get_item("name")? {
                 group.name = name.extract::<String>()?;
             }
+            if let Some(path) = kw.get_item("path")? {
+                let mut p = path.extract::<String>()?;
+                if p.is_empty() || !p.ends_with('/') {
+                    p.push('/');
+                }
+                group.root_path = Some(p);
+            }
         }
 
-        Ok(Self { inner: group })
+        Ok(group)
     }
 
     #[getter]
     pub fn name(&self) -> String {
-        self.inner.name.clone()
+        self.name.clone()
     }
 
     #[setter]
     pub fn set_name(&mut self, val: String) {
-        self.inner.name = val;
+        self.name = val;
+    }
+
+    #[getter]
+    pub fn parent(&self, py: Python<'_>) -> Option<Py<PyAtomGroup>> {
+        self.get_parent(py)
     }
 
     #[getter]
     pub fn path(&self) -> String {
-        self.inner.path().to_string()
+        Python::attach(|py| self.compute_path(py))
     }
 
     #[setter]
-    pub fn set_path(&mut self, val: String) {
-        self.inner.set_path(val);
+    pub fn set_path(&mut self, py: Python<'_>, val: String) -> PyResult<()> {
+        if self.get_parent(py).is_some() {
+            return Err(PyValueError::new_err(
+                "Cannot set path on a child group with a parent",
+            ));
+        }
+        let mut p = val;
+        if p.is_empty() || !p.ends_with('/') {
+            p.push('/');
+        }
+        self.root_path = Some(p);
+        Ok(())
     }
 
-    /// Returns the path depth of this group in the hierarchy.
     pub fn path_depth(&self) -> usize {
-        self.inner.path_depth()
+        Python::attach(|py| self.compute_depth(py))
     }
 
-    /// Returns whether this group is at the model level (path depth 1).
     pub fn is_model_level(&self) -> bool {
-        self.inner.is_model_level()
+        self.path_depth() == 1
     }
 
-    /// Returns whether this group is at the chain level (path depth 2).
     pub fn is_chain_level(&self) -> bool {
-        self.inner.is_chain_level()
+        self.path_depth() == 2
     }
 
-    /// Returns whether this group is at the residue level (path depth 3).
     pub fn is_residue_level(&self) -> bool {
-        self.inner.is_residue_level()
+        self.path_depth() == 3
     }
 
-    /// Validates this AtomGroup hierarchy against the standard protein schema (/model_N/chain_id/res_key/atom_key).
     pub fn validate_schema(&self) -> Vec<PySchemaViolation> {
-        self.inner
-            .validate_schema()
-            .into_iter()
-            .map(PySchemaViolation::from)
-            .collect()
+        Python::attach(|py| {
+            self.to_core(py)
+                .validate_schema()
+                .into_iter()
+                .map(PySchemaViolation::from)
+                .collect()
+        })
     }
 
-    /// Returns the secondary structure code ('H', 'E', '-', or None) for this group.
     #[getter]
     pub fn secondary_structure(&self) -> Option<String> {
-        self.inner.secondary_structure().map(|ss| ss.to_string())
+        self.secondary_structure.map(|ss| ss.to_string())
     }
 
-    /// Sets the secondary structure code ('H', 'E', '-', or None) for this group.
     #[setter]
     pub fn set_secondary_structure(&mut self, val: Option<&str>) -> PyResult<()> {
         match val {
             None => {
-                self.inner.set_secondary_structure(None);
+                self.secondary_structure = None;
                 Ok(())
             }
             Some("H") => {
-                self.inner.set_secondary_structure(Some(SsCode::Helix));
+                self.secondary_structure = Some(SsCode::Helix);
                 Ok(())
             }
             Some("E") => {
-                self.inner.set_secondary_structure(Some(SsCode::Strand));
+                self.secondary_structure = Some(SsCode::Strand);
                 Ok(())
             }
             Some("-") => {
-                self.inner.set_secondary_structure(Some(SsCode::Loop));
+                self.secondary_structure = Some(SsCode::Loop);
                 Ok(())
             }
             Some(other) => Err(PyValueError::new_err(format!(
@@ -185,185 +515,364 @@ impl PyAtomGroup {
     }
 
     pub fn get_number_of_atoms(&self) -> usize {
-        self.inner.get_number_of_atoms()
+        self.atoms.len()
     }
 
     pub fn get_number_of_all_atoms(&self) -> usize {
-        self.inner.get_number_of_all_atoms()
+        Python::attach(|py| self.to_core(py).get_number_of_all_atoms())
     }
 
     pub fn get_number_of_groups(&self) -> usize {
-        self.inner.get_number_of_groups()
+        self.groups.len()
     }
 
     pub fn get_number_of_bonds(&self) -> usize {
-        self.inner.get_number_of_bonds()
+        self.bonds.len()
     }
 
-    pub fn get_atom(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Option<PyAtom>> {
+    pub fn get_atom(slf: &Bound<'_, Self>, key: &Bound<'_, PyAny>) -> PyResult<Option<Py<PyAtom>>> {
         let k = extract_key(key)?;
-        match self.inner.get_atom(&k) {
-            Some(a) => Ok(Some(PyAtom::from_core(py, a.clone())?)),
-            None => Ok(None),
+        let py = slf.py();
+        let borrow = slf.borrow();
+        let atom_opt = if let Some(a) = borrow.atoms.get(&k) {
+            Some((k.clone(), a.clone_ref(py)))
+        } else {
+            borrow
+                .atoms
+                .iter()
+                .find(|(_, a)| a.borrow(py).name.trim() == k.trim())
+                .map(|(key_name, a)| (key_name.clone(), a.clone_ref(py)))
+        };
+        if let Some((atom_key, atom_py)) = atom_opt {
+            let group_path = borrow.compute_path(py);
+            atom_py.borrow_mut(py).path = format!("{}{}", group_path, atom_key);
+            Ok(Some(atom_py))
+        } else {
+            Ok(None)
         }
     }
 
     pub fn set_atom(
-        &mut self,
-        py: Python<'_>,
+        slf: &Bound<'_, Self>,
         key: &Bound<'_, PyAny>,
-        atom: &PyAtom,
+        atom: &Bound<'_, PyAtom>,
     ) -> PyResult<()> {
         let k = extract_key(key)?;
-        self.inner.set_atom(&k, atom.to_core(py));
+        let py = slf.py();
+        let mut atom_copy = atom.borrow().__copy__(py)?;
+        let group_path = slf.borrow().compute_path(py);
+        atom_copy.path = format!("{}{}", group_path, k);
+        let atom_py = Py::new(py, atom_copy)?;
+        slf.borrow_mut().atoms.insert(k, atom_py);
         Ok(())
     }
 
-    pub fn has_atom(&self, key: &Bound<'_, PyAny>) -> PyResult<bool> {
+    pub fn has_atom(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<bool> {
         let k = extract_key(key)?;
-        Ok(self.inner.has_atom(&k))
+        Ok(self.atoms.contains_key(&k)
+            || self
+                .atoms
+                .values()
+                .any(|a| a.borrow(py).name.trim() == k.trim()))
     }
 
-    pub fn del_atom(&mut self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Option<PyAtom>> {
+    pub fn has_atomkey(&self, key: &Bound<'_, PyAny>) -> PyResult<bool> {
         let k = extract_key(key)?;
-        match self.inner.remove_atom(&k) {
-            Some(a) => Ok(Some(PyAtom::from_core(py, a)?)),
-            None => Ok(None),
-        }
+        Ok(self.atoms.contains_key(&k))
+    }
+
+    pub fn del_atom(
+        &mut self,
+        _py: Python<'_>,
+        key: &Bound<'_, PyAny>,
+    ) -> PyResult<Option<Py<PyAtom>>> {
+        let k = extract_key(key)?;
+        Ok(self.atoms.shift_remove(&k))
     }
 
     pub fn remove_atom(
         &mut self,
         py: Python<'_>,
         key: &Bound<'_, PyAny>,
-    ) -> PyResult<Option<PyAtom>> {
+    ) -> PyResult<Option<Py<PyAtom>>> {
         self.del_atom(py, key)
     }
 
-    pub fn get_group(&self, key: &Bound<'_, PyAny>) -> PyResult<Option<PyAtomGroup>> {
+    pub fn get_group(
+        slf: &Bound<'_, Self>,
+        key: &Bound<'_, PyAny>,
+    ) -> PyResult<Option<Py<PyAtomGroup>>> {
         let k = extract_key(key)?;
-        Ok(self
-            .inner
-            .get_group(&k)
-            .map(|g| PyAtomGroup::from_core_raw(g.clone())))
+        let py = slf.py();
+        let borrow = slf.borrow();
+        let child_opt = if let Some(g) = borrow.groups.get(&k) {
+            Some((k.clone(), g.clone_ref(py)))
+        } else {
+            borrow
+                .groups
+                .iter()
+                .find(|(_, g)| g.borrow(py).name == k)
+                .map(|(key_name, g)| (key_name.clone(), g.clone_ref(py)))
+        };
+        drop(borrow);
+
+        if let Some((child_key, child)) = child_opt {
+            ensure_child_link(slf, &child_key, &child)?;
+            Ok(Some(child))
+        } else {
+            Ok(None)
+        }
     }
 
-    pub fn set_group(&mut self, key: &Bound<'_, PyAny>, group: &PyAtomGroup) -> PyResult<()> {
+    pub fn set_group(
+        slf: &Bound<'_, Self>,
+        key: &Bound<'_, PyAny>,
+        group: &Bound<'_, PyAtomGroup>,
+    ) -> PyResult<()> {
         let k = extract_key(key)?;
-        self.inner.set_group(&k, group.inner.clone());
+        let py = slf.py();
+        let weakref_mod = py.import("weakref")?;
+        let parent_ref = weakref_mod.call_method1("ref", (slf,))?;
+        let parent_weak = parent_ref.unbind();
+
+        let child_borrow = group.borrow();
+        let copy_py = Self::deep_clone_py(py, &child_borrow, Some(parent_weak), Some(k.clone()))?;
+        drop(child_borrow);
+
+        let parent_path = slf.borrow().compute_path(py);
+        let old = slf.borrow_mut().groups.insert(k.clone(), copy_py);
+        if let Some(old_group) = old {
+            let mut b = old_group.borrow_mut(py);
+            let old_path = format!("{}{}/", parent_path, k);
+            b.parent = None;
+            b.my_key = None;
+            b.root_path = Some(old_path);
+        }
         Ok(())
     }
 
-    pub fn has_group(&self, key: &Bound<'_, PyAny>) -> PyResult<bool> {
+    pub fn has_group(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<bool> {
         let k = extract_key(key)?;
-        Ok(self.inner.has_group(&k))
+        Ok(self.groups.contains_key(&k) || self.groups.values().any(|g| g.borrow(py).name == k))
     }
 
     pub fn has_groupkey(&self, key: &Bound<'_, PyAny>) -> PyResult<bool> {
         let k = extract_key(key)?;
-        Ok(self.inner.has_groupkey(&k))
+        Ok(self.groups.contains_key(&k))
     }
 
-    pub fn del_group(&mut self, key: &Bound<'_, PyAny>) -> PyResult<Option<PyAtomGroup>> {
+    pub fn del_group(
+        slf: &Bound<'_, Self>,
+        key: &Bound<'_, PyAny>,
+    ) -> PyResult<Option<Py<PyAtomGroup>>> {
         let k = extract_key(key)?;
-        Ok(self.inner.remove_group(&k).map(PyAtomGroup::from_core_raw))
+        let py = slf.py();
+        let parent_path = slf.borrow().compute_path(py);
+        let old = slf.borrow_mut().groups.shift_remove(&k);
+        if let Some(old_group) = old {
+            let mut b = old_group.borrow_mut(py);
+            let old_path = format!("{}{}/", parent_path, k);
+            b.parent = None;
+            b.my_key = None;
+            b.root_path = Some(old_path);
+            drop(b);
+            Ok(Some(old_group))
+        } else {
+            Ok(None)
+        }
     }
 
-    pub fn atoms(&self, py: Python<'_>) -> PyResult<Vec<(String, PyAtom)>> {
-        self.inner
-            .atoms()
-            .map(|(k, a)| Ok((k.clone(), PyAtom::from_core(py, a.clone())?)))
-            .collect()
+    pub fn remove_group(
+        slf: &Bound<'_, Self>,
+        key: &Bound<'_, PyAny>,
+    ) -> PyResult<Option<Py<PyAtomGroup>>> {
+        Self::del_group(slf, key)
     }
 
-    pub fn groups(&self) -> Vec<(String, PyAtomGroup)> {
-        self.inner
-            .groups()
-            .map(|(k, g)| (k.clone(), PyAtomGroup::from_core_raw(g.clone())))
-            .collect()
+    pub fn atoms(slf: &Bound<'_, Self>) -> PyResult<Vec<(String, Py<PyAtom>)>> {
+        let py = slf.py();
+        let borrow = slf.borrow();
+        let group_path = borrow.compute_path(py);
+        let mut result = Vec::with_capacity(borrow.atoms.len());
+        for (k, a) in &borrow.atoms {
+            a.borrow_mut(py).path = format!("{}{}", group_path, k);
+            result.push((k.clone(), a.clone_ref(py)));
+        }
+        Ok(result)
+    }
+
+    pub fn groups(slf: &Bound<'_, Self>) -> PyResult<Vec<(String, Py<PyAtomGroup>)>> {
+        let py = slf.py();
+        let pairs: Vec<(String, Py<PyAtomGroup>)> = slf
+            .borrow()
+            .groups
+            .iter()
+            .map(|(k, g)| (k.clone(), g.clone_ref(py)))
+            .collect();
+        for (k, g) in &pairs {
+            ensure_child_link(slf, k, g)?;
+        }
+        Ok(pairs)
     }
 
     pub fn get_group_list(&self) -> Vec<String> {
-        self.inner.get_group_list()
+        self.groups.keys().cloned().collect()
     }
 
-    pub fn get_atom_list(&self, py: Python<'_>) -> PyResult<Vec<PyAtom>> {
-        self.inner
-            .get_atom_list()
-            .into_iter()
-            .map(|a| PyAtom::from_core(py, a))
-            .collect()
+    pub fn get_atom_list(slf: &Bound<'_, Self>) -> PyResult<Vec<Py<PyAtom>>> {
+        let py = slf.py();
+        let mut list = Vec::new();
+        let borrow = slf.borrow();
+        let group_path = borrow.compute_path(py);
+
+        for (k, g) in &borrow.groups {
+            ensure_child_link(slf, k, g)?;
+            let child_atoms = Self::get_atom_list(g.bind(py))?;
+            list.extend(child_atoms);
+        }
+        for (k, a) in &borrow.atoms {
+            a.borrow_mut(py).path = format!("{}{}", group_path, k);
+            list.push(a.clone_ref(py));
+        }
+        Ok(list)
     }
 
-    pub fn get_path_list(&self) -> Vec<String> {
-        self.inner.get_path_list()
+    pub fn get_path_list(slf: &Bound<'_, Self>) -> PyResult<Vec<String>> {
+        let py = slf.py();
+        let atoms = Self::get_atom_list(slf)?;
+        Ok(atoms.iter().map(|a| a.borrow(py).path.clone()).collect())
     }
 
     pub fn get_atom_kinds_count(&self) -> HashMap<String, usize> {
-        self.inner.get_atom_kinds_count()
+        Python::attach(|py| self.to_core(py).get_atom_kinds_count())
     }
 
     pub fn get_formula(&self) -> String {
-        self.inner.get_formula()
+        Python::attach(|py| self.to_core(py).get_formula())
     }
 
     pub fn formula(&self) -> String {
-        self.inner.get_formula()
+        self.get_formula()
     }
 
     #[getter]
     pub fn weight(&self) -> f64 {
-        self.inner
-            .get_atom_list()
-            .iter()
-            .map(|a| a.weight().unwrap_or(0.0))
-            .sum()
+        Python::attach(|py| {
+            self.to_core(py)
+                .get_atom_list()
+                .iter()
+                .map(|a| a.weight().unwrap_or(0.0))
+                .sum()
+        })
     }
 
     pub fn center(&self) -> PyPosition {
-        PyPosition::from_core(self.inner.center())
+        Python::attach(|py| PyPosition::from_core(self.to_core(py).center()))
     }
 
     pub fn r#box(&self) -> (PyPosition, PyPosition) {
-        let (bmin, bmax) = self.inner.r#box();
-        (PyPosition::from_core(bmin), PyPosition::from_core(bmax))
+        Python::attach(|py| {
+            let (bmin, bmax) = self.to_core(py).r#box();
+            (PyPosition::from_core(bmin), PyPosition::from_core(bmax))
+        })
     }
 
     pub fn get_box(&self) -> (PyPosition, PyPosition) {
         self.r#box()
     }
 
-    pub fn merge(&mut self, other: &PyAtomGroup) {
-        self.inner.merge(&other.inner);
+    pub fn merge(slf: &Bound<'_, Self>, other: &Bound<'_, PyAtomGroup>) -> PyResult<()> {
+        let py = slf.py();
+        let other_ref = other.borrow();
+
+        // 1. groups
+        for (k, child_py) in &other_ref.groups {
+            let exists_key = slf.borrow().groups.contains_key(k);
+            let matching_name_key = if !exists_key {
+                let child_name = child_py.borrow(py).name.clone();
+                if !child_name.is_empty() {
+                    slf.borrow()
+                        .groups
+                        .iter()
+                        .find(|(_, g)| g.borrow(py).name == child_name)
+                        .map(|(existing_k, _)| existing_k.clone())
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            if exists_key {
+                let existing_child = slf.borrow().groups.get(k).unwrap().clone_ref(py);
+                Self::merge(existing_child.bind(py), child_py.bind(py))?;
+            } else if let Some(matched_k) = matching_name_key {
+                let existing_child = slf.borrow().groups.get(&matched_k).unwrap().clone_ref(py);
+                Self::merge(existing_child.bind(py), child_py.bind(py))?;
+            } else {
+                let weakref_mod = py.import("weakref")?;
+                let parent_ref = weakref_mod.call_method1("ref", (slf,))?;
+                let parent_weak = parent_ref.unbind();
+
+                let child_borrow = child_py.borrow(py);
+                let copy_py =
+                    Self::deep_clone_py(py, &child_borrow, Some(parent_weak), Some(k.clone()))?;
+                slf.borrow_mut().groups.insert(k.clone(), copy_py);
+            }
+        }
+
+        // 2. atoms
+        for (k, atom_py) in &other_ref.atoms {
+            let mut atom_copy = atom_py.borrow(py).__copy__(py)?;
+            let group_path = slf.borrow().compute_path(py);
+            atom_copy.path = format!("{}{}", group_path, k);
+            let new_atom_py = Py::new(py, atom_copy)?;
+            slf.borrow_mut().atoms.insert(k.clone(), new_atom_py);
+        }
+
+        // 3. bonds
+        for bond in &other_ref.bonds {
+            if !slf.borrow().bonds.contains(bond) {
+                slf.borrow_mut().bonds.push(bond.clone());
+            }
+        }
+
+        // 4. secondary structure
+        if other_ref.secondary_structure.is_some() {
+            slf.borrow_mut().secondary_structure = other_ref.secondary_structure;
+        }
+
+        Ok(())
     }
 
-    pub fn select(&self, selector: &Bound<'_, PyAny>) -> PyResult<PyAtomGroup> {
+    pub fn select(&self, py: Python<'_>, selector: &Bound<'_, PyAny>) -> PyResult<PyAtomGroup> {
+        let core = self.to_core(py);
         if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectSymbol>>() {
-            return Ok(PyAtomGroup::from_core_raw(self.inner.select(&s.inner)));
+            return PyAtomGroup::from_core(py, core.select(&s.inner));
         }
         if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectName>>() {
-            return Ok(PyAtomGroup::from_core_raw(self.inner.select(&s.inner)));
+            return PyAtomGroup::from_core(py, core.select(&s.inner));
         }
         if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectPathSimple>>() {
-            return Ok(PyAtomGroup::from_core_raw(self.inner.select(&s.inner)));
+            return PyAtomGroup::from_core(py, core.select(&s.inner));
         }
         if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectPathWildcard>>() {
-            return Ok(PyAtomGroup::from_core_raw(self.inner.select(&s.inner)));
+            return PyAtomGroup::from_core(py, core.select(&s.inner));
         }
         if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectPathRegex>>() {
-            return Ok(PyAtomGroup::from_core_raw(self.inner.select(&s.inner)));
+            return PyAtomGroup::from_core(py, core.select(&s.inner));
         }
         if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectPath>>() {
-            return Ok(PyAtomGroup::from_core_raw(self.inner.select(&s.inner)));
+            return PyAtomGroup::from_core(py, core.select(&s.inner));
         }
         if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectRange>>() {
-            return Ok(PyAtomGroup::from_core_raw(self.inner.select(&s.inner)));
+            return PyAtomGroup::from_core(py, core.select(&s.inner));
         }
         if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectAtom>>() {
-            return Ok(PyAtomGroup::from_core_raw(self.inner.select(&s.inner)));
+            return PyAtomGroup::from_core(py, core.select(&s.inner));
         }
         if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectAtomGroup>>() {
-            return Ok(PyAtomGroup::from_core_raw(self.inner.select(&s.inner)));
+            return PyAtomGroup::from_core(py, core.select(&s.inner));
         }
 
         if selector.hasattr("is_match")? {
@@ -378,21 +887,15 @@ impl PyAtomGroup {
                         return false;
                     }
                     let py = self.obj.py();
-                    let py_group = PyAtomGroup::from_core_raw(group.clone());
-                    match py_group.into_pyobject(py) {
-                        Ok(py_obj) => match self.obj.call_method1("is_match", (py_obj,)) {
-                            Ok(res) => match res.extract::<bool>() {
-                                Ok(b) => b,
-                                Err(e) => {
-                                    *self.err.borrow_mut() = Some(e);
-                                    false
-                                }
-                            },
-                            Err(e) => {
-                                *self.err.borrow_mut() = Some(e);
-                                false
-                            }
-                        },
+                    let py_group = match PyAtomGroup::from_core(py, group.clone()) {
+                        Ok(g) => g,
+                        Err(e) => {
+                            *self.err.borrow_mut() = Some(e);
+                            return false;
+                        }
+                    };
+                    match self.obj.call_method1("is_match", (py_group,)) {
+                        Ok(res) => res.is_truthy().unwrap_or(false),
                         Err(e) => {
                             *self.err.borrow_mut() = Some(e);
                             false
@@ -412,20 +915,8 @@ impl PyAtomGroup {
                             return false;
                         }
                     };
-                    match py_atom.into_pyobject(py) {
-                        Ok(py_obj) => match self.obj.call_method1("is_match", (py_obj,)) {
-                            Ok(res) => match res.extract::<bool>() {
-                                Ok(b) => b,
-                                Err(e) => {
-                                    *self.err.borrow_mut() = Some(e);
-                                    false
-                                }
-                            },
-                            Err(e) => {
-                                *self.err.borrow_mut() = Some(e);
-                                false
-                            }
-                        },
+                    match self.obj.call_method1("is_match", (py_atom,)) {
+                        Ok(res) => res.is_truthy().unwrap_or(false),
                         Err(e) => {
                             *self.err.borrow_mut() = Some(e);
                             false
@@ -434,73 +925,64 @@ impl PyAtomGroup {
                 }
             }
 
-            let adapter = PySelector {
+            let py_sel = PySelector {
                 obj: selector,
                 err: std::cell::RefCell::new(None),
             };
-            let result = self.inner.select(&adapter);
-            if let Some(err) = adapter.err.into_inner() {
+            let result = core.select(&py_sel);
+            if let Some(err) = py_sel.err.into_inner() {
                 return Err(err);
             }
-            return Ok(PyAtomGroup::from_core_raw(result));
+            return PyAtomGroup::from_core(py, result);
         }
 
         Err(PyTypeError::new_err(format!(
-            "Expected Select, got {}",
+            "Unsupported selector type: {}",
             selector.get_type()
         )))
     }
 
     #[pyo3(signature = (atom1, atom2, order=1))]
-    pub fn add_bond(&mut self, py: Python<'_>, atom1: &PyAtom, atom2: &PyAtom, order: usize) {
-        self.inner
-            .add_bond(&atom1.to_core(py), &atom2.to_core(py), order);
+    pub fn add_bond(&mut self, _py: Python<'_>, atom1: &PyAtom, atom2: &PyAtom, order: usize) {
+        let b = BondRecord {
+            atom1_path: atom1.path.clone(),
+            atom2_path: atom2.path.clone(),
+            order,
+        };
+        if !self.bonds.contains(&b) {
+            self.bonds.push(b);
+        }
     }
 
     pub fn bonds(&self) -> Vec<(String, String, usize)> {
-        self.inner
-            .bonds()
+        self.bonds
             .iter()
             .map(|b| (b.atom1_path.clone(), b.atom2_path.clone(), b.order))
             .collect()
     }
 
-    pub fn get_bond_list(&mut self) -> Vec<(String, String, usize)> {
-        self.inner
-            .get_bond_list()
+    pub fn get_bond_list(&self, py: Python<'_>) -> Vec<(String, String, usize)> {
+        let mut core = self.to_core(py);
+        core.get_bond_list()
             .into_iter()
             .map(|b| (b.atom1_path, b.atom2_path, b.order))
             .collect()
     }
 
-    /// Sets up chemical bonds using embedded CCD templates and covalent radius heuristics.
-    ///
-    /// Modifies this AtomGroup in place. Note that calling this on a subtree copy does not
-    /// affect the original tree.
-    pub fn setup(&mut self) -> PyResult<()> {
-        self.inner.setup().map_err(to_py_err)
+    pub fn setup(&mut self, py: Python<'_>) -> PyResult<()> {
+        let mut core = self.to_core(py);
+        core.setup().map_err(to_py_err)?;
+        self.update_from_core(py, core)?;
+        Ok(())
     }
 
-    /// Sets up chemical bonds using the provided CCD template database and covalent radius heuristics.
-    ///
-    /// Modifies this AtomGroup in place. Note that calling this on a subtree copy does not
-    /// affect the original tree.
-    pub fn setup_with_db(&mut self, db: &PyCcdTemplateDb) -> PyResult<()> {
-        self.inner.setup_with_db(&db.inner).map_err(to_py_err)
+    pub fn setup_with_db(&mut self, py: Python<'_>, db: &PyCcdTemplateDb) -> PyResult<()> {
+        let mut core = self.to_core(py);
+        core.setup_with_db(&db.inner).map_err(to_py_err)?;
+        self.update_from_core(py, core)?;
+        Ok(())
     }
 
-    /// Adds missing hydrogens to this structure using standard polymer connectivity
-    /// and CCD idealized templates.
-    ///
-    /// Modifies this AtomGroup in place. Note that calling this on a subtree copy does not
-    /// affect the original tree.
-    ///
-    /// # Arguments
-    /// * `db` - Optional CCD template database (`CcdTemplateDb`). If None, uses the standard embedded CCD database.
-    ///
-    /// # Returns
-    /// An [`OverallHydrogenationReport`] summarizing added/removed hydrogens, modified residues,
-    /// skipped components (e.g. water), and step errors.
     #[pyo3(signature = (db=None))]
     pub fn add_missing_hydrogens(
         &mut self,
@@ -511,144 +993,194 @@ impl PyAtomGroup {
             Some(d) => &d.inner,
             None => CoreCcdTemplateDb::global(),
         };
-        let report = self
-            .inner
-            .add_missing_hydrogens(core_db)
-            .map_err(to_py_err)?;
+        let mut core = self.to_core(py);
+        let report = core.add_missing_hydrogens(core_db).map_err(to_py_err)?;
+        self.update_from_core(py, core)?;
         PyOverallHydrogenationReport::new(py, report)
     }
 
-    /// Applies 3-state secondary structure assignments ('H', 'E', '-') directly to the residue groups of this chain in-place.
-    ///
-    /// Note: This modifies the AtomGroup in-place. If called on a copy or a sub-tree copy (such as one returned by indexing or get_group()), the original root tree will remain unchanged.
-    pub fn apply_secondary_structure(&mut self) {
-        core_apply_secondary_structure(&mut self.inner);
-    }
-
-    pub fn shift_by(&mut self, dir: &Bound<'_, PyAny>) -> PyResult<()> {
-        let d = extract_pos(dir)?;
-        self.inner.shift_by(d);
+    pub fn apply_secondary_structure(&mut self, py: Python<'_>) -> PyResult<()> {
+        let mut core = self.to_core(py);
+        core_apply_secondary_structure(&mut core);
+        self.update_from_core(py, core)?;
         Ok(())
     }
 
-    pub fn rotate(&mut self, rotmat: &PyMatrix) -> PyResult<()> {
-        self.inner.rotate(&rotmat.inner).map_err(to_py_err)
+    pub fn shift_by(&mut self, py: Python<'_>, dir: &Bound<'_, PyAny>) -> PyResult<()> {
+        let pos = extract_pos(dir)?;
+        self.shift_by_position(py, pos);
+        Ok(())
+    }
+
+    pub fn rotate(&mut self, py: Python<'_>, rotmat: &PyMatrix) -> PyResult<()> {
+        for a in self.atoms.values() {
+            a.borrow(py).rotate(py, rotmat)?;
+        }
+        for g in self.groups.values() {
+            g.borrow_mut(py).rotate(py, rotmat)?;
+        }
+        Ok(())
     }
 
     pub fn sum_of_atomic_number(&self) -> f64 {
-        self.inner.sum_of_atomic_number()
+        Python::attach(|py| self.to_core(py).sum_of_atomic_number())
     }
 
-    /// Rebuilds the data structure by referring to the structure of reference.
-    ///
-    /// Matches atoms within `range` distance, copies charges from reference,
-    /// and assigns any remaining atoms to model_1/Z/1 (res_name UNK).
     #[pyo3(signature = (reference, range=1.0e-5))]
-    pub fn restructure(&self, reference: &PyAtomGroup, range: f64) -> PyResult<PyAtomGroup> {
-        let target_selector = proteindf_bridge::selector::SelectAtomGroup::new(&self.inner, range);
-        let mut restructured = reference.inner.select(&target_selector);
+    pub fn restructure(
+        &self,
+        py: Python<'_>,
+        reference: &PyAtomGroup,
+        range: f64,
+    ) -> PyResult<PyAtomGroup> {
+        let self_core = self.to_core(py);
+        let ref_core = reference.to_core(py);
+        let target_selector = proteindf_bridge::selector::SelectAtomGroup::new(&self_core, range);
+        let mut restructured = ref_core.select(&target_selector);
 
-        copy_attributes(&mut restructured, &self.inner);
+        copy_attributes(&mut restructured, &self_core);
 
-        let rest_of_target = get_rest_of_frame_molecule(&self.inner, &restructured);
+        let rest_of_target = get_rest_of_frame_molecule(&self_core, &restructured);
         assign_rest_molecule(&rest_of_target, &mut restructured, "model_1", "Z", "UNK")?;
 
-        Ok(PyAtomGroup::from_core_raw(restructured))
+        PyAtomGroup::from_core(py, restructured)
     }
 
     pub fn __getitem__<'py>(
-        &self,
-        py: Python<'py>,
+        slf: &Bound<'py, Self>,
         key: &Bound<'_, PyAny>,
     ) -> PyResult<Bound<'py, PyAny>> {
         let key_str = extract_key(key)?;
-        let key_ref = key_str.as_str();
+        let py = slf.py();
+
         // 1. Child group by key
-        if self.inner.has_groupkey(key_ref) {
-            if let Some(grp) = self.inner.get_group(key_ref) {
-                let py_grp = PyAtomGroup::from_core_raw(grp.clone());
-                return py_grp.into_pyobject(py).map(|b| b.into_any());
+        if slf.borrow().groups.contains_key(&key_str) {
+            if let Some(grp) = Self::get_group(slf, key)? {
+                return Ok(grp.into_bound(py).into_any());
             }
         }
         // 2. Child atom by key
-        if self.inner.has_atomkey(key_ref) {
-            if let Some(atom) = self.inner.get_atom(key_ref) {
-                let py_atom = PyAtom::from_core(py, atom.clone())?;
-                return py_atom.into_pyobject(py).map(|b| b.into_any());
+        if slf.borrow().atoms.contains_key(&key_str) {
+            if let Some(atom) = Self::get_atom(slf, key)? {
+                return Ok(atom.into_bound(py).into_any());
             }
         }
         // 3. Search child groups by name
-        for (_, grp) in self.inner.groups() {
-            if grp.name == key_ref {
-                let py_grp = PyAtomGroup::from_core_raw(grp.clone());
-                return py_grp.into_pyobject(py).map(|b| b.into_any());
+        let found_grp = slf
+            .borrow()
+            .groups
+            .iter()
+            .find(|(_, g)| g.borrow(py).name == key_str)
+            .map(|(k, _)| k.clone());
+        if let Some(k) = found_grp {
+            let k_py = k.into_pyobject(py)?;
+            if let Some(grp) = Self::get_group(slf, k_py.as_any())? {
+                return Ok(grp.into_bound(py).into_any());
             }
         }
         // 4. Search child atoms by name
-        for (_, atom) in self.inner.atoms() {
-            if atom.name == key_ref {
-                let py_atom = PyAtom::from_core(py, atom.clone())?;
-                return py_atom.into_pyobject(py).map(|b| b.into_any());
+        let found_atom = slf
+            .borrow()
+            .atoms
+            .iter()
+            .find(|(_, a)| a.borrow(py).name.trim() == key_str.trim())
+            .map(|(k, _)| k.clone());
+        if let Some(k) = found_atom {
+            let k_py = k.into_pyobject(py)?;
+            if let Some(atom) = Self::get_atom(slf, k_py.as_any())? {
+                return Ok(atom.into_bound(py).into_any());
             }
         }
+
         Err(PyKeyError::new_err(key_str))
     }
 
     pub fn __setitem__(
-        &mut self,
+        slf: &Bound<'_, Self>,
         key: &Bound<'_, PyAny>,
         value: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
-        let key_str = extract_key(key)?;
         if let Ok(grp) = value.extract::<PyRef<PyAtomGroup>>() {
-            self.inner.set_group(&key_str, grp.inner.clone());
+            let k = extract_key(key)?;
+            let py = slf.py();
+            let weakref_mod = py.import("weakref")?;
+            let parent_ref = weakref_mod.call_method1("ref", (slf,))?;
+            let parent_weak = parent_ref.unbind();
+
+            let parent_path = slf.borrow().compute_path(py);
+            let copy_py = Self::deep_clone_py(py, &grp, Some(parent_weak), Some(k.clone()))?;
+            let old = slf.borrow_mut().groups.insert(k.clone(), copy_py);
+            if let Some(old_group) = old {
+                let mut b = old_group.borrow_mut(py);
+                let old_path = format!("{}{}/", parent_path, k);
+                b.parent = None;
+                b.my_key = None;
+                b.root_path = Some(old_path);
+            }
             Ok(())
         } else if let Ok(atom) = value.extract::<PyRef<PyAtom>>() {
-            let py = value.py();
-            self.inner.set_atom(&key_str, atom.to_core(py));
+            let k = extract_key(key)?;
+            let py = slf.py();
+            let mut atom_copy = atom.__copy__(py)?;
+            let group_path = slf.borrow().compute_path(py);
+            atom_copy.path = format!("{}{}", group_path, k);
+            let atom_py = Py::new(py, atom_copy)?;
+            slf.borrow_mut().atoms.insert(k, atom_py);
             Ok(())
         } else {
-            Err(pyo3::exceptions::PyValueError::new_err(format!(
+            Err(PyValueError::new_err(format!(
                 "Expected AtomGroup or Atom, got {}",
                 value.get_type()
             )))
         }
     }
 
-    pub fn __and__(&self, other: &PyAtomGroup) -> Self {
-        Self {
-            inner: &self.inner & &other.inner,
-        }
+    pub fn __and__(&self, py: Python<'_>, other: &PyAtomGroup) -> PyResult<PyAtomGroup> {
+        let c1 = self.to_core(py);
+        let c2 = other.to_core(py);
+        PyAtomGroup::from_core(py, &c1 & &c2)
     }
 
-    pub fn __or__(&self, other: &PyAtomGroup) -> Self {
-        Self {
-            inner: &self.inner | &other.inner,
-        }
+    pub fn __or__(&self, py: Python<'_>, other: &PyAtomGroup) -> PyResult<PyAtomGroup> {
+        let c1 = self.to_core(py);
+        let c2 = other.to_core(py);
+        PyAtomGroup::from_core(py, &c1 | &c2)
     }
 
-    pub fn __xor__(&self, other: &PyAtomGroup) -> Self {
-        Self {
-            inner: &self.inner ^ &other.inner,
-        }
+    pub fn __xor__(&self, py: Python<'_>, other: &PyAtomGroup) -> PyResult<PyAtomGroup> {
+        let c1 = self.to_core(py);
+        let c2 = other.to_core(py);
+        PyAtomGroup::from_core(py, &c1 ^ &c2)
     }
 
     pub fn __len__(&self) -> usize {
-        self.inner.get_number_of_atoms()
+        self.atoms.len()
     }
 
     pub fn __repr__(&self) -> String {
-        format!(
-            "AtomGroup(name='{}', path='{}', atoms={}, groups={})",
-            self.inner.name,
-            self.inner.path(),
-            self.inner.get_number_of_atoms(),
-            self.inner.get_number_of_groups()
-        )
+        Python::attach(|py| {
+            format!(
+                "AtomGroup(name='{}', path='{}', atoms={}, groups={})",
+                self.name,
+                self.compute_path(py),
+                self.atoms.len(),
+                self.groups.len()
+            )
+        })
     }
 
     pub fn __str__(&self) -> String {
-        format!("{}", self.inner)
+        Python::attach(|py| format!("{}", self.to_core(py)))
+    }
+
+    pub fn __copy__(slf: &Bound<'_, Self>) -> PyResult<Py<Self>> {
+        let py = slf.py();
+        let clone = slf.borrow().deep_clone(py)?;
+        Py::new(py, clone)
+    }
+
+    pub fn __deepcopy__(slf: &Bound<'_, Self>, _memo: &Bound<'_, PyAny>) -> PyResult<Py<Self>> {
+        Self::__copy__(slf)
     }
 
     pub fn save_csv(&self, py: Python<'_>, path: &str) -> PyResult<()> {
@@ -689,7 +1221,8 @@ impl PyAtomGroup {
         let mut writer = std::io::BufWriter::new(file);
 
         let mut rows = Vec::new();
-        collect_csv_rows(&self.inner, &[], &mut rows, py)?;
+        let core = self.to_core(py);
+        collect_csv_rows(&core, &[], &mut rows, py)?;
 
         use std::io::Write;
         for row in rows {
@@ -767,7 +1300,8 @@ fn format_py_float(py: Python<'_>, v: f64) -> PyResult<String> {
 }
 
 fn write_csv_field<W: std::io::Write>(w: &mut W, s: &str) -> std::io::Result<()> {
-    if s.contains(',') || s.contains('"') || s.contains('\n') || s.contains('\r') {
+    let need_quote = s.contains(',') || s.contains('"') || s.contains('\n') || s.contains('\r');
+    if need_quote {
         w.write_all(b"\"")?;
         for b in s.bytes() {
             if b == b'"' {
