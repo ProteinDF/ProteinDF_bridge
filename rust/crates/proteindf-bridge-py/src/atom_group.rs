@@ -360,6 +360,12 @@ fn ensure_child_link(
     child: &Py<PyAtomGroup>,
 ) -> PyResult<()> {
     let py = slf.py();
+    {
+        let b = child.borrow(py);
+        if b.parent.is_some() && b.my_key.as_deref() == Some(key) {
+            return Ok(());
+        }
+    }
     let mut b = child.borrow_mut(py);
     if b.parent.is_none() {
         b.parent = Some(slf.clone().unbind());
@@ -618,6 +624,17 @@ impl PyAtomGroup {
         Ok(self.atoms.contains_key(&k))
     }
 
+    pub fn has_atomname(&self, py: Python<'_>, name: &Bound<'_, PyAny>) -> PyResult<bool> {
+        let name_str = extract_key(name)?;
+        let target = name_str.trim();
+        for a in self.atoms.values() {
+            if a.borrow(py).name.trim() == target {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
     pub fn del_atom(
         &mut self,
         _py: Python<'_>,
@@ -696,6 +713,16 @@ impl PyAtomGroup {
         Ok(self.groups.contains_key(&k))
     }
 
+    pub fn has_groupname(&self, py: Python<'_>, name: &Bound<'_, PyAny>) -> PyResult<bool> {
+        let target = extract_key(name)?;
+        for g in self.groups.values() {
+            if g.borrow(py).name == target {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
     pub fn del_group(
         slf: &Bound<'_, Self>,
         key: &Bound<'_, PyAny>,
@@ -754,6 +781,10 @@ impl PyAtomGroup {
         self.groups.keys().cloned().collect()
     }
 
+    pub fn get_atom_keys(&self) -> Vec<String> {
+        self.atoms.keys().cloned().collect()
+    }
+
     pub fn get_atom_list(slf: &Bound<'_, Self>) -> PyResult<Vec<Py<PyAtom>>> {
         let py = slf.py();
         let mut list = Vec::new();
@@ -776,6 +807,116 @@ impl PyAtomGroup {
         let py = slf.py();
         let atoms = Self::get_atom_list(slf)?;
         Ok(atoms.iter().map(|a| a.borrow(py).path.clone()).collect())
+    }
+
+    pub fn pickup_atoms(
+        slf: &Bound<'_, Self>,
+        key_or_name: &Bound<'_, PyAny>,
+    ) -> PyResult<Vec<Py<PyAtom>>> {
+        let py = slf.py();
+        let target = extract_key(key_or_name)?;
+        let mut result = Vec::new();
+
+        let (group_path, child_groups, my_atoms) = {
+            let borrow = slf.borrow();
+            let group_path = borrow.compute_path(py);
+            let child_groups: Vec<(String, Py<PyAtomGroup>)> = borrow
+                .groups
+                .iter()
+                .map(|(k, g)| (k.clone(), g.clone_ref(py)))
+                .collect();
+            let my_atoms: Vec<(String, Py<PyAtom>)> = borrow
+                .atoms
+                .iter()
+                .map(|(k, a)| (k.clone(), a.clone_ref(py)))
+                .collect();
+            (group_path, child_groups, my_atoms)
+        };
+
+        for (k, g) in &child_groups {
+            ensure_child_link(slf, k, g)?;
+            let child_atoms = Self::pickup_atoms(g.bind(py), key_or_name)?;
+            result.extend(child_atoms);
+        }
+
+        for (k, a) in &my_atoms {
+            if k == &target || a.borrow(py).name == target {
+                a.borrow_mut(py).path = format!("{}{}", group_path, k);
+                result.push(a.clone_ref(py));
+            }
+        }
+
+        Ok(result)
+    }
+
+    pub fn get_family(
+        slf: &Bound<'_, Self>,
+        query_path: &Bound<'_, PyAny>,
+    ) -> PyResult<Option<Py<PyAtomGroup>>> {
+        let mut query = extract_key(query_path)?;
+        if !query.ends_with('/') {
+            query.push('/');
+        }
+
+        let py = slf.py();
+        let (self_path, parent_opt) = {
+            let b = slf.borrow();
+            (b.compute_path(py), b.get_parent(py))
+        };
+
+        if query == self_path {
+            return Ok(Some(slf.clone().unbind()));
+        }
+
+        if query.starts_with(&self_path) {
+            let mut curr = slf.clone().unbind();
+            let mut curr_path = self_path;
+
+            while curr_path != query {
+                let curr_bound = curr.bind(py);
+                let pairs: Vec<(String, Py<PyAtomGroup>)> = curr_bound
+                    .borrow()
+                    .groups
+                    .iter()
+                    .map(|(k, g)| (k.clone(), g.clone_ref(py)))
+                    .collect();
+
+                let mut matched = None;
+                for (k, g) in pairs {
+                    ensure_child_link(curr_bound, &k, &g)?;
+                    let child_path = g.borrow(py).compute_path(py);
+                    if query.starts_with(&child_path) {
+                        matched = Some((g, child_path));
+                        break;
+                    }
+                }
+
+                if let Some((child_grp, child_path)) = matched {
+                    curr = child_grp;
+                    curr_path = child_path;
+                } else {
+                    return Ok(None);
+                }
+            }
+            return Ok(Some(curr));
+        }
+
+        if let Some(parent_py) = parent_opt {
+            return Self::get_family(parent_py.bind(py), query_path);
+        }
+
+        Ok(None)
+    }
+
+    #[staticmethod]
+    pub fn divide_path(path: &Bound<'_, PyAny>) -> PyResult<Vec<String>> {
+        let s = extract_key(path)?;
+        let parts: Vec<String> = s
+            .split('/')
+            .filter(|p| !p.is_empty())
+            .map(|p| p.to_string())
+            .collect();
+        Ok(parts)
     }
 
     #[getter]
