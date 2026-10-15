@@ -87,10 +87,10 @@ impl PyModeling {
     /// Adds the hydrogens of -CH3 to C1, oriented away from C2.
     #[pyo3(signature = (C1, C2))]
     #[allow(non_snake_case)]
-    pub fn add_methyl(&self, C1: &PyAtom, C2: &PyAtom) -> PyResult<PyAtomGroup> {
+    pub fn add_methyl(&self, py: Python<'_>, C1: &PyAtom, C2: &PyAtom) -> PyResult<PyAtomGroup> {
         let ag = self
             .inner
-            .add_methyl(&C1.inner, &C2.inner)
+            .add_methyl(&C1.to_core(py), &C2.to_core(py))
             .map_err(to_py_err)?;
         Ok(PyAtomGroup::from_core(ag))
     }

@@ -187,17 +187,22 @@ impl PyAtomGroup {
         self.inner.get_number_of_bonds()
     }
 
-    pub fn get_atom(&self, key: &Bound<'_, PyAny>) -> PyResult<Option<PyAtom>> {
+    pub fn get_atom(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Option<PyAtom>> {
         let k = extract_key(key)?;
-        Ok(self
-            .inner
-            .get_atom(&k)
-            .map(|a| PyAtom::from_core(a.clone())))
+        match self.inner.get_atom(&k) {
+            Some(a) => Ok(Some(PyAtom::from_core(py, a.clone())?)),
+            None => Ok(None),
+        }
     }
 
-    pub fn set_atom(&mut self, key: &Bound<'_, PyAny>, atom: &PyAtom) -> PyResult<()> {
+    pub fn set_atom(
+        &mut self,
+        py: Python<'_>,
+        key: &Bound<'_, PyAny>,
+        atom: &PyAtom,
+    ) -> PyResult<()> {
         let k = extract_key(key)?;
-        self.inner.set_atom(&k, atom.inner.clone());
+        self.inner.set_atom(&k, atom.to_core(py));
         Ok(())
     }
 
@@ -206,13 +211,20 @@ impl PyAtomGroup {
         Ok(self.inner.has_atom(&k))
     }
 
-    pub fn del_atom(&mut self, key: &Bound<'_, PyAny>) -> PyResult<Option<PyAtom>> {
+    pub fn del_atom(&mut self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Option<PyAtom>> {
         let k = extract_key(key)?;
-        Ok(self.inner.remove_atom(&k).map(PyAtom::from_core))
+        match self.inner.remove_atom(&k) {
+            Some(a) => Ok(Some(PyAtom::from_core(py, a)?)),
+            None => Ok(None),
+        }
     }
 
-    pub fn remove_atom(&mut self, key: &Bound<'_, PyAny>) -> PyResult<Option<PyAtom>> {
-        self.del_atom(key)
+    pub fn remove_atom(
+        &mut self,
+        py: Python<'_>,
+        key: &Bound<'_, PyAny>,
+    ) -> PyResult<Option<PyAtom>> {
+        self.del_atom(py, key)
     }
 
     pub fn get_group(&self, key: &Bound<'_, PyAny>) -> PyResult<Option<PyAtomGroup>> {
@@ -244,10 +256,10 @@ impl PyAtomGroup {
         Ok(self.inner.remove_group(&k).map(PyAtomGroup::from_core))
     }
 
-    pub fn atoms(&self) -> Vec<(String, PyAtom)> {
+    pub fn atoms(&self, py: Python<'_>) -> PyResult<Vec<(String, PyAtom)>> {
         self.inner
             .atoms()
-            .map(|(k, a)| (k.clone(), PyAtom::from_core(a.clone())))
+            .map(|(k, a)| Ok((k.clone(), PyAtom::from_core(py, a.clone())?)))
             .collect()
     }
 
@@ -262,11 +274,11 @@ impl PyAtomGroup {
         self.inner.get_group_list()
     }
 
-    pub fn get_atom_list(&self) -> Vec<PyAtom> {
+    pub fn get_atom_list(&self, py: Python<'_>) -> PyResult<Vec<PyAtom>> {
         self.inner
             .get_atom_list()
             .into_iter()
-            .map(PyAtom::from_core)
+            .map(|a| PyAtom::from_core(py, a))
             .collect()
     }
 
@@ -380,7 +392,13 @@ impl PyAtomGroup {
                         return false;
                     }
                     let py = self.obj.py();
-                    let py_atom = PyAtom::from_core(atom.clone());
+                    let py_atom = match PyAtom::from_core(py, atom.clone()) {
+                        Ok(a) => a,
+                        Err(e) => {
+                            *self.err.borrow_mut() = Some(e);
+                            return false;
+                        }
+                    };
                     match py_atom.into_pyobject(py) {
                         Ok(py_obj) => match self.obj.call_method1("is_match", (py_obj,)) {
                             Ok(res) => match res.extract::<bool>() {
@@ -421,8 +439,9 @@ impl PyAtomGroup {
     }
 
     #[pyo3(signature = (atom1, atom2, order=1))]
-    pub fn add_bond(&mut self, atom1: &PyAtom, atom2: &PyAtom, order: usize) {
-        self.inner.add_bond(&atom1.inner, &atom2.inner, order);
+    pub fn add_bond(&mut self, py: Python<'_>, atom1: &PyAtom, atom2: &PyAtom, order: usize) {
+        self.inner
+            .add_bond(&atom1.to_core(py), &atom2.to_core(py), order);
     }
 
     pub fn bonds(&self) -> Vec<(String, String, usize)> {
@@ -541,7 +560,7 @@ impl PyAtomGroup {
         // 2. Child atom by key
         if self.inner.has_atomkey(key_ref) {
             if let Some(atom) = self.inner.get_atom(key_ref) {
-                let py_atom = PyAtom::from_core(atom.clone());
+                let py_atom = PyAtom::from_core(py, atom.clone())?;
                 return py_atom.into_pyobject(py).map(|b| b.into_any());
             }
         }
@@ -555,7 +574,7 @@ impl PyAtomGroup {
         // 4. Search child atoms by name
         for (_, atom) in self.inner.atoms() {
             if atom.name == key_ref {
-                let py_atom = PyAtom::from_core(atom.clone());
+                let py_atom = PyAtom::from_core(py, atom.clone())?;
                 return py_atom.into_pyobject(py).map(|b| b.into_any());
             }
         }
@@ -572,7 +591,8 @@ impl PyAtomGroup {
             self.inner.set_group(&key_str, grp.inner.clone());
             Ok(())
         } else if let Ok(atom) = value.extract::<PyRef<PyAtom>>() {
-            self.inner.set_atom(&key_str, atom.inner.clone());
+            let py = value.py();
+            self.inner.set_atom(&key_str, atom.to_core(py));
             Ok(())
         } else {
             Err(pyo3::exceptions::PyValueError::new_err(format!(
