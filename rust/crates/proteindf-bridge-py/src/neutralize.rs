@@ -74,10 +74,7 @@ impl PyNeutralize {
     fn __repr__(&self, py: Python<'_>) -> String {
         format!(
             "Neutralize(atoms={})",
-            self.neutralized_obj
-                .borrow(py)
-                .inner
-                .get_number_of_all_atoms()
+            self.neutralized_obj.borrow(py).get_number_of_all_atoms()
         )
     }
 }
