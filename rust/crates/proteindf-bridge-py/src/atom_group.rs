@@ -17,6 +17,7 @@ use proteindf_bridge::secondary_structure::{
 };
 use pyo3::exceptions::{PyKeyError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
+use pyo3::types::PySet;
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -323,6 +324,33 @@ impl PyAtomGroup {
         for g in self.groups.values() {
             g.borrow_mut(py).shift_by_position(py, pos);
         }
+    }
+
+    fn collect_atom_kinds(&self, py: Python<'_>, set: &Bound<'_, PySet>) -> PyResult<()> {
+        for g in self.groups.values() {
+            g.borrow(py).collect_atom_kinds(py, set)?;
+        }
+        for a in self.atoms.values() {
+            let sym = a.borrow(py).symbol()?;
+            set.add(sym)?;
+        }
+        Ok(())
+    }
+
+    fn collect_xyz(&self, py: Python<'_>, output: &mut String) -> PyResult<()> {
+        for g in self.groups.values() {
+            g.borrow(py).collect_xyz(py, output)?;
+        }
+        for a in self.atoms.values() {
+            let atom = a.borrow(py);
+            let sym = atom.symbol()?;
+            let pos = atom.xyz.borrow(py);
+            output.push_str(&format!(
+                "{:>2} {:8.3} {:8.3} {:8.3}\n",
+                sym, pos.inner.x, pos.inner.y, pos.inner.z
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -748,6 +776,63 @@ impl PyAtomGroup {
         let py = slf.py();
         let atoms = Self::get_atom_list(slf)?;
         Ok(atoms.iter().map(|a| a.borrow(py).path.clone()).collect())
+    }
+
+    #[getter]
+    pub fn charge(&self, py: Python<'_>) -> f64 {
+        let mut sum = 0.0;
+        for g in self.groups.values() {
+            sum += g.borrow(py).charge(py);
+        }
+        for a in self.atoms.values() {
+            sum += a.borrow(py).charge;
+        }
+        sum
+    }
+
+    #[getter]
+    pub fn real_nuclei_charge(&self, py: Python<'_>) -> f64 {
+        let mut sum = 0.0;
+        for g in self.groups.values() {
+            sum += g.borrow(py).real_nuclei_charge(py);
+        }
+        for a in self.atoms.values() {
+            let atom = a.borrow(py);
+            if atom.atomic_number > 0 {
+                sum += atom.atomic_number as f64;
+            }
+        }
+        sum
+    }
+
+    #[getter]
+    pub fn nuclei_charge(&self, py: Python<'_>) -> f64 {
+        let mut sum = 0.0;
+        for g in self.groups.values() {
+            sum += g.borrow(py).nuclei_charge(py);
+        }
+        for a in self.atoms.values() {
+            let atom = a.borrow(py);
+            if atom.atomic_number > 0 {
+                sum += atom.atomic_number as f64;
+            } else {
+                sum += atom.charge;
+            }
+        }
+        sum
+    }
+
+    pub fn get_atom_kinds<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PySet>> {
+        let set = PySet::empty(py)?;
+        self.collect_atom_kinds(py, &set)?;
+        Ok(set)
+    }
+
+    pub fn get_xyz(&self, py: Python<'_>) -> PyResult<String> {
+        let count = self.get_number_of_all_atoms();
+        let mut output = format!("{}\n# \n", count);
+        self.collect_xyz(py, &mut output)?;
+        Ok(output)
     }
 
     pub fn get_atom_kinds_count(&self) -> HashMap<String, usize> {
