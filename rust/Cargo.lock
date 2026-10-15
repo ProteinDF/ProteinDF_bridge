@@ -400,6 +400,7 @@ dependencies = [
  "indexmap",
  "proteindf-bridge",
  "pyo3",
+ "rmpv",
 ]
 
 [[package]]
