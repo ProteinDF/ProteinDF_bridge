@@ -6,7 +6,11 @@ Test suite validating rs.AtomGroup shared tree behavior (SPEC 11 Stage 2).
 """
 
 import copy
+import gc
+import os
 import unittest
+import weakref
+
 import proteindf_bridge.rs as rs
 
 
@@ -114,6 +118,54 @@ class TestRsAgSharedTree(unittest.TestCase):
         # Results (bonds) are reflected
         bonds = root.get_bond_list()
         self.assertGreater(len(bonds), 0)
+
+    def test_child_retains_parent_and_path_without_root_variable(self):
+        """Review fix 1: Child retains parent and path even when root is not held in variable."""
+        data_dir = os.path.join(
+            os.path.dirname(__file__), "..", "rust", "crates", "proteindf-bridge", "tests", "data"
+        )
+        pdb_path = os.path.join(data_dir, "1hls.pdb")
+        pdb = rs.Pdb()
+        pdb.load(pdb_path)
+
+        # Retrieve child group directly without storing root in variable
+        chain_a = pdb.get_atomgroup().get_group("model_1").get_group("A")
+        del pdb
+        gc.collect()
+
+        # Path of chain, parent, residue, and atom
+        self.assertEqual(chain_a.path, "/model_1/A/")
+        self.assertIsNotNone(chain_a.parent)
+        self.assertEqual(chain_a.parent.path, "/model_1/")
+        first_res = chain_a.get_group("1")
+        self.assertEqual(first_res.path, "/model_1/A/1/")
+        first_atom = first_res.get_atom("1_N")
+        self.assertEqual(first_atom.path, "/model_1/A/1/1_N")
+
+        # Detached child has parent is None, but retains previous path
+        detached_res = chain_a.del_group("1")
+        self.assertIsNotNone(detached_res)
+        self.assertIsNone(detached_res.parent)
+        self.assertEqual(detached_res.path, "/model_1/A/1/")
+        self.assertEqual(detached_res.get_atom("1_N").path, "/model_1/A/1/1_N")
+
+    def test_cyclic_reference_collected_by_gc(self):
+        """Review fix 1 & Criterion 3: Tree with cyclic references is collected by gc."""
+        def create_and_observe():
+            root = rs.AtomGroup(name="root")
+            child = rs.AtomGroup(name="child")
+            root.set_group("child", child)
+            return weakref.ref(root), weakref.ref(root.get_group("child"))
+
+        w_root, w_child = create_and_observe()
+        self.assertIsNotNone(w_root())
+        self.assertIsNotNone(w_child())
+
+        # Collect cyclic references
+        gc.collect()
+
+        self.assertIsNone(w_root())
+        self.assertIsNone(w_child())
 
 
 if __name__ == "__main__":

@@ -500,11 +500,12 @@ class TestRsHydrogenation(unittest.TestCase):
         init_h = count_all_hydrogens(structure)
         self.assertEqual(init_h, 379)
 
-        # Obtain subtree copy
-        model_copy = structure.get_group("model_1")
-        if model_copy is None:
-            model_copy = structure.get_group("1")
-        self.assertIsNotNone(model_copy)
+        # Obtain subtree copy via rs_br.AtomGroup(...)
+        model_group = structure.get_group("model_1")
+        if model_group is None:
+            model_group = structure.get_group("1")
+        self.assertIsNotNone(model_group)
+        model_copy = rs_br.AtomGroup(model_group)
 
         # Hydrogenate the subtree copy
         sub_rep = model_copy.add_missing_hydrogens()
