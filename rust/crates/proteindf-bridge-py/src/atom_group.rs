@@ -32,7 +32,7 @@ pub struct PyAtomGroup {
     pub(crate) groups: IndexMap<String, Py<PyAtomGroup>>,
     pub(crate) bonds: Vec<BondRecord>,
     pub(crate) secondary_structure: Option<SsCode>,
-    pub(crate) parent: Option<Py<PyAny>>,
+    pub(crate) parent: Option<Py<PyAtomGroup>>,
     pub(crate) my_key: Option<String>,
     pub(crate) root_path: Option<String>,
 }
@@ -60,14 +60,7 @@ impl Clone for PyAtomGroup {
 
 impl PyAtomGroup {
     pub(crate) fn get_parent(&self, py: Python<'_>) -> Option<Py<PyAtomGroup>> {
-        let weak = self.parent.as_ref()?;
-        let bound = weak.bind(py);
-        let resolved = bound.call0().ok()?;
-        if resolved.is_none() {
-            None
-        } else {
-            resolved.extract::<Py<PyAtomGroup>>().ok()
-        }
+        self.parent.as_ref().map(|p| p.clone_ref(py))
     }
 
     pub(crate) fn compute_path(&self, py: Python<'_>) -> String {
@@ -155,7 +148,7 @@ impl PyAtomGroup {
     pub(crate) fn from_core_py(
         py: Python<'_>,
         ag: &CoreAtomGroup,
-        parent: Option<Py<PyAny>>,
+        parent: Option<Py<PyAtomGroup>>,
         my_key: Option<String>,
         root_path: Option<String>,
     ) -> PyResult<Py<PyAtomGroup>> {
@@ -177,15 +170,11 @@ impl PyAtomGroup {
         };
         let new_group_py = Py::new(py, new_group)?;
 
-        let weakref_mod = py.import("weakref")?;
-        let parent_ref = weakref_mod.call_method1("ref", (&new_group_py,))?;
-        let parent_weak: Py<PyAny> = parent_ref.unbind();
-
         for (k, child_core) in ag.groups() {
             let child_py = Self::from_core_py(
                 py,
                 child_core,
-                Some(parent_weak.clone_ref(py)),
+                Some(new_group_py.clone_ref(py)),
                 Some(k.clone()),
                 None,
             )?;
@@ -288,7 +277,7 @@ impl PyAtomGroup {
     pub(crate) fn deep_clone_py(
         py: Python<'_>,
         original: &PyAtomGroup,
-        parent: Option<Py<PyAny>>,
+        parent: Option<Py<PyAtomGroup>>,
         my_key: Option<String>,
     ) -> PyResult<Py<PyAtomGroup>> {
         let mut atoms = IndexMap::with_capacity(original.atoms.len());
@@ -309,16 +298,12 @@ impl PyAtomGroup {
         };
         let new_group_py = Py::new(py, new_group)?;
 
-        let weakref_mod = py.import("weakref")?;
-        let parent_ref = weakref_mod.call_method1("ref", (&new_group_py,))?;
-        let parent_weak: Py<PyAny> = parent_ref.unbind();
-
         for (k, child_py) in &original.groups {
             let child_borrow = child_py.borrow(py);
             let child_clone = Self::deep_clone_py(
                 py,
                 &child_borrow,
-                Some(parent_weak.clone_ref(py)),
+                Some(new_group_py.clone_ref(py)),
                 Some(k.clone()),
             )?;
             new_group_py
@@ -348,9 +333,7 @@ fn ensure_child_link(
     let py = slf.py();
     let mut b = child.borrow_mut(py);
     if b.parent.is_none() {
-        let weakref_mod = py.import("weakref")?;
-        let parent_ref = weakref_mod.call_method1("ref", (slf,))?;
-        b.parent = Some(parent_ref.unbind());
+        b.parent = Some(slf.clone().unbind());
     }
     b.my_key = Some(key.to_string());
     Ok(())
@@ -383,6 +366,25 @@ fn extract_pos(arg: &Bound<'_, PyAny>) -> PyResult<Position> {
 
 #[pymethods]
 impl PyAtomGroup {
+    fn __traverse__(&self, visit: pyo3::PyVisit<'_>) -> Result<(), pyo3::PyTraverseError> {
+        if let Some(parent) = &self.parent {
+            visit.call(parent)?;
+        }
+        for child in self.groups.values() {
+            visit.call(child)?;
+        }
+        for atom in self.atoms.values() {
+            visit.call(atom)?;
+        }
+        Ok(())
+    }
+
+    fn __clear__(&mut self) {
+        self.parent = None;
+        self.groups.clear();
+        self.atoms.clear();
+    }
+
     #[new]
     #[pyo3(signature = (*args, **kwargs))]
     pub fn new(
@@ -631,12 +633,10 @@ impl PyAtomGroup {
     ) -> PyResult<()> {
         let k = extract_key(key)?;
         let py = slf.py();
-        let weakref_mod = py.import("weakref")?;
-        let parent_ref = weakref_mod.call_method1("ref", (slf,))?;
-        let parent_weak = parent_ref.unbind();
+        let parent_py = slf.clone().unbind();
 
         let child_borrow = group.borrow();
-        let copy_py = Self::deep_clone_py(py, &child_borrow, Some(parent_weak), Some(k.clone()))?;
+        let copy_py = Self::deep_clone_py(py, &child_borrow, Some(parent_py), Some(k.clone()))?;
         drop(child_borrow);
 
         let parent_path = slf.borrow().compute_path(py);
@@ -810,13 +810,11 @@ impl PyAtomGroup {
                 let existing_child = slf.borrow().groups.get(&matched_k).unwrap().clone_ref(py);
                 Self::merge(existing_child.bind(py), child_py.bind(py))?;
             } else {
-                let weakref_mod = py.import("weakref")?;
-                let parent_ref = weakref_mod.call_method1("ref", (slf,))?;
-                let parent_weak = parent_ref.unbind();
+                let parent_py = slf.clone().unbind();
 
                 let child_borrow = child_py.borrow(py);
                 let copy_py =
-                    Self::deep_clone_py(py, &child_borrow, Some(parent_weak), Some(k.clone()))?;
+                    Self::deep_clone_py(py, &child_borrow, Some(parent_py), Some(k.clone()))?;
                 slf.borrow_mut().groups.insert(k.clone(), copy_py);
             }
         }
@@ -1103,12 +1101,10 @@ impl PyAtomGroup {
         if let Ok(grp) = value.extract::<PyRef<PyAtomGroup>>() {
             let k = extract_key(key)?;
             let py = slf.py();
-            let weakref_mod = py.import("weakref")?;
-            let parent_ref = weakref_mod.call_method1("ref", (slf,))?;
-            let parent_weak = parent_ref.unbind();
+            let parent_py = slf.clone().unbind();
 
             let parent_path = slf.borrow().compute_path(py);
-            let copy_py = Self::deep_clone_py(py, &grp, Some(parent_weak), Some(k.clone()))?;
+            let copy_py = Self::deep_clone_py(py, &grp, Some(parent_py), Some(k.clone()))?;
             let old = slf.borrow_mut().groups.insert(k.clone(), copy_py);
             if let Some(old_group) = old {
                 let mut b = old_group.borrow_mut(py);
