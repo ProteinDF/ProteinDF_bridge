@@ -397,6 +397,7 @@ dependencies = [
 name = "proteindf-bridge-py"
 version = "0.1.0"
 dependencies = [
+ "indexmap",
  "proteindf-bridge",
  "pyo3",
 ]
