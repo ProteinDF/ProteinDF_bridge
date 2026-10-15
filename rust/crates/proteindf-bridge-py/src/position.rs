@@ -283,6 +283,32 @@ impl PyPosition {
         format!("{}", self.inner)
     }
 
+    pub fn __copy__(&self) -> Self {
+        self.clone()
+    }
+
+    pub fn __deepcopy__(&self, _memo: &Bound<'_, PyAny>) -> Self {
+        self.clone()
+    }
+
+    pub fn __getstate__(&self) -> (f64, f64, f64) {
+        (self.inner.x, self.inner.y, self.inner.z)
+    }
+
+    pub fn __setstate__(&mut self, state: &Bound<'_, PyAny>) -> PyResult<()> {
+        let pos = extract_position(state)?;
+        self.inner = pos;
+        Ok(())
+    }
+
+    pub fn __reduce__<'py>(
+        slf: Bound<'py, Self>,
+    ) -> PyResult<(Bound<'py, PyAny>, (f64, f64, f64))> {
+        let cls = slf.get_type().into_any();
+        let borrow = slf.borrow();
+        Ok((cls, (borrow.inner.x, borrow.inner.y, borrow.inner.z)))
+    }
+
     pub fn __eq__(&self, other: &Bound<'_, PyAny>) -> bool {
         if let Ok(pos) = extract_position(other) {
             self.inner.distance_from(&pos) < self.inner.epsilon
