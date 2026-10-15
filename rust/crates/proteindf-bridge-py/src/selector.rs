@@ -92,7 +92,7 @@ impl PySelectName {
             let py = obj.py();
             self.inner.is_match_atom(&atom.to_core(py))
         } else if let Ok(ag) = obj.extract::<PyRef<PyAtomGroup>>() {
-            self.inner.is_match_group(&ag.inner)
+            self.inner.is_match_group(&ag.to_core(obj.py()))
         } else {
             false
         }
@@ -126,7 +126,7 @@ impl PySelectPathSimple {
             let py = obj.py();
             self.inner.is_match_atom(&atom.to_core(py))
         } else if let Ok(ag) = obj.extract::<PyRef<PyAtomGroup>>() {
-            self.inner.is_match_group(&ag.inner)
+            self.inner.is_match_group(&ag.to_core(obj.py()))
         } else {
             false
         }
@@ -159,7 +159,7 @@ impl PySelectPathWildcard {
             let py = obj.py();
             self.inner.is_match_atom(&atom.to_core(py))
         } else if let Ok(ag) = obj.extract::<PyRef<PyAtomGroup>>() {
-            self.inner.is_match_group(&ag.inner)
+            self.inner.is_match_group(&ag.to_core(obj.py()))
         } else {
             false
         }
@@ -192,7 +192,7 @@ impl PySelectPathRegex {
             let py = obj.py();
             self.inner.is_match_atom(&atom.to_core(py))
         } else if let Ok(ag) = obj.extract::<PyRef<PyAtomGroup>>() {
-            self.inner.is_match_group(&ag.inner)
+            self.inner.is_match_group(&ag.to_core(obj.py()))
         } else {
             false
         }
@@ -226,7 +226,7 @@ impl PySelectPath {
             let py = obj.py();
             self.inner.is_match_atom(&atom.to_core(py))
         } else if let Ok(ag) = obj.extract::<PyRef<PyAtomGroup>>() {
-            self.inner.is_match_group(&ag.inner)
+            self.inner.is_match_group(&ag.to_core(obj.py()))
         } else {
             false
         }
@@ -315,9 +315,9 @@ pub struct PySelectAtomGroup {
 impl PySelectAtomGroup {
     #[new]
     #[pyo3(signature = (ref_atomgroup, range=1.0e-5))]
-    pub fn new(ref_atomgroup: &PyAtomGroup, range: f64) -> Self {
+    pub fn new(py: Python<'_>, ref_atomgroup: &PyAtomGroup, range: f64) -> Self {
         Self {
-            inner: CoreSelectAtomGroup::new(&ref_atomgroup.inner, range),
+            inner: CoreSelectAtomGroup::new(&ref_atomgroup.to_core(py), range),
         }
     }
 

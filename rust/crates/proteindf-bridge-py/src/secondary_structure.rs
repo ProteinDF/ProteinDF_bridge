@@ -64,8 +64,8 @@ impl PySecondaryStructure {
 
 /// Calculates 3-state secondary structure assignments for all residues in a chain.
 #[pyfunction]
-pub fn calc_secondary_structure(chain: &PyAtomGroup) -> Vec<PySecondaryStructure> {
-    core_calc_secondary_structure(&chain.inner)
+pub fn calc_secondary_structure(py: Python<'_>, chain: &PyAtomGroup) -> Vec<PySecondaryStructure> {
+    core_calc_secondary_structure(&chain.to_core(py))
         .into_iter()
         .map(PySecondaryStructure::from)
         .collect()
@@ -75,6 +75,12 @@ pub fn calc_secondary_structure(chain: &PyAtomGroup) -> Vec<PySecondaryStructure
 ///
 /// Note: This modifies the AtomGroup in-place. If called on a copy or a sub-tree copy (such as one returned by indexing or get_group()), the original root tree will remain unchanged.
 #[pyfunction]
-pub fn apply_secondary_structure(mut chain: PyRefMut<'_, PyAtomGroup>) {
-    core_apply_secondary_structure(&mut chain.inner);
+pub fn apply_secondary_structure(
+    py: Python<'_>,
+    mut chain: PyRefMut<'_, PyAtomGroup>,
+) -> PyResult<()> {
+    let mut core = chain.to_core(py);
+    core_apply_secondary_structure(&mut core);
+    chain.update_from_core(py, core)?;
+    Ok(())
 }

@@ -26,7 +26,20 @@ pub struct PyAtomGroup {
 }
 
 impl PyAtomGroup {
-    pub fn from_core(group: CoreAtomGroup) -> Self {
+    pub(crate) fn to_core(&self, _py: Python<'_>) -> CoreAtomGroup {
+        self.inner.clone()
+    }
+
+    pub(crate) fn from_core(_py: Python<'_>, ag: CoreAtomGroup) -> PyResult<Self> {
+        Ok(Self { inner: ag })
+    }
+
+    pub(crate) fn update_from_core(&mut self, _py: Python<'_>, ag: CoreAtomGroup) -> PyResult<()> {
+        self.inner = ag;
+        Ok(())
+    }
+
+    fn from_core_raw(group: CoreAtomGroup) -> Self {
         Self { inner: group }
     }
 }
@@ -232,7 +245,7 @@ impl PyAtomGroup {
         Ok(self
             .inner
             .get_group(&k)
-            .map(|g| PyAtomGroup::from_core(g.clone())))
+            .map(|g| PyAtomGroup::from_core_raw(g.clone())))
     }
 
     pub fn set_group(&mut self, key: &Bound<'_, PyAny>, group: &PyAtomGroup) -> PyResult<()> {
@@ -253,7 +266,7 @@ impl PyAtomGroup {
 
     pub fn del_group(&mut self, key: &Bound<'_, PyAny>) -> PyResult<Option<PyAtomGroup>> {
         let k = extract_key(key)?;
-        Ok(self.inner.remove_group(&k).map(PyAtomGroup::from_core))
+        Ok(self.inner.remove_group(&k).map(PyAtomGroup::from_core_raw))
     }
 
     pub fn atoms(&self, py: Python<'_>) -> PyResult<Vec<(String, PyAtom)>> {
@@ -266,7 +279,7 @@ impl PyAtomGroup {
     pub fn groups(&self) -> Vec<(String, PyAtomGroup)> {
         self.inner
             .groups()
-            .map(|(k, g)| (k.clone(), PyAtomGroup::from_core(g.clone())))
+            .map(|(k, g)| (k.clone(), PyAtomGroup::from_core_raw(g.clone())))
             .collect()
     }
 
@@ -326,31 +339,31 @@ impl PyAtomGroup {
 
     pub fn select(&self, selector: &Bound<'_, PyAny>) -> PyResult<PyAtomGroup> {
         if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectSymbol>>() {
-            return Ok(PyAtomGroup::from_core(self.inner.select(&s.inner)));
+            return Ok(PyAtomGroup::from_core_raw(self.inner.select(&s.inner)));
         }
         if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectName>>() {
-            return Ok(PyAtomGroup::from_core(self.inner.select(&s.inner)));
+            return Ok(PyAtomGroup::from_core_raw(self.inner.select(&s.inner)));
         }
         if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectPathSimple>>() {
-            return Ok(PyAtomGroup::from_core(self.inner.select(&s.inner)));
+            return Ok(PyAtomGroup::from_core_raw(self.inner.select(&s.inner)));
         }
         if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectPathWildcard>>() {
-            return Ok(PyAtomGroup::from_core(self.inner.select(&s.inner)));
+            return Ok(PyAtomGroup::from_core_raw(self.inner.select(&s.inner)));
         }
         if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectPathRegex>>() {
-            return Ok(PyAtomGroup::from_core(self.inner.select(&s.inner)));
+            return Ok(PyAtomGroup::from_core_raw(self.inner.select(&s.inner)));
         }
         if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectPath>>() {
-            return Ok(PyAtomGroup::from_core(self.inner.select(&s.inner)));
+            return Ok(PyAtomGroup::from_core_raw(self.inner.select(&s.inner)));
         }
         if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectRange>>() {
-            return Ok(PyAtomGroup::from_core(self.inner.select(&s.inner)));
+            return Ok(PyAtomGroup::from_core_raw(self.inner.select(&s.inner)));
         }
         if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectAtom>>() {
-            return Ok(PyAtomGroup::from_core(self.inner.select(&s.inner)));
+            return Ok(PyAtomGroup::from_core_raw(self.inner.select(&s.inner)));
         }
         if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectAtomGroup>>() {
-            return Ok(PyAtomGroup::from_core(self.inner.select(&s.inner)));
+            return Ok(PyAtomGroup::from_core_raw(self.inner.select(&s.inner)));
         }
 
         if selector.hasattr("is_match")? {
@@ -365,7 +378,7 @@ impl PyAtomGroup {
                         return false;
                     }
                     let py = self.obj.py();
-                    let py_group = PyAtomGroup::from_core(group.clone());
+                    let py_group = PyAtomGroup::from_core_raw(group.clone());
                     match py_group.into_pyobject(py) {
                         Ok(py_obj) => match self.obj.call_method1("is_match", (py_obj,)) {
                             Ok(res) => match res.extract::<bool>() {
@@ -429,7 +442,7 @@ impl PyAtomGroup {
             if let Some(err) = adapter.err.into_inner() {
                 return Err(err);
             }
-            return Ok(PyAtomGroup::from_core(result));
+            return Ok(PyAtomGroup::from_core_raw(result));
         }
 
         Err(PyTypeError::new_err(format!(
@@ -540,7 +553,7 @@ impl PyAtomGroup {
         let rest_of_target = get_rest_of_frame_molecule(&self.inner, &restructured);
         assign_rest_molecule(&rest_of_target, &mut restructured, "model_1", "Z", "UNK")?;
 
-        Ok(PyAtomGroup::from_core(restructured))
+        Ok(PyAtomGroup::from_core_raw(restructured))
     }
 
     pub fn __getitem__<'py>(
@@ -553,7 +566,7 @@ impl PyAtomGroup {
         // 1. Child group by key
         if self.inner.has_groupkey(key_ref) {
             if let Some(grp) = self.inner.get_group(key_ref) {
-                let py_grp = PyAtomGroup::from_core(grp.clone());
+                let py_grp = PyAtomGroup::from_core_raw(grp.clone());
                 return py_grp.into_pyobject(py).map(|b| b.into_any());
             }
         }
@@ -567,7 +580,7 @@ impl PyAtomGroup {
         // 3. Search child groups by name
         for (_, grp) in self.inner.groups() {
             if grp.name == key_ref {
-                let py_grp = PyAtomGroup::from_core(grp.clone());
+                let py_grp = PyAtomGroup::from_core_raw(grp.clone());
                 return py_grp.into_pyobject(py).map(|b| b.into_any());
             }
         }

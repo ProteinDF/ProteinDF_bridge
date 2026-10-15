@@ -14,9 +14,9 @@ pub struct PyIonPair {
 #[pymethods]
 impl PyIonPair {
     #[new]
-    pub fn new(model: &PyAtomGroup) -> Self {
+    pub fn new(py: Python<'_>, model: &PyAtomGroup) -> Self {
         Self {
-            inner: CoreIonPair::new(&model.inner),
+            inner: CoreIonPair::new(&model.to_core(py)),
         }
     }
 
@@ -29,8 +29,11 @@ impl PyIonPair {
     }
 
     #[staticmethod]
-    pub fn find_ion_pairs(model: &PyAtomGroup) -> Vec<(String, String, String, String)> {
-        CoreIonPair::find_ion_pairs(&model.inner)
+    pub fn find_ion_pairs(
+        py: Python<'_>,
+        model: &PyAtomGroup,
+    ) -> Vec<(String, String, String, String)> {
+        CoreIonPair::find_ion_pairs(&model.to_core(py))
             .into_iter()
             .map(|r| r.into_tuple())
             .collect()
