@@ -22,8 +22,12 @@ pub struct PySuperposerQuaternion {
 #[pymethods]
 impl PySuperposerQuaternion {
     #[new]
-    pub fn new(atomgroup1: &PyAtomGroup, atomgroup2: &PyAtomGroup) -> PyResult<Self> {
-        let inner = CoreSuperposerQuaternion::new(&atomgroup1.inner, &atomgroup2.inner)
+    pub fn new(
+        py: Python<'_>,
+        atomgroup1: &PyAtomGroup,
+        atomgroup2: &PyAtomGroup,
+    ) -> PyResult<Self> {
+        let inner = CoreSuperposerQuaternion::new(&atomgroup1.to_core(py), &atomgroup2.to_core(py))
             .map_err(to_py_err)?;
         Ok(Self { inner })
     }
@@ -132,11 +136,11 @@ impl PySuperposerQuaternion {
         self.inner.rmsd()
     }
 
-    pub fn superimpose(&self, atomgroup: &PyAtomGroup) -> PyResult<PyAtomGroup> {
+    pub fn superimpose(&self, py: Python<'_>, atomgroup: &PyAtomGroup) -> PyResult<PyAtomGroup> {
         let res = self
             .inner
-            .superimpose(&atomgroup.inner)
+            .superimpose(&atomgroup.to_core(py))
             .map_err(to_py_err)?;
-        Ok(PyAtomGroup::from_core(res))
+        PyAtomGroup::from_core(py, res)
     }
 }

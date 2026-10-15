@@ -57,6 +57,7 @@ impl PyPdb {
     #[pyo3(signature = (select_model=None, select_altloc=Some("A")))]
     pub fn get_atomgroup(
         &self,
+        py: Python<'_>,
         select_model: Option<usize>,
         select_altloc: Option<&str>,
     ) -> PyResult<PyAtomGroup> {
@@ -64,22 +65,27 @@ impl PyPdb {
             .inner
             .get_atomgroup(select_model, select_altloc)
             .map_err(to_py_err)?;
-        Ok(PyAtomGroup::from_core(ag))
+        PyAtomGroup::from_core(py, ag)
     }
 
     #[pyo3(signature = (atomgroup, is_charge2tempfactor=false))]
     pub fn set_by_atomgroup(
         &mut self,
+        py: Python<'_>,
         atomgroup: &PyAtomGroup,
         is_charge2tempfactor: bool,
     ) -> PyResult<()> {
         self.inner
-            .set_by_atomgroup(&atomgroup.inner, is_charge2tempfactor)
+            .set_by_atomgroup(&atomgroup.to_core(py), is_charge2tempfactor)
             .map_err(to_py_err)
     }
 
-    pub fn get_modpdb_atomgroup(&self, ag_protein: &PyAtomGroup) -> PyAtomGroup {
-        let ag = self.inner.get_modpdb_atomgroup(&ag_protein.inner);
-        PyAtomGroup::from_core(ag)
+    pub fn get_modpdb_atomgroup(
+        &self,
+        py: Python<'_>,
+        ag_protein: &PyAtomGroup,
+    ) -> PyResult<PyAtomGroup> {
+        let ag = self.inner.get_modpdb_atomgroup(&ag_protein.to_core(py));
+        PyAtomGroup::from_core(py, ag)
     }
 }

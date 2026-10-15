@@ -13,7 +13,7 @@ impl PyFormat {
     #[staticmethod]
     pub fn is_residue(model: &Bound<'_, PyAny>) -> bool {
         if let Ok(ag) = model.extract::<PyRef<PyAtomGroup>>() {
-            CoreFormat::is_residue(&ag.inner)
+            CoreFormat::is_residue(&ag.to_core(model.py()))
         } else {
             false
         }
@@ -22,7 +22,7 @@ impl PyFormat {
     #[staticmethod]
     pub fn is_chain(model: &Bound<'_, PyAny>) -> bool {
         if let Ok(ag) = model.extract::<PyRef<PyAtomGroup>>() {
-            CoreFormat::is_chain(&ag.inner)
+            CoreFormat::is_chain(&ag.to_core(model.py()))
         } else {
             false
         }
@@ -31,7 +31,7 @@ impl PyFormat {
     #[staticmethod]
     pub fn is_protein(model: &Bound<'_, PyAny>) -> bool {
         if let Ok(ag) = model.extract::<PyRef<PyAtomGroup>>() {
-            CoreFormat::is_protein(&ag.inner)
+            CoreFormat::is_protein(&ag.to_core(model.py()))
         } else {
             false
         }
@@ -40,7 +40,7 @@ impl PyFormat {
     #[staticmethod]
     pub fn is_models(model: &Bound<'_, PyAny>) -> bool {
         if let Ok(ag) = model.extract::<PyRef<PyAtomGroup>>() {
-            CoreFormat::is_models(&ag.inner)
+            CoreFormat::is_models(&ag.to_core(model.py()))
         } else {
             false
         }

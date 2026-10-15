@@ -145,8 +145,8 @@ impl PySidechainHydrogenBond {
 
 /// Detects backbone hydrogen bonds within a protein chain using the Kabsch-Sander electrostatic model.
 #[pyfunction]
-pub fn calc_backbone_hbonds(chain: &PyAtomGroup) -> Vec<PyHydrogenBond> {
-    core_calc_backbone_hbonds(&chain.inner)
+pub fn calc_backbone_hbonds(py: Python<'_>, chain: &PyAtomGroup) -> Vec<PyHydrogenBond> {
+    core_calc_backbone_hbonds(&chain.to_core(py))
         .into_iter()
         .map(PyHydrogenBond::from)
         .collect()
@@ -154,8 +154,8 @@ pub fn calc_backbone_hbonds(chain: &PyAtomGroup) -> Vec<PyHydrogenBond> {
 
 /// Detects sidechain hydrogen bonds in the structure using default heavy-atom-only mode (distance < 3.5 A).
 #[pyfunction]
-pub fn calc_sidechain_hbonds(root: &PyAtomGroup) -> Vec<PySidechainHydrogenBond> {
-    core_calc_sidechain_hbonds(&root.inner)
+pub fn calc_sidechain_hbonds(py: Python<'_>, root: &PyAtomGroup) -> Vec<PySidechainHydrogenBond> {
+    core_calc_sidechain_hbonds(&root.to_core(py))
         .into_iter()
         .map(PySidechainHydrogenBond::from)
         .collect()
@@ -164,10 +164,11 @@ pub fn calc_sidechain_hbonds(root: &PyAtomGroup) -> Vec<PySidechainHydrogenBond>
 /// Detects sidechain hydrogen bonds with optional explicit hydrogen angle evaluation.
 #[pyfunction]
 pub fn calc_sidechain_hbonds_with_options(
+    py: Python<'_>,
     root: &PyAtomGroup,
     explicit_h_mode: bool,
 ) -> Vec<PySidechainHydrogenBond> {
-    core_calc_sidechain_hbonds_with_options(&root.inner, explicit_h_mode)
+    core_calc_sidechain_hbonds_with_options(&root.to_core(py), explicit_h_mode)
         .into_iter()
         .map(PySidechainHydrogenBond::from)
         .collect()

@@ -51,8 +51,8 @@ impl PyRamachandranAngle {
 
 #[pyfunction]
 #[pyo3(name = "calc_phi_psi")]
-pub fn py_calc_phi_psi(chain: &PyAtomGroup) -> Vec<PyRamachandranAngle> {
-    core_calc_phi_psi(&chain.inner)
+pub fn py_calc_phi_psi(py: Python<'_>, chain: &PyAtomGroup) -> Vec<PyRamachandranAngle> {
+    core_calc_phi_psi(&chain.to_core(py))
         .into_iter()
         .map(|inner| PyRamachandranAngle { inner })
         .collect()
