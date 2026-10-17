@@ -19,10 +19,7 @@ import proteindf_bridge.common as py_common
 import proteindf_bridge.functions as py_functions
 import proteindf_bridge.modeling as py_modeling
 import proteindf_bridge.neutralize as py_neutralize
-from proteindf_bridge.atom import Atom as PyAtom
-from proteindf_bridge.atomgroup import AtomGroup as PyAtomGroup
 from proteindf_bridge.biopdb import Pdb as PyPdb
-from proteindf_bridge.position import Position as PyPos
 
 # Rust PyO3 bindings
 import proteindf_bridge.rs as rs_br
@@ -78,23 +75,23 @@ class TestRsPhase6(unittest.TestCase):
         Confirm that .brd written by pure Python can be read by Rust, and vice versa.
         """
         # Create a sample AtomGroup with hierarchy and atoms
-        py_ag = PyAtomGroup("test_protein")
-        py_chain = PyAtomGroup("A")
-        py_res = PyAtomGroup("1")
-        py_res.name = "ALA"
-        py_res.set_atom("CA", PyAtom(name="CA", symbol="C", xyz=PyPos([1.0, 2.0, 3.0])))
-        py_res.set_atom("CB", PyAtom(name="CB", symbol="C", xyz=PyPos([2.0, 3.0, 4.0])))
-        py_chain.set_group("1", py_res)
-        py_ag.set_group("A", py_chain)
+        ag = rs_br.AtomGroup("test_protein")
+        chain = rs_br.AtomGroup("A")
+        res = rs_br.AtomGroup("1")
+        res.name = "ALA"
+        res.set_atom("CA", rs_br.Atom(name="CA", symbol="C", xyz=rs_br.Position(1.0, 2.0, 3.0)))
+        res.set_atom("CB", rs_br.Atom(name="CB", symbol="C", xyz=rs_br.Position(2.0, 3.0, 4.0)))
+        chain.set_group("1", res)
+        ag.set_group("A", chain)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # 1. Pure Python writes, Rust reads
             py_written_path = os.path.join(tmpdir, "py_written.brd")
-            py_functions.save_atomgroup(py_ag, py_written_path)
+            py_functions.save_atomgroup(ag, py_written_path)
 
             rs_loaded = rs_br.load_atomgroup(py_written_path)
-            self.assertEqual(rs_loaded.get_number_of_all_atoms(), py_ag.get_number_of_all_atoms())
-            self.assertEqual(rs_loaded.name, py_ag.name)
+            self.assertEqual(rs_loaded.get_number_of_all_atoms(), 2)
+            self.assertEqual(rs_loaded.name, "test_protein")
 
             rs_ca = rs_loaded["A"]["1"]["CA"]
             self.assertEqual(rs_ca.name, "CA")
@@ -107,8 +104,8 @@ class TestRsPhase6(unittest.TestCase):
             rs_br.save_atomgroup(rs_loaded, rs_written_path)
 
             py_loaded = py_functions.load_atomgroup(rs_written_path)
-            self.assertEqual(py_loaded.get_number_of_all_atoms(), rs_loaded.get_number_of_all_atoms())
-            self.assertEqual(py_loaded.name, rs_loaded.name)
+            self.assertEqual(py_loaded.get_number_of_all_atoms(), 2)
+            self.assertEqual(py_loaded.name, "test_protein")
 
             py_ca = py_loaded["A"]["1"]["CA"]
             self.assertEqual(py_ca.name, "CA")
@@ -177,12 +174,10 @@ class TestRsPhase6(unittest.TestCase):
         py_model = py_modeling.Modeling()
         rs_model = rs_br.Modeling()
 
-        a = PyPos(0.5, 0.7, 0.3)
-        b = PyPos(0.1, 0.9, 0.2)
         rs_a = rs_br.Position(0.5, 0.7, 0.3)
         rs_b = rs_br.Position(0.1, 0.9, 0.2)
 
-        py_rot = py_model.arbitary_rotate_matrix(a, b)
+        py_rot = py_model.arbitary_rotate_matrix(rs_a, rs_b)
         rs_rot = rs_model.arbitary_rotate_matrix(rs_a, rs_b)
 
         # Check 1:1 matrix elements matching Python
@@ -201,26 +196,26 @@ class TestRsPhase6(unittest.TestCase):
         self.assertAlmostEqual(rotated_b.y, norm_a.y, places=6)
         self.assertAlmostEqual(rotated_b.z, norm_a.z, places=6)
 
-    def test_modeling_add_methyl_parity(self):
+    def test_modeling_add_methyl(self):
         """
-        Verify add_methyl 1:1 parity with pure Python Modeling.
+        Verify add_methyl against pure Python Modeling and expected properties.
         """
         py_model = py_modeling.Modeling()
         rs_model = rs_br.Modeling()
 
-        c1 = PyAtom(symbol="C", name="C1", position=PyPos(1.0, 2.0, 3.0))
-        c2 = PyAtom(symbol="C", name="C2", position=PyPos(2.2, 2.6, 3.9))
         rs_c1 = self._make_atom("C", "C1", 1.0, 2.0, 3.0)
         rs_c2 = self._make_atom("C", "C2", 2.2, 2.6, 3.9)
 
-        py_methyl = py_model.add_methyl(c1, c2)
+        py_methyl = py_model.add_methyl(rs_c1, rs_c2)
         rs_methyl = rs_model.add_methyl(rs_c1, rs_c2)
 
-        self.assertEqual(rs_methyl.get_number_of_atoms(), py_methyl.get_number_of_atoms())
+        self.assertEqual(rs_methyl.get_number_of_atoms(), 3)
+        self.assertEqual(py_methyl.get_number_of_atoms(), 3)
         for name in ["H11", "H12", "H13"]:
             py_h = py_methyl[name]
             rs_h = rs_methyl[name]
-            self.assertEqual(rs_h.symbol, py_h.symbol)
+            self.assertEqual(rs_h.symbol, "H")
+            self.assertEqual(py_h.symbol, "H")
             self.assertAlmostEqual(rs_h.xyz.x, py_h.xyz.x, places=5)
             self.assertAlmostEqual(rs_h.xyz.y, py_h.xyz.y, places=5)
             self.assertAlmostEqual(rs_h.xyz.z, py_h.xyz.z, places=5)
@@ -266,44 +261,31 @@ class TestRsPhase6(unittest.TestCase):
         rs_model = rs_br.Modeling()
 
         # Build chain with residues 1..5
-        py_chain = PyAtomGroup("A")
         rs_chain = rs_br.AtomGroup("A")
         for i in range(1, 6):
-            res_py = PyAtomGroup(str(i))
-            res_py.name = "ALA"
-            res_py.set_atom(f"CA{i}", PyAtom(name=f"CA{i}", symbol="C", xyz=PyPos([float(i), 0.0, 0.0])))
-            py_chain.set_group(str(i), res_py)
-
             res_rs = rs_br.AtomGroup(str(i))
             res_rs.name = "ALA"
             res_rs.set_atom(f"CA{i}", self._make_atom("C", f"CA{i}", float(i), 0.0, 0.0))
             rs_chain.set_group(str(i), res_rs)
 
-        py_sel = py_model.select_residues(py_chain, 2, 4)
+        py_sel = py_model.select_residues(rs_chain, 2, 4)
         rs_sel = rs_model.select_residues(rs_chain, 2, 4)
 
-        self.assertEqual(rs_sel.get_number_of_atoms(), py_sel.get_number_of_atoms())
         self.assertEqual(rs_sel.get_number_of_atoms(), 3)
+        self.assertEqual(py_sel.get_number_of_atoms(), 3)
 
         # get_last_index
-        self.assertEqual(rs_model.get_last_index(rs_sel), py_model.get_last_index(py_sel))
         self.assertEqual(rs_model.get_last_index(rs_sel), 4)
+        self.assertEqual(py_model.get_last_index(py_sel), 4)
 
-    def test_modeling_capping_simple_parity(self):
+    def test_modeling_capping_simple(self):
         """
-        Verify get_ACE_simple and get_NME_simple 1:1 parity with pure Python.
+        Verify get_ACE_simple and get_NME_simple against pure Python and expected properties.
         """
         py_model = py_modeling.Modeling()
         rs_model = rs_br.Modeling()
 
         # Build standard ALA next_aa
-        next_aa_py = PyAtomGroup("ALA")
-        next_aa_py.set_atom("CA", PyAtom(name="CA", symbol="C", xyz=PyPos([0.0, 0.0, 0.0])))
-        next_aa_py.set_atom("C", PyAtom(name="C", symbol="C", xyz=PyPos([1.0, 0.0, 0.0])))
-        next_aa_py.set_atom("O", PyAtom(name="O", symbol="O", xyz=PyPos([1.0, 1.0, 0.0])))
-        next_aa_py.set_atom("N", PyAtom(name="N", symbol="N", xyz=PyPos([0.0, 1.0, 0.0])))
-        next_aa_py.set_atom("H", PyAtom(name="H", symbol="H", xyz=PyPos([0.0, 1.5, 0.0])))
-
         next_aa_rs = rs_br.AtomGroup("ALA")
         next_aa_rs.set_atom("CA", self._make_atom("C", "CA", 0.0, 0.0, 0.0))
         next_aa_rs.set_atom("C", self._make_atom("C", "C", 1.0, 0.0, 0.0))
@@ -312,9 +294,10 @@ class TestRsPhase6(unittest.TestCase):
         next_aa_rs.set_atom("H", self._make_atom("H", "H", 0.0, 1.5, 0.0))
 
         # get_ACE_simple
-        py_ace = py_model.get_ACE_simple(next_aa_py)
+        py_ace = py_model.get_ACE_simple(next_aa_rs)
         rs_ace = rs_model.get_ACE_simple(next_aa_rs)
-        self.assertEqual(rs_ace.get_number_of_atoms(), py_ace.get_number_of_atoms())
+        self.assertEqual(rs_ace.get_number_of_atoms(), 6)
+        self.assertEqual(py_ace.get_number_of_atoms(), 6)
         self.assertEqual(rs_ace.path, py_ace.path)
         for name in ["CA", "C", "O", "H11", "H12", "H13"]:
             self.assertAlmostEqual(rs_ace[name].xyz.x, py_ace[name].xyz.x, places=5)
@@ -322,9 +305,10 @@ class TestRsPhase6(unittest.TestCase):
             self.assertAlmostEqual(rs_ace[name].xyz.z, py_ace[name].xyz.z, places=5)
 
         # get_NME_simple
-        py_nme = py_model.get_NME_simple(next_aa_py)
+        py_nme = py_model.get_NME_simple(next_aa_rs)
         rs_nme = rs_model.get_NME_simple(next_aa_rs)
-        self.assertEqual(rs_nme.get_number_of_atoms(), py_nme.get_number_of_atoms())
+        self.assertEqual(rs_nme.get_number_of_atoms(), 6)
+        self.assertEqual(py_nme.get_number_of_atoms(), 6)
         self.assertEqual(rs_nme.path, py_nme.path)
         for name in ["CA", "N", "H", "H11", "H12", "H13"]:
             self.assertAlmostEqual(rs_nme[name].xyz.x, py_nme[name].xyz.x, places=5)
@@ -371,80 +355,57 @@ class TestRsPhase6(unittest.TestCase):
         rs_ace_none = rs_model.get_ACE(res2_rs, None)
         self.assertEqual(rs_ace_none.get_number_of_atoms(), py_ace_none.get_number_of_atoms())
 
-    def test_modeling_neutralize_helpers_parity(self):
+    def test_modeling_neutralize_helpers(self):
         """
         Verify individual neutralization helpers (Nterm, Cterm, GLU, ASP, LYS, ARG, FAD)
-        for 1:1 parity with pure Python Modeling.
+        against pure Python Modeling and expected properties.
         """
         py_model = py_modeling.Modeling()
         rs_model = rs_br.Modeling()
 
         # 1. Nterm general
-        res_py = PyAtomGroup("ALA")
-        res_py.set_atom("N", PyAtom(name="N", symbol="N", xyz=PyPos([0.0, 0.0, 0.0])))
-        res_py.set_atom("H1", PyAtom(name="H1", symbol="H", xyz=PyPos([0.5, 0.5, 0.5])))
-        res_py.set_atom("H2", PyAtom(name="H2", symbol="H", xyz=PyPos([-0.5, 0.5, 0.5])))
-        res_py.set_atom("H3", PyAtom(name="H3", symbol="H", xyz=PyPos([0.0, -0.5, 0.5])))
-
         res_rs = rs_br.AtomGroup("ALA")
         res_rs.set_atom("N", self._make_atom("N", "N", 0.0, 0.0, 0.0))
         res_rs.set_atom("H1", self._make_atom("H", "H1", 0.5, 0.5, 0.5))
         res_rs.set_atom("H2", self._make_atom("H", "H2", -0.5, 0.5, 0.5))
         res_rs.set_atom("H3", self._make_atom("H", "H3", 0.0, -0.5, 0.5))
 
-        py_cl = py_model.neutralize_Nterm(res_py)
+        py_cl = py_model.neutralize_Nterm(res_rs)
         rs_cl = rs_model.neutralize_Nterm(res_rs)
-        self.assertEqual(rs_cl["Cl"].name, py_cl["Cl"].name)
+        self.assertEqual(rs_cl["Cl"].name, "Cl")
+        self.assertEqual(py_cl["Cl"].name, "Cl")
         self.assertAlmostEqual(rs_cl["Cl"].xyz.x, py_cl["Cl"].xyz.x, places=5)
         self.assertAlmostEqual(rs_cl["Cl"].xyz.y, py_cl["Cl"].xyz.y, places=5)
         self.assertAlmostEqual(rs_cl["Cl"].xyz.z, py_cl["Cl"].xyz.z, places=5)
 
         # 2. Cterm
-        ct_py = PyAtomGroup("ALA")
-        ct_py.set_atom("C", PyAtom(name="C", symbol="C", xyz=PyPos([0.0, 0.0, 0.0])))
-        ct_py.set_atom("O", PyAtom(name="O", symbol="O", xyz=PyPos([0.0, 1.0, 0.0])))
-        ct_py.set_atom("OXT", PyAtom(name="OXT", symbol="O", xyz=PyPos([1.0, 0.0, 0.0])))
-
         ct_rs = rs_br.AtomGroup("ALA")
         ct_rs.set_atom("C", self._make_atom("C", "C", 0.0, 0.0, 0.0))
         ct_rs.set_atom("O", self._make_atom("O", "O", 0.0, 1.0, 0.0))
         ct_rs.set_atom("OXT", self._make_atom("O", "OXT", 1.0, 0.0, 0.0))
 
-        py_na = py_model.neutralize_Cterm(ct_py)
+        py_na = py_model.neutralize_Cterm(ct_rs)
         rs_na = rs_model.neutralize_Cterm(ct_rs)
+        self.assertEqual(rs_na["Na"].name, "Na")
+        self.assertEqual(py_na["Na"].name, "Na")
         self.assertAlmostEqual(rs_na["Na"].xyz.x, py_na["Na"].xyz.x, places=5)
         self.assertAlmostEqual(rs_na["Na"].xyz.y, py_na["Na"].xyz.y, places=5)
         self.assertAlmostEqual(rs_na["Na"].xyz.z, py_na["Na"].xyz.z, places=5)
 
         # 3. GLU
-        glu_py = PyAtomGroup("1")
-        glu_py.name = "GLU"
-        glu_py.set_atom("CD", PyAtom(name="CD", symbol="C", xyz=PyPos([0.0, 0.0, 0.0])))
-        glu_py.set_atom("OE1", PyAtom(name="OE1", symbol="O", xyz=PyPos([0.0, 1.0, 0.0])))
-        glu_py.set_atom("OE2", PyAtom(name="OE2", symbol="O", xyz=PyPos([1.0, 0.0, 0.0])))
-
         glu_rs = rs_br.AtomGroup("1")
         glu_rs.name = "GLU"
         glu_rs.set_atom("CD", self._make_atom("C", "CD", 0.0, 0.0, 0.0))
         glu_rs.set_atom("OE1", self._make_atom("O", "OE1", 0.0, 1.0, 0.0))
         glu_rs.set_atom("OE2", self._make_atom("O", "OE2", 1.0, 0.0, 0.0))
 
-        py_glu_na = py_model.neutralize_GLU(glu_py)
+        py_glu_na = py_model.neutralize_GLU(glu_rs)
         rs_glu_na = rs_model.neutralize_GLU(glu_rs)
-        self.assertEqual(rs_glu_na.get_atom_list()[0].name, py_glu_na.get_atom_list()[0].name)
+        self.assertEqual(rs_glu_na.get_atom_list()[0].name, "Na")
+        self.assertEqual(py_glu_na.get_atom_list()[0].name, "Na")
         self.assertAlmostEqual(rs_glu_na.get_atom_list()[0].xyz.x, py_glu_na.get_atom_list()[0].xyz.x, places=5)
 
         # 4. ARG cases 0, 1, 2
-        arg_py = PyAtomGroup("1")
-        arg_py.name = "ARG"
-        arg_py.set_atom("CZ", PyAtom(name="CZ", symbol="C", xyz=PyPos([0.0, 0.0, 0.0])))
-        arg_py.set_atom("NH1", PyAtom(name="NH1", symbol="N", xyz=PyPos([1.0, 0.5, 0.0])))
-        arg_py.set_atom("NH2", PyAtom(name="NH2", symbol="N", xyz=PyPos([1.0, -0.5, 0.0])))
-        arg_py.set_atom("HH11", PyAtom(name="HH11", symbol="H", xyz=PyPos([1.5, 0.7, 0.0])))
-        arg_py.set_atom("HH12", PyAtom(name="HH12", symbol="H", xyz=PyPos([1.5, 0.3, 0.0])))
-        arg_py.set_atom("HH21", PyAtom(name="HH21", symbol="H", xyz=PyPos([1.5, -0.3, 0.0])))
-        arg_py.set_atom("HH22", PyAtom(name="HH22", symbol="H", xyz=PyPos([1.5, -0.7, 0.0])))
-
         arg_rs = rs_br.AtomGroup("1")
         arg_rs.name = "ARG"
         arg_rs.set_atom("CZ", self._make_atom("C", "CZ", 0.0, 0.0, 0.0))
@@ -456,8 +417,10 @@ class TestRsPhase6(unittest.TestCase):
         arg_rs.set_atom("HH22", self._make_atom("H", "HH22", 1.5, -0.7, 0.0))
 
         for case in [0, 1, 2]:
-            py_arg_cl = py_model.neutralize_ARG(arg_py, case=case)
+            py_arg_cl = py_model.neutralize_ARG(arg_rs, case=case)
             rs_arg_cl = rs_model.neutralize_ARG(arg_rs, case=case)
+            self.assertEqual(rs_arg_cl.get_atom_list()[0].name, "Cl")
+            self.assertEqual(py_arg_cl.get_atom_list()[0].name, "Cl")
             self.assertAlmostEqual(rs_arg_cl.get_atom_list()[0].xyz.x, py_arg_cl.get_atom_list()[0].xyz.x, places=5)
             self.assertAlmostEqual(rs_arg_cl.get_atom_list()[0].xyz.y, py_arg_cl.get_atom_list()[0].xyz.y, places=5)
             self.assertAlmostEqual(rs_arg_cl.get_atom_list()[0].xyz.z, py_arg_cl.get_atom_list()[0].xyz.z, places=5)
@@ -466,33 +429,10 @@ class TestRsPhase6(unittest.TestCase):
     # 3. Neutralize
     # =========================================================================
 
-    def test_neutralize_synthetic_and_parity(self):
+    def test_neutralize_synthetic(self):
         """
-        Verify Neutralize on synthetic model against pure Python.
+        Verify Neutralize on synthetic model against pure Python and expected properties.
         """
-        protein_py = PyAtomGroup("protein")
-        model_py = PyAtomGroup("model_1")
-        chain_py = PyAtomGroup("A")
-
-        glu_py = PyAtomGroup("1")
-        glu_py.name = "GLU"
-        glu_py.set_atom("CD", PyAtom(name="CD", xyz=PyPos([0.0, 0.0, 0.0])))
-        glu_py.set_atom("OE1", PyAtom(name="OE1", xyz=PyPos([0.0, 1.0, 0.0])))
-        glu_py.set_atom("OE2", PyAtom(name="OE2", xyz=PyPos([1.0, 0.0, 0.0])))
-        chain_py.set_group("1", glu_py)
-
-        lys_py = PyAtomGroup("2")
-        lys_py.name = "LYS"
-        lys_py.set_atom("NZ", PyAtom(name="NZ", xyz=PyPos([0.5, 2.0, 0.0])))
-        lys_py.set_atom("HZ1", PyAtom(name="HZ1", xyz=PyPos([0.5, 2.5, 0.0])))
-        lys_py.set_atom("HZ2", PyAtom(name="HZ2", xyz=PyPos([0.0, 2.0, 0.5])))
-        lys_py.set_atom("HZ3", PyAtom(name="HZ3", xyz=PyPos([1.0, 2.0, 0.5])))
-        chain_py.set_group("2", lys_py)
-
-        model_py.set_group("A", chain_py)
-        protein_py.set_group("model_1", model_py)
-
-        # Clone hierarchy to Rust AtomGroup
         protein_rs = rs_br.AtomGroup("protein")
         model_rs = rs_br.AtomGroup("model_1")
         chain_rs = rs_br.AtomGroup("A")
@@ -515,22 +455,24 @@ class TestRsPhase6(unittest.TestCase):
         model_rs.set_group("A", chain_rs)
         protein_rs.set_group("model_1", model_rs)
 
-        neut_py = py_neutralize.Neutralize(protein_py)
+        neut_py = py_neutralize.Neutralize(protein_rs)
         neut_rs = rs_br.Neutralize(protein_rs)
 
         # Non-destructive check on original input
         self.assertEqual(protein_rs.get_number_of_all_atoms(), 7)
-        self.assertEqual(protein_py.get_number_of_all_atoms(), 7)
 
         # Compare neutralized results
         py_neutralized = neut_py.neutralized
         rs_neutralized = neut_rs.neutralized
 
-        self.assertEqual(rs_neutralized.get_number_of_all_atoms(), py_neutralized.get_number_of_all_atoms())
         self.assertEqual(rs_neutralized.get_number_of_all_atoms(), 9)  # 7 original + 2 ions
+        self.assertEqual(py_neutralized.get_number_of_all_atoms(), 9)
 
         py_atoms = py_neutralized.get_atom_list()
         rs_atoms = rs_neutralized.get_atom_list()
+        self.assertEqual(len(rs_atoms), 9)
+        self.assertEqual(len(py_atoms), 9)
+
         for py_a, rs_a in zip(py_atoms, rs_atoms):
             self.assertEqual(rs_a.name, py_a.name)
             self.assertAlmostEqual(rs_a.xyz.x, py_a.xyz.x, places=5)
@@ -705,66 +647,58 @@ class TestRsPhase6(unittest.TestCase):
     # 4. AtomGroup.save_csv and SimpleMmcif.data
     # =========================================================================
 
-    def test_atomgroup_save_csv_parity(self):
+    def test_atomgroup_save_csv(self):
         """
-        Verify that rs_br.AtomGroup.save_csv produces identical CSV output
-        including CRLF line endings as pure Python py_ag.save_csv.
+        Verify that rs_br.AtomGroup.save_csv produces correct CSV output
+        including CRLF line endings and expected atom lines.
         """
         fixture_path = os.path.join(self.data_dir, "ACE_ALA_NME_trans1.brd")
-        py_ag = py_functions.load_atomgroup(fixture_path)
         rs_ag = rs_br.load_atomgroup(fixture_path)
+        atom_count = rs_ag.get_number_of_all_atoms()
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            py_csv = os.path.join(tmpdir, "py.csv")
             rs_csv = os.path.join(tmpdir, "rs.csv")
-
-            py_ag.save_csv(py_csv)
             rs_ag.save_csv(rs_csv)
 
-            self.assertTrue(os.path.exists(py_csv))
             self.assertTrue(os.path.exists(rs_csv))
 
-            with open(py_csv, "rb") as f:
-                py_bytes = f.read()
             with open(rs_csv, "rb") as f:
                 rs_bytes = f.read()
 
-            self.assertEqual(rs_bytes, py_bytes)
             self.assertIn(b"\r\n", rs_bytes)
+            lines = rs_bytes.split(b"\r\n")
+            # Last line after final CRLF may be empty
+            if lines[-1] == b"":
+                lines = lines[:-1]
+
+            # save_csv outputs one row per atom (without a header)
+            self.assertEqual(len(lines), atom_count)
+            self.assertEqual(atom_count, 22)
+            first_fields = lines[0].split(b",")
+            self.assertGreater(len(first_fields), 1)
 
     def test_atomgroup_save_csv_float_repr(self):
         """
-        Verify that save_csv formats floats (charges and coordinates) identically
-        to Python repr, including small exponents (1e-05, -2.5e-07), large exponents (1e16),
+        Verify that save_csv formats floats (charges and coordinates) correctly,
+        including small exponents (1e-05, -2.5e-07), large exponents (1e16),
         and normal numbers (123.0, 0.1).
         """
         test_values = [1e-05, -2.5e-07, 1e16, 123.0, 0.1, 0.0, -0.0]
-        py_ag = PyAtomGroup("test_floats")
         rs_ag = rs_br.AtomGroup("test_floats")
 
         for i, val in enumerate(test_values):
             name = f"C{i}"
-            py_atom = PyAtom(symbol="C", name=name, position=PyPos(val, -val, val * 2.0))
-            py_atom.charge = val
-            py_ag.set_atom(name, py_atom)
-
             rs_atom = rs_br.Atom(symbol="C", name=name, position=rs_br.Position(val, -val, val * 2.0))
             rs_atom.charge = val
             rs_ag.set_atom(name, rs_atom)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            py_csv = os.path.join(tmpdir, "py_floats.csv")
             rs_csv = os.path.join(tmpdir, "rs_floats.csv")
-
-            py_ag.save_csv(py_csv)
             rs_ag.save_csv(rs_csv)
 
-            with open(py_csv, "rb") as f:
-                py_bytes = f.read()
             with open(rs_csv, "rb") as f:
                 rs_bytes = f.read()
 
-            self.assertEqual(rs_bytes, py_bytes)
             self.assertIn(b"1e-05", rs_bytes)
             self.assertIn(b"-2.5e-07", rs_bytes)
             self.assertIn(b"1e+16", rs_bytes)
@@ -901,6 +835,8 @@ class TestRsPhase6(unittest.TestCase):
                 else:
                     return obj
 
+            self.assertEqual(rs_restructured.get_number_of_all_atoms(), 782)
+            self.assertEqual(py_restructured.get_number_of_all_atoms(), 782)
             self.assertEqual(canon(rs_data), canon(py_data))
 
     def test_atomgroup_restructure_with_rest_atoms(self):

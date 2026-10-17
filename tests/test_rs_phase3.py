@@ -13,11 +13,8 @@ import numpy as np
 
 # Pure Python implementation
 from proteindf_bridge.aminoacid import AminoAcid as PyAminoAcid
-from proteindf_bridge.atom import Atom as PyAtom
-from proteindf_bridge.atomgroup import AtomGroup as PyAtomGroup
 from proteindf_bridge.biopdb import Pdb as PyPdb
 from proteindf_bridge.ionpair import IonPair as PyIonPair
-from proteindf_bridge.position import Position as PyPos
 from proteindf_bridge.select import (
     Select_Name as PySelect_Name,
     Select_Path_simple as PySelect_Path_simple,
@@ -47,12 +44,10 @@ class TestRsPhase3(unittest.TestCase):
         for aa in ["ALA", "CYS", "CYX", "GLY", "HIS", "ILE", "LYS", "LEU", "MET", "PRO", "TYR", "VAL"]:
             ag_rs = rs_br.AtomGroup()
             ag_rs.name = aa
-            ag_py = PyAtomGroup()
-            ag_py.name = aa
             self.assertTrue(rs_br.AminoAcid.is_aminoacid(ag_rs))
             self.assertEqual(
                 rs_br.AminoAcid.is_aminoacid(ag_rs),
-                PyAminoAcid.is_aminoacid(ag_py),
+                PyAminoAcid.is_aminoacid(ag_rs),
             )
             # Direct name check
             self.assertTrue(rs_br.AminoAcid.is_aminoacid_name(aa))
@@ -104,9 +99,7 @@ class TestRsPhase3(unittest.TestCase):
     # --------------------------------------------------------------------------
     def test_ion_pair_synthetic(self):
         protein_rs = rs_br.AtomGroup("protein")
-        protein_py = PyAtomGroup("protein")
         chainA_rs = rs_br.AtomGroup("A")
-        chainA_py = PyAtomGroup("A")
 
         # GLU: CD, OE1, OE2
         glu_rs = rs_br.AtomGroup("1")
@@ -116,40 +109,26 @@ class TestRsPhase3(unittest.TestCase):
         glu_rs.set_atom("OE2", rs_br.Atom(name="OE2", xyz=rs_br.Position(1.0, 0.0, 0.0)))
         chainA_rs.set_group("1", glu_rs)
 
-        glu_py = PyAtomGroup("1")
-        glu_py.name = "GLU"
-        glu_py.set_atom("CD", PyAtom(name="CD", xyz=PyPos(0.0, 0.0, 0.0)))
-        glu_py.set_atom("OE1", PyAtom(name="OE1", xyz=PyPos(0.0, 1.0, 0.0)))
-        glu_py.set_atom("OE2", PyAtom(name="OE2", xyz=PyPos(1.0, 0.0, 0.0)))
-        chainA_py.set_group("1", glu_py)
-
         # LYS: NZ
         lys_rs = rs_br.AtomGroup("2")
         lys_rs.name = "LYS"
         lys_rs.set_atom("NZ", rs_br.Atom(name="NZ", xyz=rs_br.Position(0.5, 2.0, 0.0)))
         chainA_rs.set_group("2", lys_rs)
 
-        lys_py = PyAtomGroup("2")
-        lys_py.name = "LYS"
-        lys_py.set_atom("NZ", PyAtom(name="NZ", xyz=PyPos(0.5, 2.0, 0.0)))
-        chainA_py.set_group("2", lys_py)
-
         protein_rs.set_group("A", chainA_rs)
-        protein_py.set_group("A", chainA_py)
 
         ip_rs = rs_br.IonPair(protein_rs)
-        ip_py = PyIonPair(protein_py)
+        ip_py = PyIonPair(protein_rs)
 
         pairs_rs = ip_rs.get_ion_pairs()
         pairs_py = ip_py.get_ion_pairs()
 
-        self.assertEqual(len(pairs_rs), 1)
-        self.assertEqual(pairs_rs, pairs_py)
-        self.assertEqual(pairs_rs[0][2], "GLU")
-        self.assertEqual(pairs_rs[0][3], "LYS")
+        expected = [("/A/1/", "/A/2/", "GLU", "LYS")]
+        self.assertEqual(pairs_rs, expected)
+        self.assertEqual(pairs_py, expected)
 
         # Static find_ion_pairs
-        self.assertEqual(rs_br.IonPair.find_ion_pairs(protein_rs), pairs_rs)
+        self.assertEqual(rs_br.IonPair.find_ion_pairs(protein_rs), expected)
 
     def test_ion_pair_1hls(self):
         pdb_path = os.path.join(DATA_DIR, "1hls.pdb")
@@ -168,7 +147,7 @@ class TestRsPhase3(unittest.TestCase):
     # --------------------------------------------------------------------------
     # 4. Selector
     # --------------------------------------------------------------------------
-    def _create_selector_test_groups(self):
+    def _create_selector_test_group(self):
         # group with sub1 and sub2
         rs_root = rs_br.AtomGroup()
         sub1 = rs_br.AtomGroup()
@@ -183,108 +162,99 @@ class TestRsPhase3(unittest.TestCase):
         sub2.set_atom("N1", rs_br.Atom(name="N1", symbol="N", xyz=rs_br.Position(0.0, 3.0, 0.0)))
         rs_root.set_group("sub2", sub2)
 
-        py_root = PyAtomGroup()
-        py_sub1 = PyAtomGroup()
-        py_sub1.set_atom("C1", PyAtom(name="C1", symbol="C", xyz=PyPos(0.0, 0.0, 0.0)))
-        py_sub1.set_atom("H1", PyAtom(name="H1", symbol="H", xyz=PyPos(1.0, 0.0, 0.0)))
-        py_sub1.set_atom("N1", PyAtom(name="N1", symbol="N", xyz=PyPos(2.0, 0.0, 0.0)))
-        py_root.set_group("sub1", py_sub1)
-
-        py_sub2 = PyAtomGroup()
-        py_sub2.set_atom("C1", PyAtom(name="C1", symbol="C", xyz=PyPos(0.0, 1.0, 0.0)))
-        py_sub2.set_atom("H1", PyAtom(name="H1", symbol="H", xyz=PyPos(0.0, 2.0, 0.0)))
-        py_sub2.set_atom("N1", PyAtom(name="N1", symbol="N", xyz=PyPos(0.0, 3.0, 0.0)))
-        py_root.set_group("sub2", py_sub2)
-
-        return rs_root, py_root
+        return rs_root
 
     def test_select_range(self):
-        rs_root, py_root = self._create_selector_test_groups()
+        rs_root = self._create_selector_test_group()
 
         sel_rs = rs_br.Select_Range("0.0 0.0 0.0", 0.1)
         sel_py = PySelect_Range("0.0 0.0 0.0", 0.1)
 
         res_rs = rs_root.select(sel_rs)
-        res_py = py_root.select(sel_py)
+        res_py = rs_root.select(sel_py)
 
         self.assertEqual(res_rs.get_number_of_all_atoms(), 1)
-        self.assertEqual(res_rs.get_number_of_all_atoms(), res_py.get_number_of_all_atoms())
+        self.assertEqual(res_py.get_number_of_all_atoms(), 1)
         self.assertEqual(res_rs["sub1"]["C1"].symbol, "C")
+        self.assertEqual(res_py["sub1"]["C1"].symbol, "C")
 
         # Range 1.1
         sel_rs2 = rs_br.Select_Range("0.0 0.0 0.0", 1.1)
         sel_py2 = PySelect_Range("0.0 0.0 0.0", 1.1)
         res_rs2 = rs_root.select(sel_rs2)
-        res_py2 = py_root.select(sel_py2)
+        res_py2 = rs_root.select(sel_py2)
 
         self.assertEqual(res_rs2.get_number_of_all_atoms(), 3)
-        self.assertEqual(res_rs2.get_number_of_all_atoms(), res_py2.get_number_of_all_atoms())
+        self.assertEqual(res_py2.get_number_of_all_atoms(), 3)
 
     def test_select_symbol(self):
-        rs_root, py_root = self._create_selector_test_groups()
+        rs_root = self._create_selector_test_group()
 
         sel_rs = rs_br.Select_Symbol("c")
         sel_py = PySelect_Symbol("c")
 
         res_rs = rs_root.select(sel_rs)
-        res_py = py_root.select(sel_py)
+        res_py = rs_root.select(sel_py)
 
         self.assertEqual(res_rs.get_number_of_all_atoms(), 2)
-        self.assertEqual(res_rs.get_number_of_all_atoms(), res_py.get_number_of_all_atoms())
+        self.assertEqual(res_py.get_number_of_all_atoms(), 2)
         self.assertEqual(res_rs["sub1"]["C1"].symbol, "C")
         self.assertEqual(res_rs["sub2"]["C1"].symbol, "C")
+        self.assertEqual(res_py["sub1"]["C1"].symbol, "C")
+        self.assertEqual(res_py["sub2"]["C1"].symbol, "C")
 
     def test_select_name(self):
-        rs_root, py_root = self._create_selector_test_groups()
+        rs_root = self._create_selector_test_group()
 
         sel_rs = rs_br.Select_Name("C1")
         sel_py = PySelect_Name("C1")
 
         res_rs = rs_root.select(sel_rs)
-        res_py = py_root.select(sel_py)
+        res_py = rs_root.select(sel_py)
 
         self.assertEqual(res_rs.get_number_of_all_atoms(), 2)
-        self.assertEqual(res_rs.get_number_of_all_atoms(), res_py.get_number_of_all_atoms())
+        self.assertEqual(res_py.get_number_of_all_atoms(), 2)
 
     def test_select_path_simple(self):
-        rs_root, py_root = self._create_selector_test_groups()
+        rs_root = self._create_selector_test_group()
 
         sel_rs = rs_br.Select_Path_simple("/sub1/C1")
         sel_py = PySelect_Path_simple("/sub1/C1")
 
         res_rs = rs_root.select(sel_rs)
-        res_py = py_root.select(sel_py)
+        res_py = rs_root.select(sel_py)
 
         self.assertEqual(res_rs.get_number_of_all_atoms(), 1)
-        self.assertEqual(res_rs.get_number_of_all_atoms(), res_py.get_number_of_all_atoms())
+        self.assertEqual(res_py.get_number_of_all_atoms(), 1)
         self.assertEqual(res_rs["sub1"]["C1"].path, "/sub1/C1")
+        self.assertEqual(res_py["sub1"]["C1"].path, "/sub1/C1")
 
     def test_select_path_wildcard(self):
-        rs_root, py_root = self._create_selector_test_groups()
+        rs_root = self._create_selector_test_group()
 
         sel_rs = rs_br.Select_Path_wildcard("/sub1/*")
         sel_py = PySelect_Path_wildcard("/sub1/*")
 
         res_rs = rs_root.select(sel_rs)
-        res_py = py_root.select(sel_py)
+        res_py = rs_root.select(sel_py)
 
         self.assertEqual(res_rs.get_number_of_all_atoms(), 3)
-        self.assertEqual(res_rs.get_number_of_all_atoms(), res_py.get_number_of_all_atoms())
+        self.assertEqual(res_py.get_number_of_all_atoms(), 3)
 
     def test_select_path_regex(self):
-        rs_root, py_root = self._create_selector_test_groups()
+        rs_root = self._create_selector_test_group()
 
         sel_rs = rs_br.Select_PathRegex(r"/sub\d/C1")
         sel_py = PySelect_PathRegex(r"/sub\d/C1")
 
         res_rs = rs_root.select(sel_rs)
-        res_py = py_root.select(sel_py)
+        res_py = rs_root.select(sel_py)
 
         self.assertEqual(res_rs.get_number_of_all_atoms(), 2)
-        self.assertEqual(res_rs.get_number_of_all_atoms(), res_py.get_number_of_all_atoms())
+        self.assertEqual(res_py.get_number_of_all_atoms(), 2)
 
     def test_select_atom_and_atomgroup(self):
-        rs_root, _ = self._create_selector_test_groups()
+        rs_root = self._create_selector_test_group()
 
         ref_atom = rs_br.Atom(symbol="C", xyz=rs_br.Position(0.0, 0.05, 0.0))
         sel_atom = rs_br.Select_Atom(ref_atom, 0.1)
@@ -314,24 +284,12 @@ class TestRsPhase3(unittest.TestCase):
         ag2.set_atom("A4", rs_br.Atom(name="A4", xyz=rs_br.Position(0.0, 1.0, 4.0)))
 
         sp_rs = rs_br.Superposer(ag1, ag2)
-
-        py_ag1 = PyAtomGroup("mol1")
-        py_ag1.set_atom("A1", PyAtom(name="A1", xyz=PyPos(1.0, 1.0, 1.0)))
-        py_ag1.set_atom("A2", PyAtom(name="A2", xyz=PyPos(1.0, -1.0, -1.0)))
-        py_ag1.set_atom("A3", PyAtom(name="A3", xyz=PyPos(-1.0, 1.0, -1.0)))
-        py_ag1.set_atom("A4", PyAtom(name="A4", xyz=PyPos(-1.0, -1.0, 1.0)))
-
-        py_ag2 = PyAtomGroup("mol2")
-        py_ag2.set_atom("A1", PyAtom(name="A1", xyz=PyPos(2.0, 3.0, 4.0)))
-        py_ag2.set_atom("A2", PyAtom(name="A2", xyz=PyPos(2.0, 1.0, 2.0)))
-        py_ag2.set_atom("A3", PyAtom(name="A3", xyz=PyPos(0.0, 3.0, 2.0)))
-        py_ag2.set_atom("A4", PyAtom(name="A4", xyz=PyPos(0.0, 1.0, 4.0)))
-
-        sp_py = PySuperposer(py_ag1, py_ag2)
+        sp_py = PySuperposer(ag1, ag2)
 
         self.assertAlmostEqual(sp_rs.rmsd, 0.0, places=5)
-        self.assertAlmostEqual(sp_rs.rmsd, sp_py.rmsd, places=5)
+        self.assertAlmostEqual(sp_py.rmsd, 0.0, places=5)
         self.assertEqual(sp_rs.num_of_positions, 4)
+        self.assertEqual(sp_py.num_of_positions, 4)
 
         superimposed = sp_rs.superimpose(ag1)
         self.assertEqual(superimposed.get_number_of_atoms(), 4)
