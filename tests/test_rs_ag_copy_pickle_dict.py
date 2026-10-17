@@ -8,8 +8,10 @@ Test suite validating rs.AtomGroup copy, pickle, and dictionary roundtrip (TASK_
 import copy
 import os
 import pickle
+import tempfile
 import unittest
 
+from proteindf_bridge import Pdb as PyPdb, load_msgpack, save_msgpack
 import proteindf_bridge.rs as rs
 
 
@@ -34,10 +36,19 @@ class TestRsAgCopyPickleDict(unittest.TestCase):
                 break
         assert cls.pdb_path is not None, "1hls.pdb fixture not found"
 
-        # Generate 1hls raw dict via rs.Pdb
-        pdb = rs.Pdb()
-        pdb.load(cls.pdb_path)
-        cls.raw_1hls = pdb.get_atomgroup().get_raw_data()
+        # Generate 1hls raw dict via pure-Python Pdb and load_msgpack
+        py_pdb = PyPdb()
+        py_pdb.load(cls.pdb_path)
+        cls.py_1hls_ag = py_pdb.get_atomgroup()
+
+        with tempfile.NamedTemporaryFile(suffix=".brd", delete=False) as f:
+            cls.brd_temp_path = f.name
+        try:
+            save_msgpack(cls.py_1hls_ag.get_raw_data(), cls.brd_temp_path)
+            cls.raw_1hls = load_msgpack(cls.brd_temp_path)
+        finally:
+            if os.path.exists(cls.brd_temp_path):
+                os.remove(cls.brd_temp_path)
 
     def test_criterion1_1hls_dict_roundtrip(self):
         """Criterion 1: rs.AtomGroup(raw).get_raw_data() == raw."""

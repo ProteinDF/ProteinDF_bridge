@@ -170,7 +170,8 @@ class TestRsAgMutators(unittest.TestCase):
         def get_coords_lines(xyz_text):
             return [l for l in xyz_text.strip().split("\n") if not l.startswith("#") and not l.strip().isdigit()]
 
-        self.assertEqual(len(get_coords_lines(rs_root.get_xyz())), 12)
+        expected_coords_lines = [" C    0.000    0.000    0.000"] * 9 + [" N    0.000    0.000    0.000"] * 3
+        self.assertEqual(get_coords_lines(rs_root.get_xyz()), expected_coords_lines)
 
         # 2. Switch to 'nice'
         rs_root.sort_groups = "nice"
@@ -203,7 +204,7 @@ class TestRsAgMutators(unittest.TestCase):
 
         self.assertEqual([a.path for a in rs_root.pickup_atoms("C")], [])
         self.assertEqual([a.path for a in rs_root.pickup_atoms("A1")], ["/1/1", "/2/1", "/10/1"])
-        self.assertEqual(len(get_coords_lines(rs_root.get_xyz())), 12)
+        self.assertEqual(get_coords_lines(rs_root.get_xyz()), expected_coords_lines)
 
         # 3. Switch back to None -> restore insertion order
         rs_root.sort_groups = None
@@ -214,18 +215,24 @@ class TestRsAgMutators(unittest.TestCase):
         self.assertEqual(rs_root.get_group_list(), ["1", "10", "2"])
         self.assertEqual(rs_root.get_atom_keys(), ["top_1", "top_10", "top_2"])
         self.assertEqual(rs_root.get_path_list(), expected_default_paths)
-        self.assertEqual(len(get_coords_lines(rs_root.get_xyz())), 12)
+        self.assertEqual(get_coords_lines(rs_root.get_xyz()), expected_coords_lines)
 
         # 4. Flat tree get_xyz matches expected
         rs_flat = rs.AtomGroup("flat")
         for k in ["1", "10", "2"]:
             rs_flat.set_atom(k, rs.Atom(name=f"A{k}", symbol="C"))
 
-        self.assertEqual(rs_flat.get_atom_keys(), ["1", "10", "2"])
+        expected_flat_xyz = (
+            "3\n# \n"
+            " C    0.000    0.000    0.000\n"
+            " C    0.000    0.000    0.000\n"
+            " C    0.000    0.000    0.000\n"
+        )
+        self.assertEqual(rs_flat.get_xyz(), expected_flat_xyz)
         rs_flat.sort_atoms = "nice"
-        self.assertEqual(rs_flat.get_atom_keys(), ["1", "2", "10"])
+        self.assertEqual(rs_flat.get_xyz(), expected_flat_xyz)
         rs_flat.sort_atoms = None
-        self.assertEqual(rs_flat.get_atom_keys(), ["1", "10", "2"])
+        self.assertEqual(rs_flat.get_xyz(), expected_flat_xyz)
 
     def test_criterion3_copy_and_pickle_preserve_sort_settings(self):
         """Criterion 3: sort_atoms and sort_groups are preserved in copy, deepcopy, and pickle."""
