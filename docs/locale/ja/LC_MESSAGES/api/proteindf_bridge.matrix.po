@@ -34,6 +34,7 @@ msgid ""
 "Return the matrix data as raw bytes (float64, native byte order, row-"
 "major)."
 msgstr ""
+"行列データを生のバイト列 (float64, native byte order, row-major) として返す。"
 
 #: 061a395f490e40e0ba2ff6e7cf2c2e45 of
 #: proteindf_bridge.matrix.Matrix.get_ndarray:1
@@ -50,15 +51,16 @@ msgid ""
 "Set matrix data from a byte buffer (float64, native byte order, row-"
 "major)."
 msgstr ""
+"バイトバッファ (float64, native byte order, row-major) から行列データを設定する。"
 
 #: ../../api/proteindf_bridge.matrix.rst fa9bc66f71d649768740c63b9c2c6064
 msgid "Raises"
-msgstr ""
+msgstr "例外"
 
 #: 3a07bcde30cf49cea14291cfb97316d2 of
 #: proteindf_bridge.matrix.Matrix.set_buffer:3
 msgid "If the buffer length does not match rows * cols * 8 bytes."
-msgstr ""
+msgstr "バッファ長が rows * cols * 8 バイトに一致しない場合。"
 
 #: c3f51fcb262a482db0f82affc25eee3f of
 #: proteindf_bridge.matrix.SymmetricMatrix.eig:1
@@ -70,4 +72,5 @@ msgid ""
 "Matrix (for general matrix) and SymmetricMatrix (for symmetric matrix) "
 "class using numpy.ndarray"
 msgstr ""
+"numpy.ndarray を使用した Matrix (一般行列用) および SymmetricMatrix (対称行列用) クラス"
 

@@ -31,19 +31,19 @@ msgstr "numpy配列を返す"
 #: 7bd78f5458434c18b5d3589202cef70f of
 #: proteindf_bridge.vector.Vector.get_buffer:1
 msgid "Return the vector data as raw bytes (float64, native byte order)."
-msgstr ""
+msgstr "ベクトルデータを生のバイト列 (float64, native byte order) として返す。"
 
 #: 06e4bdd562984e8eb76fba4a5a25e9bf of
 #: proteindf_bridge.vector.Vector.set_buffer:1
 msgid "Set vector data from a byte buffer (float64, native byte order)."
-msgstr ""
+msgstr "バイトバッファ (float64, native byte order) からベクトルデータを設定する。"
 
 #: ../../api/proteindf_bridge.vector.rst 01467200c3da4809a51ea5fbb6adbd4a
 msgid "Raises"
-msgstr ""
+msgstr "例外"
 
 #: bc94bf661da64cf2aec9653b3a3f8272 of
 #: proteindf_bridge.vector.Vector.set_buffer:3
 msgid "If the buffer length is not a multiple of 8 bytes."
-msgstr ""
+msgstr "バッファ長が 8 バイトの倍数でない場合。"
 

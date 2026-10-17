@@ -44,9 +44,8 @@ msgstr "bridgeファイル(msgpack形式)を読み込む"
 
 #: 4ddf2eafce774a05a247818d3133d034 of
 #: proteindf_bridge.functions.load_atomgroup:4
-#, fuzzy
 msgid ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.rs.AtomGroup\\``"
-msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.atomgroup.AtomGroup\\``"
+msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.rs.AtomGroup\\``"
 
 #: cebbffba5e274df5b43ee41b7a788842 of
 #: proteindf_bridge.functions.load_msgpack:1
@@ -95,9 +94,8 @@ msgstr "bridgeファイル(msgpack形式)を保存する"
 #: proteindf_bridge.functions.save_atomgroup:4
 #: proteindf_bridge.functions.save_msgpack:4
 #: proteindf_bridge.functions.save_yaml:1
-#, fuzzy
 msgid ":sphinx_autodoc_typehints_type:`\\:sphinx\\_autodoc\\_typehints\\_constant\\:\\`None\\``"
-msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:obj\\:\\`None\\``"
+msgstr ":sphinx_autodoc_typehints_type:`\\:sphinx\\_autodoc\\_typehints\\_constant\\:\\`None\\``"
 
 #: 33b9136bcbca490e81ada164a78b5918 of
 #: proteindf_bridge.functions.save_msgpack:1
@@ -107,7 +105,7 @@ msgstr "Pythonデータをmsgpackファイルに保存する"
 #: 96a0de331f674dcda1bc0a852c7ac9f0 of
 #: proteindf_bridge.functions.split_residue_key:1
 msgid "Split a residue key into (sequence number, insertion code)."
-msgstr ""
+msgstr "残基キーを (シーケンス番号, 挿入コード) に分割する。"
 
 #: e67bd6e1d9d244eea0b4654c3990e17c of
 #: proteindf_bridge.functions.split_residue_key:3
@@ -116,15 +114,16 @@ msgid ""
 "i_code). If there is no insertion code, i_code is \"\". Raises ValueError"
 " if key does not match."
 msgstr ""
+"^(-?\\d+)(\\S?)$ に一致するキーを受け取り、(int(res_seq), "
+"i_code) を返す。挿入コードがない場合、i_code は \"\" となる。キーが"
+"一致しない場合は ValueError を送出する。"
 
 #: 9353583f57c9465aac370759739a4590 of
 #: proteindf_bridge.functions.split_residue_key:7
-#, fuzzy
 msgid ""
 ":sphinx_autodoc_typehints_type:`\\:py\\:data\\:\\`\\~typing.Tuple\\`\\\\ "
 "\\\\\\[\\:py\\:class\\:\\`int\\`\\, \\:py\\:class\\:\\`str\\`\\]`"
 msgstr ""
 ":sphinx_autodoc_typehints_type:`\\:py\\:data\\:\\`\\~typing.Tuple\\`\\\\ "
-"\\\\\\[\\:py\\:class\\:\\`str\\`\\, \\:py\\:class\\:\\`str\\`\\, "
-"\\:py\\:class\\:\\`int\\`\\]`"
+"\\\\\\[\\:py\\:class\\:\\`int\\`\\, \\:py\\:class\\:\\`str\\`\\]`"
 
