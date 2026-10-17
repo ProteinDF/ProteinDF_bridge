@@ -3,7 +3,7 @@
 
 """
 Test suite validating rs.AtomGroup charge, nuclei_charge, real_nuclei_charge,
-get_atom_kinds, and get_xyz methods (TASK_rs-ag-charge-xyz).
+get_atom_kinds, and get_xyz methods.
 """
 
 import glob

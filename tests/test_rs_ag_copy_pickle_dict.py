@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Test suite validating rs.AtomGroup copy, pickle, and dictionary roundtrip (TASK_rs-ag-copy-pickle-dict).
+Test suite validating rs.AtomGroup copy, pickle, and dictionary roundtrip.
 """
 
 import copy
