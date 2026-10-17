@@ -29,7 +29,7 @@ type AtomState = (
 /// Args:
 ///     *args: At most 1 positional argument.
 ///         - If an Atom: Clones the properties of the given atom.
-///         - If a str: Element symbol (e.g., "C", "CA").
+///         - If a str: Element symbol (e.g., "C", "Fe").
 ///         - If an int: Atomic number (Z).
 ///         - If a dict: Dictionary with keys "Z", "name", "Q", "xyz", "force".
 ///     **kwargs: Keyword arguments for atom properties:
@@ -43,7 +43,8 @@ type AtomState = (
 ///
 /// Raises:
 ///     TypeError: If positional arguments exceed 1 or argument types are invalid.
-///     BrValueError: If symbol is invalid or coordinates cannot be parsed.
+///     BrValueError: If the element symbol is unknown.
+///     BrInputError: If coordinate parsing fails from a string or slice.
 #[pyclass(name = "Atom", module = "proteindf_bridge.rs")]
 pub struct PyAtom {
     pub(crate) atomic_number: usize,
@@ -116,7 +117,8 @@ impl PyAtom {
     ///
     /// Raises:
     ///     TypeError: If positional arguments exceed 1 or argument types are invalid.
-    ///     BrValueError: If symbol is invalid or coordinates cannot be parsed.
+    ///     BrValueError: If the element symbol is unknown.
+    ///     BrInputError: If coordinate parsing fails from a string or slice.
     #[new]
     #[pyo3(signature = (*args, **kwargs))]
     pub fn new(
@@ -314,10 +316,10 @@ impl PyAtom {
     /// Returns the standard atomic weight of the element.
     ///
     /// Returns:
-    ///     The atomic weight in unified atomic mass units (Da) as a float.
+    ///     The atomic weight in unified atomic mass units (Da) as a float, or 0.0 for dummy atoms.
     ///
     /// Raises:
-    ///     BrValueError: If the atomic number has no standard atomic weight.
+    ///     BrValueError: If the atomic number has no standard atomic weight (Z > 118).
     pub fn weight(&self) -> PyResult<f64> {
         proteindf_bridge::periodic_table::PeriodicTable::atomic_weight(self.atomic_number)
             .map_err(to_py_err)
@@ -333,7 +335,7 @@ impl PyAtom {
     ///
     /// Raises:
     ///     TypeError: If pos is not a valid coordinate specification.
-    ///     BrValueError: If parsing pos fails.
+    ///     BrInputError: If parsing pos fails.
     pub fn move_to(slf: Py<Self>, pos: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<Py<Self>> {
         let p = extract_pos(pos)?;
         let borrow = slf.borrow(py);
@@ -352,7 +354,7 @@ impl PyAtom {
     ///
     /// Raises:
     ///     TypeError: If dir is not a valid coordinate specification.
-    ///     BrValueError: If parsing dir fails.
+    ///     BrInputError: If parsing dir fails.
     pub fn shift_by(slf: Py<Self>, dir: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<Py<Self>> {
         let d = extract_pos(dir)?;
         let borrow = slf.borrow(py);
@@ -364,11 +366,11 @@ impl PyAtom {
     /// Rotates the atom coordinates in-place using a 3x3 rotation matrix.
     ///
     /// Args:
-    ///     rotmat: A 3x3 rotation matrix (Matrix or nested sequence of numbers).
+    ///     rotmat: A 3x3 rotation matrix (Matrix or an object with rows, cols, and get(row, col)).
     ///
     /// Raises:
-    ///     TypeError: If rotmat cannot be parsed as a rotation matrix.
-    ///     BrValueError: If matrix dimensions are not 3x3.
+    ///     TypeError: If rotmat is not a Matrix or an object with rows, cols, and get(row, col).
+    ///     ValueError: If matrix dimensions are not 3x3.
     pub fn rotate(&self, py: Python<'_>, rotmat: &Bound<'_, PyAny>) -> PyResult<()> {
         let core_mat = crate::matrix::extract_rotation_matrix(rotmat)?;
         self.xyz
@@ -401,7 +403,7 @@ impl PyAtom {
     ///
     /// Raises:
     ///     TypeError: If values in the dictionary cannot be converted to expected types.
-    ///     BrValueError: If position or force coordinates cannot be parsed.
+    ///     BrInputError: If position or force coordinates cannot be parsed.
     pub fn set_by_raw_data(&mut self, py: Python<'_>, data: &Bound<'_, PyDict>) -> PyResult<()> {
         if let Some(z) = data.get_item("Z")? {
             self.atomic_number = z.extract::<usize>()?;

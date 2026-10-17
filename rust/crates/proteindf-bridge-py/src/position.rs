@@ -20,7 +20,7 @@ use std::str::FromStr;
 ///
 /// Raises:
 ///     TypeError: If the arguments are invalid in count or type.
-///     BrValueError: If parsing from a string or slice fails.
+///     BrInputError: If parsing from a string or slice fails.
 #[pyclass(name = "Position", module = "proteindf_bridge.rs", from_py_object)]
 #[derive(Clone)]
 pub struct PyPosition {
@@ -84,7 +84,7 @@ impl PyPosition {
     ///
     /// Raises:
     ///     TypeError: If the arguments are invalid in count or type.
-    ///     BrValueError: If parsing from a string or slice fails.
+    ///     BrInputError: If parsing from a string or slice fails.
     #[new]
     #[pyo3(signature = (*args))]
     pub fn new(args: &Bound<'_, pyo3::types::PyTuple>) -> PyResult<Self> {
@@ -184,7 +184,7 @@ impl PyPosition {
     ///
     /// Raises:
     ///     TypeError: If arg is not a valid coordinate specification.
-    ///     BrValueError: If parsing from a string or slice fails.
+    ///     BrInputError: If parsing from a string or slice fails.
     pub fn move_to(&mut self, arg: &Bound<'_, PyAny>) -> PyResult<()> {
         let new_pos = extract_position(arg)?;
         self.inner.move_to(new_pos);
@@ -202,7 +202,7 @@ impl PyPosition {
     ///
     /// Raises:
     ///     TypeError: If other is not a valid coordinate specification.
-    ///     BrValueError: If parsing other fails.
+    ///     BrInputError: If parsing other fails.
     #[pyo3(signature = (other=None))]
     pub fn square_distance_from(&self, other: Option<&Bound<'_, PyAny>>) -> PyResult<f64> {
         let target = match other {
@@ -223,7 +223,7 @@ impl PyPosition {
     ///
     /// Raises:
     ///     TypeError: If other is not a valid coordinate specification.
-    ///     BrValueError: If parsing other fails.
+    ///     BrInputError: If parsing other fails.
     #[pyo3(signature = (other=None))]
     pub fn distance_from(&self, other: Option<&Bound<'_, PyAny>>) -> PyResult<f64> {
         let target = match other {
@@ -250,11 +250,11 @@ impl PyPosition {
     /// Rotates the position vector in-place by a 3x3 rotation matrix.
     ///
     /// Args:
-    ///     mat: A 3x3 rotation matrix (Matrix or nested sequence of numbers).
+    ///     mat: A 3x3 rotation matrix (Matrix or an object with rows, cols, and get(row, col)).
     ///
     /// Raises:
-    ///     TypeError: If mat cannot be parsed as a rotation matrix.
-    ///     BrValueError: If matrix dimensions are not 3x3.
+    ///     TypeError: If mat is not a Matrix or an object with rows, cols, and get(row, col).
+    ///     ValueError: If matrix dimensions are not 3x3.
     pub fn rotate(&mut self, mat: &Bound<'_, PyAny>) -> PyResult<()> {
         let core_mat = crate::matrix::extract_rotation_matrix(mat)?;
         self.inner.rotate(&core_mat).map_err(to_py_err)
@@ -270,7 +270,7 @@ impl PyPosition {
     ///
     /// Raises:
     ///     TypeError: If other cannot be parsed as a position.
-    ///     BrValueError: If parsing other fails.
+    ///     BrInputError: If parsing other fails.
     pub fn dot(&self, other: &Bound<'_, PyAny>) -> PyResult<f64> {
         let target = extract_position(other)?;
         Ok(self.inner.dot(&target))
@@ -286,7 +286,7 @@ impl PyPosition {
     ///
     /// Raises:
     ///     TypeError: If other cannot be parsed as a position.
-    ///     BrValueError: If parsing other fails.
+    ///     BrInputError: If parsing other fails.
     pub fn cross(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         let target = extract_position(other)?;
         Ok(Self {
@@ -317,7 +317,7 @@ impl PyPosition {
     ///
     /// Raises:
     ///     TypeError: If any point cannot be parsed as a position.
-    ///     BrValueError: If parsing any point fails.
+    ///     BrInputError: If parsing any point fails.
     pub fn dihedral(
         &self,
         p2: &Bound<'_, PyAny>,

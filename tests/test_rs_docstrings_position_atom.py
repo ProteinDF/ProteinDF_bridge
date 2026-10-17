@@ -154,6 +154,26 @@ class TestRsDocstringsPositionAtom(unittest.TestCase):
                 f"Public attribute Atom.{name} docstring is empty",
             )
 
+    def test_docstring_content_accuracy(self):
+        """Verify key content details in Position and Atom docstrings."""
+        # 1. Coordinate parsing errors document BrInputError
+        self.assertIn("BrInputError", Position.__doc__)
+        self.assertIn("BrInputError", Position.move_to.__doc__)
+        self.assertIn("BrInputError", Atom.__doc__)
+        self.assertIn("BrInputError", Atom.move_to.__doc__)
+
+        # 2. Rotate method documents ValueError (not BrValueError)
+        self.assertIn("ValueError", Position.rotate.__doc__)
+        self.assertNotIn("BrValueError", Position.rotate.__doc__)
+        self.assertIn("ValueError", Atom.rotate.__doc__)
+        self.assertNotIn("BrValueError", Atom.rotate.__doc__)
+
+        # 3. Atom symbol examples avoid CA ambiguity
+        self.assertIn('"Fe"', Atom.__doc__)
+
+        # 4. Atom weight documents 0.0 for dummy atoms
+        self.assertIn("0.0", Atom.weight.__doc__)
+
 
 if __name__ == "__main__":
     unittest.main()
