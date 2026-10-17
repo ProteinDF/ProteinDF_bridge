@@ -1406,30 +1406,10 @@ impl PyAtomGroup {
         order: usize,
     ) -> PyResult<()> {
         let py = slf.py();
-        let p1 = if atom1.path.is_empty() {
-            let borrow = slf.borrow();
-            borrow
-                .atoms
-                .iter()
-                .find(|(_, a)| a.borrow(py).name == atom1.name)
-                .map(|(k, _)| format!("{}{}", borrow.compute_path(py), k))
-                .unwrap_or_else(|| atom1.name.clone())
-        } else {
-            atom1.path.clone()
-        };
-        let p2 = if atom2.path.is_empty() {
-            let borrow = slf.borrow();
-            borrow
-                .atoms
-                .iter()
-                .find(|(_, a)| a.borrow(py).name == atom2.name)
-                .map(|(k, _)| format!("{}{}", borrow.compute_path(py), k))
-                .unwrap_or_else(|| atom2.name.clone())
-        } else {
-            atom2.path.clone()
-        };
+        let p1 = &atom1.path;
+        let p2 = &atom2.path;
 
-        let common_path = CoreAtomGroup::get_common_path(&p1, &p2);
+        let common_path = CoreAtomGroup::get_common_path(p1, p2);
 
         let query_str = PyString::new(py, &common_path);
         let target_group = if let Some(family) = Self::get_family(slf, query_str.as_any())? {
@@ -1439,7 +1419,7 @@ impl PyAtomGroup {
         };
 
         let target_path = target_group.borrow().compute_path(py);
-        let common1 = CoreAtomGroup::get_common_path(&target_path, &p1);
+        let common1 = CoreAtomGroup::get_common_path(&target_path, p1);
         let rel_p1 = if p1.starts_with(&common1) {
             &p1[common1.len()..]
         } else if p1.starts_with(&target_path) {
@@ -1449,7 +1429,7 @@ impl PyAtomGroup {
         }
         .trim_start_matches('/');
 
-        let common2 = CoreAtomGroup::get_common_path(&target_path, &p2);
+        let common2 = CoreAtomGroup::get_common_path(&target_path, p2);
         let rel_p2 = if p2.starts_with(&common2) {
             &p2[common2.len()..]
         } else if p2.starts_with(&target_path) {
