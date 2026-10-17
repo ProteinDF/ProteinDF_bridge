@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-Comparison test suite for Phase 5 (PR#15):
-Validating proteindf_bridge.rs (PyO3 Rust bindings) format I/O against pure Python proteindf_bridge.
+Validation test suite for Phase 2 (PR#15):
+Validating proteindf_bridge.rs (PyO3 Rust bindings) format I/O against pure Python format parsers and expected values.
 """
 
 import os
@@ -13,13 +13,9 @@ import unittest
 # Pure Python implementation
 from proteindf_bridge.xyz import Xyz as PyXyz
 from proteindf_bridge.gro import SimpleGro as PySimpleGro
-from proteindf_bridge.mol2 import SimpleMol2 as PySimpleMol2
 from proteindf_bridge.amber_prmtop import AmberPrmtop as PyAmberPrmtop
 from proteindf_bridge.biopdb import Pdb as PyPdb
 from proteindf_bridge.mmcif import SimpleMmcif as PySimpleMmcif
-from proteindf_bridge.atom import Atom as PyAtom
-from proteindf_bridge.atomgroup import AtomGroup as PyAtomGroup
-from proteindf_bridge.position import Position as PyPos
 
 # Rust PyO3 bindings
 import proteindf_bridge.rs as rs_br
@@ -177,20 +173,12 @@ class TestRsPhase2(unittest.TestCase):
     # 4. SimpleMol2
     # --------------------------------------------------------------------------
     def test_mol2_create_and_text(self):
-        py_ag = PyAtomGroup("water")
-        py_ag.set_atom("1", PyAtom(name="O1", symbol="O", xyz=PyPos(0.0, 0.0, 0.0), charge=-0.8))
-        py_ag.set_atom("2", PyAtom(name="H1", symbol="H", xyz=PyPos(0.0, 1.0, 0.0), charge=0.4))
-        py_ag.set_atom("3", PyAtom(name="H2", symbol="H", xyz=PyPos(1.0, 0.0, 0.0), charge=0.4))
-
         rs_ag = rs_br.AtomGroup("water")
         rs_ag.set_atom("1", rs_br.Atom(name="O1", symbol="O", xyz=rs_br.Position(0.0, 0.0, 0.0), charge=-0.8))
         rs_ag.set_atom("2", rs_br.Atom(name="H1", symbol="H", xyz=rs_br.Position(0.0, 1.0, 0.0), charge=0.4))
         rs_ag.set_atom("3", rs_br.Atom(name="H2", symbol="H", xyz=rs_br.Position(1.0, 0.0, 0.0), charge=0.4))
 
-        py_mol2 = PySimpleMol2(py_ag)
         rs_mol2 = rs_br.SimpleMol2(rs_ag)
-
-        py_text = str(py_mol2)
         rs_text = rs_mol2.get_text()
 
         self.assertIn("@<TRIPOS>MOLECULE", rs_text)
