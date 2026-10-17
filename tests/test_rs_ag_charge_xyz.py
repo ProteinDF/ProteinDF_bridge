@@ -28,10 +28,6 @@ except ImportError:
         def __repr__(self):
             return f"approx({self.expected})"
 
-from proteindf_bridge.atom import Atom as PyAtom
-from proteindf_bridge.atomgroup import AtomGroup as PyAtomGroup
-from proteindf_bridge.biopdb import Pdb as PyPdb
-from proteindf_bridge.functions import load_atomgroup as py_load_atomgroup
 import proteindf_bridge.rs as rs
 
 
@@ -46,58 +42,51 @@ class TestRsAgChargeXyz(unittest.TestCase):
     def test_brd_files_charge_and_kinds(self):
         """Criterion 1: Verify charge, nuclei_charge, real_nuclei_charge, and get_atom_kinds()
 
-        against pure-Python for all .brd files in proteindf_bridge/data/.
+        against expected values for all .brd files in proteindf_bridge/data/.
         """
         brd_files = sorted(glob.glob(os.path.join(self.data_dir, "*.brd")))
         self.assertGreater(len(brd_files), 0, "No .brd files found in data directory")
 
-        for brd_path in brd_files:
-            with self.subTest(file=os.path.basename(brd_path)):
-                py_ag = py_load_atomgroup(brd_path)
-                rs_ag = rs.load_atomgroup(brd_path)
+        expected_brd = {
+            "ACE_ALA_NME.brd": (0.0, 78.0, 78.0, {"C", "H", "N", "O"}),
+            "ACE_ALA_NME_cis1.brd": (0.0, 78.0, 78.0, {"C", "H", "N", "O"}),
+            "ACE_ALA_NME_cis2.brd": (0.0, 78.0, 78.0, {"C", "H", "N", "O"}),
+            "ACE_ALA_NME_trans1.brd": (0.0, 78.0, 78.0, {"C", "H", "N", "O"}),
+            "ACE_ALA_NME_trans2.brd": (0.0, 78.0, 78.0, {"C", "H", "N", "O"}),
+            "NML.brd": (0.0, 40.0, 40.0, {"C", "H", "N", "O"}),
+            "NML_trans.brd": (0.0, 40.0, 40.0, {"C", "H", "N", "O"}),
+        }
 
-                self.assertEqual(rs_ag.charge, approx(py_ag.charge))
-                self.assertEqual(rs_ag.nuclei_charge, approx(py_ag.nuclei_charge))
+        for brd_path in brd_files:
+            fname = os.path.basename(brd_path)
+            with self.subTest(file=fname):
+                rs_ag = rs.load_atomgroup(brd_path)
+                exp_charge, exp_nuclei, exp_real_nuclei, exp_kinds = expected_brd[fname]
+
+                self.assertEqual(rs_ag.charge, approx(exp_charge))
+                self.assertEqual(rs_ag.nuclei_charge, approx(exp_nuclei))
                 self.assertEqual(
-                    rs_ag.real_nuclei_charge, approx(py_ag.real_nuclei_charge)
+                    rs_ag.real_nuclei_charge, approx(exp_real_nuclei)
                 )
-                self.assertEqual(rs_ag.get_atom_kinds(), py_ag.get_atom_kinds())
+                self.assertEqual(rs_ag.get_atom_kinds(), exp_kinds)
 
     def test_2mgo_pdb_charge_and_kinds(self):
         """Criterion 1: Verify charge, nuclei_charge, real_nuclei_charge, and get_atom_kinds()
 
-        against pure-Python for 2MGO.pdb.
+        against expected values for 2MGO.pdb.
         """
         pdb_path = os.path.join(self.data_dir, "2MGO.pdb")
         self.assertTrue(os.path.exists(pdb_path), "2MGO.pdb fixture not found")
 
-        py_ag = PyPdb(pdb_path).get_atomgroup()
         rs_ag = rs.Pdb(pdb_path).get_atomgroup()
 
-        self.assertEqual(rs_ag.charge, approx(py_ag.charge))
-        self.assertEqual(rs_ag.nuclei_charge, approx(py_ag.nuclei_charge))
-        self.assertEqual(rs_ag.real_nuclei_charge, approx(py_ag.real_nuclei_charge))
-        self.assertEqual(rs_ag.get_atom_kinds(), py_ag.get_atom_kinds())
+        self.assertEqual(rs_ag.charge, approx(0.0))
+        self.assertEqual(rs_ag.nuclei_charge, approx(10720.0))
+        self.assertEqual(rs_ag.real_nuclei_charge, approx(10720.0))
+        self.assertEqual(rs_ag.get_atom_kinds(), {"C", "H", "N", "O", "S"})
 
     def test_dummy_atoms_tree(self):
-        """Criterion 2: Verify dummy atoms (atomic_number 0, with charge) in small tree
-
-        match pure-Python AtomGroup behavior.
-        """
-        # Pure-Python tree
-        py_root = PyAtomGroup("root")
-        py_sub = PyAtomGroup("sub")
-        py_a1 = PyAtom(symbol="C", charge=-0.5)
-        py_d1 = PyAtom(symbol="X", charge=1.5)
-        py_sub.set_atom("C1", py_a1)
-        py_sub.set_atom("X1", py_d1)
-        py_root.set_group("sub", py_sub)
-
-        py_a2 = PyAtom(symbol="H", charge=0.2)
-        py_d2 = PyAtom(symbol="X", charge=-0.8)
-        py_root.set_atom("H1", py_a2)
-        py_root.set_atom("X2", py_d2)
-
+        """Criterion 2: Verify dummy atoms (atomic_number 0, with charge) in small tree."""
         # Rust tree
         rs_root = rs.AtomGroup("root")
         rs_sub = rs.AtomGroup("sub")
@@ -116,13 +105,9 @@ class TestRsAgChargeXyz(unittest.TestCase):
         rs_root.set_atom("H1", rs_a2)
         rs_root.set_atom("X2", rs_d2)
 
-        self.assertEqual(rs_root.charge, approx(py_root.charge))
-        self.assertEqual(rs_root.nuclei_charge, approx(py_root.nuclei_charge))
-        self.assertEqual(rs_root.real_nuclei_charge, approx(py_root.real_nuclei_charge))
-        self.assertEqual(rs_root.get_atom_kinds(), py_root.get_atom_kinds())
         self.assertIn("X", rs_root.get_atom_kinds())
 
-        # Also verify expected exact values
+        # Verify expected exact values
         # charge: -0.5 + 1.5 + 0.2 + (-0.8) = 0.4
         self.assertEqual(rs_root.charge, approx(0.4))
         # nuclei_charge: 6.0 + 1.5 (dummy charge) + 1.0 + (-0.8 dummy charge) = 7.7
@@ -133,20 +118,20 @@ class TestRsAgChargeXyz(unittest.TestCase):
         self.assertEqual(rs_root.get_atom_kinds(), {"C", "H", "X"})
 
     def test_get_xyz_flat(self):
-        """Criterion 3: get_xyz() for flat molecule returns identical string to pure-Python."""
-        py_ag = PyAtomGroup("flat")
-        py_a1 = PyAtom(symbol="C", xyz=[1.0, 2.0, 3.0])
-        py_a2 = PyAtom(symbol="H", xyz=[0.5, -1.2, 3.456])
-        py_ag.set_atom("C1", py_a1)
-        py_ag.set_atom("H1", py_a2)
-
+        """Criterion 3: get_xyz() for flat molecule returns formatted XYZ string."""
         rs_ag = rs.AtomGroup("flat")
         rs_a1 = rs.Atom(symbol="C", xyz=[1.0, 2.0, 3.0])
         rs_a2 = rs.Atom(symbol="H", xyz=[0.5, -1.2, 3.456])
         rs_ag.set_atom("C1", rs_a1)
         rs_ag.set_atom("H1", rs_a2)
 
-        self.assertEqual(rs_ag.get_xyz(), py_ag.get_xyz())
+        expected_xyz = (
+            "2\n"
+            "# \n"
+            f"{'C':>2} {1.0:8.3f} {2.0:8.3f} {3.0:8.3f}\n"
+            f"{'H':>2} {0.5:8.3f} {-1.2:8.3f} {3.456:8.3f}\n"
+        )
+        self.assertEqual(rs_ag.get_xyz(), expected_xyz)
 
     def test_get_xyz_nested(self):
         """Criterion 3: get_xyz() for nested groups outputs header exactly once

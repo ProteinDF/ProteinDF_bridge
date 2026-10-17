@@ -3,16 +3,13 @@
 
 """
 Tests for rs switch compatibility:
-Ensuring rs.Position, rs.Atom, and rs.AtomGroup match pure Python behaviors.
+Validating rs.Position, rs.Atom, and rs.AtomGroup behaviors and expected values.
 """
 
 import math
 import unittest
 import numpy as np
 
-from proteindf_bridge.position import Position as PyPos
-from proteindf_bridge.atom import Atom as PyAtom
-from proteindf_bridge.atomgroup import AtomGroup as PyAtomGroup
 from proteindf_bridge.matrix import Matrix as PyMat
 import proteindf_bridge.rs as rs_br
 
@@ -38,15 +35,13 @@ class TestRsSwitchCompat(unittest.TestCase):
         pos_rs_with_rs_mat = rs_br.Position(1.0, 2.0, 3.0)
         pos_rs_with_rs_mat.rotate(rs_mat)
 
-        self.assertAlmostEqual(pos_rs_with_py_mat.x, pos_rs_with_rs_mat.x, places=6)
-        self.assertAlmostEqual(pos_rs_with_py_mat.y, pos_rs_with_rs_mat.y, places=6)
-        self.assertAlmostEqual(pos_rs_with_py_mat.z, pos_rs_with_rs_mat.z, places=6)
+        self.assertAlmostEqual(pos_rs_with_py_mat.x, -2.0, places=6)
+        self.assertAlmostEqual(pos_rs_with_py_mat.y, 1.0, places=6)
+        self.assertAlmostEqual(pos_rs_with_py_mat.z, 3.0, places=6)
 
-        pos_py = PyPos([1.0, 2.0, 3.0])
-        pos_py.rotate(py_mat)
-        self.assertAlmostEqual(pos_rs_with_py_mat.x, pos_py.x, places=6)
-        self.assertAlmostEqual(pos_rs_with_py_mat.y, pos_py.y, places=6)
-        self.assertAlmostEqual(pos_rs_with_py_mat.z, pos_py.z, places=6)
+        self.assertAlmostEqual(pos_rs_with_rs_mat.x, -2.0, places=6)
+        self.assertAlmostEqual(pos_rs_with_rs_mat.y, 1.0, places=6)
+        self.assertAlmostEqual(pos_rs_with_rs_mat.z, 3.0, places=6)
 
         # Non-3x3 matrix should raise ValueError
         bad_mat_py = PyMat([[1.0, 0.0], [0.0, 1.0]])
@@ -66,15 +61,13 @@ class TestRsSwitchCompat(unittest.TestCase):
         atom_rs_with_rs_mat = rs_br.Atom(xyz=[1.0, 2.0, 3.0])
         atom_rs_with_rs_mat.rotate(rs_mat)
 
-        self.assertAlmostEqual(atom_rs_with_py_mat.xyz.x, atom_rs_with_rs_mat.xyz.x, places=6)
-        self.assertAlmostEqual(atom_rs_with_py_mat.xyz.y, atom_rs_with_rs_mat.xyz.y, places=6)
-        self.assertAlmostEqual(atom_rs_with_py_mat.xyz.z, atom_rs_with_rs_mat.xyz.z, places=6)
+        self.assertAlmostEqual(atom_rs_with_py_mat.xyz.x, -2.0, places=6)
+        self.assertAlmostEqual(atom_rs_with_py_mat.xyz.y, 1.0, places=6)
+        self.assertAlmostEqual(atom_rs_with_py_mat.xyz.z, 3.0, places=6)
 
-        atom_py = PyAtom(xyz=[1.0, 2.0, 3.0])
-        atom_py.rotate(py_mat)
-        self.assertAlmostEqual(atom_rs_with_py_mat.xyz.x, atom_py.xyz.x, places=6)
-        self.assertAlmostEqual(atom_rs_with_py_mat.xyz.y, atom_py.xyz.y, places=6)
-        self.assertAlmostEqual(atom_rs_with_py_mat.xyz.z, atom_py.xyz.z, places=6)
+        self.assertAlmostEqual(atom_rs_with_rs_mat.xyz.x, -2.0, places=6)
+        self.assertAlmostEqual(atom_rs_with_rs_mat.xyz.y, 1.0, places=6)
+        self.assertAlmostEqual(atom_rs_with_rs_mat.xyz.z, 3.0, places=6)
 
         bad_mat_py = PyMat([[1.0, 0.0], [0.0, 1.0]])
         a = rs_br.Atom(xyz=[1.0, 2.0, 3.0])
@@ -100,28 +93,19 @@ class TestRsSwitchCompat(unittest.TestCase):
         ag_py_mat.rotate(py_mat)
         ag_rs_mat.rotate(rs_mat)
 
-        self.assertAlmostEqual(ag_py_mat["a1"].xyz.x, ag_rs_mat["a1"].xyz.x, places=6)
-        self.assertAlmostEqual(ag_py_mat["a1"].xyz.y, ag_rs_mat["a1"].xyz.y, places=6)
-        self.assertAlmostEqual(ag_py_mat["a1"].xyz.z, ag_rs_mat["a1"].xyz.z, places=6)
+        self.assertAlmostEqual(ag_py_mat["a1"].xyz.x, -2.0, places=6)
+        self.assertAlmostEqual(ag_py_mat["a1"].xyz.y, 1.0, places=6)
+        self.assertAlmostEqual(ag_py_mat["a1"].xyz.z, 3.0, places=6)
+        self.assertAlmostEqual(ag_rs_mat["a1"].xyz.x, -2.0, places=6)
+        self.assertAlmostEqual(ag_rs_mat["a1"].xyz.y, 1.0, places=6)
+        self.assertAlmostEqual(ag_rs_mat["a1"].xyz.z, 3.0, places=6)
 
-        self.assertAlmostEqual(ag_py_mat["sub"]["a2"].xyz.x, ag_rs_mat["sub"]["a2"].xyz.x, places=6)
-        self.assertAlmostEqual(ag_py_mat["sub"]["a2"].xyz.y, ag_rs_mat["sub"]["a2"].xyz.y, places=6)
-        self.assertAlmostEqual(ag_py_mat["sub"]["a2"].xyz.z, ag_rs_mat["sub"]["a2"].xyz.z, places=6)
-
-        # Compare with pure Python AtomGroup
-        ag_pure_py = PyAtomGroup()
-        ag_pure_py.set_atom("a1", PyAtom(xyz=[1.0, 2.0, 3.0]))
-        sub_pure_py = PyAtomGroup()
-        sub_pure_py.set_atom("a2", PyAtom(xyz=[4.0, 5.0, 6.0]))
-        ag_pure_py.set_group("sub", sub_pure_py)
-        ag_pure_py.rotate(py_mat)
-
-        self.assertAlmostEqual(ag_py_mat["a1"].xyz.x, ag_pure_py["a1"].xyz.x, places=6)
-        self.assertAlmostEqual(ag_py_mat["a1"].xyz.y, ag_pure_py["a1"].xyz.y, places=6)
-        self.assertAlmostEqual(ag_py_mat["a1"].xyz.z, ag_pure_py["a1"].xyz.z, places=6)
-        self.assertAlmostEqual(ag_py_mat["sub"]["a2"].xyz.x, ag_pure_py["sub"]["a2"].xyz.x, places=6)
-        self.assertAlmostEqual(ag_py_mat["sub"]["a2"].xyz.y, ag_pure_py["sub"]["a2"].xyz.y, places=6)
-        self.assertAlmostEqual(ag_py_mat["sub"]["a2"].xyz.z, ag_pure_py["sub"]["a2"].xyz.z, places=6)
+        self.assertAlmostEqual(ag_py_mat["sub"]["a2"].xyz.x, -5.0, places=6)
+        self.assertAlmostEqual(ag_py_mat["sub"]["a2"].xyz.y, 4.0, places=6)
+        self.assertAlmostEqual(ag_py_mat["sub"]["a2"].xyz.z, 6.0, places=6)
+        self.assertAlmostEqual(ag_rs_mat["sub"]["a2"].xyz.x, -5.0, places=6)
+        self.assertAlmostEqual(ag_rs_mat["sub"]["a2"].xyz.y, 4.0, places=6)
+        self.assertAlmostEqual(ag_rs_mat["sub"]["a2"].xyz.z, 6.0, places=6)
 
         bad_mat_py = PyMat([[1.0, 0.0], [0.0, 1.0]])
         with self.assertRaises(ValueError):
@@ -132,46 +116,35 @@ class TestRsSwitchCompat(unittest.TestCase):
     # --------------------------------------------------------------------------
     def test_position_len_iter(self):
         p_rs = rs_br.Position(1.5, 2.5, 3.5)
-        p_py = PyPos([1.5, 2.5, 3.5])
 
-        self.assertEqual(len(p_rs), len(p_py))
         self.assertEqual(len(p_rs), 3)
-
-        self.assertEqual(list(p_rs), list(p_py))
         self.assertEqual(list(p_rs), [1.5, 2.5, 3.5])
 
     def test_position_multiplication(self):
         p_rs = rs_br.Position(1.0, 2.0, 3.0)
-        p_py = PyPos([1.0, 2.0, 3.0])
 
         # p * 2
         res_rs = p_rs * 2
-        res_py = p_py * 2
-        self.assertEqual(list(res_rs), list(res_py))
+        self.assertEqual(list(res_rs), [2.0, 4.0, 6.0])
 
         # 2 * p
         res_rs = 2 * p_rs
-        res_py = 2 * p_py
-        self.assertEqual(list(res_rs), list(res_py))
+        self.assertEqual(list(res_rs), [2.0, 4.0, 6.0])
 
         # np.float64(2) * p
         np_val = np.float64(2.0)
         res_rs = np_val * p_rs
-        res_py = np_val * p_py
-        self.assertEqual(list(res_rs), list(res_py))
+        self.assertEqual(list(res_rs), [2.0, 4.0, 6.0])
 
         # p * np.float64(2)
         res_rs = p_rs * np_val
-        res_py = p_py * np_val
-        self.assertEqual(list(res_rs), list(res_py))
+        self.assertEqual(list(res_rs), [2.0, 4.0, 6.0])
 
         # int multiplication
         res_rs = p_rs * 3
-        res_py = p_py * 3
-        self.assertEqual(list(res_rs), list(res_py))
+        self.assertEqual(list(res_rs), [3.0, 6.0, 9.0])
         res_rs = 3 * p_rs
-        res_py = 3 * p_py
-        self.assertEqual(list(res_rs), list(res_py))
+        self.assertEqual(list(res_rs), [3.0, 6.0, 9.0])
 
         # rmul delegating to other.__mul__
         class CustomMultiplier:
@@ -237,22 +210,9 @@ class TestRsSwitchCompat(unittest.TestCase):
         a = rs_br.Atom(name="C3", symbol="C")
         ag.set_atom("/group_A/group_B/C3", a)
 
-        # Pure Python equivalent
-        ag_py = PyAtomGroup()
-        a_py = PyAtom(name="C3", symbol="C")
-        ag_py.set_atom("/group_A/group_B/C3", a_py)
-
-        self.assertEqual(ag.get_number_of_atoms(), ag_py.get_number_of_atoms())
         self.assertEqual(ag.get_number_of_atoms(), 0)
-
-        self.assertEqual(ag.get_number_of_all_atoms(), ag_py.get_number_of_all_atoms())
         self.assertEqual(ag.get_number_of_all_atoms(), 1)
-
         self.assertTrue(ag["group_A"]["group_B"].has_atomkey("C3"))
-        self.assertEqual(
-            ag["group_A"]["group_B"].has_atomkey("C3"),
-            ag_py["group_A"]["group_B"].has_atomkey("C3"),
-        )
 
         # Path check
         self.assertEqual(ag["group_A"]["group_B"]["C3"].path, "/group_A/group_B/C3")

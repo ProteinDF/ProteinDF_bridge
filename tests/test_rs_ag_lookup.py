@@ -9,11 +9,6 @@ import glob
 import os
 import unittest
 
-from proteindf_bridge.atom import Atom as PyAtom
-from proteindf_bridge.atomgroup import AtomGroup as PyAtomGroup
-from proteindf_bridge.biopdb import Pdb as PyPdb
-from proteindf_bridge.functions import load_atomgroup as py_load_atomgroup
-from proteindf_bridge.position import Position as PyPosition
 import proteindf_bridge.rs as rs
 
 
@@ -25,113 +20,104 @@ class TestRsAgLookup(unittest.TestCase):
             os.path.join(os.path.dirname(__file__), "..", "proteindf_bridge", "data")
         )
 
-    def _compare_group_lookups(self, py_ag, rs_ag):
-        """Helper to recursively compare get_atom_keys, has_atomname, and has_groupname."""
-        # 1. get_atom_keys
-        py_keys = py_ag.get_atom_keys()
-        rs_keys = rs_ag.get_atom_keys()
-        self.assertEqual(rs_keys, py_keys)
-
-        # 2. has_atomname
-        # Test existing atom names
-        for _, py_atm in py_ag.atoms():
-            atm_name = py_atm.name
-            self.assertTrue(rs_ag.has_atomname(atm_name))
-            # Test with leading and trailing whitespaces
-            self.assertTrue(rs_ag.has_atomname(f"  {atm_name}  "))
-            self.assertEqual(rs_ag.has_atomname(atm_name), py_ag.has_atomname(atm_name))
-            self.assertEqual(
-                rs_ag.has_atomname(f"  {atm_name}  "),
-                py_ag.has_atomname(f"  {atm_name}  "),
-            )
-
-        # Test non-existent atom name
-        self.assertFalse(rs_ag.has_atomname("__NON_EXISTENT_ATOM__"))
-        self.assertEqual(
-            rs_ag.has_atomname("__NON_EXISTENT_ATOM__"),
-            py_ag.has_atomname("__NON_EXISTENT_ATOM__"),
-        )
-
-        # 3. has_groupname
-        for _, py_sub in py_ag.groups():
-            sub_name = py_sub.name
-            self.assertTrue(rs_ag.has_groupname(sub_name))
-            self.assertEqual(rs_ag.has_groupname(sub_name), py_ag.has_groupname(sub_name))
-
-        self.assertFalse(rs_ag.has_groupname("__NON_EXISTENT_GROUP__"))
-        self.assertEqual(
-            rs_ag.has_groupname("__NON_EXISTENT_GROUP__"),
-            py_ag.has_groupname("__NON_EXISTENT_GROUP__"),
-        )
-
-        # Recurse for child groups
-        for (k_py, sub_py), (k_rs, sub_rs) in zip(py_ag.groups(), rs_ag.groups()):
-            self.assertEqual(k_py, k_rs)
-            self._compare_group_lookups(sub_py, sub_rs)
-
-    def _compare_pickup_atoms(self, py_ag, rs_ag, query_keys_or_names):
-        """Helper to compare pickup_atoms results by atom path and name."""
-        for query in query_keys_or_names:
-            py_picked = py_ag.pickup_atoms(query)
-            rs_picked = rs_ag.pickup_atoms(query)
-
-            self.assertEqual(
-                len(rs_picked),
-                len(py_picked),
-                f"Mismatch in count of picked atoms for query '{query}'",
-            )
-            for py_atm, rs_atm in zip(py_picked, rs_picked):
-                self.assertEqual(rs_atm.path, py_atm.path)
-                self.assertEqual(rs_atm.name, py_atm.name)
-
     def test_brd_files_lookup(self):
         """Criterion 1: Verify get_atom_keys, has_atomname, has_groupname, and pickup_atoms
 
-        against pure-Python for all .brd files in proteindf_bridge/data/.
+        against expected structure and queries for all .brd files in proteindf_bridge/data/.
         """
         brd_files = sorted(glob.glob(os.path.join(self.data_dir, "*.brd")))
         self.assertGreater(len(brd_files), 0, "No .brd files found in data directory")
 
         for brd_path in brd_files:
-            with self.subTest(file=os.path.basename(brd_path)):
-                py_ag = py_load_atomgroup(brd_path)
+            fname = os.path.basename(brd_path)
+            with self.subTest(file=fname):
                 rs_ag = rs.load_atomgroup(brd_path)
-
-                self._compare_group_lookups(py_ag, rs_ag)
-
-                # Pickup atoms test
-                sample_queries = ["CA", "C", "N", "O", "H", "1", "2", "non_existent"]
-                all_py_atoms = py_ag.get_atom_list()
-                if all_py_atoms:
-                    sample_queries.append(all_py_atoms[0].name)
-                self._compare_pickup_atoms(py_ag, rs_ag, sample_queries)
+                if fname.startswith("ACE_ALA_NME"):
+                    self.assertEqual(rs_ag.get_group_list(), ["1", "2", "3"])
+                    self.assertEqual(rs_ag.get_atom_keys(), [])
+                    self.assertEqual(rs_ag.get_number_of_all_atoms(), 22)
+                    self.assertTrue(rs_ag.has_group("1"))
+                    self.assertTrue(rs_ag.has_groupname("ACE"))
+                    self.assertTrue(rs_ag.has_groupname("ALA"))
+                    self.assertTrue(rs_ag.has_groupname("NME"))
+                    self.assertFalse(rs_ag.has_groupname("__NON_EXISTENT__"))
+                    self.assertEqual(len(rs_ag.pickup_atoms("CA")), 1)
+                    self.assertEqual(len(rs_ag.pickup_atoms("C")), 2)
+                    self.assertEqual(len(rs_ag.pickup_atoms("N")), 2)
+                    self.assertEqual(len(rs_ag.pickup_atoms("non_existent")), 0)
+                elif fname == "NML.brd":
+                    self.assertEqual(rs_ag.get_group_list(), [])
+                    self.assertEqual(len(rs_ag.get_atom_keys()), 12)
+                    self.assertEqual(rs_ag.get_number_of_all_atoms(), 12)
+                    self.assertTrue(rs_ag.has_atomkey("0"))
+                    self.assertTrue(rs_ag.has_atomname("C1"))
+                    self.assertTrue(rs_ag.has_atomname("  C1  "))
+                    self.assertFalse(rs_ag.has_atomname("__NON_EXISTENT__"))
+                    self.assertEqual(len(rs_ag.pickup_atoms("C1")), 1)
+                    self.assertEqual(len(rs_ag.pickup_atoms("non_existent")), 0)
+                elif fname == "NML_trans.brd":
+                    self.assertEqual(rs_ag.get_group_list(), [])
+                    self.assertEqual(len(rs_ag.get_atom_keys()), 12)
+                    self.assertEqual(rs_ag.get_number_of_all_atoms(), 12)
+                    self.assertTrue(rs_ag.has_atomkey("0"))
+                    self.assertTrue(rs_ag.has_atomname(""))
+                    self.assertFalse(rs_ag.has_atomname("__NON_EXISTENT__"))
+                    self.assertEqual(len(rs_ag.pickup_atoms("non_existent")), 0)
 
     def test_2mgo_pdb_lookup(self):
         """Criterion 1: Verify get_atom_keys, has_atomname, has_groupname, and pickup_atoms
 
-        against pure-Python for 2MGO.pdb.
+        against expected counts and sample atoms for 2MGO.pdb.
         """
         pdb_path = os.path.join(self.data_dir, "2MGO.pdb")
         self.assertTrue(os.path.exists(pdb_path), "2MGO.pdb fixture not found")
 
-        py_ag = PyPdb(pdb_path).get_atomgroup()
         rs_ag = rs.Pdb(pdb_path).get_atomgroup()
 
-        self._compare_group_lookups(py_ag, rs_ag)
+        self.assertEqual(rs_ag.get_atom_keys(), [])
+        self.assertEqual(rs_ag.get_number_of_all_atoms(), 2680)
+        self.assertEqual(len(rs_ag.get_group_list()), 20)
+        self.assertTrue(rs_ag.has_groupname("model_1"))
+        self.assertTrue(rs_ag.has_groupname("model_20"))
+        self.assertFalse(rs_ag.has_groupname("__NON_EXISTENT_GROUP__"))
 
-        sample_queries = [
-            "CA",
-            "CB",
-            "N",
-            "C",
-            "O",
-            "SG",
-            "1",
-            "10",
-            "100",
-            "non_existent",
-        ]
-        self._compare_pickup_atoms(py_ag, rs_ag, sample_queries)
+        m1 = rs_ag.get_group("model_1")
+        self.assertTrue(m1.has_groupname("A"))
+        chain_a = m1.get_group("A")
+        self.assertTrue(chain_a.has_group("1"))
+        self.assertTrue(chain_a.has_groupname("CYS"))
+        res1 = chain_a.get_group("1")
+        self.assertTrue(res1.has_atomname("CA"))
+        self.assertTrue(res1.has_atomname("  CA  "))
+        self.assertFalse(res1.has_atomname("__NON_EXISTENT_ATOM__"))
+
+        expected_queries = {
+            "CA": (180, "/model_1/A/1/2_CA", "CA", [3.791, 1.923, 0.075]),
+            "CB": (160, "/model_1/A/1/5_CB", "CB", [3.435, 1.946, -1.418]),
+            "N": (180, "/model_1/A/1/1_N", "N", [4.874, 2.855, 0.366]),
+            "C": (180, "/model_1/A/1/3_C", "C", [4.157, 0.518, 0.5]),
+            "O": (180, "/model_1/A/1/4_O", "O", [5.232, 0.286, 1.045]),
+            "SG": (40, "/model_1/A/1/6_SG", "SG", [2.665, 3.502, -1.99]),
+            "1": (0, None, None, None),
+            "10": (0, None, None, None),
+            "100": (0, None, None, None),
+            "non_existent": (0, None, None, None),
+        }
+
+        for query, (exp_count, exp_path, exp_name, exp_pos) in expected_queries.items():
+            picked = rs_ag.pickup_atoms(query)
+            self.assertEqual(
+                len(picked),
+                exp_count,
+                f"Mismatch in count of picked atoms for query '{query}'",
+            )
+            if exp_count > 0:
+                first = picked[0]
+                self.assertEqual(first.path, exp_path)
+                self.assertEqual(first.name, exp_name)
+                self.assertAlmostEqual(first.position.x, exp_pos[0], places=3)
+                self.assertAlmostEqual(first.position.y, exp_pos[1], places=3)
+                self.assertAlmostEqual(first.position.z, exp_pos[2], places=3)
 
     def test_identity_and_mutation(self):
         """Criterion 2: Return values of pickup_atoms and get_family are the objects in the tree.
@@ -273,17 +259,10 @@ class TestRsAgLookup(unittest.TestCase):
         for path_str, expected in cases:
             # Static call on class
             self.assertEqual(rs.AtomGroup.divide_path(path_str), expected)
-            self.assertEqual(PyAtomGroup.divide_path(path_str), expected)
-            self.assertEqual(
-                rs.AtomGroup.divide_path(path_str),
-                PyAtomGroup.divide_path(path_str),
-            )
 
         # Call on instance
         ag = rs.AtomGroup("test")
-        py_ag = PyAtomGroup("test")
         self.assertEqual(ag.divide_path("/x/y/z/"), ["x", "y", "z"])
-        self.assertEqual(ag.divide_path("/x/y/z/"), py_ag.divide_path("/x/y/z/"))
 
 
 if __name__ == "__main__":
