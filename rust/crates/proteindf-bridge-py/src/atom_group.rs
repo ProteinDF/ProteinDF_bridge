@@ -15,7 +15,7 @@ use proteindf_bridge::position::Position;
 use proteindf_bridge::secondary_structure::{
     apply_secondary_structure as core_apply_secondary_structure, SsCode,
 };
-use pyo3::exceptions::{PyKeyError, PyTypeError, PyValueError};
+use pyo3::exceptions::{PyDeprecationWarning, PyKeyError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PySet;
 use std::collections::HashMap;
@@ -36,6 +36,8 @@ pub struct PyAtomGroup {
     pub(crate) parent: Option<Py<PyAtomGroup>>,
     pub(crate) my_key: Option<String>,
     pub(crate) root_path: Option<String>,
+    pub(crate) sort_atoms: Option<String>,
+    pub(crate) sort_groups: Option<String>,
 }
 
 impl Default for PyAtomGroup {
@@ -49,6 +51,8 @@ impl Default for PyAtomGroup {
             parent: None,
             my_key: None,
             root_path: Some("/".to_string()),
+            sort_atoms: None,
+            sort_groups: None,
         }
     }
 }
@@ -143,6 +147,8 @@ impl PyAtomGroup {
             parent: None,
             my_key: None,
             root_path: Some(root_path),
+            sort_atoms: None,
+            sort_groups: None,
         })
     }
 
@@ -168,6 +174,8 @@ impl PyAtomGroup {
             parent,
             my_key,
             root_path,
+            sort_atoms: None,
+            sort_groups: None,
         };
         let new_group_py = Py::new(py, new_group)?;
 
@@ -273,6 +281,8 @@ impl PyAtomGroup {
             parent: None,
             my_key: None,
             root_path: Some(current_path),
+            sort_atoms: self.sort_atoms.clone(),
+            sort_groups: self.sort_groups.clone(),
         })
     }
 
@@ -297,6 +307,8 @@ impl PyAtomGroup {
             parent,
             my_key,
             root_path: original.root_path.clone(),
+            sort_atoms: original.sort_atoms.clone(),
+            sort_groups: original.sort_groups.clone(),
         };
         let new_group_py = Py::new(py, new_group)?;
 
@@ -338,20 +350,40 @@ impl PyAtomGroup {
     }
 
     fn collect_xyz(&self, py: Python<'_>, output: &mut String) -> PyResult<()> {
-        for g in self.groups.values() {
-            g.borrow(py).collect_xyz(py, output)?;
+        let mut grp_keys: Vec<String> = self.groups.keys().cloned().collect();
+        if self.sort_groups.as_deref() == Some("nice") {
+            proteindf_bridge::brd::sort_nicely(&mut grp_keys);
         }
-        for a in self.atoms.values() {
-            let atom = a.borrow(py);
-            let sym = atom.symbol()?;
-            let pos = atom.xyz.borrow(py);
-            output.push_str(&format!(
-                "{:>2} {:8.3} {:8.3} {:8.3}\n",
-                sym, pos.inner.x, pos.inner.y, pos.inner.z
-            ));
+        for k in grp_keys {
+            if let Some(g) = self.groups.get(&k) {
+                g.borrow(py).collect_xyz(py, output)?;
+            }
+        }
+
+        let mut atm_keys: Vec<String> = self.atoms.keys().cloned().collect();
+        if self.sort_atoms.as_deref() == Some("nice") {
+            proteindf_bridge::brd::sort_nicely(&mut atm_keys);
+        }
+        for k in atm_keys {
+            if let Some(a) = self.atoms.get(&k) {
+                let atom = a.borrow(py);
+                let sym = atom.symbol()?;
+                let pos = atom.xyz.borrow(py);
+                output.push_str(&format!(
+                    "{:>2} {:8.3} {:8.3} {:8.3}\n",
+                    sym, pos.inner.x, pos.inner.y, pos.inner.z
+                ));
+            }
         }
         Ok(())
     }
+}
+
+fn warn_deprecation(py: Python<'_>, message: &str) -> PyResult<()> {
+    let warnings = py.import("warnings")?;
+    let category = py.get_type::<PyDeprecationWarning>();
+    warnings.call_method1("warn", (message, category, 1))?;
+    Ok(())
 }
 
 fn ensure_child_link(
@@ -371,6 +403,49 @@ fn ensure_child_link(
         b.parent = Some(slf.clone().unbind());
     }
     b.my_key = Some(key.to_string());
+    Ok(())
+}
+
+fn assign_charges_rec(
+    slf: &Bound<'_, PyAtomGroup>,
+    charges: &Bound<'_, PyAny>,
+    charge_index: &mut usize,
+) -> PyResult<()> {
+    let py = slf.py();
+    let (child_groups, my_atoms) = {
+        let borrow = slf.borrow();
+        let mut grp_keys: Vec<String> = borrow.groups.keys().cloned().collect();
+        if borrow.sort_groups.as_deref() == Some("nice") {
+            proteindf_bridge::brd::sort_nicely(&mut grp_keys);
+        }
+        let child_groups: Vec<(String, Py<PyAtomGroup>)> = grp_keys
+            .into_iter()
+            .filter_map(|k| borrow.groups.get(&k).map(|g| (k, g.clone_ref(py))))
+            .collect();
+
+        let mut atm_keys: Vec<String> = borrow.atoms.keys().cloned().collect();
+        if borrow.sort_atoms.as_deref() == Some("nice") {
+            proteindf_bridge::brd::sort_nicely(&mut atm_keys);
+        }
+        let my_atoms: Vec<Py<PyAtom>> = atm_keys
+            .into_iter()
+            .filter_map(|k| borrow.atoms.get(&k).map(|a| a.clone_ref(py)))
+            .collect();
+        (child_groups, my_atoms)
+    };
+
+    for (k, g) in &child_groups {
+        ensure_child_link(slf, k, g)?;
+        assign_charges_rec(g.bind(py), charges, charge_index)?;
+    }
+
+    for a in &my_atoms {
+        let item = charges.get_item(*charge_index)?;
+        let charge_val: f64 = item.extract()?;
+        a.borrow_mut(py).charge = charge_val;
+        *charge_index += 1;
+    }
+
     Ok(())
 }
 
@@ -652,6 +727,12 @@ impl PyAtomGroup {
         self.del_atom(py, key)
     }
 
+    pub fn erase_atom(&mut self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<()> {
+        warn_deprecation(py, "erase_atom() is deprecated, use remove_atom() instead.")?;
+        self.remove_atom(py, key)?;
+        Ok(())
+    }
+
     pub fn get_group(
         slf: &Bound<'_, Self>,
         key: &Bound<'_, PyAny>,
@@ -751,26 +832,66 @@ impl PyAtomGroup {
         Self::del_group(slf, key)
     }
 
+    pub fn erase_group(slf: &Bound<'_, Self>, key: &Bound<'_, PyAny>) -> PyResult<()> {
+        let py = slf.py();
+        warn_deprecation(
+            py,
+            "erase_group() is deprecated, use remove_group() instead.",
+        )?;
+        Self::remove_group(slf, key)?;
+        Ok(())
+    }
+
+    #[getter]
+    pub fn sort_atoms(&self) -> Option<String> {
+        self.sort_atoms.clone()
+    }
+
+    #[setter]
+    pub fn set_sort_atoms(&mut self, val: Option<String>) {
+        self.sort_atoms = val;
+    }
+
+    #[getter]
+    pub fn sort_groups(&self) -> Option<String> {
+        self.sort_groups.clone()
+    }
+
+    #[setter]
+    pub fn set_sort_groups(&mut self, val: Option<String>) {
+        self.sort_groups = val;
+    }
+
     pub fn atoms(slf: &Bound<'_, Self>) -> PyResult<Vec<(String, Py<PyAtom>)>> {
         let py = slf.py();
         let borrow = slf.borrow();
         let group_path = borrow.compute_path(py);
-        let mut result = Vec::with_capacity(borrow.atoms.len());
-        for (k, a) in &borrow.atoms {
-            a.borrow_mut(py).path = format!("{}{}", group_path, k);
-            result.push((k.clone(), a.clone_ref(py)));
+        let mut keys: Vec<String> = borrow.atoms.keys().cloned().collect();
+        if borrow.sort_atoms.as_deref() == Some("nice") {
+            proteindf_bridge::brd::sort_nicely(&mut keys);
+        }
+        let mut result = Vec::with_capacity(keys.len());
+        for k in keys {
+            if let Some(a) = borrow.atoms.get(&k) {
+                a.borrow_mut(py).path = format!("{}{}", group_path, k);
+                result.push((k, a.clone_ref(py)));
+            }
         }
         Ok(result)
     }
 
     pub fn groups(slf: &Bound<'_, Self>) -> PyResult<Vec<(String, Py<PyAtomGroup>)>> {
         let py = slf.py();
-        let pairs: Vec<(String, Py<PyAtomGroup>)> = slf
-            .borrow()
-            .groups
-            .iter()
-            .map(|(k, g)| (k.clone(), g.clone_ref(py)))
+        let borrow = slf.borrow();
+        let mut keys: Vec<String> = borrow.groups.keys().cloned().collect();
+        if borrow.sort_groups.as_deref() == Some("nice") {
+            proteindf_bridge::brd::sort_nicely(&mut keys);
+        }
+        let pairs: Vec<(String, Py<PyAtomGroup>)> = keys
+            .into_iter()
+            .filter_map(|k| borrow.groups.get(&k).map(|g| (k, g.clone_ref(py))))
             .collect();
+        drop(borrow);
         for (k, g) in &pairs {
             ensure_child_link(slf, k, g)?;
         }
@@ -778,25 +899,55 @@ impl PyAtomGroup {
     }
 
     pub fn get_group_list(&self) -> Vec<String> {
-        self.groups.keys().cloned().collect()
+        let mut keys: Vec<String> = self.groups.keys().cloned().collect();
+        if self.sort_groups.as_deref() == Some("nice") {
+            proteindf_bridge::brd::sort_nicely(&mut keys);
+        }
+        keys
     }
 
     pub fn get_atom_keys(&self) -> Vec<String> {
-        self.atoms.keys().cloned().collect()
+        let mut keys: Vec<String> = self.atoms.keys().cloned().collect();
+        if self.sort_atoms.as_deref() == Some("nice") {
+            proteindf_bridge::brd::sort_nicely(&mut keys);
+        }
+        keys
     }
 
     pub fn get_atom_list(slf: &Bound<'_, Self>) -> PyResult<Vec<Py<PyAtom>>> {
         let py = slf.py();
         let mut list = Vec::new();
-        let borrow = slf.borrow();
-        let group_path = borrow.compute_path(py);
+        let (group_path, child_groups, my_atoms) = {
+            let borrow = slf.borrow();
+            let group_path = borrow.compute_path(py);
 
-        for (k, g) in &borrow.groups {
+            let mut grp_keys: Vec<String> = borrow.groups.keys().cloned().collect();
+            if borrow.sort_groups.as_deref() == Some("nice") {
+                proteindf_bridge::brd::sort_nicely(&mut grp_keys);
+            }
+            let child_groups: Vec<(String, Py<PyAtomGroup>)> = grp_keys
+                .into_iter()
+                .filter_map(|k| borrow.groups.get(&k).map(|g| (k, g.clone_ref(py))))
+                .collect();
+
+            let mut atm_keys: Vec<String> = borrow.atoms.keys().cloned().collect();
+            if borrow.sort_atoms.as_deref() == Some("nice") {
+                proteindf_bridge::brd::sort_nicely(&mut atm_keys);
+            }
+            let my_atoms: Vec<(String, Py<PyAtom>)> = atm_keys
+                .into_iter()
+                .filter_map(|k| borrow.atoms.get(&k).map(|a| (k, a.clone_ref(py))))
+                .collect();
+
+            (group_path, child_groups, my_atoms)
+        };
+
+        for (k, g) in &child_groups {
             ensure_child_link(slf, k, g)?;
             let child_atoms = Self::get_atom_list(g.bind(py))?;
             list.extend(child_atoms);
         }
-        for (k, a) in &borrow.atoms {
+        for (k, a) in &my_atoms {
             a.borrow_mut(py).path = format!("{}{}", group_path, k);
             list.push(a.clone_ref(py));
         }
@@ -820,15 +971,23 @@ impl PyAtomGroup {
         let (group_path, child_groups, my_atoms) = {
             let borrow = slf.borrow();
             let group_path = borrow.compute_path(py);
-            let child_groups: Vec<(String, Py<PyAtomGroup>)> = borrow
-                .groups
-                .iter()
-                .map(|(k, g)| (k.clone(), g.clone_ref(py)))
+
+            let mut grp_keys: Vec<String> = borrow.groups.keys().cloned().collect();
+            if borrow.sort_groups.as_deref() == Some("nice") {
+                proteindf_bridge::brd::sort_nicely(&mut grp_keys);
+            }
+            let child_groups: Vec<(String, Py<PyAtomGroup>)> = grp_keys
+                .into_iter()
+                .filter_map(|k| borrow.groups.get(&k).map(|g| (k, g.clone_ref(py))))
                 .collect();
-            let my_atoms: Vec<(String, Py<PyAtom>)> = borrow
-                .atoms
-                .iter()
-                .map(|(k, a)| (k.clone(), a.clone_ref(py)))
+
+            let mut atm_keys: Vec<String> = borrow.atoms.keys().cloned().collect();
+            if borrow.sort_atoms.as_deref() == Some("nice") {
+                proteindf_bridge::brd::sort_nicely(&mut atm_keys);
+            }
+            let my_atoms: Vec<(String, Py<PyAtom>)> = atm_keys
+                .into_iter()
+                .filter_map(|k| borrow.atoms.get(&k).map(|a| (k, a.clone_ref(py))))
                 .collect();
             (group_path, child_groups, my_atoms)
         };
@@ -847,6 +1006,34 @@ impl PyAtomGroup {
         }
 
         Ok(result)
+    }
+
+    pub fn assign_charges(slf: &Bound<'_, Self>, charges: &Bound<'_, PyAny>) -> PyResult<()> {
+        let total_atoms = slf.borrow().get_number_of_all_atoms();
+        let charges_len = charges.len().map_err(|_| {
+            let type_name = charges
+                .get_type()
+                .name()
+                .map(|n| n.to_string())
+                .unwrap_or_else(|_| "unknown".to_string());
+            PyTypeError::new_err(format!("Expected sequence for charges, got {}", type_name))
+        })?;
+        if charges_len != total_atoms {
+            return Err(PyValueError::new_err(format!(
+                "charges length ({}) does not match atom count ({})",
+                charges_len, total_atoms
+            )));
+        }
+
+        let mut index = 0;
+        assign_charges_rec(slf, charges, &mut index)?;
+        if index != charges_len {
+            return Err(PyValueError::new_err(format!(
+                "charges length ({}) does not match atom count ({})",
+                charges_len, index
+            )));
+        }
+        Ok(())
     }
 
     pub fn get_family(
@@ -1458,12 +1645,22 @@ impl PyAtomGroup {
             ss_list_py.append(tup)?;
         }
 
+        let mut sort_list = Vec::new();
+        let mut key_path = Vec::new();
+        collect_sort_settings(self, py, &mut key_path, &mut sort_list);
+        let sort_list_py = pyo3::types::PyList::empty(py);
+        for (kp, sa, sg) in sort_list {
+            let tup = (kp, sa, sg).into_pyobject(py)?;
+            sort_list_py.append(tup)?;
+        }
+
         let state_tuple = pyo3::types::PyTuple::new(
             py,
             &[
                 raw_py,
                 path.into_pyobject(py)?.into_any(),
                 ss_list_py.into_any(),
+                sort_list_py.into_any(),
             ],
         )?;
         Ok(state_tuple.into_any())
@@ -1471,7 +1668,7 @@ impl PyAtomGroup {
 
     pub fn __setstate__(&mut self, py: Python<'_>, state: &Bound<'_, PyAny>) -> PyResult<()> {
         let tup = state.cast::<pyo3::types::PyTuple>()?;
-        if tup.len() != 3 {
+        if tup.len() < 3 {
             return Err(PyValueError::new_err("Invalid state tuple for AtomGroup"));
         }
         let raw_obj = tup.get_item(0)?;
@@ -1503,7 +1700,17 @@ impl PyAtomGroup {
             }
         }
 
-        let restored = PyAtomGroup::from_core(py, core)?;
+        let mut restored = PyAtomGroup::from_core(py, core)?;
+
+        if tup.len() >= 4 {
+            let sort_obj = tup.get_item(3)?;
+            let sort_list =
+                sort_obj.extract::<Vec<(Vec<String>, Option<String>, Option<String>)>>()?;
+            for (kp, sa, sg) in sort_list {
+                restore_sort_settings(&mut restored, py, &kp, sa, sg);
+            }
+        }
+
         *self = restored;
         Ok(())
     }
@@ -1725,4 +1932,48 @@ fn find_group_mut_by_path<'a>(
         }
     }
     None
+}
+
+fn collect_sort_settings(
+    group: &PyAtomGroup,
+    py: Python<'_>,
+    current_key_path: &mut Vec<String>,
+    out: &mut Vec<(Vec<String>, Option<String>, Option<String>)>,
+) {
+    if group.sort_atoms.is_some() || group.sort_groups.is_some() {
+        out.push((
+            current_key_path.clone(),
+            group.sort_atoms.clone(),
+            group.sort_groups.clone(),
+        ));
+    }
+    for (k, child) in &group.groups {
+        current_key_path.push(k.clone());
+        collect_sort_settings(&child.borrow(py), py, current_key_path, out);
+        current_key_path.pop();
+    }
+}
+
+fn restore_sort_settings(
+    group: &mut PyAtomGroup,
+    py: Python<'_>,
+    key_path: &[String],
+    sort_atoms: Option<String>,
+    sort_groups: Option<String>,
+) {
+    if key_path.is_empty() {
+        group.sort_atoms = sort_atoms;
+        group.sort_groups = sort_groups;
+        return;
+    }
+    let next_key = &key_path[0];
+    if let Some(child) = group.groups.get(next_key) {
+        restore_sort_settings(
+            &mut child.borrow_mut(py),
+            py,
+            &key_path[1..],
+            sort_atoms,
+            sort_groups,
+        );
+    }
 }
