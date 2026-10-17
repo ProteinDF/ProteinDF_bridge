@@ -34,19 +34,21 @@ pub(crate) fn extract_position(arg: &Bound<'_, PyAny>) -> PyResult<CorePosition>
     }
 }
 
-fn is_numbers_real(py: Python<'_>, obj: &Bound<'_, PyAny>) -> bool {
-    if let Ok(real_cls) = py.import("numbers").and_then(|m| m.getattr("Real")) {
-        obj.is_instance(&real_cls).unwrap_or(false)
-    } else {
-        false
-    }
-}
+static NUMBERS_REAL: pyo3::sync::PyOnceLock<Py<PyAny>> = pyo3::sync::PyOnceLock::new();
 
 fn extract_scalar(py: Python<'_>, obj: &Bound<'_, PyAny>) -> Option<f64> {
-    if is_numbers_real(py, obj) {
-        if let Ok(val) = obj.extract::<f64>() {
-            return Some(val);
-        }
+    if let Ok(val) = obj.extract::<f64>() {
+        return Some(val);
+    }
+    let real_cls = NUMBERS_REAL
+        .get_or_try_init(py, || -> PyResult<Py<PyAny>> {
+            let m = py.import("numbers")?;
+            let cls = m.getattr("Real")?;
+            Ok(cls.unbind())
+        })
+        .ok()?;
+
+    if obj.is_instance(real_cls.bind(py)).unwrap_or(false) {
         if let Ok(f) = obj.call_method0("__float__") {
             if let Ok(val) = f.extract::<f64>() {
                 return Some(val);
@@ -284,15 +286,18 @@ impl PyPosition {
         }
     }
 
-    pub fn __rmul__<'py>(&self, py: Python<'py>, other: &Bound<'py, PyAny>) -> PyResult<Self> {
+    pub fn __rmul__<'py>(
+        &self,
+        py: Python<'py>,
+        other: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
         if let Some(val) = extract_scalar(py, other) {
-            Ok(Self {
+            let res = Self {
                 inner: self.inner * val,
-            })
+            };
+            Ok(res.into_pyobject(py)?.into_any())
         } else {
-            Err(PyTypeError::new_err(
-                "Unsupported type for Position multiplication",
-            ))
+            Ok(py.NotImplemented().into_bound(py))
         }
     }
 

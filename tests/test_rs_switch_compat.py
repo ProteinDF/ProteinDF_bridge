@@ -173,6 +173,21 @@ class TestRsSwitchCompat(unittest.TestCase):
         res_py = 3 * p_py
         self.assertEqual(list(res_rs), list(res_py))
 
+        # rmul delegating to other.__mul__
+        class CustomMultiplier:
+            def __mul__(self, other):
+                return "custom_result"
+
+        custom = CustomMultiplier()
+        self.assertEqual(custom * p_rs, "custom_result")
+
+        # Unsupported type raises TypeError
+        with self.assertRaises(TypeError):
+            _ = "string" * p_rs
+        with self.assertRaises(TypeError):
+            _ = p_rs * "string"
+
+
     def test_position_setstate(self):
         p = rs_br.Position()
 
