@@ -166,7 +166,7 @@ ProteinDF本体のC++ツール（`pdf-mkfld-dens`/`pdf-mkfld-mo`/`pdf-mkfld-esp`
 > **方針**: ファイルに明示的な結合情報があればそれを優先して使用し、`Bond::setup()`（VDW半径ヒューリスティック）は呼ばない。ファイルに結合情報が存在しない場合のみ、`Bond::setup()` にフォールバックする。
 
 #### 各フォーマットの対応状況
-TASK_PR31〜PR33の実装により、明示的結合情報を持つ主要フォーマットのローダーは、パース時に結合トポロジーを構築して`AtomGroup`に格納した状態で返す:
+PR31〜PR33の実装により、明示的結合情報を持つ主要フォーマットのローダーは、パース時に結合トポロジーを構築して`AtomGroup`に格納した状態で返す:
 - **Tripos Mol2 (`format/mol2.rs`)**: `@<TRIPOS>BOND` セクションの結合ペア・結合次数をパースして`AtomGroup`に登録。
 - **Amber PRMTOP (`format/amber_prmtop.rs`)**: `%FLAG BONDS_WITHOUT_HYDROGEN` および `%FLAG BONDS_INC_HYDROGEN` の座標オフセット配列から原子インデックスを算出して`AtomGroup`に登録。
 - **PDB (`format/pdb.rs`)**: `SSBOND`（ジスルフィド結合）および `CONECT` レコードをパースして`AtomGroup`に登録。PDB仕様に基づく双方向冗長記述やSSBONDとの同一結合重複は自動的に排除（deduplication）される。

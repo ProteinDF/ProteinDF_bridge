@@ -837,7 +837,7 @@ fn test_2fb4_real_mmcif_insertion_codes_and_struct_conn() {
     assert_eq!(ssbond_101d_104b.unwrap().order, 1);
 }
 
-/// TASK_struct-conn-unresolved Criterion 1:
+/// Criterion 1:
 /// Verify that when a partner atom is excluded by altLoc filtering, the unresolved
 /// _struct_conn is reported with detailed partner and atom information.
 /// Conversely, selecting the matching altLoc allows the bond to resolve with 0 unresolved.
@@ -1083,7 +1083,7 @@ conn_both_missing  covale X 10 C ? Y 20 N ? sing
     assert!(c4.message.contains("ptnr2 unresolved"));
 }
 
-/// TASK_struct-conn-unresolved Criterion 2:
+/// Criterion 2:
 /// Verify that for all existing real mmCIF fixtures (1HLS, 2FB4, 1WCT, 2MGO, 3I3Z),
 /// there are 0 unresolved _struct_conn records.
 #[test]
