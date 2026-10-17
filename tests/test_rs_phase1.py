@@ -272,7 +272,7 @@ class TestRsPhase1(unittest.TestCase):
         self.assertAlmostEqual(rs_atom.charge, -0.2, places=6)
         self.assertEqual(rs_atom.is_real, True)
         self.assertAlmostEqual(rs_atom.vdw, 1.7, places=5)
-        self.assertAlmostEqual(rs_atom.weight(), 12.01, places=2)
+        self.assertAlmostEqual(rs_atom.weight(), 12.01, places=5)
 
         # move_to and shift_by chaining
         rs_atom.shift_by([1.0, 1.0, 1.0]).move_to([5.0, 5.0, 5.0])
