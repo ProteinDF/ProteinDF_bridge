@@ -9,33 +9,261 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-08 11:58+0800\n"
+"POT-Creation-Date: 2026-10-17 17:57+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: ja <LL@li.org>\n"
 "Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: ../../api/proteindf_bridge.atom.rst:2 4d2fa57d29e24b5b869555814ce80c09
+#: ../../api/proteindf_bridge.atom.rst:2 5f9278bfbe7c4ac1a691e361016130d7
 msgid "proteindf\\_bridge.atom module"
 msgstr "proteindf\\_bridge.atom モジュール"
 
-#: ../../api/proteindf_bridge.atom.rst aed88bf10f6549368ae7c5c228d4d031
-#: ba74471dd02d49179f3dfb75f50e756f c9457b12de0a42c09f235ddeee8d12ec
-msgid "Return type"
-msgstr "戻り値の型"
+#: ../../docstring eac2171ce564454e837a4c66dd9b9242 of
+#: proteindf_bridge.rs.Atom:1
+msgid "Represents an atom in a molecular structure."
+msgstr "分子構造内の原子を表す。"
 
-#: 8e741559231c4e5381aca9b78b4a73c8 f5b1fdf9e9ab4f94aa92467138f5af9f of
-#: proteindf_bridge.atom.Atom.move_to:1 proteindf_bridge.atom.Atom.shift_by:1
+#: ../../docstring fbd29d3fa9834743b398e28ddbc9b07a of
+#: proteindf_bridge.rs.Atom:3
 msgid ""
-":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.atom.Atom\\``"
-msgstr ""
-":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.atom.Atom\\``"
+"Encapsulates atomic properties such as atomic number, element symbol, "
+"atom name, label, partial charge, hierarchical path, 3D coordinates, and "
+"forces."
+msgstr "原子番号、元素記号、原子名、ラベル、部分電荷、階層パス、3次元座標、力などの原子プロパティをカプセル化する。"
 
-#: 619d6db8272b4ea5ba49df24ac485f14 of proteindf_bridge.atom.Atom.rotate:1
-msgid ":sphinx_autodoc_typehints_type:`\\:py\\:obj\\:\\`None\\``"
-msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:obj\\:\\`None\\``"
+#: ../../api/proteindf_bridge.atom.rst 108be09a734b45b99a83ce22413944f6
+#: 75f3e3023cce4818926bc3400f9cf17b 969711d6b063407aba3b56b5060ccf49
+#: aa05008afaf64f65a37079b405a448f8 b50c4043a99144c49516e5a2ad188b89
+msgid "Parameters"
+msgstr "パラメータ"
+
+#: ../../docstring ffefc910ea2d4ade9d0a76980b1c0ef0 of
+#: proteindf_bridge.rs.Atom:8
+msgid ""
+"At most 1 positional argument. - If an Atom: Clones the properties of the"
+" given atom. - If a str: Element symbol (e.g., \"C\", \"Fe\"). - If an "
+"int: Atomic number (Z). - If a dict: Dictionary with keys \"Z\", "
+"\"name\", \"Q\", \"xyz\", \"force\"."
+msgstr "最大1個の位置引数。 - Atom の場合: 指定された原子のプロパティを複製。 - str の場合: 元素記号 (例: \"C\", \"Fe\")。 - int の場合: 原子番号 (Z)。 - dict の場合: \"Z\", \"name\", \"Q\", \"xyz\", \"force\" をキーとする辞書。"
+
+#: ../../docstring 3ad61a9e83b74403acfe33a60bd8dc2d of
+#: proteindf_bridge.rs.Atom:14
+msgid ""
+"Keyword arguments for atom properties: - symbol (str): Element symbol. - "
+"name (str): Atom name. - label (str): Atom label. - charge (float): "
+"Partial atomic charge. - path (str): Hierarchical path. - position or xyz"
+" (Position, sequence of floats, or str): 3D coordinates. - force "
+"(Position, sequence of floats, or str): Force vector."
+msgstr "原子プロパティのキーワード引数: - symbol (str): 元素記号。 - name (str): 原子名。 - label (str): 原子ラベル。 - charge (float): 部分原子電荷。 - path (str): 階層パス。 - position または xyz (Position、浮動小数点数のシーケンス、または str): 3次元座標。 - force (Position、浮動小数点数のシーケンス、または str): 力ベクトル。"
+
+#: ../../api/proteindf_bridge.atom.rst 0444c17fabde4806ad842252f392e95e
+#: 0a2068f274ca4e0997eee4b8a18d8dbe 10fb8c7ca96d4480b8c0a7266acf7380
+#: 40088cc11a2e4647a12e567bac37d1cc cffaaa3fa02242d2bd4801b2a5d35e62
+#: e0ffcc0fc86049e9b2b4f87872897fc9
+msgid "Raises"
+msgstr "例外"
+
+#: ../../docstring 35ded990112647768e3a1e7745ee6a6e of
+#: proteindf_bridge.rs.Atom:23
+msgid "If positional arguments exceed 1 or argument types are invalid."
+msgstr "位置引数が1個を超えるか、引数の型が無効な場合。"
+
+#: ../../docstring 200ff9040b554061bbfa4a1da7a8a9cf of
+#: proteindf_bridge.rs.Atom:24
+msgid "If the element symbol is unknown."
+msgstr "元素記号が未知の場合。"
+
+#: ../../docstring 3a5a3bf5f614423d9ebb731850dcb199 of
+#: proteindf_bridge.rs.Atom:25
+msgid "If coordinate parsing fails from a string or slice."
+msgstr "文字列またはスライスからの座標解析に失敗した場合。"
+
+#: ../../docstring 3b63077d521646c7a45189412d984b46 of
+#: proteindf_bridge.atom.Atom.atomic_number:1
+msgid "The atomic number (Z) of the atom."
+msgstr "原子の原子番号 (Z)。"
+
+#: ../../docstring a127b78dbd5d4daaa49f467fde80f1f0 of
+#: proteindf_bridge.atom.Atom.charge:1
+msgid "The partial atomic charge."
+msgstr "部分原子電荷。"
+
+#: ../../docstring 4a0eefdd7f314d72bf021ec5fca9dffd of
+#: proteindf_bridge.atom.Atom.force:1
+msgid "The force vector acting on the atom as a Position object."
+msgstr "Position オブジェクトとしての原子に作用する力ベクトル。"
+
+#: ../../docstring 54f9f121b6584cefa30c2de6b4e2cda9 of
+#: proteindf_bridge.atom.Atom.get_raw_data:1
+msgid "Returns the atom properties as a dictionary."
+msgstr "原子プロパティを辞書として返す。"
+
+#: ../../api/proteindf_bridge.atom.rst 7a0fafb968ec4f9c800202cdbd45cfa0
+#: a24c1a7b504b444090e8eb573ab75b84 bcac16bb79c74b1d8fab0afeab9bfb2d
+#: d649a4e8359a4736a8ca24e8502e0efb
+msgid "Returns"
+msgstr "戻り値"
+
+#: ../../docstring b428520047d94d7ea3924c65aaeb49f6 of
+#: proteindf_bridge.atom.Atom.get_raw_data:3
+msgid "A dictionary with keys 'Z', 'name', 'Q', 'xyz', and 'force'."
+msgstr "'Z', 'name', 'Q', 'xyz', 'force' をキーとする辞書。"
+
+#: ../../docstring 3ca8bcba51b34e59a1215c487c0b8b23 of
+#: proteindf_bridge.atom.Atom.is_real:1
+msgid ""
+"True if the atom represents a real element (atomic number > 0), False "
+"otherwise."
+msgstr "原子が実在の元素を表す (原子番号 > 0) 場合は True、それ以外は False。"
+
+#: ../../docstring 8e95dd68e22c485392bffc9035da413a of
+#: proteindf_bridge.atom.Atom.label:1
+msgid "The atom label."
+msgstr "原子ラベル。"
+
+#: ../../docstring 7547cac980a74c8da0f985a149d9d499 of
+#: proteindf_bridge.atom.Atom.move_to:1
+msgid "Moves the atom to the specified position in-place."
+msgstr "インプレースで原子を指定された位置へ移動する。"
+
+#: ../../docstring bdd6a95e5af0437bae224429fd53e5ef of
+#: proteindf_bridge.atom.Atom.move_to:4
+msgid ""
+"The target position as a Position, a sequence of 3 floats, or a "
+"coordinate string."
+msgstr "対象の位置。Position、3つの浮動小数点数のシーケンス、または座標文字列。"
+
+#: ../../docstring 2bb6a213414e4325a1f0151da8a65645
+#: 530933c964a14292abcb6775611de0e0 of proteindf_bridge.atom.Atom.move_to:6
+#: proteindf_bridge.atom.Atom.shift_by:6
+msgid "The Atom object itself (self)."
+msgstr "Atom オブジェクト自身 (self)。"
+
+#: ../../docstring bd85abe07bc547c6bbc9828a014e18b4 of
+#: proteindf_bridge.atom.Atom.move_to:8
+msgid "If pos is not a valid coordinate specification."
+msgstr "pos が有効な座標指定でない場合。"
+
+#: ../../docstring 0c788125bf8740f59324fc6b4547a468 of
+#: proteindf_bridge.atom.Atom.move_to:9
+msgid "If parsing pos fails."
+msgstr "pos の解析に失敗した場合。"
+
+#: ../../docstring f3076da9fe7b41f2aaa09584edbe1534 of
+#: proteindf_bridge.atom.Atom.name:1
+msgid "The atom name (e.g., 'CA', 'CB')."
+msgstr "原子名 (例: 'CA', 'CB')。"
+
+#: ../../docstring 4a517b558d9b4ff2b4fb3fe27c29fa90 of
+#: proteindf_bridge.atom.Atom.path:1
+msgid "The hierarchical path of the atom in the structure tree."
+msgstr "構造木における原子の階層パス。"
+
+#: ../../docstring 799ef0293dc94ab39de34f3c8ba15cc9 of
+#: proteindf_bridge.atom.Atom.position:1
+msgid "Alias for xyz. The 3D coordinates of the atom as a Position object."
+msgstr "xyz の別名。Position オブジェクトとしての原子の3次元座標。"
+
+#: ../../docstring f6cd2b4c21164bee81642fd266e0886e of
+#: proteindf_bridge.atom.Atom.rotate:1
+msgid "Rotates the atom coordinates in-place using a 3x3 rotation matrix."
+msgstr "インプレースで 3x3 回転行列を用いて原子座標を回転させる。"
+
+#: ../../docstring c5ac265c0c294a1a9b6f23e16e9e95fa of
+#: proteindf_bridge.atom.Atom.rotate:4
+msgid ""
+"A 3x3 rotation matrix (Matrix or an object with rows, cols, and get(row, "
+"col))."
+msgstr "3x3 回転行列 (Matrix、または rows, cols, get(row, col) を持つオブジェクト)。"
+
+#: ../../docstring a15d151c61b143359f4b3def9fff0a54 of
+#: proteindf_bridge.atom.Atom.rotate:6
+msgid "If rotmat is not a Matrix or an object with rows, cols, and get(row, col)."
+msgstr "rotmat が Matrix または rows, cols, get(row, col) を持つオブジェクトでない場合。"
+
+#: ../../docstring a757e00ad5004c9ab4d0119b1c2d24d4 of
+#: proteindf_bridge.atom.Atom.rotate:7
+msgid "If matrix dimensions are not 3x3."
+msgstr "行列の次元が 3x3 でない場合。"
+
+#: ../../docstring 07ee7b5f7e9d43538faf37b9df088b67 of
+#: proteindf_bridge.atom.Atom.set_by_raw_data:1
+msgid "Updates the atom properties from a dictionary in-place."
+msgstr "インプレースで辞書から原子プロパティを更新する。"
+
+#: ../../docstring 1be9c030a1a0457c80ee9e421b91fdbf of
+#: proteindf_bridge.atom.Atom.set_by_raw_data:4
+msgid ""
+"A dictionary containing atom attributes ('Z', 'name', 'Q', 'xyz', "
+"'force')."
+msgstr "原子の属性 ('Z', 'name', 'Q', 'xyz', 'force') を含む辞書。"
+
+#: ../../docstring 0d9b8eac97b1434c92e3f4b4ae211e5d of
+#: proteindf_bridge.atom.Atom.set_by_raw_data:6
+msgid "If values in the dictionary cannot be converted to expected types."
+msgstr "辞書内の値を期待される型に変換できない場合。"
+
+#: ../../docstring d21b7b31108641f8bcad1f57b5f77caa of
+#: proteindf_bridge.atom.Atom.set_by_raw_data:7
+msgid "If position or force coordinates cannot be parsed."
+msgstr "位置座標または力座標を解析できない場合。"
+
+#: ../../docstring 3ca52c9824f74d4b8284843b273346ed of
+#: proteindf_bridge.atom.Atom.shift_by:1
+msgid "Translates the atom coordinates by a displacement vector in-place."
+msgstr "インプレースで変位ベクトルにより原子座標を並進させる。"
+
+#: ../../docstring 8b41f180ef8445d9aee9c6dbaf4604a1 of
+#: proteindf_bridge.atom.Atom.shift_by:4
+msgid ""
+"The displacement vector as a Position, a sequence of 3 floats, or a "
+"coordinate string."
+msgstr "変位ベクトル。Position、3つの浮動小数点数のシーケンス、または座標文字列。"
+
+#: ../../docstring 54c546db6d62438b8d3df02d44b2fe73 of
+#: proteindf_bridge.atom.Atom.shift_by:8
+msgid "If dir is not a valid coordinate specification."
+msgstr "dir が有効な座標指定でない場合。"
+
+#: ../../docstring 67f453e6df734d46a44b3132800e7996 of
+#: proteindf_bridge.atom.Atom.shift_by:9
+msgid "If parsing dir fails."
+msgstr "dir の解析に失敗した場合。"
+
+#: ../../docstring fcb47e45bf6742a29413aa87d0ac2a8d of
+#: proteindf_bridge.atom.Atom.symbol:1
+msgid "The chemical element symbol (e.g., 'C', 'N', 'O')."
+msgstr "元素記号 (例: 'C', 'N', 'O')。"
+
+#: ../../docstring d7f1f45a668d4577a7ea7386e78f2d50 of
+#: proteindf_bridge.atom.Atom.vdw:1
+msgid "The van der Waals radius of the atom in Angstroms."
+msgstr "オングストローム単位の原子のファンデルワールス半径。"
+
+#: ../../docstring 610e1f0b186b493998408474120456bc of
+#: proteindf_bridge.atom.Atom.weight:1
+msgid "Returns the standard atomic weight of the element."
+msgstr "元素の標準原子量を返す。"
+
+#: ../../docstring c8a299e5f6ce4d059efeac459e745c68 of
+#: proteindf_bridge.atom.Atom.weight:3
+msgid ""
+"The atomic weight in unified atomic mass units (Da) as a float, or 0.0 "
+"for dummy atoms."
+msgstr "統一原子質量単位 (Da) での浮動小数点数の原子量、またはダミー原子の場合は 0.0。"
+
+#: ../../docstring 82123ce694c9416caf86015cc6da6b72 of
+#: proteindf_bridge.atom.Atom.weight:5
+msgid "If the atomic number has no standard atomic weight (Z > 118)."
+msgstr "原子番号に標準原子量がない場合 (Z > 118)。"
+
+#: ../../docstring 35ad6108514243e9898cbadba0b9fc41 of
+#: proteindf_bridge.atom.Atom.xyz:1
+msgid "The 3D coordinates of the atom as a Position object."
+msgstr "Position オブジェクトとしての原子の3次元座標。"

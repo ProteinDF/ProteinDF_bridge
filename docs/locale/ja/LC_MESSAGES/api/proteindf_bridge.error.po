@@ -9,29 +9,32 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"POT-Creation-Date: 2026-10-17 17:57+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: ja <LL@li.org>\n"
 "Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: ../../api/proteindf_bridge.error.rst:2 2b70da5f6c13401fb2fd909d67fa6116
+#: ../../api/proteindf_bridge.error.rst:2 1b370e5d1f554424ae7d0f79bfbb4864
 msgid "proteindf\\_bridge.error module"
 msgstr "proteindf\\_bridge.error モジュール"
 
-#: 97a05f757e674d77b3dea53de351c9f6 of proteindf_bridge.error.BrError:1
-msgid "Base class for this Bridge module"
-msgstr "このBridgeモジュールの基底クラス"
+#: ../../docstring 8303d18b87fe431eb58b84bf2b4e1cdf of
+#: proteindf_bridge.rs.BrError:1
+msgid "Base exception class for ProteinDF bridge errors."
+msgstr "ProteinDF bridge エラーの基底例外クラス。"
 
-#: cd8a9669bb8c4eb2be621d7b2bb1aa26 of proteindf_bridge.error.BrInputError:1
-msgid "Exception raised for errors in the input."
-msgstr "入力値のエラーに対して送出される例外。"
+#: ../../docstring ca297d7d50f34549aa96d57740b0d561 of
+#: proteindf_bridge.rs.BrInputError:1
+msgid "Exception raised for invalid input arguments or formats."
+msgstr "無効な入力引数やフォーマットに対して送出される例外。"
 
-#: 330d3073cc074dbea00ed321cb5be834 of proteindf_bridge.error.BrValueError:1
-msgid "Exception raised for errors in the value."
-msgstr "値のエラーに対して送出される例外。"
+#: ../../docstring e46e336800f348f4a061f26826a0ae56 of
+#: proteindf_bridge.rs.BrValueError:1
+msgid "Exception raised for invalid values or unsupported data."
+msgstr "無効な値や未対応のデータに対して送出される例外。"

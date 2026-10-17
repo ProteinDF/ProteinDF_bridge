@@ -8,60 +8,61 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-25 15:08+0900\n"
+"POT-Creation-Date: 2026-10-17 17:57+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: ja <LL@li.org>\n"
 "Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../api/proteindf_bridge.str_processing.rst:2
-#: d12bd5aa59b04befa7dff38437abbb0b
+#: 1fb784bf79cd441f9a21af6eb3d6e480
 msgid "proteindf\\_bridge.str\\_processing module"
 msgstr "proteindf\\_bridge.str\\_processing モジュール"
 
-#: a969498cad0e4bd1a129e11999eaae1f of
+#: 3a4fde230c924f72b366e55fadab10b6 of
 #: proteindf_bridge.str_processing.StrUtils.add_spaces:1
 msgid "Prepend num_add spaces to the start of each line."
 msgstr "行頭にnum_add分のスペースを追加する"
 
-#: f170658504d34138a9b7ea252690286b of
+#: e42147e2db774660a55a46575a585e8c of
 #: proteindf_bridge.str_processing.StrUtils.get_common_str:1
 msgid "Return the common string (from the beginning)."
 msgstr "(先頭から)共通文字列を返す"
 
-#: 05bcd11183d14ce192d09b13e618c888 of
+#: a4d5c08c2b344b2e8536c840c4d8f3d0 of
 #: proteindf_bridge.str_processing.StrUtils.num_spaces:1
 msgid "Return the number of leading spaces on each line."
 msgstr "行頭のスペース数を返す"
 
-#: 1d8afd7e0960429095d1a225d726a240 of
+#: 6a1a61b8d96145e2a623595ba4c397e2 of
 #: proteindf_bridge.str_processing.StrUtils.sort_nicely:1
 msgid ""
 "Sort the given list in the way that humans expect. ref: "
 "http://www.codinghorror.com/blog/2007/12/sorting-for-humans-natural-sort-"
 "order.html"
 msgstr ""
-"人間の直感に合う順序でリストをソートする。 ref: http://www.codinghorror.com/blog/2007/12/sorting-"
-"for-humans-natural-sort-order.html"
+"人間の直感に合う順序でリストをソートする。 ref: http://www.codinghorror.com/blog/2007/12"
+"/sorting-for-humans-natural-sort-order.html"
 
-#: 17312e33ee8b41eaa6be3c8a4ef36463 of
+#: 7200d6c7b78f41f9a7a692f24b0048ac of
 #: proteindf_bridge.str_processing.StrUtils.to_bytes:1
 msgid "Convert str to bytes (utf-8)."
 msgstr "strをbytes(utf-8)に変換する。"
 
-#: 051de2b3418a4f5582de927897d0068e of
+#: 8562297c47404535949850383f82ccf0 of
 #: proteindf_bridge.str_processing.StrUtils.to_unicode:1
 msgid "Convert bytes to str (utf-8)."
 msgstr "byteをstr(utf-8)に変換する"
 
-#: 8a4f75f3ba524564bb776d9f6249c59c of
+#: 42b408a8acdd4861a8040936f5aaf926 of
 #: proteindf_bridge.str_processing.StrUtils.to_unicode_dict:1
 msgid ""
-"Convert a dict whose keys are stored as bytes into a dict keyed by str "
-"(utf-8)."
-msgstr "byteを保存してある辞書に対して、 str(utf-8)をキーとする辞書に変換する。"
+"Convert a dict whose keys may include bytes into a dict where bytes keys "
+"are decoded as utf-8 str, and other keys (int, float, tuple, etc.) are "
+"preserved as-is. Values are converted recursively."
+msgstr ""

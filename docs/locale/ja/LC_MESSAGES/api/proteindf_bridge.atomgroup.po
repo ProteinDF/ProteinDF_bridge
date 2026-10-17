@@ -8,264 +8,1132 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-25 15:08+0900\n"
+"POT-Creation-Date: 2026-10-17 17:57+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: ja <LL@li.org>\n"
 "Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: ../../api/proteindf_bridge.atomgroup.rst:2 2b9577cffbae41c096d6227bb2fd6483
+#: ../../api/proteindf_bridge.atomgroup.rst:2 52be934102b1494b8e5dfae72e1606f4
 msgid "proteindf\\_bridge.atomgroup module"
 msgstr "proteindf\\_bridge.atomgroup モジュール"
 
-#: 826ad16ff1804b67829047b3d23e325a of
+#: ../../docstring 1357f1ae8f0442da93f575a563e9b555 of
+#: proteindf_bridge.rs.AtomGroup:1
+msgid "A hierarchical tree representation of molecular structures."
+msgstr "分子構造の階層木表現。"
+
+#: ../../docstring 82cae11489a24d34b84ceb2fabf2f41f of
+#: proteindf_bridge.rs.AtomGroup:3
+msgid ""
+"An `AtomGroup` represents a node in a molecular hierarchy containing "
+"child groups (`AtomGroup`) and atoms (`Atom`). Child groups typically "
+"represent structural units such as models, chains, or residues, while "
+"atoms represent the individual atomic sites."
+msgstr "`AtomGroup` は子グループ (`AtomGroup`) および原子 (`Atom`) を含む分子階層内のノードを表す。子グループは通常モデル、チェイン、残基などの構造単位を表し、原子は個々の原子サイトを表す。"
+
+#: ../../docstring e0488f5a4d0447ca8d514e700ca5d731 of
+#: proteindf_bridge.rs.AtomGroup:7
+msgid ""
+"Objects retrieved from the tree (via indexing, :meth:`get_group`, or "
+":meth:`get_atom`) are direct references to the nodes within the tree; "
+"modifying them mutates the tree in-place. Conversely, inserting objects "
+"via :meth:`set_group` or :meth:`set_atom` deep-copies the provided "
+"objects into the tree."
+msgstr "木から取得されたオブジェクト(インデックス指定、:meth:`get_group`、または :meth:`get_atom` 経由)は木内のノードへの直接の参照であり、それらを変更すると木がインプレースで変更される。逆に、:meth:`set_group` または :meth:`set_atom` 経由でオブジェクトを挿入すると、提供されたオブジェクトは木内にディープコピーされる。"
+
+#: ../../docstring 8599d2639dc24f2c86289ebafac55cdc of
+#: proteindf_bridge.rs.AtomGroup:12
+msgid ""
+"The constructor accepts: - A group name string (e.g. "
+"``AtomGroup(\"model_1\")`` or ``AtomGroup(name=\"model_1\")``). - Another"
+" `AtomGroup` to clone (e.g. ``AtomGroup(other_group)``). - A dictionary "
+"representing raw tree data (e.g. ``AtomGroup(raw_dict)``). - No arguments"
+" (creates an empty group with default settings)."
+msgstr "コンストラクタは以下を受け付ける: - グループ名文字列 (例: ``AtomGroup(\"model_1\")`` または ``AtomGroup(name=\"model_1\")``)。 - 複製元の別の `AtomGroup` (例: ``AtomGroup(other_group)``)。 - 生の木データを表す辞書 (例: ``AtomGroup(raw_dict)``)。 - 引数なし (デフォルト設定で空のグループを作成)。"
+
+#: ../../docstring d98bb920a3f94f95a2fb50bcc193971c of
 #: proteindf_bridge.atomgroup.AtomGroup.add_bond:1
-msgid "Add bond information. order = bond order"
-msgstr "結合情報を追加する order = 結合次数"
+msgid "Registers a chemical bond between two atoms in the group hierarchy."
+msgstr "グループ階層内の2つの原子間の化学結合を登録する。"
 
-#: 9d59150d382341d1833a167ddaf14354 of
-#: proteindf_bridge.atomgroup.AtomGroup.atoms:1
-msgid "Return the list of atoms."
-msgstr "原子のリストを返す"
+#: ../../docstring d40d85182b344c4e865d1109d74f7f4b of
+#: proteindf_bridge.atomgroup.AtomGroup.add_bond:3
+msgid "The bond is stored at the lowest common ancestor group of the two atoms."
+msgstr "結合は2つの原子の最小共通祖先グループに保存される。"
 
-#: ../../api/proteindf_bridge.atomgroup.rst 10e317a19f594cabb9b51f300fb29019
-#: 148b351e8ba247a69951adef383e3e0f 514820d6653c4e9e82d7fdf703f2349e
-#: 5db747bfb45f4dc9868dcb44236db0ca 643add333ae845e7937b3cec692c5f9c
-#: 7c023d97b30a492fbd36542484a8c747 80abf671fd1f4b38b0f8496c5cb8d638
-#: a07b1a9b4cf34f949434b71dcee7dc22 ac82e6d5307447b29a87a199c31c136c
-#: c264b7c5a8f449e385e6b067c0e163d0 e1ef904243cf41c884097c6b5faae67c
-#: e5d6ae7648024fb3824da0b796fffe35 f1cebc6eee7f4741897902b8d49cfa4d
+#: ../../api/proteindf_bridge.atomgroup.rst 07f325ea3b704af68657237ae3bc413b
+#: 110beea5c8da4d7a9646b2bcdd944a13 15921fb2f9c145bb9e26508792d9440a
+#: 1b7111f43cfc43159a97994cd5f367f9 1d9336d7086f40cb9723c0a68be525e1
+#: 1fc76d02d30a4e608fbef3535310a9b1 2999a815c13641af9c69bdb03cd86edf
+#: 2eb29a3e12d04c4db347b89d6495019b 391c5b649db34a49ac58412fa193782c
+#: 3f628456fd5f4c92b3f9f196d9dfb3ac 42be8d9cf0104209a29595a984feacfc
+#: 46fa1a7ba918465d99097e26b135fdc9 55a9e6d3f8ef411b8784830ce8b44133
+#: 68a14e74a69144a0ba7c2fae70bd2a99 71ac50ea67de4f7bbb2edf523d794ecb
+#: 831bc3a51445460a9f32cd4888230642 8e062ae1d4484f17bd4602e00d2450b5
+#: 95cb8088eaba41898493ec8a4f483507 9a194ac949124a3a8b39c053b9b08719
+#: a6ab8328b0844dcaa65ec35cc4d70c85 b11d7cf99a734c169169d741ba29a14c
+#: b67bf0fc477944e0968be77b34026b6e b8f253c8e0df4187987bcb4fc3de1e6c
+#: c0e2a387df6746b0bfc1d50b9b3026c5 c6b32628a19b4747879ec786e0350aa7
+#: d90d24edcdce4c24be8255ba7c9046f7 e30e0545a2a54611975f144bd6ef89b8
+#: edee3e73fe84498b97a7f36aba4440e2 f2eeaf5eed1e4a8fae9fe046097733bf
+#: f3c7b37cd2744edabeb94b4a1447aa1e
+msgid "Parameters"
+msgstr "パラメータ"
+
+#: ../../docstring faca9b05ca5b4838b826d4abdd714805 of
+#: proteindf_bridge.atomgroup.AtomGroup.add_bond:5
+msgid "The first atom."
+msgstr "1番目の原子。"
+
+#: ../../docstring 7efb6884823446a8911ff6487a778258 of
+#: proteindf_bridge.atomgroup.AtomGroup.add_bond:7
+msgid "The second atom."
+msgstr "2番目の原子。"
+
+#: ../../docstring 6d5920379f194c0296b30486f270bde5 of
+#: proteindf_bridge.atomgroup.AtomGroup.add_bond:9
+msgid "The bond order (1 for single, 2 for double, etc.). Defaults to 1."
+msgstr "結合次数 (単結合なら1、二重結合なら2など)。デフォルトは1。"
+
+#: ../../docstring dca13a1ac681443ba034ede934097fdc of
+#: proteindf_bridge.atomgroup.AtomGroup.add_missing_hydrogens:1
+msgid "Adds missing hydrogen atoms based on CCD residue templates."
+msgstr "CCD残基テンプレートに基づいて欠損水素原子を追加する。"
+
+#: ../../docstring 7974dd7af35c4471b5ae77d87998733b of
+#: proteindf_bridge.atomgroup.AtomGroup.add_missing_hydrogens:3
+msgid ""
+"The CCD template database to use. If None, the global default database is"
+" used. Defaults to None."
+msgstr "使用するCCDテンプレートデータベース。None の場合、グローバルデフォルトのデータベースが使用される。デフォルトは None。"
+
+#: ../../api/proteindf_bridge.atomgroup.rst 02d957dcb78f4cdd896f5eb4f34494c5
+#: 031d311274e24b728ea08ea61da5214b 0b51611287a443778134fb5d794325e2
+#: 0c5bb7583a824909b133458796235e47 0e21b2eb4dc0470c8bff2496ce0144c6
+#: 10f30cd69aa946fea233fefd023296e1 12cab6da2a24462a8b37515826a3ea36
+#: 15900217c57542d3887ac67686acf655 1dae0b4115c3439fa6584e4084c46a75
+#: 20fb9121f5314dcba4d0f6250c4d6b32 24e41b90bf7b4b32b987c1647d486230
+#: 2a588d9d89da4dc5a4b7534ba99315ae 30b37d73193142f0aaf261be31278c1d
+#: 3235b14bacfc4c38b0822b8a87942116 323a03c5d964414d93e2b0b6c7a7797f
+#: 32e358b8188c424e9bfa79dc5606e72c 399b633b11f04da6b462b4b538b1f1ac
+#: 43da035bb39d4067b99548796ca02310 471009ec5ca7461fae987dff4edabe27
+#: 48f108e1c42d47f5bb9c14f759dd82fa 4d5aa106a6174fd28c5c9139cd4b7979
+#: 5a0d8fee9cca4e349d0060902f9edb97 5cef334bac454890b1104bcfb7389a0a
+#: 6127faeb97584e97a9714b299f5a4a25 63afa191783142b6bef2fb139e1f1c4f
+#: 682c4a0cdeaa4d168c50718587addd72 6d6055b21b324af8b3246d0c1e37e13e
+#: 6f93a6e509ac440d86f8d4c2a0851dbe 70a14f2a5a404d09b136312f611a8f8f
+#: 731491344c8448a49b605e89d0b57052 7fd5e3fb9e8e47dc86297124831374d0
+#: 899f5453842f4c26b438d29fe63930e4 8ce30ca4aa5b4cc383cafe46b485ae1f
+#: 91f4752c65984be28315cd5da76912cc 97a9dbbc6167403cb46bb218a9a28582
+#: 9915f90888584497b4d56aedb6834340 9a2f1132c9274c71ae86dbdacc61148d
+#: 9a84a6414a96477e949fb13bd84c49b3 9cd9aa57ac094536b9233a1fbd7d5ddb
+#: a05ad9d8839740d18d4639f2f2f40a8d a36f08c939d34fb4ab3bcd097f6918da
+#: aab9ca4220f3485799a5279a8d86e54e ad56a96b7a1a4fa896e438c1a27ac170
+#: b237d7026eeb4f4186a3e9e073c71725 bb4ea733a1cd4dfbbe9e4e0eec66527e
+#: bfbf5a8359d346b4b8b1e2d633cfd851 c22225aa2b0c4a3da777235b4ac1447b
+#: c50b4748a1be4ba79f9db557a2053a2f c5d91e75606e4072ac529abb328f59d2
+#: c7e48ce7b7f34470bf1e02ac37d1100a dc731f3102204d5eae2eb0de3c09461d
+#: dc9c20e46f9b4e42beb468a7ef6bca33 dd7c632cbd8f46bdbb6ef8d936bccc8f
+#: e323724a3c3740229d5fb1dcb513d83e eb7342f20a83472fb6201c4123a92e09
+#: ecd1a00ebf9f476b87f7a6921951f21e
+msgid "Returns"
+msgstr "戻り値"
+
+#: ../../docstring 634e0fbfbf524970897a17863eb02d85 of
+#: proteindf_bridge.atomgroup.AtomGroup.add_missing_hydrogens:7
+msgid "Summary report of added hydrogens."
+msgstr "追加された水素のサマリーレポート。"
+
+#: ../../api/proteindf_bridge.atomgroup.rst 05cbb86470a745f49dc763a98f4fd152
+#: 07efb29cd83b439a840b2e793b30382d 0c77c9e31fef46c1b63027882117df07
+#: 123a12927dca491d96b42514b58a9cc8 1cfc81693f6a4a47ba29cc85e3384f1e
+#: 28565b9cc2324ddea1be8df7a23e3ac2 2bef3770612d4c09aa96313eabf7b50b
+#: 320824a99fe74b0ab79edc02d10938c9 385beeacc574418b95b2ddc1f7357a97
+#: 394d159ddc9b4aa48174aa1830f783c9 3a656e1bc23d44f7b225246c22794f06
+#: 3fda5e0ccb79499fb97fd60badcad845 4a179ab1b6e342bba9967c08a7a7f305
+#: 4c4785e9d48a4102a89ec2eacfee4dec 4e07b6d2494449899df57a4e3f7c39f6
+#: 53065929e2534cc5a1726420fca91b3b 530dd085c23a4ac3a74b183106a27f08
+#: 56aaf67e5eef49f8b6c17b6138feca38 56ac2c879ba440aea0ed7474c8adcf27
+#: 596cdd559bad46d68c48948ee4e03d99 653fd55870db405fb53c300c095fb497
+#: 671cae96184641eeaa1c1e5bb8d28663 743c00698edb4007bf91ed9d0ea77ae3
+#: 75a25e53f56742f68c7b6c9368fd37d1 75a36ca802944059be10beada8ddf9f3
+#: 76a0cefd57924f1fa498c67827baa13a 81423d60ab4347b5a9307e009fbe33c4
+#: 824b04d8499e4af6aedd6a328a9a867b 833b2801136945928c44d0b78373e2e8
+#: 95378d5c3e0b436c89ee2c44a41f0bd9 97cfc1b222844b09bc9d778267cf94c7
+#: 9b6d54f6148b4fb6bc999a8d3904bb23 9bb9d9059c1e42e090e08eed526f9bb9
+#: 9e628b444d0e4107a35e874fe4b66a75 a6ce651871174274a872e1403a2b1316
+#: b0f32c4c91a247278a10f9775f6ff517 b1a6019fe236454b974cc8a3a7125f66
+#: b1e0e48e260a497db5e1c52271095d54 b44ce382b12346509175be0a12e40593
+#: b7c0a72c321a411db30cd9e8833c40c0 b9bf0ff34e1e4aa19132c0b2b922acae
+#: bc2dfd3a63054e26a4759046ad9fe373 c0b526b66a6c4c89a7f8a3d988ad0fc1
+#: c0e57385dbbc469b9e47d00d529bfaa1 c3fd325fac934eca90591580fad926df
+#: c448029f72da4c079e9a3bfbfc9c0708 c6ebb65fef884aafbcfbf3eb7bd8cade
+#: c924d4b94cd243e0a25da3713355ec1f d023bcd603ea4ad092a8294bd8e5fc65
+#: d562f291da954651bee431461d4a259d d68f3e1e98bd46ad8f87dcc5ad8612db
+#: dd6a3475828940b69e64519ba4265467 eaf8b93fbc5448e7ba033f9b91e00416
+#: ebf03d28b53b423787072d794feb43d4 ecbc5b138aae491ba58b7e7334c9d900
+#: f91005321ee4420aa1cffc79c63287ed
 msgid "Return type"
 msgstr "戻り値の型"
 
-#: 7be40cf883134d73be11d2e59943dafc of
+#: ../../docstring f04bbedeec3a464594499c0fca8223a4 of
+#: proteindf_bridge.atomgroup.AtomGroup.apply_secondary_structure:1
+msgid ""
+"Detects and assigns secondary structure annotations ('H', 'E', '-') to "
+"residues in this chain."
+msgstr "このチェイン内の残基に対して二次構造注釈 ('H', 'E', '-') を検出し割り当てる。"
+
+#: ../../docstring 85b28fb2c3c54b67842fd8d666c6395b of
+#: proteindf_bridge.atomgroup.AtomGroup.apply_secondary_structure:3
+msgid "Modifications are applied in-place to residue groups."
+msgstr "変更は残基グループにインプレースで適用される。"
+
+#: ../../docstring 253b2d4b6fac488bb43c80b70e082e07 of
+#: proteindf_bridge.atomgroup.AtomGroup.assign_charges:1
+msgid ""
+"Sequentially assigns partial charges from a sequence to all atoms in the "
+"hierarchy."
+msgstr "シーケンスからの部分電荷を階層内のすべての原子に順番に割り当てる。"
+
+#: ../../docstring 7079358885034244a4fe62dda4d7792b of
+#: proteindf_bridge.atomgroup.AtomGroup.assign_charges:3
+msgid "The number of values in `charges` must exactly match the total atom count."
+msgstr "`charges` 内の値の数は、総原子数と正確に一致しなければならない。"
+
+#: ../../docstring e8f6d9d7872945ce95a3ff1a87b509cf of
+#: proteindf_bridge.atomgroup.AtomGroup.assign_charges:5
+msgid "An iterable of numerical charge values."
+msgstr "数値電荷値のイテラブル。"
+
+#: ../../api/proteindf_bridge.atomgroup.rst 0cc742d012b149d89da242bf6c31af92
+#: 37ee19dcd14642b1b400bfecf6510981 7b54fd44844544158b498e9a265bb472
+#: 86577e5fa0604a66aa38b5f3f59a01a1 b3adc34d68a54a9aacecc341b1ca80bc
+#: b4e3e9842ebc4e31957c80539b53c618 cff9bfeb854343b7bc5b136166f6a7dd
+#: e2c2c7906b5642be9374c1c79d1de6cb e5b418a43a184306a52f221312cf8cd0
+#: fdf9ef279d3748bb9bfe391a70ccc61f
+msgid "Raises"
+msgstr "例外"
+
+#: ../../docstring ff45d698d546438fb9c66502c2367587 of
+#: proteindf_bridge.atomgroup.AtomGroup.assign_charges:8
+msgid "If `charges` is not a valid sequence."
+msgstr "`charges` が有効なシーケンスでない場合。"
+
+#: ../../docstring bf4e5ee8ebc54137bc76f28c296ac628 of
+#: proteindf_bridge.atomgroup.AtomGroup.assign_charges:9
+msgid "If the length of `charges` does not match the total atom count."
+msgstr "`charges` の長さが総原子数と一致しない場合。"
+
+#: ../../docstring 60fd143c786f4042ba68c5941c7fd8ac of
+#: proteindf_bridge.atomgroup.AtomGroup.atoms:1
+msgid "Returns a list of (key, atom) pairs for all atoms directly in this group."
+msgstr "このグループに直接含まれるすべての原子の (key, atom) ペアのリストを返す。"
+
+#: ../../docstring f19c1d80b5b344f089be77bd3e25a7a0 of
 #: proteindf_bridge.atomgroup.AtomGroup.atoms:3
 msgid ""
-":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~typing.Iterator\\`\\\\"
-" \\\\\\[\\:py\\:data\\:\\`\\~typing.Tuple\\`\\\\ "
-"\\\\\\[\\:py\\:class\\:\\`str\\`\\, "
-"\\:py\\:class\\:\\`\\~proteindf\\_bridge.atom.Atom\\`\\]\\]`"
-msgstr ""
-":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~typing.Iterator\\`\\\\"
-" \\\\\\[\\:py\\:data\\:\\`\\~typing.Tuple\\`\\\\ "
-"\\\\\\[\\:py\\:class\\:\\`str\\`\\, "
-"\\:py\\:class\\:\\`\\~proteindf\\_bridge.atom.Atom\\`\\]\\]`"
+"If :attr:`sort_atoms` is set to ``\"nice\"``, the items are sorted "
+"naturally."
+msgstr ":attr:`sort_atoms` が ``\"nice\"`` に設定されている場合、項目は自然順にソートされる。"
 
-#: e160f5f18e944fb4a068e073fd332814 of
+#: ../../docstring d1cce670a3dc46c5a07962878de884f3 of
+#: proteindf_bridge.atomgroup.AtomGroup.atoms:5
+msgid "List of (key, atom) pairs."
+msgstr "(key, atom) ペアのリスト。"
+
+#: ../../docstring d9413ef64a9444708df8dbfb26a24be0 of
+#: proteindf_bridge.atomgroup.AtomGroup.bonds:1
+msgid "Returns a list of bond records stored directly in this group."
+msgstr "このグループに直接保存されている結合レコードのリストを返す。"
+
+#: ../../docstring 4354cf9e37cf41ed9d5657aa9b8d4dce
+#: 70e7556778824bb99332ff0181ba3896 of
+#: proteindf_bridge.atomgroup.AtomGroup.bonds:3
+#: proteindf_bridge.atomgroup.AtomGroup.get_bond_list:3
+msgid "List of `(atom1_path, atom2_path, order)` tuples."
+msgstr "`(atom1_path, atom2_path, order)` タプルのリスト。"
+
+#: ../../docstring 2c9669c2bfad4ca6a482c1f7753975ca
+#: 86ec288a55be4458ba63faa3e9fd24ec of
+#: proteindf_bridge.atomgroup.AtomGroup.box:1
+#: proteindf_bridge.atomgroup.AtomGroup.get_box:1
+msgid ""
+"Computes the axis-aligned bounding box enclosing all atoms in the "
+"hierarchy."
+msgstr "階層内のすべての原子を囲む軸平行バウンディングボックスを計算する。"
+
+#: ../../docstring 94d693eb7585492f83aa70ad41553587
+#: b309432d06914e2da0aae457b2114b10 of
+#: proteindf_bridge.atomgroup.AtomGroup.box:3
+#: proteindf_bridge.atomgroup.AtomGroup.get_box:5
+msgid "A tuple of `(min_position, max_position)`."
+msgstr "`(min_position, max_position)` のタプル。"
+
+#: ../../docstring fc54c11eef9249bb8262a0b651f38768 of
 #: proteindf_bridge.atomgroup.AtomGroup.center:1
-msgid "return Position value of the center"
-msgstr "中心のPosition値を返す"
+msgid "Computes the geometric center (centroid) of all atoms in the hierarchy."
+msgstr "階層内のすべての原子の幾何中心(重心)を計算する。"
 
-#: 0078e4a09a974ebb88662eb9c1aa7b94 abe5ab0c1ca04fefa1002585ec45ec22 of
+#: ../../docstring 686ad84b85c6494497e0014e8443aeb4 of
+#: proteindf_bridge.atomgroup.AtomGroup.center:3
+msgid "The centroid coordinates."
+msgstr "重心座標。"
+
+#: ../../docstring 1606ab554ad84ef980f5f2891bec0cbb of
+#: proteindf_bridge.atomgroup.AtomGroup.charge:1
+msgid "Total electric charge of this group and all its descendant groups."
+msgstr "このグループおよびそのすべての子孫グループの全電荷。"
+
+#: ../../docstring b0fcfa9db3df4276aede293f0db333ee of
+#: proteindf_bridge.atomgroup.AtomGroup.charge:3
+msgid "Sum of atomic partial charges."
+msgstr "原子部分電荷の総和。"
+
+#: ../../docstring 44b9be82bb8246d289594a8dfda2432f
+#: b0518f8fd1f641069e78803ef82fb35a b32b4ea3519f41bbb2aa8c1e5cc79f78 of
+#: proteindf_bridge.atomgroup.AtomGroup.del_atom:1
 #: proteindf_bridge.atomgroup.AtomGroup.erase_atom:1
 #: proteindf_bridge.atomgroup.AtomGroup.remove_atom:1
-msgid "remove atom"
-msgstr "原子を削除する"
+msgid "Removes an atom with the given key from this group."
+msgstr "指定されたキーを持つ原子をこのグループから削除する。"
 
-#: 631252e46c554398a0f05c9bfb00e49c of
+#: ../../docstring 59edfc6b979f43ee875710716dfffe44
+#: 5e1c2b53e6614e03820a367387e5b19c eb7a57d3f032440fb51b61f32955864e of
+#: proteindf_bridge.atomgroup.AtomGroup.del_atom:3
+#: proteindf_bridge.atomgroup.AtomGroup.erase_atom:6
+#: proteindf_bridge.atomgroup.AtomGroup.remove_atom:3
+msgid "The atom key to remove."
+msgstr "削除する原子のキー。"
+
+#: ../../docstring b70520c703a948e38043f1d7370edddc
+#: d9c406e809ed4cb1bdea99462b9c5e5f of
+#: proteindf_bridge.atomgroup.AtomGroup.del_atom:6
+#: proteindf_bridge.atomgroup.AtomGroup.remove_atom:6
+msgid "The removed atom, or None if not found."
+msgstr "削除された原子、見つからない場合は None。"
+
+#: ../../docstring 0ebd5cb369474eb9877672e8c569521c
+#: 570400697f714901b4686345aa31f832 fc5410bd2b344f6fa6e59d59fb88a364 of
+#: proteindf_bridge.atomgroup.AtomGroup.del_group:1
+#: proteindf_bridge.atomgroup.AtomGroup.erase_group:1
+#: proteindf_bridge.atomgroup.AtomGroup.remove_group:1
+msgid "Removes a child group with the given key from this group."
+msgstr "指定されたキーを持つ子グループをこのグループから削除する。"
+
+#: ../../docstring 0f028209e9964032ab273ee640b94d76
+#: 7b69bbb120b94b648b3aad134b7ee12f cdd730a53b87473ba2d7050f0acc966c of
+#: proteindf_bridge.atomgroup.AtomGroup.del_group:3
+#: proteindf_bridge.atomgroup.AtomGroup.erase_group:6
+#: proteindf_bridge.atomgroup.AtomGroup.remove_group:3
+msgid "The child group key to remove."
+msgstr "削除する子グループのキー。"
+
+#: ../../docstring 08351fe9a998455d9553a796b4ce14aa
+#: b0093525c8524c20ad0f552e0bd9929b of
+#: proteindf_bridge.atomgroup.AtomGroup.del_group:6
+#: proteindf_bridge.atomgroup.AtomGroup.remove_group:6
+msgid "The removed child group, or None if not found."
+msgstr "削除された子グループ、見つからない場合は None。"
+
+#: ../../docstring 9f26d0168dd84bb2befefd036fbea27d of
+#: proteindf_bridge.atomgroup.AtomGroup.divide_path:1
+msgid "Splits a hierarchical path string into individual component strings."
+msgstr "階層パス文字列を個々のコンポーネント文字列に分割する。"
+
+#: ../../docstring c37a7cfcd5754d7ea71641915f158409 of
+#: proteindf_bridge.atomgroup.AtomGroup.divide_path:3
+msgid "The path string to split."
+msgstr "分割するパス文字列。"
+
+#: ../../docstring 83fa439eab5642d086d9114f123f6718 of
+#: proteindf_bridge.atomgroup.AtomGroup.divide_path:6
+msgid "List of path segment strings."
+msgstr "パスセグメント文字列のリスト。"
+
+#: ../../docstring 1ffaa984333a49d083afcd45978af8fc of
 #: proteindf_bridge.atomgroup.AtomGroup.erase_atom:3
 msgid ":meth:`remove_atom` instead."
 msgstr "代わりに :meth:`remove_atom` を使用してください。"
 
-#: 04e2b53d86684140b26fda2c499e9bca fe4539770b00447f91639d0961596e2f of
-#: proteindf_bridge.atomgroup.AtomGroup.erase_group:1
-#: proteindf_bridge.atomgroup.AtomGroup.remove_group:1
-msgid "remove group"
-msgstr "グループを削除する"
-
-#: 56b6309b83084d579aa13ecf3b69d04a of
+#: ../../docstring 7ebcd6cacb3a419d90d3489367ab8c6c of
 #: proteindf_bridge.atomgroup.AtomGroup.erase_group:3
 msgid ":meth:`remove_group` instead."
 msgstr "代わりに :meth:`remove_group` を使用してください。"
 
-#: 6ae35cd823924806827b39158063a8a8 a2f73b01b93f40fab303ae1f4156ca22
-#: d484d9ab4e454a9aabbb02ef1047c98e ebc6aa8608804528924fe74d500c4b30 of
-#: proteindf_bridge.atomgroup.AtomGroup.erase_group:5
-#: proteindf_bridge.atomgroup.AtomGroup.remove_group:3
-#: proteindf_bridge.atomgroup.AtomGroup.set_atom:1
-#: proteindf_bridge.atomgroup.AtomGroup.set_group:1
-msgid ":sphinx_autodoc_typehints_type:`\\:py\\:obj\\:\\`None\\``"
-msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:obj\\:\\`None\\``"
+#: ../../docstring c3aed01d97d4409fb151447b7982deb8 of
+#: proteindf_bridge.atomgroup.AtomGroup.formula:1
+msgid "Returns the chemical formula formatted using the Hill system."
+msgstr "Hill体系を用いてフォーマットされた化学式を返す。"
 
-#: f28eec05ad1a4738b183315a4ef7e668 of
+#: ../../docstring 54000cc4dece478294594b4c2c5fd20c of
+#: proteindf_bridge.atomgroup.AtomGroup.formula:3
+msgid "Alias for :meth:`get_formula`."
+msgstr ":meth:`get_formula` の別名。"
+
+#: ../../docstring 787bc918682e40149246bf133b8923e2 of
+#: proteindf_bridge.atomgroup.AtomGroup.formula:5
+msgid "The Hill-system chemical formula."
+msgstr "Hill体系の化学式。"
+
+#: ../../docstring 3edc6c42e2ac4f0abc23caf3de3239ae of
 #: proteindf_bridge.atomgroup.AtomGroup.get_atom:1
-msgid ""
-"Return the atom if one matching the given key or name is contained; "
-"otherwise return None."
-msgstr "入力されたkeyもしくは名前の原子が含まれている場合、その原子を返す。 無い場合はNoneを返す。"
+msgid "Retrieves an atom matching the given key or name from this group."
+msgstr "指定されたキーまたは名前に一致する原子をこのグループから取得する。"
 
-#: 63535f568c4a47dfa2c8e530b7d382a5 of
-#: proteindf_bridge.atomgroup.AtomGroup.get_atom:4
-msgid ""
-":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.atom.Atom\\`"
-" \\| \\:py\\:obj\\:\\`None\\``"
-msgstr ""
-":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.atom.Atom\\`"
-" \\| \\:py\\:obj\\:\\`None\\``"
+#: ../../docstring 0341e06919664a8983b5387267a57814
+#: 312405b2c42345ab947f75fa9ed1ee05 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_atom:3
+#: proteindf_bridge.atomgroup.AtomGroup.has_atom:3
+msgid "The atom key or name to search for."
+msgstr "検索する原子のキーまたは名前。"
 
-#: 738c4fdc83544ff2b9a2ad6a5ff0c113 fed8f50e9ee94262a05afe13fa2d1752 of
+#: ../../docstring b7b6a1885eeb4771ab6f2f77435e32c4 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_atom:6
+msgid "The matching atom reference, or None if not found."
+msgstr "一致した原子への参照、見つからない場合は None。"
+
+#: ../../docstring 78376adbafe946d68e39dc4ac2ebda80 of
 #: proteindf_bridge.atomgroup.AtomGroup.get_atom_keys:1
-#: proteindf_bridge.atomgroup.AtomGroup.get_group_list:1
-msgid ""
-":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~typing.List\\`\\\\ "
-"\\\\\\[\\:py\\:class\\:\\`str\\`\\]`"
-msgstr ""
-":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~typing.List\\`\\\\ "
-"\\\\\\[\\:py\\:class\\:\\`str\\`\\]`"
+msgid "Returns a list of keys of all direct atoms."
+msgstr "すべての直接の原子のキーのリストを返す。"
 
-#: 95885bb708084508b247a09d02820b74 of
+#: ../../docstring c3b3cd83613d49ffa877dda2e2122fdc of
+#: proteindf_bridge.atomgroup.AtomGroup.get_atom_keys:3
+msgid ""
+"If :attr:`sort_atoms` is set to ``\"nice\"``, the keys are sorted "
+"naturally."
+msgstr ":attr:`sort_atoms` が ``\"nice\"`` に設定されている場合、キーは自然順にソートされる。"
+
+#: ../../docstring 28651daa6be54c6a92a14c7cbfeee2d4 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_atom_keys:5
+msgid "List of atom keys."
+msgstr "原子キーのリスト。"
+
+#: ../../docstring 9204b26264d8430fb84a47c14f0454ea of
 #: proteindf_bridge.atomgroup.AtomGroup.get_atom_kinds:1
-msgid "Return the list of atomic species (symbols)."
-msgstr "原子種(シンボル)のリストを返す"
+msgid "Returns a set of unique chemical element symbols present in the hierarchy."
+msgstr "階層内に存在する一意の元素記号のセットを返す。"
 
-#: d0e6576865b846c98dd5cb20a597166f of
+#: ../../docstring 91e8325c1eb04bab947c2f018dd2e2b0 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_atom_kinds:3
+#, python-brace-format
+msgid "Set of element symbols (e.g. `{\"C\", \"H\", \"N\", \"O\"}`)."
+msgstr "元素記号のセット (例: `{\"C\", \"H\", \"N\", \"O\"}`)。"
+
+#: ../../docstring 48a7499ac9834617a428fbf47879468f of
 #: proteindf_bridge.atomgroup.AtomGroup.get_atom_kinds_count:1
-msgid "Return a dict mapping atomic species (symbols) to their counts."
-msgstr "原子種(シンボル)とその数を格納した辞書を返す"
+msgid "Returns a dictionary mapping element symbols to their occurrence counts."
+msgstr "元素記号を出現回数にマッピングした辞書を返す。"
 
-#: 48f38c559c764fdebd3680bd46f01108 of
+#: ../../docstring b9de1731b0fd46d983bffab51dd2a14f of
+#: proteindf_bridge.atomgroup.AtomGroup.get_atom_kinds_count:3
+msgid "Counts of each chemical element."
+msgstr "各元素の出現回数。"
+
+#: ../../docstring 69b84ef56c6b4d32af98fe6856c7582b of
 #: proteindf_bridge.atomgroup.AtomGroup.get_atom_list:1
-msgid "Collect the atoms within the subgroups into a list and return it."
-msgstr "サブグループ内の原子をリスト型に格納して返す"
+msgid ""
+"Recursively collects and returns all atoms in this group and all "
+"descendant groups."
+msgstr "このグループおよびすべての子孫グループ内のすべての原子を再帰的に収集して返す。"
 
-#: 7fb7e4f66bfb48cdae87e4e6f1ce82fa of
+#: ../../docstring 8d1da0b8b2ee4388ad9ac9e6667ae46d of
+#: proteindf_bridge.atomgroup.AtomGroup.get_atom_list:3
+msgid "Flat list of all atoms in the hierarchy."
+msgstr "階層内のすべての原子のフラットなリスト。"
+
+#: ../../docstring 30e961a8b0d54d658420e02d8f480ae3 of
 #: proteindf_bridge.atomgroup.AtomGroup.get_bond_list:1
-msgid "Return a list of tuples ('atom1 path', 'atom2 path', bond order)."
-msgstr "タプル('atom1のpath', 'atom2のpath', 結合次数)のリストを返す"
+msgid "Returns a list of all bonds in this group and all its descendant groups."
+msgstr "このグループおよびそのすべての子孫グループ内のすべての結合のリストを返す。"
 
-#: 0fe50ec2fd294aa1a4c2054286e53469 of
+#: ../../docstring 119b21c6e7da4d3086604aa46146bd3d of
+#: proteindf_bridge.atomgroup.AtomGroup.get_box:3
+msgid "Alias for :meth:`box`."
+msgstr ":meth:`box` の別名。"
+
+#: ../../docstring bb82cb4f776a441f9daf216fd180afdb of
+#: proteindf_bridge.atomgroup.AtomGroup.get_family:1
+msgid ""
+"Navigates the hierarchy tree and retrieves the group matching an absolute"
+" path."
+msgstr "階層木を探索し、絶対パスに一致するグループを取得する。"
+
+#: ../../docstring 32dffe72cef5423d83e20a5bd528bec0 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_family:3
+msgid ""
+"Searches descendants first; if not found within the subtree, traverses up"
+" through ancestor groups to search the tree. Does not support relative "
+"paths (such as ``\".\"`` or ``\"..\"``)."
+msgstr "最初に子孫を検索し、サブツリー内で見つからない場合は祖先グループを遡って木を検索する。相対パス (``\".\"`` や ``\"..\"`` など) には未対応。"
+
+#: ../../docstring 0f53771a07cb4e61b1bc6e02aaa0ead8 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_family:7
+msgid "The absolute path to navigate to (e.g. ``\"/protein/chainA\"``)."
+msgstr "ナビゲート先の絶対パス (例: ``\"/protein/chainA\"``)。"
+
+#: ../../docstring da1e063998164c0e96916532d0b13163 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_family:10
+msgid "The matched group, or None if not found."
+msgstr "一致したグループ、見つからない場合は None。"
+
+#: ../../docstring 3cb08f6d80c94644b7e78ec00d8fbaf5 of
 #: proteindf_bridge.atomgroup.AtomGroup.get_formula:1
-msgid "Return the molecular formula (composition formula)."
-msgstr "分子式(組成式; composition formula)を返す"
+msgid "Computes the chemical formula formatted using the Hill system."
+msgstr "Hill体系を用いてフォーマットされた化学式を計算する。"
 
-#: f0391bbea1994dadbd59e7967c219152 of
+#: ../../docstring 90cfd18653eb4d4cbc0a99e28245da96 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_formula:3
+msgid ""
+"If carbon is present, carbon is listed first, followed by hydrogen, and "
+"then all other elements in alphabetical order. Otherwise, all elements "
+"are listed in alphabetical order."
+msgstr "炭素が存在する場合、炭素が最初に記載され、続いて水素、その後に他のすべての元素がアルファベット順に記載される。それ以外の場合、すべての元素がアルファベット順に記載される。"
+
+#: ../../docstring 1808369e413545e39c630282aa0a37e3 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_formula:7
+msgid "The Hill-system chemical formula (e.g. \"C6H12O6\")."
+msgstr "Hill体系の化学式 (例: \"C6H12O6\")。"
+
+#: ../../docstring e9a64046c2cc4f00b3e024c4f2b7638c of
 #: proteindf_bridge.atomgroup.AtomGroup.get_group:1
-msgid ""
-"Return the group if one matching the given key or name is contained; "
-"otherwise return None."
-msgstr "入力されたkeyもしくは名前の原子団が含まれている場合、その原子を返す。 無い場合はNoneを返す。"
+msgid "Retrieves a child group matching the given key or name from this group."
+msgstr "指定されたキーまたは名前に一致する子グループをこのグループから取得する。"
 
-#: 0e4409d877cc4381a81ea873a4e87cf9 of
-#: proteindf_bridge.atomgroup.AtomGroup.get_group:4
-msgid ""
-":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.atomgroup.AtomGroup\\`"
-" \\| \\:py\\:obj\\:\\`None\\``"
-msgstr ""
-":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.atomgroup.AtomGroup\\`"
-" \\| \\:py\\:obj\\:\\`None\\``"
+#: ../../docstring 9c4bfcc1d0f544d383e0813f09e3dfaa
+#: ccb8c66f80284637a14d4d0381a001dd of
+#: proteindf_bridge.atomgroup.AtomGroup.get_group:3
+#: proteindf_bridge.atomgroup.AtomGroup.has_group:3
+msgid "The child group key or name."
+msgstr "子グループのキーまたは名前。"
 
-#: d12b4fff1ea64bc3aad21cbcd87f7090 of
+#: ../../docstring 60f80652be664c6487a1b604ca2fd459 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_group:6
+msgid "The child group reference, or None if not found."
+msgstr "一致した子グループへの参照、見つからない場合は None。"
+
+#: ../../docstring bf918d1a60254c96a8bf50512f4d9a98 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_group_list:1
+msgid "Returns a list of keys of all direct child groups."
+msgstr "すべての直接の子グループのキーのリストを返す。"
+
+#: ../../docstring 02aa68f6d9da40f093a4549aea621ca0 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_group_list:3
+msgid ""
+"If :attr:`sort_groups` is set to ``\"nice\"``, the keys are sorted "
+"naturally."
+msgstr ":attr:`sort_groups` が ``\"nice\"`` に設定されている場合、キーは自然順にソートされる。"
+
+#: ../../docstring 1aa925a00d484b25a0c4c201c5ae632c of
+#: proteindf_bridge.atomgroup.AtomGroup.get_group_list:5
+msgid "List of child group keys."
+msgstr "子グループキーのリスト。"
+
+#: ../../docstring f8fbb224fdf94d5381f2c8177cc960e7 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_number_of_all_atoms:1
+msgid ""
+"Returns the total number of atoms in this group and all its descendant "
+"groups."
+msgstr "このグループおよびそのすべての子孫グループ内の総原子数を返す。"
+
+#: ../../docstring 8f11f67370ca41498cf126ce264739f4 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_number_of_all_atoms:3
+msgid "Total number of atoms across the entire sub-tree."
+msgstr "サブツリー全体の総原子数。"
+
+#: ../../docstring abfa428d425b4d708f385439d9cbdcac of
+#: proteindf_bridge.atomgroup.AtomGroup.get_number_of_atoms:1
+msgid "Returns the number of direct atoms contained in this group."
+msgstr "このグループに直接含まれる原子の数を返す。"
+
+#: ../../docstring a04a684816364f47b54b8926c41396fb of
+#: proteindf_bridge.atomgroup.AtomGroup.get_number_of_atoms:3
+msgid "Number of direct atoms."
+msgstr "直接の原子の数。"
+
+#: ../../docstring dfe07496ef074ac48625b29fcd7e1033 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_number_of_bonds:1
+msgid "Returns the number of bonds stored directly in this group."
+msgstr "このグループに直接保存されている結合の数を返す。"
+
+#: ../../docstring 9f3f575128ac45f58ccb13abc50b3c40 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_number_of_bonds:3
+msgid "Number of direct bonds."
+msgstr "直接の結合の数。"
+
+#: ../../docstring b5c4d934e6084c21bd3dfc46261578be of
+#: proteindf_bridge.atomgroup.AtomGroup.get_number_of_groups:1
+msgid "Returns the number of direct child groups contained in this group."
+msgstr "このグループに直接含まれる子グループの数を返す。"
+
+#: ../../docstring 3dacf91100c24eb4906a33996c2e6286 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_number_of_groups:3
+msgid "Number of direct child groups."
+msgstr "直接の子グループの数。"
+
+#: ../../docstring 0fbbe9c2ca43477bae076ca1590ca235 of
 #: proteindf_bridge.atomgroup.AtomGroup.get_path_list:1
-msgid "Return the list of paths of the atoms within the group."
-msgstr "グループ内の原子のパスのリストを返す"
+msgid ""
+"Recursively collects and returns the paths of all atoms in this group and"
+" descendant groups."
+msgstr "このグループおよび子孫グループ内のすべての原子のパスを再帰的に収集して返す。"
 
-#: e61c72b798664883aac65f1290a30811 of
+#: ../../docstring 682017f623724b799da1b2e206e58576 of
+#: proteindf_bridge.atomgroup.AtomGroup.get_path_list:3
+msgid "List of full paths for all atoms in the hierarchy."
+msgstr "階層内のすべての原子の完全パスのリスト。"
+
+#: ../../docstring a333436d97984aa3a352254f8d8c42ca of
+#: proteindf_bridge.atomgroup.AtomGroup.get_raw_data:1
+msgid "Serializes the hierarchy tree into a nested dictionary representation."
+msgstr "階層木をネストした辞書表現にシリアライズする。"
+
+#: ../../docstring bc3976a2207a4c9291bc95d30732932b of
+#: proteindf_bridge.atomgroup.AtomGroup.get_raw_data:3
+msgid "Nested dictionary containing group and atom data."
+msgstr "グループおよび原子データを含むネストした辞書。"
+
+#: ../../docstring 1fd39112ad1f4a7dbca8e886927f5d2e of
 #: proteindf_bridge.atomgroup.AtomGroup.get_xyz:1
-msgid "Return the XYZ-format string."
-msgstr "XYZフォーマット文字列を返す"
+msgid ""
+"Generates an XYZ-format coordinate block string for all atoms in the "
+"hierarchy."
+msgstr "階層内のすべての原子に対するXYZフォーマットの座標ブロック文字列を生成する。"
 
-#: a1feaaae5e014a16bfdca4209b8b0053 of
+#: ../../docstring 9125c81cf1fe407b805450cc0736e42a of
+#: proteindf_bridge.atomgroup.AtomGroup.get_xyz:3
+msgid "Multi-line XYZ coordinate string."
+msgstr "複数行のXYZ座標文字列。"
+
+#: ../../docstring 83465acad7f34195a61960147ef1f373 of
 #: proteindf_bridge.atomgroup.AtomGroup.groups:1
-msgid "Return the list of molecular groups."
-msgstr "原子団のリストを返す"
+msgid ""
+"Returns a list of (key, group) pairs for all child groups directly in "
+"this group."
+msgstr "このグループに直接含まれるすべての子グループの (key, group) ペアのリストを返す。"
 
-#: 7970543552c0409baf6fce3061a563e1 of
+#: ../../docstring 55f9b5e343164bf6b2a0904b2429acfc of
 #: proteindf_bridge.atomgroup.AtomGroup.groups:3
 msgid ""
-":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~typing.Iterator\\`\\\\"
-" \\\\\\[\\:py\\:data\\:\\`\\~typing.Tuple\\`\\\\ "
-"\\\\\\[\\:py\\:class\\:\\`str\\`\\, "
-"\\:py\\:class\\:\\`\\~proteindf\\_bridge.atomgroup.AtomGroup\\`\\]\\]`"
-msgstr ""
-":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~typing.Iterator\\`\\\\"
-" \\\\\\[\\:py\\:data\\:\\`\\~typing.Tuple\\`\\\\ "
-"\\\\\\[\\:py\\:class\\:\\`str\\`\\, "
-"\\:py\\:class\\:\\`\\~proteindf\\_bridge.atomgroup.AtomGroup\\`\\]\\]`"
+"If :attr:`sort_groups` is set to ``\"nice\"``, the items are sorted "
+"naturally."
+msgstr ":attr:`sort_groups` が ``\"nice\"`` に設定されている場合、項目は自然順にソートされる。"
 
-#: 4cc11c35fa204eec845041b187765bda of
+#: ../../docstring 6c761b6f8d574892ba7c4551b85e118e of
+#: proteindf_bridge.atomgroup.AtomGroup.groups:5
+msgid "List of (key, group) pairs."
+msgstr "(key, group) ペアのリスト。"
+
+#: ../../docstring ce8eb7f7430343489e111e1644ef940a of
 #: proteindf_bridge.atomgroup.AtomGroup.has_atom:1
 msgid ""
-"Return True if an atom matching the given key or name is contained; "
-"otherwise return False."
-msgstr "入力されたkeyもしくは名前の原子が含まれている場合、Trueを返す。 無い場合はFalseを返す。"
+"Checks whether an atom matching the given key or name exists in this "
+"group."
+msgstr "指定されたキーまたは名前に一致する原子がこのグループに存在するか確認する。"
 
-#: e513e657f0f0495e820d58421e31034d of
+#: ../../docstring c99d60fc5f5c41068a0aa2732e013d08 of
+#: proteindf_bridge.atomgroup.AtomGroup.has_atom:6
+msgid "True if a matching atom is found, False otherwise."
+msgstr "一致する原子が見つかった場合は True、そうでない場合は False。"
+
+#: ../../docstring 604364671b9e408f8ae15aaf976de4ce of
 #: proteindf_bridge.atomgroup.AtomGroup.has_atomkey:1
-msgid ""
-"Return True if an atom with the given key is contained; otherwise return "
-"False."
-msgstr "入力されたkeyの原子が含まれている場合、Trueを返す。 無い場合はFalseを返す。"
+msgid "Checks whether an atom with the given key exists directly in this group."
+msgstr "指定されたキーを持つ原子がこのグループに直接存在するか確認する。"
 
-#: bdb29668cb0b430693a11eaac604576d of
+#: ../../docstring 5fe369c198514164a55121ea885439dd of
+#: proteindf_bridge.atomgroup.AtomGroup.has_atomkey:3
+msgid "The atom key."
+msgstr "原子のキー。"
+
+#: ../../docstring c1853030f7414b01b327839c5a904e7e of
+#: proteindf_bridge.atomgroup.AtomGroup.has_atomkey:6
+msgid "True if an atom with the key exists, False otherwise."
+msgstr "そのキーを持つ原子が存在する場合は True、そうでない場合は False。"
+
+#: ../../docstring 2806cd96d8074327803539d88ad7602f of
 #: proteindf_bridge.atomgroup.AtomGroup.has_atomname:1
-msgid ""
-"Return True if an atom with the given name is contained; otherwise return "
-"False."
-msgstr "入力された名前の原子が含まれている場合、Trueを返す。 無い場合はFalseを返す。"
+msgid "Checks whether an atom with the given name exists directly in this group."
+msgstr "指定された名前を持つ原子がこのグループに直接存在するか確認する。"
 
-#: 654f3d5ea1a1468e9557d739df5d15f8 of
+#: ../../docstring 59db21785cd34e5a94673d659195d865 of
+#: proteindf_bridge.atomgroup.AtomGroup.has_atomname:3
+msgid "The atom name."
+msgstr "原子の名前。"
+
+#: ../../docstring b048a5a3468340ac96be4643f1f9bd41 of
+#: proteindf_bridge.atomgroup.AtomGroup.has_atomname:6
+msgid "True if an atom with the name exists, False otherwise."
+msgstr "その名前を持つ原子が存在する場合は True、そうでない場合は False。"
+
+#: ../../docstring 55bede6a5c19447a93bd92f9c05fa190 of
 #: proteindf_bridge.atomgroup.AtomGroup.has_group:1
 msgid ""
-"Return True if a group matching the given key or name is contained; "
-"otherwise return False."
-msgstr "入力されたkeyもしくは名前のグループが含まれている場合、Trueを返す。 無い場合はFalseを返す。"
+"Checks whether a child group matching the given key or name exists in "
+"this group."
+msgstr "指定されたキーまたは名前に一致する子グループがこのグループに存在するか確認する。"
 
-#: 8938f80b332d4a2d8a4a9cb9ecfe60ab 8faa425fd57249bf95e6f05b0f63d829
-#: ba095d25267f4f4e95aa422d3e90cee9 of
-#: proteindf_bridge.atomgroup.AtomGroup.has_group:4
-#: proteindf_bridge.atomgroup.AtomGroup.has_groupkey:4
-#: proteindf_bridge.atomgroup.AtomGroup.has_groupname:4
-msgid ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`bool\\``"
-msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`bool\\``"
+#: ../../docstring 11124850571841aa9fa53e6e5b572082 of
+#: proteindf_bridge.atomgroup.AtomGroup.has_group:6
+msgid "True if a matching child group is found, False otherwise."
+msgstr "一致する子グループが見つかった場合は True、そうでない場合は False。"
 
-#: 71af9f30910f4fe1b683405d75ca697f of
+#: ../../docstring b09d8b3800e44eb8b695f09fe8fb1a0e of
 #: proteindf_bridge.atomgroup.AtomGroup.has_groupkey:1
 msgid ""
-"Return True if a group with the given key is contained; otherwise return "
-"False."
-msgstr "入力されたkeyのグループが含まれている場合、Trueを返す。 無い場合はFalseを返す。"
+"Checks whether a child group with the given key exists directly in this "
+"group."
+msgstr "指定されたキーを持つ子グループがこのグループに直接存在するか確認する。"
 
-#: eaadefc1e2b149c08d4aa9dd238579ec of
+#: ../../docstring 0c2aa78452af442394a7f0c974669430
+#: c17b011e03e84d47882ae69999f1ee2d of
+#: proteindf_bridge.atomgroup.AtomGroup.has_groupkey:3
+#: proteindf_bridge.atomgroup.AtomGroup.set_group:5
+msgid "The child group key."
+msgstr "子グループのキー。"
+
+#: ../../docstring 0d452211aa3745f7a80614d1f2de1ba6 of
+#: proteindf_bridge.atomgroup.AtomGroup.has_groupkey:6
+msgid "True if a child group with the key exists, False otherwise."
+msgstr "そのキーを持つ子グループが存在する場合は True、そうでない場合は False。"
+
+#: ../../docstring 14fad42fabd54750b064929cf3450195 of
 #: proteindf_bridge.atomgroup.AtomGroup.has_groupname:1
 msgid ""
-"Return True if a group with the given name is contained; otherwise return "
-"False."
-msgstr "入力されたnameのグループが含まれている場合、Trueを返す。 無い場合はFalseを返す。"
+"Checks whether a child group with the given name exists directly in this "
+"group."
+msgstr "指定された名前を持つ子グループがこのグループに直接存在するか確認する。"
 
-#: d777f2f3269940d5849e77253e88d4df of
+#: ../../docstring 73366dd171c4479e902acc114169f6b6 of
+#: proteindf_bridge.atomgroup.AtomGroup.has_groupname:3
+msgid "The child group name."
+msgstr "子グループの名前。"
+
+#: ../../docstring e61b5ee31ad1460781eac319e54c699d of
+#: proteindf_bridge.atomgroup.AtomGroup.has_groupname:6
+msgid "True if a child group with the name exists, False otherwise."
+msgstr "その名前を持つ子グループが存在する場合は True、そうでない場合は False。"
+
+#: ../../docstring 607f900f3aac4002bd1ca8e772b72f15 of
+#: proteindf_bridge.atomgroup.AtomGroup.is_chain_level:1
+msgid "Checks whether this group is at the chain level (path depth 2)."
+msgstr "このグループがチェインレベル (パス深度2) かどうかを確認する。"
+
+#: ../../docstring 44e90165391f4ae9b6263ec67301eb0d of
+#: proteindf_bridge.atomgroup.AtomGroup.is_chain_level:3
+msgid "True if at chain level, False otherwise."
+msgstr "チェインレベルの場合は True、そうでない場合は False。"
+
+#: ../../docstring 19a406236506495486dcd749f2f7ad60 of
+#: proteindf_bridge.atomgroup.AtomGroup.is_model_level:1
+msgid "Checks whether this group is at the model level (path depth 1)."
+msgstr "このグループがモデルレベル (パス深度1) かどうかを確認する。"
+
+#: ../../docstring f57accbf275947929b399d91d0c8531d of
+#: proteindf_bridge.atomgroup.AtomGroup.is_model_level:3
+msgid "True if at model level, False otherwise."
+msgstr "モデルレベルの場合は True、そうでない場合は False。"
+
+#: ../../docstring 83250ecc9e2845b79c868e9c6152650e of
+#: proteindf_bridge.atomgroup.AtomGroup.is_residue_level:1
+msgid "Checks whether this group is at the residue level (path depth 3)."
+msgstr "このグループが残基レベル (パス深度3) かどうかを確認する。"
+
+#: ../../docstring 5bdd837d494d45fbaa6f305e01df2f8a of
+#: proteindf_bridge.atomgroup.AtomGroup.is_residue_level:3
+msgid "True if at residue level, False otherwise."
+msgstr "残基レベルの場合は True、そうでない場合は False。"
+
+#: ../../docstring 68f7556975804138bbcc1073a817b8ed of
 #: proteindf_bridge.atomgroup.AtomGroup.merge:1
-msgid "Merge in another molecular group."
-msgstr "原子団を結合する"
+msgid "Merges another `AtomGroup` hierarchy into this group in-place."
+msgstr "別の `AtomGroup` 階層をこのグループにインプレースでマージする。"
 
-#: 7d4aa4aee997466da2ed7c3dd1e54ec8 of
-#: proteindf_bridge.atomgroup.AtomGroup.pickup_atoms:1
-msgid "Return the array of atoms whose key or name matches."
-msgstr "key または nameが一致した原子の配列を返す"
-
-#: 391c660cd41b4d138a5fafe8aa39e750 of
-#: proteindf_bridge.atomgroup.AtomGroup.restructure:1
-msgid "Rebuild the data structure by referring to the structure of reference."
-msgstr "referenceの構造を参照して、データ構造を再構築する。"
-
-#: b2251f8c4dbe47a38258bd0698a4b1d8 of
-#: proteindf_bridge.atomgroup.AtomGroup.restructure:3
+#: ../../docstring 9a6236e5a6774bf981041af2cee019e7 of
+#: proteindf_bridge.atomgroup.AtomGroup.merge:3
 msgid ""
-"Useful when building up a flat list of atoms into a PDB-like data structure."
-msgstr "フラットな原子リストをPDBデータ構造にビルドアップするときに便利。"
+"Subgroups and atoms are merged recursively. Existing bonds and secondary "
+"structure information from `other` are also incorporated."
+msgstr "サブグループと原子は再帰的にマージされる。`other` からの既存の結合および二次構造情報も組み込まれる。"
 
-#: f028da92ef134b9da1700ab9ad028b76 of
+#: ../../docstring 5dd68e548485497e8289f5b705d6ec53 of
+#: proteindf_bridge.atomgroup.AtomGroup.merge:6
+msgid "The atom group to merge into this group."
+msgstr "このグループにマージする原子グループ。"
+
+#: ../../docstring 4a26f9c5be86418a91ce20bce8b22398 of
+#: proteindf_bridge.atomgroup.AtomGroup.name:1
+msgid "Name of this atom group."
+msgstr "この原子グループの名前。"
+
+#: ../../docstring ada7a680e5304a589ca77e07d23f4ee1 of
+#: proteindf_bridge.atomgroup.AtomGroup.name:3
+msgid "The group name."
+msgstr "グループ名。"
+
+#: ../../docstring a5daf8ab54fd491aad98a9a2cd498f69 of
+#: proteindf_bridge.atomgroup.AtomGroup.nuclei_charge:1
+msgid "Nuclear charge of all atoms in this group and all descendant groups."
+msgstr "このグループおよびすべての子孫グループ内のすべての原子の核電荷。"
+
+#: ../../docstring fe8d3f75a45346139412964e32e532cc of
+#: proteindf_bridge.atomgroup.AtomGroup.nuclei_charge:3
+msgid ""
+"For atoms where atomic number is zero, their partial charge is used "
+"instead."
+msgstr "原子番号がゼロの原子については、代わりにその部分電荷が使用される。"
+
+#: ../../docstring a574ae98a5a24c059e0567408b4d7d61 of
+#: proteindf_bridge.atomgroup.AtomGroup.nuclei_charge:5
+msgid "Total nuclear charge."
+msgstr "全核電荷。"
+
+#: ../../docstring 380706856963420389ec446ca236a2ae of
+#: proteindf_bridge.atomgroup.AtomGroup.parent:1
+msgid "Parent `AtomGroup` in the hierarchy, or None if this is a root group."
+msgstr "階層における親 `AtomGroup`、ルートグループの場合は None。"
+
+#: ../../docstring 4e6db6513cda4de0b50a4203ace6b3b0 of
+#: proteindf_bridge.atomgroup.AtomGroup.parent:3
+msgid "The parent group reference, or None."
+msgstr "親グループへの参照、または None。"
+
+#: ../../docstring c6d47c35d9ca4283afe3e72e38f43746 of
+#: proteindf_bridge.atomgroup.AtomGroup.path:1
+msgid "Hierarchical path of this group from the root (e.g. \"/model_1/A/\")."
+msgstr "ルートからのこのグループの階層パス (例: \"/model_1/A/\")。"
+
+#: ../../docstring cb732bceaea1424bbdc4ae4cd5db52a7 of
+#: proteindf_bridge.atomgroup.AtomGroup.path:3
+msgid "The hierarchical path."
+msgstr "階層パス。"
+
+#: ../../docstring e93e41747b7246839cb4087497372e7e of
+#: proteindf_bridge.atomgroup.AtomGroup.path_depth:1
+msgid "Returns the depth of this group in the hierarchy."
+msgstr "階層におけるこのグループの深度を返す。"
+
+#: ../../docstring c87dd53333ad4ab0893ecbbc6f53c331 of
+#: proteindf_bridge.atomgroup.AtomGroup.path_depth:3
+msgid "The path depth (0 for root, 1 for model, 2 for chain, 3 for residue)."
+msgstr "パス深度 (ルートなら0、モデルなら1、チェインなら2、残基なら3)。"
+
+#: ../../docstring 1d576f08e7674f0389f97a114eeebac7 of
+#: proteindf_bridge.atomgroup.AtomGroup.pickup_atoms:1
+msgid ""
+"Recursively searches and collects atoms whose key or name matches the "
+"target string."
+msgstr "キーまたは名前が対象文字列と一致する原子を再帰的に検索して収集する。"
+
+#: ../../docstring 57ac8ba042f94d9491fb3da8cefb9557 of
+#: proteindf_bridge.atomgroup.AtomGroup.pickup_atoms:3
+msgid "The atom key or name to match."
+msgstr "一致対象の原子キーまたは名前。"
+
+#: ../../docstring 36b52477a9504e2ca49b8d2bbafcad71 of
+#: proteindf_bridge.atomgroup.AtomGroup.pickup_atoms:6
+msgid "List of matching atoms found across the hierarchy."
+msgstr "階層全体で見つかった一致する原子のリスト。"
+
+#: ../../docstring 699a408f05804aeb860e6f2905973c5a of
+#: proteindf_bridge.atomgroup.AtomGroup.real_nuclei_charge:1
+msgid ""
+"Sum of atomic numbers of all atoms in this group and all descendant "
+"groups."
+msgstr "このグループおよびすべての子孫グループ内のすべての原子の原子番号の総和。"
+
+#: ../../docstring 5c07c4e98c07422cb2064e06c082f483
+#: b59f2fbbe63040cd935f9080df23879e of
+#: proteindf_bridge.atomgroup.AtomGroup.real_nuclei_charge:3
+#: proteindf_bridge.atomgroup.AtomGroup.sum_of_atomic_number:3
+msgid "Sum of atomic numbers."
+msgstr "原子番号の総和。"
+
+#: ../../docstring b488a3845cd448be860e8ffe395b21ac of
+#: proteindf_bridge.atomgroup.AtomGroup.restructure:1
+msgid ""
+"Reorganizes atoms to match the hierarchy of a reference `AtomGroup` based"
+" on coordinate proximity."
+msgstr "座標の近接性に基づいて参照 `AtomGroup` の階層に一致するように原子を再構成する。"
+
+#: ../../docstring 0e80ecf80c0b423faaacdea54de0fb35 of
+#: proteindf_bridge.atomgroup.AtomGroup.restructure:3
+msgid "Reference structure providing the target hierarchy."
+msgstr "対象の階層を提供する参照構造。"
+
+#: ../../docstring b257121bd8414d90bec5fde33190aaf4 of
+#: proteindf_bridge.atomgroup.AtomGroup.restructure:5
+msgid "Proximity distance threshold in Angstroms. Defaults to 1.0e-5."
+msgstr "オングストローム単位の近接距離閾値。デフォルトは 1.0e-5。"
+
+#: ../../docstring 1d5e6f70d65a4145983d12fb044557d4 of
+#: proteindf_bridge.atomgroup.AtomGroup.restructure:8
+msgid "A new restructured atom group."
+msgstr "再構成された新しい原子グループ。"
+
+#: ../../docstring 3527cf2337df458b94cf8644679c9722 of
+#: proteindf_bridge.atomgroup.AtomGroup.rotate:1
+msgid ""
+"Rotates all atomic coordinates in this hierarchy using a 3x3 rotation "
+"matrix."
+msgstr "3x3 回転行列を用いてこの階層内のすべての原子座標を回転させる。"
+
+#: ../../docstring 226a1cc2eed741d999bd441aae4b34c8 of
+#: proteindf_bridge.atomgroup.AtomGroup.rotate:3
+msgid ""
+"A 3x3 rotation matrix. Accepts a :class:`Matrix` instance or any object "
+"providing `rows`, `cols`, and `get(row, col)`."
+msgstr "3x3 回転行列。:class:`Matrix` インスタンス、または `rows`, `cols`, `get(row, col)` を提供する任意のオブジェクトを受け付ける。"
+
+#: ../../docstring 69972f7c9ae54643b42139b4aac3f069 of
+#: proteindf_bridge.atomgroup.AtomGroup.rotate:7
+msgid "If `rotmat` is not a :class:`Matrix` or lacks `rows`, `cols`, or `get`."
+msgstr "`rotmat` が :class:`Matrix` でないか、`rows`, `cols`, `get` を欠いている場合。"
+
+#: ../../docstring cb3b3706310746b2943700b2bb24e763 of
+#: proteindf_bridge.atomgroup.AtomGroup.rotate:8
+msgid "If the dimensions of `rotmat` are not 3x3."
+msgstr "`rotmat` の次元が 3x3 でない場合。"
+
+#: ../../docstring a00adf9d675b4c1abd26b82f60123af8 of
+#: proteindf_bridge.atomgroup.AtomGroup.save_csv:1
+msgid "Exports the hierarchical atom and group data to a CSV file."
+msgstr "階層的な原子およびグループデータをCSVファイルに出力する。"
+
+#: ../../docstring 060404a6baff42abbc4ee99e5b12d760 of
+#: proteindf_bridge.atomgroup.AtomGroup.save_csv:3
+msgid "The CSV is written atomically via a temporary file."
+msgstr "CSVは一時ファイルを介してアトミックに書き込まれる。"
+
+#: ../../docstring eb9e4d952b8b429b88f81988c2106808 of
+#: proteindf_bridge.atomgroup.AtomGroup.save_csv:5
+msgid "Destination file path for the CSV file."
+msgstr "CSVファイルの出力先ファイルパス。"
+
+#: ../../docstring 6fa219eb941d47039ec8275b3c169956 of
+#: proteindf_bridge.atomgroup.AtomGroup.save_csv:8
+msgid "If file creation, writing, or renaming fails."
+msgstr "ファイルの作成、書き込み、またはリネームに失敗した場合。"
+
+#: ../../docstring ef1e2d70710f4bf58b65677f4a97b7f9 of
+#: proteindf_bridge.atomgroup.AtomGroup.secondary_structure:1
+msgid "Secondary structure code of this residue group ('H', 'E', '-', or None)."
+msgstr "この残基グループの二次構造コード ('H', 'E', '-', または None)。"
+
+#: ../../docstring f015dbbb3532467aa4f256c5b09bceed of
+#: proteindf_bridge.atomgroup.AtomGroup.secondary_structure:3
+msgid "'H' for helix, 'E' for strand, '-' for loop, or None."
+msgstr "ヘリックスは 'H'、ストランドは 'E'、ループは '-'、または None。"
+
+#: ../../docstring d4da0af78762419c8f0d7360ed621629 of
 #: proteindf_bridge.atomgroup.AtomGroup.select:1
 msgid ""
-"Pass a Selector object as selector to get back the corresponding molecular "
-"group."
-msgstr "selectorにSelectorオブジェクトを渡すことで 対応する原子団を返します"
+"Extracts a subset of atoms/groups matching a selector into a new "
+"`AtomGroup`."
+msgstr "セレクタに一致する原子/グループのサブセットを新しい `AtomGroup` に抽出する。"
 
-#: b75ab0919b2943a8b090af9802f86ef5 of
+#: ../../docstring 2e2d2b788cea4a9d8846ac99db2bacb8 of
+#: proteindf_bridge.atomgroup.AtomGroup.select:3
+msgid ""
+"A selector object (e.g. `SelectSymbol`, `SelectName`, `SelectPath`, etc.)"
+" or any object providing an `is_match` method."
+msgstr "セレクタオブジェクト (例: `SelectSymbol`, `SelectName`, `SelectPath` など)、または `is_match` メソッドを提供する任意のオブジェクト。"
+
+#: ../../docstring 8463622921fd4ac994db3d859adaaaaf of
+#: proteindf_bridge.atomgroup.AtomGroup.select:7
+msgid "A new atom group containing only the matched components."
+msgstr "一致したコンポーネントのみを含む新しい原子グループ。"
+
+#: ../../docstring f3587ff35d2d4451ae41467763c7c542 of
+#: proteindf_bridge.atomgroup.AtomGroup.select:10
+msgid "If `selector` is not a recognized selector type."
+msgstr "`selector` が認識可能なセレクタ型でない場合。"
+
+#: ../../docstring 8259e1c96a58496f901f13227da279ca of
+#: proteindf_bridge.atomgroup.AtomGroup.set_atom:1
+msgid "Inserts an atom into this group or at a specified hierarchical path."
+msgstr "このグループ内、または指定された階層パスに原子を挿入する。"
+
+#: ../../docstring f8cf20246ab1418393a67ae3ea8b6b44 of
+#: proteindf_bridge.atomgroup.AtomGroup.set_atom:3
+msgid ""
+"If `key` contains path separators (e.g. ``\"subgroup/C1\"``), "
+"intermediate child groups are created as needed and the atom is inserted "
+"at the leaf. The inserted atom is deep-copied into the tree."
+msgstr "`key` にパス区切り文字が含まれる場合 (例: ``\"subgroup/C1\"``)、必要に応じて中間子グループが作成され、原子は末端に挿入される。挿入された原子は木内にディープコピーされる。"
+
+#: ../../docstring 0f6f80739349433989afd24908936c6c of
+#: proteindf_bridge.atomgroup.AtomGroup.set_atom:7
+msgid "The atom key or relative/absolute path."
+msgstr "原子のキー、または相対/絶対パス。"
+
+#: ../../docstring e671591132814082a067e98dbc33accb of
+#: proteindf_bridge.atomgroup.AtomGroup.set_atom:9
+msgid "The atom to insert."
+msgstr "挿入する原子。"
+
+#: ../../docstring 68d74f64832841ae8e56649bca925da1 of
+#: proteindf_bridge.atomgroup.AtomGroup.set_atom:12
+msgid "If `atom` is not an `Atom` instance."
+msgstr "`atom` が `Atom` インスタンスでない場合。"
+
+#: ../../docstring b33923e52ac54ffba28d5c786c551f01 of
+#: proteindf_bridge.atomgroup.AtomGroup.set_by_dict_data:1
+msgid "Replaces the group content with data loaded from a nested dictionary."
+msgstr "グループの内容をネストした辞書から読み込まれたデータで置き換える。"
+
+#: ../../docstring 62d760c206984a36b6f7d65d6cf4af05 of
+#: proteindf_bridge.atomgroup.AtomGroup.set_by_dict_data:3
+msgid "Unrecognized keys at top level are ignored."
+msgstr "トップレベルの認識されないキーは無視される。"
+
+#: ../../docstring 68964069cdb24e76af356f932324d739 of
+#: proteindf_bridge.atomgroup.AtomGroup.set_by_dict_data:5
+msgid "Nested dictionary representing tree data."
+msgstr "木データを表すネストした辞書。"
+
+#: ../../docstring a91b23ea51404c4fa664d08476e0ef45 of
+#: proteindf_bridge.atomgroup.AtomGroup.set_by_dict_data:8
+msgid "Self, populated with the dictionary data."
+msgstr "辞書データが設定された自身 (self)。"
+
+#: ../../docstring b9850459ab9d42e789d8b72f764a9748 of
+#: proteindf_bridge.atomgroup.AtomGroup.set_by_dict_data:11
+msgid "If `data` is not a dict."
+msgstr "`data` が dict でない場合。"
+
+#: ../../docstring 8897971446cd4464aee133c838bd8e0e of
+#: proteindf_bridge.atomgroup.AtomGroup.set_by_dict_data:12
+msgid "If nested atom data within the dictionary is invalid."
+msgstr "辞書内のネストした原子データが無効な場合。"
+
+#: ../../docstring c238130373804493b1ba2f731a6ce3aa of
+#: proteindf_bridge.atomgroup.AtomGroup.set_group:1
+msgid "Inserts a child group into this group with the specified key."
+msgstr "指定されたキーでこのグループに子グループを挿入する。"
+
+#: ../../docstring cdb3397b88f84b50be9ff4a3a6cfd99b of
+#: proteindf_bridge.atomgroup.AtomGroup.set_group:3
+msgid "The inserted group is deep-copied into the tree."
+msgstr "挿入されたグループは木内にディープコピーされる。"
+
+#: ../../docstring ef260139932f4cfb8539ff149256e323 of
+#: proteindf_bridge.atomgroup.AtomGroup.set_group:7
+msgid "The child group to insert."
+msgstr "挿入する子グループ。"
+
+#: ../../docstring b98b5faecf464bb296ee3ad447823543 of
+#: proteindf_bridge.atomgroup.AtomGroup.set_group:10
+msgid "If `group` is not an `AtomGroup` instance."
+msgstr "`group` が `AtomGroup` インスタンスでない場合。"
+
+#: ../../docstring c729e3673b6e442b80f7c8f7373517cd of
+#: proteindf_bridge.atomgroup.AtomGroup.setup:1
+msgid ""
+"Assigns standard bonds, bond orders, and atom types using the built-in "
+"CCD template database."
+msgstr "組み込みCCDテンプレートデータベースを使用して、標準的な結合、結合次数、原子タイプを割り当てる。"
+
+#: ../../docstring 5d39f7a6b9de42898032c88e05b4b1b8
+#: ccebb7da8da64a13bccdac5f501a4614 of
+#: proteindf_bridge.atomgroup.AtomGroup.setup:3
+#: proteindf_bridge.atomgroup.AtomGroup.setup_with_db:6
+msgid "If an atom has an unrecognized symbol or lacks covalent radius data."
+msgstr "原子の元素記号が認識されないか、共有結合半径データを欠いている場合。"
+
+#: ../../docstring 70e87f5de0b2417b9a3617a0f533b173 of
+#: proteindf_bridge.atomgroup.AtomGroup.setup_with_db:1
+msgid ""
+"Assigns bonds, bond orders, and atom types using a provided CCD template "
+"database."
+msgstr "提供されたCCDテンプレートデータベースを使用して、結合、結合次数、原子タイプを割り当てる。"
+
+#: ../../docstring 3067383e3a87463abcbb4979f4d01d0f of
+#: proteindf_bridge.atomgroup.AtomGroup.setup_with_db:3
+msgid "The Chemical Component Dictionary template database."
+msgstr "Chemical Component Dictionary (CCD) テンプレートデータベース。"
+
+#: ../../docstring cf30597135f446d6bdbb94757f0fc801 of
+#: proteindf_bridge.atomgroup.AtomGroup.shift_by:1
+msgid ""
+"Translates all atomic coordinates in this hierarchy by a displacement "
+"vector."
+msgstr "変位ベクトルによりこの階層内のすべての原子座標を並進させる。"
+
+#: ../../docstring ac492354b13245db8514673bdfe50076 of
+#: proteindf_bridge.atomgroup.AtomGroup.shift_by:3
+msgid "The translation displacement vector."
+msgstr "並進変位ベクトル。"
+
+#: ../../docstring d4375eb9e8c94e55b430710e676cf414 of
+#: proteindf_bridge.atomgroup.AtomGroup.shift_by:6
+msgid "If `dir` cannot be converted to a `Position`."
+msgstr "`dir` を `Position` に変換できない場合。"
+
+#: ../../docstring df6e858726044764bb97ede4c13184e2 of
+#: proteindf_bridge.atomgroup.AtomGroup.sort_atoms:1
+msgid "Sorting mode for direct atoms."
+msgstr "直接の原子のソートモード。"
+
+#: ../../docstring d4d078d6060b40468374204055e0826e of
+#: proteindf_bridge.atomgroup.AtomGroup.sort_atoms:3
+msgid ""
+"Setting to ``\"nice\"`` enables natural (alphanumeric) sorting of atom "
+"keys (e.g. \"C1\", \"C2\", \"C10\" instead of alphabetical \"C1\", "
+"\"C10\", \"C2\") when accessing atoms. Setting to None maintains "
+"insertion order."
+msgstr "``\"nice\"`` に設定すると、原子へのアクセス時に原子キーの自然順 (英数字) ソート (例: アルファベット順の \"C1\", \"C10\", \"C2\" ではなく \"C1\", \"C2\", \"C10\") が有効になる。None に設定すると挿入順が維持される。"
+
+#: ../../docstring b526f88e40334cdf9f5e130db90cc0dc
+#: d477bc48305347afa6db995ed183948d of
+#: proteindf_bridge.atomgroup.AtomGroup.sort_atoms:7
+#: proteindf_bridge.atomgroup.AtomGroup.sort_groups:7
+msgid "The sorting mode (``\"nice\"`` or None)."
+msgstr "ソートモード (``\"nice\"`` または None)。"
+
+#: ../../docstring 05c54e8708634873ad34ad14e50ee19c of
+#: proteindf_bridge.atomgroup.AtomGroup.sort_groups:1
+msgid "Sorting mode for direct child groups."
+msgstr "直接の子グループのソートモード。"
+
+#: ../../docstring 64e9f42c1cdb465ba8d1a873dc38d509 of
+#: proteindf_bridge.atomgroup.AtomGroup.sort_groups:3
+msgid ""
+"Setting to ``\"nice\"`` enables natural (alphanumeric) sorting of group "
+"keys (e.g. \"res1\", \"res2\", \"res10\" instead of alphabetical "
+"\"res1\", \"res10\", \"res2\") when accessing child groups. Setting to "
+"None maintains insertion order."
+msgstr "``\"nice\"`` に設定すると、子グループへのアクセス時にグループキーの自然順 (英数字) ソート (例: アルファベット順の \"res1\", \"res10\", \"res2\" ではなく \"res1\", \"res2\", \"res10\") が有効になる。None に設定すると挿入順が維持される。"
+
+#: ../../docstring b30763ccf40345cb8eeff28e8441dbef of
 #: proteindf_bridge.atomgroup.AtomGroup.sum_of_atomic_number:1
-msgid "Return the sum of atomic numbers."
-msgstr "原子数の総和を返す"
+msgid ""
+"Returns the sum of atomic numbers of all atoms in this group and "
+"descendant groups."
+msgstr "このグループおよび子孫グループ内のすべての原子の原子番号の総和を返す。"
+
+#: ../../docstring 99c62d265dbb4b6199c5c66ca9a95b73 of
+#: proteindf_bridge.atomgroup.AtomGroup.validate_schema:1
+msgid "Validates this group against the standard hierarchy schema."
+msgstr "標準階層スキーマに対してこのグループを検証する。"
+
+#: ../../docstring bc16965fccc648fcb16b02bdc3ee6f7e of
+#: proteindf_bridge.atomgroup.AtomGroup.validate_schema:3
+msgid "A list of detected schema violations."
+msgstr "検出されたスキーマ違反のリスト。"
+
+#: ../../docstring 775e590633494012945de249202f363a of
+#: proteindf_bridge.atomgroup.AtomGroup.weight:1
+msgid "Total molecular weight of all atoms in this group and descendant groups."
+msgstr "このグループおよび子孫グループ内のすべての原子の総分子量。"
+
+#: ../../docstring 7c5938e6e398467a9eee15b2b66eb027 of
+#: proteindf_bridge.atomgroup.AtomGroup.weight:3
+msgid "Total molecular weight in atomic mass units (Da)."
+msgstr "統一原子質量単位 (Da) での総分子量。"
