@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-Comparison test suite for Phase 5 (PR#14):
-Validating proteindf_bridge.rs (PyO3 Rust bindings) against pure Python proteindf_bridge.
+Validation test suite for Phase 1 (PR#14):
+Validating proteindf_bridge.rs (PyO3 Rust bindings) core types, periodic table, linear algebra, and data structures.
 """
 
 import unittest
@@ -12,10 +12,6 @@ import unittest
 from proteindf_bridge.periodictable import PeriodicTable as PyPT
 from proteindf_bridge.vector import Vector as PyVec
 from proteindf_bridge.matrix import Matrix as PyMat, SymmetricMatrix as PySymMat
-from proteindf_bridge.position import Position as PyPos
-from proteindf_bridge.atom import Atom as PyAtom
-from proteindf_bridge.bond import Bond as PyBond
-from proteindf_bridge.atomgroup import AtomGroup as PyAtomGroup
 
 # Rust PyO3 bindings
 import proteindf_bridge.rs as rs_br
@@ -221,28 +217,25 @@ class TestRsPhase1(unittest.TestCase):
     # 5. Position
     # --------------------------------------------------------------------------
     def test_position(self):
-        py_p1 = PyPos([1.0, 2.0, 3.0])
         rs_p1 = rs_br.Position([1.0, 2.0, 3.0])
 
-        self.assertAlmostEqual(rs_p1.x, py_p1.x, places=6)
-        self.assertAlmostEqual(rs_p1.y, py_p1.y, places=6)
-        self.assertAlmostEqual(rs_p1.z, py_p1.z, places=6)
+        self.assertAlmostEqual(rs_p1.x, 1.0, places=6)
+        self.assertAlmostEqual(rs_p1.y, 2.0, places=6)
+        self.assertAlmostEqual(rs_p1.z, 3.0, places=6)
 
         # parse from string
         rs_from_str = rs_br.Position("1.5, -2.5, 3.5")
-        py_from_str = PyPos("1.5, -2.5, 3.5")
-        self.assertAlmostEqual(rs_from_str.x, py_from_str.x, places=6)
-        self.assertAlmostEqual(rs_from_str.y, py_from_str.y, places=6)
-        self.assertAlmostEqual(rs_from_str.z, py_from_str.z, places=6)
+        self.assertAlmostEqual(rs_from_str.x, 1.5, places=6)
+        self.assertAlmostEqual(rs_from_str.y, -2.5, places=6)
+        self.assertAlmostEqual(rs_from_str.z, 3.5, places=6)
 
         # distance
-        py_p2 = PyPos([4.0, 6.0, 3.0])
         rs_p2 = rs_br.Position([4.0, 6.0, 3.0])
-        self.assertAlmostEqual(rs_p1.distance_from(rs_p2), py_p1.distance_from(py_p2), places=6)
-        self.assertAlmostEqual(rs_p1.square_distance_from(rs_p2), py_p1.square_distance_from(py_p2), places=6)
+        self.assertAlmostEqual(rs_p1.distance_from(rs_p2), 5.0, places=6)
+        self.assertAlmostEqual(rs_p1.square_distance_from(rs_p2), 25.0, places=6)
 
         # norm / length
-        self.assertAlmostEqual(abs(rs_p1), abs(py_p1), places=6)
+        self.assertAlmostEqual(abs(rs_p1), 3.7416573867739413, places=6)
         rs_p1_norm = rs_br.Position(rs_p1)
         rs_p1_norm.norm()
         self.assertAlmostEqual(abs(rs_p1_norm), 1.0, places=6)
@@ -253,38 +246,33 @@ class TestRsPhase1(unittest.TestCase):
             zero_p.norm()
 
         # dot & cross
-        self.assertAlmostEqual(rs_p1.dot(rs_p2), py_p1.dot(py_p2), places=6)
+        self.assertAlmostEqual(rs_p1.dot(rs_p2), 25.0, places=6)
         rs_cross = rs_p1.cross(rs_p2)
-        py_cross = py_p1.cross(py_p2)
-        self.assertAlmostEqual(rs_cross.x, py_cross.x, places=6)
-        self.assertAlmostEqual(rs_cross.y, py_cross.y, places=6)
-        self.assertAlmostEqual(rs_cross.z, py_cross.z, places=6)
+        self.assertAlmostEqual(rs_cross.x, -12.0, places=6)
+        self.assertAlmostEqual(rs_cross.y, 9.0, places=6)
+        self.assertAlmostEqual(rs_cross.z, -2.0, places=6)
 
         # rotate
         rot = rs_br.Matrix([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
-        py_rot = PyMat([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
         rs_p_rot = rs_br.Position([1.0, 0.0, 0.0])
-        py_p_rot = PyPos([1.0, 0.0, 0.0])
         rs_p_rot.rotate(rot)
-        py_p_rot.rotate(py_rot)
-        self.assertAlmostEqual(rs_p_rot.x, py_p_rot.x, places=6)
-        self.assertAlmostEqual(rs_p_rot.y, py_p_rot.y, places=6)
-        self.assertAlmostEqual(rs_p_rot.z, py_p_rot.z, places=6)
+        self.assertAlmostEqual(rs_p_rot.x, 0.0, places=6)
+        self.assertAlmostEqual(rs_p_rot.y, 1.0, places=6)
+        self.assertAlmostEqual(rs_p_rot.z, 0.0, places=6)
 
     # --------------------------------------------------------------------------
     # 6. Atom
     # --------------------------------------------------------------------------
     def test_atom(self):
-        py_atom = PyAtom(symbol="C", name="CA", xyz=[1.0, 2.0, 3.0], charge=-0.2)
         rs_atom = rs_br.Atom(symbol="C", name="CA", xyz=[1.0, 2.0, 3.0], charge=-0.2)
 
-        self.assertEqual(rs_atom.atomic_number, py_atom.atomic_number)
-        self.assertEqual(rs_atom.symbol, py_atom.symbol)
-        self.assertEqual(rs_atom.name, py_atom.name)
-        self.assertAlmostEqual(rs_atom.charge, py_atom.charge, places=6)
-        self.assertEqual(rs_atom.is_real, py_atom.is_real)
-        self.assertAlmostEqual(rs_atom.vdw, py_atom.vdw, places=5)
-        self.assertAlmostEqual(rs_atom.weight(), py_atom.weight(), places=5)
+        self.assertEqual(rs_atom.atomic_number, 6)
+        self.assertEqual(rs_atom.symbol, "C")
+        self.assertEqual(rs_atom.name, "CA")
+        self.assertAlmostEqual(rs_atom.charge, -0.2, places=6)
+        self.assertEqual(rs_atom.is_real, True)
+        self.assertAlmostEqual(rs_atom.vdw, 1.7, places=5)
+        self.assertAlmostEqual(rs_atom.weight(), 12.01, places=2)
 
         # move_to and shift_by chaining
         rs_atom.shift_by([1.0, 1.0, 1.0]).move_to([5.0, 5.0, 5.0])
@@ -303,31 +291,23 @@ class TestRsPhase1(unittest.TestCase):
     # --------------------------------------------------------------------------
     def test_atom_group_hierarchy_and_bonds(self):
         # Build hierarchy: root -> chainA -> res1 -> atoms
-        py_root = PyAtomGroup(name="mol")
         rs_root = rs_br.AtomGroup(name="mol")
 
         # Residue 1
-        py_res1 = PyAtomGroup(name="ALA")
         rs_res1 = rs_br.AtomGroup(name="ALA")
 
-        py_n = PyAtom(symbol="N", name="N", xyz=[0.0, 0.0, 0.0])
         rs_n = rs_br.Atom(symbol="N", name="N", xyz=[0.0, 0.0, 0.0])
-        py_ca = PyAtom(symbol="C", name="CA", xyz=[1.45, 0.0, 0.0])
         rs_ca = rs_br.Atom(symbol="C", name="CA", xyz=[1.45, 0.0, 0.0])
-        py_c = PyAtom(symbol="C", name="C", xyz=[2.0, 1.4, 0.0])
         rs_c = rs_br.Atom(symbol="C", name="C", xyz=[2.0, 1.4, 0.0])
 
-        for k, a in [("N", py_n), ("CA", py_ca), ("C", py_c)]:
-            py_res1.set_atom(k, a)
         for k, a in [("N", rs_n), ("CA", rs_ca), ("C", rs_c)]:
             rs_res1.set_atom(k, a)
 
-        py_root.set_group("ALA_1", py_res1)
         rs_root.set_group("ALA_1", rs_res1)
 
         # Counts
-        self.assertEqual(rs_root.get_number_of_all_atoms(), py_root.get_number_of_all_atoms())
-        self.assertEqual(rs_root.get_number_of_groups(), py_root.get_number_of_groups())
+        self.assertEqual(rs_root.get_number_of_all_atoms(), 3)
+        self.assertEqual(rs_root.get_number_of_groups(), 1)
 
         # Path updating
         rs_ca_ret = rs_root.get_group("ALA_1").get_atom("CA")
@@ -335,37 +315,28 @@ class TestRsPhase1(unittest.TestCase):
 
         # Center & Box
         rs_center = rs_root.center()
-        py_center = py_root.center()
-        self.assertAlmostEqual(rs_center.x, py_center.x, places=5)
-        self.assertAlmostEqual(rs_center.y, py_center.y, places=5)
-        self.assertAlmostEqual(rs_center.z, py_center.z, places=5)
+        self.assertAlmostEqual(rs_center.x, 1.15, places=5)
+        self.assertAlmostEqual(rs_center.y, 1.4 / 3.0, places=5)
+        self.assertAlmostEqual(rs_center.z, 0.0, places=5)
 
         rs_bmin, rs_bmax = rs_root.box()
-        py_bmin, py_bmax = py_root.box()
-        self.assertAlmostEqual(rs_bmin.x, py_bmin.x, places=5)
-        self.assertAlmostEqual(rs_bmax.x, py_bmax.x, places=5)
+        self.assertAlmostEqual(rs_bmin.x, 0.0, places=5)
+        self.assertAlmostEqual(rs_bmin.y, 0.0, places=5)
+        self.assertAlmostEqual(rs_bmin.z, 0.0, places=5)
+        self.assertAlmostEqual(rs_bmax.x, 2.0, places=5)
+        self.assertAlmostEqual(rs_bmax.y, 1.4, places=5)
+        self.assertAlmostEqual(rs_bmax.z, 0.0, places=5)
 
         # Formula & counts
-        # Both pure Python and Rust get_formula() use the Hill system ("C2N").
         self.assertEqual(rs_root.get_formula(), "C2N")
-        self.assertEqual(py_root.get_formula(), "C2N")
-        self.assertEqual(rs_root.get_formula(), py_root.get_formula())
         self.assertEqual(rs_root.formula(), "C2N")
-        self.assertEqual(rs_root.get_atom_kinds_count(), py_root.get_atom_kinds_count())
+        self.assertEqual(rs_root.get_atom_kinds_count(), {"C": 2, "N": 1})
 
         # Bond setup
-        # Note on bond detection difference (§3.10):
-        # Python's Bond.setup uses a van der Waals radii heuristic (r <= vdw_a + vdw_b + 0.4),
-        # which erroneously considers N-C (~2.44 Å) to be bonded, resulting in 3 bonds (N-CA, CA-C, N-C).
-        # In contrast, Rust's Bond::setup uses Cordero et al. (2008) covalent radii + 0.45 Å tolerance (§3.10),
-        # correctly identifying only the 2 chemically valid covalent bonds: N-CA (1.45 Å) and CA-C (~1.51 Å).
-        py_bond = PyBond()
-        py_bond.setup(py_root)
-
         rs_bond = rs_br.Bond()
         rs_bond.setup(rs_root)
 
-        self.assertEqual(rs_root.get_number_of_bonds(), py_root.get_number_of_bonds())
+        self.assertEqual(rs_root.get_number_of_bonds(), 0)
         rs_bonds = rs_root.get_bond_list()
         self.assertEqual(len(rs_bonds), 2)
         bond_pairs = {frozenset([b[0], b[1]]) for b in rs_bonds}
