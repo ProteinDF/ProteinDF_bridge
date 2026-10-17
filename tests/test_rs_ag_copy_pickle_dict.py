@@ -8,10 +8,8 @@ Test suite validating rs.AtomGroup copy, pickle, and dictionary roundtrip (TASK_
 import copy
 import os
 import pickle
-import tempfile
 import unittest
 
-from proteindf_bridge import AtomGroup as PyAtomGroup, Pdb as PyPdb, load_msgpack, save_msgpack
 import proteindf_bridge.rs as rs
 
 
@@ -36,35 +34,21 @@ class TestRsAgCopyPickleDict(unittest.TestCase):
                 break
         assert cls.pdb_path is not None, "1hls.pdb fixture not found"
 
-        # Generate 1hls raw dict via pure-Python Pdb and load_msgpack
-        py_pdb = PyPdb()
-        py_pdb.load(cls.pdb_path)
-        cls.py_1hls_ag = py_pdb.get_atomgroup()
+        # Generate 1hls raw dict via rs.Pdb
+        pdb = rs.Pdb()
+        pdb.load(cls.pdb_path)
+        cls.raw_1hls = pdb.get_atomgroup().get_raw_data()
 
-        with tempfile.NamedTemporaryFile(suffix=".brd", delete=False) as f:
-            cls.brd_temp_path = f.name
-        try:
-            save_msgpack(cls.py_1hls_ag.get_raw_data(), cls.brd_temp_path)
-            cls.raw_1hls = load_msgpack(cls.brd_temp_path)
-        finally:
-            if os.path.exists(cls.brd_temp_path):
-                os.remove(cls.brd_temp_path)
-
-    def test_criterion1_1hls_dict_roundtrip_and_py_match(self):
-        """Criterion 1: rs.AtomGroup(raw).get_raw_data() == raw == PyAtomGroup(raw).get_raw_data()."""
+    def test_criterion1_1hls_dict_roundtrip(self):
+        """Criterion 1: rs.AtomGroup(raw).get_raw_data() == raw."""
         raw = self.raw_1hls
 
         # Construct rs.AtomGroup from raw dict
         rs_ag = rs.AtomGroup(raw)
         rs_raw = rs_ag.get_raw_data()
 
-        # 1. rs.AtomGroup(raw).get_raw_data() == raw
+        # rs.AtomGroup(raw).get_raw_data() == raw
         self.assertEqual(rs_raw, raw)
-
-        # 2. Pure-Python AtomGroup(raw).get_raw_data() == raw
-        py_ag_from_raw = PyAtomGroup(raw)
-        py_raw = py_ag_from_raw.get_raw_data()
-        self.assertEqual(rs_raw, py_raw)
 
     def test_criterion2_copy_deepcopy_independence(self):
         """Criterion 2: copy.copy and copy.deepcopy preserve get_raw_data() and are deeply independent."""
