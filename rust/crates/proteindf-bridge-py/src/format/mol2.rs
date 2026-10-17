@@ -20,16 +20,16 @@ pub struct PySimpleMol2 {
 impl PySimpleMol2 {
     #[new]
     #[pyo3(signature = (atomgroup=None))]
-    pub fn new(atomgroup: Option<&PyAtomGroup>) -> PyResult<Self> {
+    pub fn new(py: Python<'_>, atomgroup: Option<&PyAtomGroup>) -> PyResult<Self> {
         let mut mol2 = CoreSimpleMol2::new();
         if let Some(ag) = atomgroup {
-            mol2.set_by_atomgroup(&ag.inner);
+            mol2.set_by_atomgroup(&ag.to_core(py));
         }
         Ok(Self { inner: mol2 })
     }
 
-    pub fn set_by_atomgroup(&mut self, atomgroup: &PyAtomGroup) {
-        self.inner.set_by_atomgroup(&atomgroup.inner);
+    pub fn set_by_atomgroup(&mut self, py: Python<'_>, atomgroup: &PyAtomGroup) {
+        self.inner.set_by_atomgroup(&atomgroup.to_core(py));
     }
 
     pub fn save(&self, file_path: &str) -> PyResult<()> {

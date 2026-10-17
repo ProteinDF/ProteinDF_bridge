@@ -57,7 +57,8 @@ impl PySelectSymbol {
 
     pub fn is_match(&self, obj: &Bound<'_, PyAny>) -> bool {
         if let Ok(atom) = obj.extract::<PyRef<PyAtom>>() {
-            self.inner.is_match_atom(&atom.inner)
+            let py = obj.py();
+            self.inner.is_match_atom(&atom.to_core(py))
         } else {
             false
         }
@@ -88,9 +89,10 @@ impl PySelectName {
 
     pub fn is_match(&self, obj: &Bound<'_, PyAny>) -> bool {
         if let Ok(atom) = obj.extract::<PyRef<PyAtom>>() {
-            self.inner.is_match_atom(&atom.inner)
+            let py = obj.py();
+            self.inner.is_match_atom(&atom.to_core(py))
         } else if let Ok(ag) = obj.extract::<PyRef<PyAtomGroup>>() {
-            self.inner.is_match_group(&ag.inner)
+            self.inner.is_match_group(&ag.to_core(obj.py()))
         } else {
             false
         }
@@ -121,9 +123,10 @@ impl PySelectPathSimple {
 
     pub fn is_match(&self, obj: &Bound<'_, PyAny>) -> bool {
         if let Ok(atom) = obj.extract::<PyRef<PyAtom>>() {
-            self.inner.is_match_atom(&atom.inner)
+            let py = obj.py();
+            self.inner.is_match_atom(&atom.to_core(py))
         } else if let Ok(ag) = obj.extract::<PyRef<PyAtomGroup>>() {
-            self.inner.is_match_group(&ag.inner)
+            self.inner.is_match_group(&ag.to_core(obj.py()))
         } else {
             false
         }
@@ -153,9 +156,10 @@ impl PySelectPathWildcard {
 
     pub fn is_match(&self, obj: &Bound<'_, PyAny>) -> bool {
         if let Ok(atom) = obj.extract::<PyRef<PyAtom>>() {
-            self.inner.is_match_atom(&atom.inner)
+            let py = obj.py();
+            self.inner.is_match_atom(&atom.to_core(py))
         } else if let Ok(ag) = obj.extract::<PyRef<PyAtomGroup>>() {
-            self.inner.is_match_group(&ag.inner)
+            self.inner.is_match_group(&ag.to_core(obj.py()))
         } else {
             false
         }
@@ -185,9 +189,10 @@ impl PySelectPathRegex {
 
     pub fn is_match(&self, obj: &Bound<'_, PyAny>) -> bool {
         if let Ok(atom) = obj.extract::<PyRef<PyAtom>>() {
-            self.inner.is_match_atom(&atom.inner)
+            let py = obj.py();
+            self.inner.is_match_atom(&atom.to_core(py))
         } else if let Ok(ag) = obj.extract::<PyRef<PyAtomGroup>>() {
-            self.inner.is_match_group(&ag.inner)
+            self.inner.is_match_group(&ag.to_core(obj.py()))
         } else {
             false
         }
@@ -218,9 +223,10 @@ impl PySelectPath {
 
     pub fn is_match(&self, obj: &Bound<'_, PyAny>) -> bool {
         if let Ok(atom) = obj.extract::<PyRef<PyAtom>>() {
-            self.inner.is_match_atom(&atom.inner)
+            let py = obj.py();
+            self.inner.is_match_atom(&atom.to_core(py))
         } else if let Ok(ag) = obj.extract::<PyRef<PyAtomGroup>>() {
-            self.inner.is_match_group(&ag.inner)
+            self.inner.is_match_group(&ag.to_core(obj.py()))
         } else {
             false
         }
@@ -252,7 +258,8 @@ impl PySelectRange {
 
     pub fn is_match(&self, obj: &Bound<'_, PyAny>) -> bool {
         if let Ok(atom) = obj.extract::<PyRef<PyAtom>>() {
-            self.inner.is_match_atom(&atom.inner)
+            let py = obj.py();
+            self.inner.is_match_atom(&atom.to_core(py))
         } else {
             false
         }
@@ -275,15 +282,16 @@ pub struct PySelectAtom {
 #[pymethods]
 impl PySelectAtom {
     #[new]
-    pub fn new(atom: &PyAtom, distance: f64) -> Self {
+    pub fn new(py: Python<'_>, atom: &PyAtom, distance: f64) -> Self {
         Self {
-            inner: CoreSelectAtom::new(atom.inner.clone(), distance),
+            inner: CoreSelectAtom::new(atom.to_core(py), distance),
         }
     }
 
     pub fn is_match(&self, obj: &Bound<'_, PyAny>) -> bool {
         if let Ok(atom) = obj.extract::<PyRef<PyAtom>>() {
-            self.inner.is_match_atom(&atom.inner)
+            let py = obj.py();
+            self.inner.is_match_atom(&atom.to_core(py))
         } else {
             false
         }
@@ -307,15 +315,16 @@ pub struct PySelectAtomGroup {
 impl PySelectAtomGroup {
     #[new]
     #[pyo3(signature = (ref_atomgroup, range=1.0e-5))]
-    pub fn new(ref_atomgroup: &PyAtomGroup, range: f64) -> Self {
+    pub fn new(py: Python<'_>, ref_atomgroup: &PyAtomGroup, range: f64) -> Self {
         Self {
-            inner: CoreSelectAtomGroup::new(&ref_atomgroup.inner, range),
+            inner: CoreSelectAtomGroup::new(&ref_atomgroup.to_core(py), range),
         }
     }
 
     pub fn is_match(&self, obj: &Bound<'_, PyAny>) -> bool {
         if let Ok(atom) = obj.extract::<PyRef<PyAtom>>() {
-            self.inner.is_match_atom(&atom.inner)
+            let py = obj.py();
+            self.inner.is_match_atom(&atom.to_core(py))
         } else {
             false
         }

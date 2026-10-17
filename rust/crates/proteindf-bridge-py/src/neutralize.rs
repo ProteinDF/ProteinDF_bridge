@@ -23,8 +23,8 @@ impl PyNeutralize {
     #[new]
     #[pyo3(signature = (protein))]
     pub fn new(py: Python<'_>, protein: &PyAtomGroup) -> PyResult<Self> {
-        let neut = CoreNeutralize::new(&protein.inner).map_err(to_py_err)?;
-        let py_ag = PyAtomGroup::from_core(neut.into_neutralized());
+        let neut = CoreNeutralize::new(&protein.to_core(py)).map_err(to_py_err)?;
+        let py_ag = PyAtomGroup::from_core(py, neut.into_neutralized())?;
         let neutralized_obj = Py::new(py, py_ag)?;
         Ok(Self { neutralized_obj })
     }
@@ -41,14 +41,22 @@ impl PyNeutralize {
     ///
     /// Note: Each access returns a new list to prevent external mutation from affecting internal state.
     #[pyo3(signature = (model))]
-    pub fn _exempt_list(&self, model: &PyAtomGroup) -> Vec<(String, String, String)> {
-        CoreNeutralize::exempt_list(&model.inner)
+    pub fn _exempt_list(
+        &self,
+        py: Python<'_>,
+        model: &PyAtomGroup,
+    ) -> Vec<(String, String, String)> {
+        CoreNeutralize::exempt_list(&model.to_core(py))
     }
 
     /// Public alias for `_exempt_list`.
     #[pyo3(signature = (model))]
-    pub fn exempt_list(&self, model: &PyAtomGroup) -> Vec<(String, String, String)> {
-        self._exempt_list(model)
+    pub fn exempt_list(
+        &self,
+        py: Python<'_>,
+        model: &PyAtomGroup,
+    ) -> Vec<(String, String, String)> {
+        self._exempt_list(py, model)
     }
 
     /// Divides an `AtomGroup` path into `(chain_name, res_name)`.
@@ -66,10 +74,7 @@ impl PyNeutralize {
     fn __repr__(&self, py: Python<'_>) -> String {
         format!(
             "Neutralize(atoms={})",
-            self.neutralized_obj
-                .borrow(py)
-                .inner
-                .get_number_of_all_atoms()
+            self.neutralized_obj.borrow(py).get_number_of_all_atoms()
         )
     }
 }

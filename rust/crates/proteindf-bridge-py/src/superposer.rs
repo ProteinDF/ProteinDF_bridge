@@ -21,9 +21,13 @@ pub struct PySuperposer {
 #[pymethods]
 impl PySuperposer {
     #[new]
-    pub fn new(atom_group1: &PyAtomGroup, atom_group2: &PyAtomGroup) -> PyResult<Self> {
-        let inner =
-            CoreSuperposer::new(&atom_group1.inner, &atom_group2.inner).map_err(to_py_err)?;
+    pub fn new(
+        py: Python<'_>,
+        atom_group1: &PyAtomGroup,
+        atom_group2: &PyAtomGroup,
+    ) -> PyResult<Self> {
+        let inner = CoreSuperposer::new(&atom_group1.to_core(py), &atom_group2.to_core(py))
+            .map_err(to_py_err)?;
         Ok(Self { inner })
     }
 
@@ -106,11 +110,11 @@ impl PySuperposer {
         self.inner.rmsd()
     }
 
-    pub fn superimpose(&self, atomgroup: &PyAtomGroup) -> PyResult<PyAtomGroup> {
+    pub fn superimpose(&self, py: Python<'_>, atomgroup: &PyAtomGroup) -> PyResult<PyAtomGroup> {
         let res = self
             .inner
-            .superimpose(&atomgroup.inner)
+            .superimpose(&atomgroup.to_core(py))
             .map_err(to_py_err)?;
-        Ok(PyAtomGroup::from_core(res))
+        PyAtomGroup::from_core(py, res)
     }
 }

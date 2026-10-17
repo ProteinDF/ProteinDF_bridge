@@ -487,9 +487,9 @@ class AtomGroupTests(unittest.TestCase):
         mol.set_group("2", grp2)
 
         mol.add_bond(mol["2"]["N"], mol["2"]["CA"])
-        self.assertEqual(len(mol["2"]._bonds), 1)
-        self.assertEqual(len(mol["20"]._bonds), 0)
-        self.assertEqual(len(mol._bonds), 0)
+        self.assertEqual(len(mol["2"].bonds()), 1)
+        self.assertEqual(len(mol["20"].bonds()), 0)
+        self.assertEqual(len(mol.bonds()), 0)
         self.assertEqual(len(mol["2"].get_bond_list()), 1)
         self.assertEqual(len(mol["20"].get_bond_list()), 0)
 
@@ -507,9 +507,9 @@ class AtomGroupTests(unittest.TestCase):
         mol.set_group("20", grp20)
 
         mol.add_bond(mol["2"]["N"], mol["2"]["CA"])
-        self.assertEqual(len(mol["2"]._bonds), 1)
-        self.assertEqual(len(mol["20"]._bonds), 0)
-        self.assertEqual(len(mol._bonds), 0)
+        self.assertEqual(len(mol["2"].bonds()), 1)
+        self.assertEqual(len(mol["20"].bonds()), 0)
+        self.assertEqual(len(mol.bonds()), 0)
         self.assertEqual(len(mol["2"].get_bond_list()), 1)
         self.assertEqual(len(mol["20"].get_bond_list()), 0)
 

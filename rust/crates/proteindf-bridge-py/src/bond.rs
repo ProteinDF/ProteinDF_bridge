@@ -22,10 +22,11 @@ impl PyBond {
         }
     }
 
-    pub fn setup(&mut self, mol: &mut PyAtomGroup) -> PyResult<()> {
-        self.inner
-            .setup_heuristic(&mut mol.inner)
-            .map_err(to_py_err)
+    pub fn setup(&mut self, py: Python<'_>, mol: &mut PyAtomGroup) -> PyResult<()> {
+        let mut core = mol.to_core(py);
+        self.inner.setup_heuristic(&mut core).map_err(to_py_err)?;
+        mol.update_from_core(py, core)?;
+        Ok(())
     }
 
     #[getter]

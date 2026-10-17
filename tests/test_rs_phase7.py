@@ -10,7 +10,6 @@ import math
 import os
 import unittest
 
-from proteindf_bridge.biopdb import Pdb as PyPdb
 import proteindf_bridge.rs as rs_br
 
 DATA_DIR = os.path.abspath(
@@ -75,10 +74,7 @@ class TestRsPhase7(unittest.TestCase):
     # --------------------------------------------------------------------------
     def test_ramachandran_1hls_ground_truth(self):
         pdb_path = os.path.join(DATA_DIR, "1hls.pdb")
-        pdb = PyPdb(pdb_path)
-        py_ag = pdb.get_atomgroup()
-
-        # Load via Rust Pdb as well to get PyAtomGroup
+        # Load via Rust Pdb to get AtomGroup
         rs_pdb = rs_br.Pdb(pdb_path)
         rs_ag = rs_pdb.get_atomgroup()
 

@@ -28,14 +28,13 @@ pub mod selector;
 pub mod ssbond;
 pub mod superposer;
 pub mod superposer_quaternion;
+pub mod value;
 pub mod vector;
 
 #[pymodule]
 fn rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Exceptions
-    m.add("BrError", m.py().get_type::<error::BrError>())?;
-    m.add("BrInputError", m.py().get_type::<error::BrInputError>())?;
-    m.add("BrValueError", m.py().get_type::<error::BrValueError>())?;
+    error::register_exceptions(m)?;
 
     // Constants (PR#54)
     m.add("AVOGADRO_CONST", 6.02214076e+23)?;

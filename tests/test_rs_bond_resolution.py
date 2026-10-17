@@ -378,8 +378,8 @@ C1 C1 sing
         # Original has 0 bonds before setup()
         self.assertEqual(len(original_ag.get_bond_list()), 0)
 
-        # Obtain a subtree copy via __getitem__
-        subtree_copy = original_ag["model_1"]["A"]
+        # Obtain a subtree copy via rs_br.AtomGroup(...)
+        subtree_copy = rs_br.AtomGroup(original_ag["model_1"]["A"])
 
         # Call setup() on the subtree copy
         subtree_copy.setup()

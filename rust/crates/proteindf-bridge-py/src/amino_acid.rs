@@ -23,7 +23,7 @@ impl PyAminoAcid {
     #[staticmethod]
     pub fn is_aminoacid(atomgroup: &Bound<'_, PyAny>) -> bool {
         if let Ok(ag) = atomgroup.extract::<PyRef<PyAtomGroup>>() {
-            CoreAminoAcid::is_aminoacid(&ag.inner)
+            CoreAminoAcid::is_aminoacid(&ag.to_core(atomgroup.py()))
         } else if let Ok(name_attr) = atomgroup.getattr("name") {
             if let Ok(name) = name_attr.extract::<String>() {
                 CoreAminoAcid::is_aminoacid_name(&name)

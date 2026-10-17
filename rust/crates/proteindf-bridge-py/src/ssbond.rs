@@ -14,9 +14,9 @@ pub struct PySSBond {
 #[pymethods]
 impl PySSBond {
     #[new]
-    pub fn new(model: &PyAtomGroup) -> Self {
+    pub fn new(py: Python<'_>, model: &PyAtomGroup) -> Self {
         Self {
-            inner: CoreSSBond::new(&model.inner),
+            inner: CoreSSBond::new(&model.to_core(py)),
         }
     }
 
@@ -25,7 +25,7 @@ impl PySSBond {
     }
 
     #[staticmethod]
-    pub fn find_bonds(model: &PyAtomGroup) -> Vec<(String, String)> {
-        CoreSSBond::find_bonds(&model.inner)
+    pub fn find_bonds(py: Python<'_>, model: &PyAtomGroup) -> Vec<(String, String)> {
+        CoreSSBond::find_bonds(&model.to_core(py))
     }
 }

@@ -315,7 +315,7 @@ class TestRsAnalysis(unittest.TestCase):
         Consistent with design principle §4.3 item 2.
         """
         ag = self._load_1hls()
-        chain_copy = ag["model_1"]["A"]  # Returns an owned subtree copy
+        chain_copy = rs_br.AtomGroup(ag["model_1"]["A"])  # Explicit subtree copy
 
         # Calling apply_secondary_structure on the copy
         chain_copy.apply_secondary_structure()

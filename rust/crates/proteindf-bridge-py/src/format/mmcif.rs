@@ -184,7 +184,7 @@ pub struct PyMmcifStructureReport {
 impl PyMmcifStructureReport {
     pub fn new(py: Python<'_>, report: CoreMmcifStructureReport) -> PyResult<Self> {
         let has_unresolved = report.has_unresolved();
-        let py_ag = Py::new(py, PyAtomGroup::from_core(report.atomgroup))?;
+        let py_ag = Py::new(py, PyAtomGroup::from_core(py, report.atomgroup)?)?;
         let unresolved_struct_conns = report
             .unresolved_struct_conns
             .into_iter()
@@ -438,7 +438,7 @@ impl PySimpleMmcif {
     }
 
     #[pyo3(signature = (name=None))]
-    pub fn get_atomgroup(&self, name: Option<&str>) -> PyResult<PyAtomGroup> {
+    pub fn get_atomgroup(&self, py: Python<'_>, name: Option<&str>) -> PyResult<PyAtomGroup> {
         let ag = match name {
             Some(n) => self.inner.get_atomgroup(n).map_err(to_py_err)?,
             None => {
@@ -452,12 +452,13 @@ impl PySimpleMmcif {
                 self.inner.get_atomgroup(first).map_err(to_py_err)?
             }
         };
-        Ok(PyAtomGroup::from_core(ag))
+        PyAtomGroup::from_core(py, ag)
     }
 
     #[pyo3(signature = (select_model=None, select_altloc=Some("A")))]
     pub fn get_structure_atomgroup(
         &self,
+        py: Python<'_>,
         select_model: Option<usize>,
         select_altloc: Option<&str>,
     ) -> PyResult<PyAtomGroup> {
@@ -465,12 +466,13 @@ impl PySimpleMmcif {
             .inner
             .get_structure_atomgroup(select_model, select_altloc)
             .map_err(to_py_err)?;
-        Ok(PyAtomGroup::from_core(ag))
+        PyAtomGroup::from_core(py, ag)
     }
 
     #[pyo3(signature = (block_name, select_model=None, select_altloc=Some("A")))]
     pub fn get_structure_atomgroup_for_block(
         &self,
+        py: Python<'_>,
         block_name: &str,
         select_model: Option<usize>,
         select_altloc: Option<&str>,
@@ -479,7 +481,7 @@ impl PySimpleMmcif {
             .inner
             .get_structure_atomgroup_for_block(block_name, select_model, select_altloc)
             .map_err(to_py_err)?;
-        Ok(PyAtomGroup::from_core(ag))
+        PyAtomGroup::from_core(py, ag)
     }
 
     #[pyo3(signature = (select_model=None, select_altloc=Some("A")))]
@@ -518,6 +520,7 @@ impl PySimpleMmcif {
     ))]
     pub fn set_by_atomgroup(
         &mut self,
+        py: Python<'_>,
         atomgroup: &PyAtomGroup,
         data_block_name: &str,
         charge_to_b_factor: bool,
@@ -526,7 +529,7 @@ impl PySimpleMmcif {
             data_block_name: data_block_name.to_string(),
             charge_to_b_factor,
         };
-        validate_for_mmcif_write(&atomgroup.inner, &opts).map_err(to_py_err)?;
+        validate_for_mmcif_write(&atomgroup.to_core(py), &opts).map_err(to_py_err)?;
         self.atomgroup = Some(atomgroup.clone());
         self.data_block_name = data_block_name.to_string();
         self.charge_to_b_factor = charge_to_b_factor;
@@ -541,14 +544,15 @@ impl PySimpleMmcif {
     ))]
     pub fn save(
         &self,
+        py: Python<'_>,
         file_path: &str,
         atomgroup: Option<&PyAtomGroup>,
         data_block_name: Option<&str>,
         charge_to_b_factor: Option<bool>,
     ) -> PyResult<()> {
         let ag = match (atomgroup, &self.atomgroup) {
-            (Some(ag), _) => &ag.inner,
-            (None, Some(ag)) => &ag.inner,
+            (Some(ag), _) => ag,
+            (None, Some(ag)) => ag,
             (None, None) => {
                 return Err(to_py_err(BridgeError::input_error(
                     "mmCIF",
@@ -564,7 +568,9 @@ impl PySimpleMmcif {
             data_block_name: block_name,
             charge_to_b_factor: c2b,
         };
-        CoreSimpleMmcif::save_structure(ag, file_path, &opts).map_err(to_py_err)
+        let ag_core = ag.to_core(py);
+        validate_for_mmcif_write(&ag_core, &opts).map_err(to_py_err)?;
+        CoreSimpleMmcif::save_structure(&ag_core, file_path, &opts).map_err(to_py_err)
     }
 
     #[staticmethod]
@@ -575,6 +581,7 @@ impl PySimpleMmcif {
         charge_to_b_factor = false
     ))]
     pub fn save_structure(
+        py: Python<'_>,
         atomgroup: &PyAtomGroup,
         file_path: &str,
         data_block_name: &str,
@@ -584,7 +591,7 @@ impl PySimpleMmcif {
             data_block_name: data_block_name.to_string(),
             charge_to_b_factor,
         };
-        CoreSimpleMmcif::save_structure(&atomgroup.inner, file_path, &opts).map_err(to_py_err)
+        CoreSimpleMmcif::save_structure(&atomgroup.to_core(py), file_path, &opts).map_err(to_py_err)
     }
 
     #[staticmethod]
@@ -594,6 +601,7 @@ impl PySimpleMmcif {
         charge_to_b_factor = false
     ))]
     pub fn write_structure(
+        py: Python<'_>,
         atomgroup: &PyAtomGroup,
         data_block_name: &str,
         charge_to_b_factor: bool,
@@ -603,19 +611,21 @@ impl PySimpleMmcif {
             charge_to_b_factor,
         };
         let mut buf = Vec::new();
-        CoreSimpleMmcif::write_structure(&atomgroup.inner, &mut buf, &opts).map_err(to_py_err)?;
+        CoreSimpleMmcif::write_structure(&atomgroup.to_core(py), &mut buf, &opts)
+            .map_err(to_py_err)?;
         String::from_utf8(buf)
             .map_err(|e| to_py_err(BridgeError::input_error("write", e.to_string())))
     }
 
-    pub fn get_text(&self) -> PyResult<String> {
+    pub fn get_text(&self, py: Python<'_>) -> PyResult<String> {
         if let Some(ref ag) = self.atomgroup {
             let opts = MmcifWriteOptions {
                 data_block_name: self.data_block_name.clone(),
                 charge_to_b_factor: self.charge_to_b_factor,
             };
             let mut buf = Vec::new();
-            CoreSimpleMmcif::write_structure(&ag.inner, &mut buf, &opts).map_err(to_py_err)?;
+            CoreSimpleMmcif::write_structure(&ag.to_core(py), &mut buf, &opts)
+                .map_err(to_py_err)?;
             String::from_utf8(buf)
                 .map_err(|e| to_py_err(BridgeError::input_error("write", e.to_string())))
         } else {
@@ -626,7 +636,7 @@ impl PySimpleMmcif {
         }
     }
 
-    pub fn __str__(&self) -> PyResult<String> {
-        self.get_text()
+    pub fn __str__(&self, py: Python<'_>) -> PyResult<String> {
+        self.get_text(py)
     }
 }

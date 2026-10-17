@@ -142,8 +142,12 @@ impl PyInteractionSet {
         ch_pi_max_distance: Option<f64>,
         ch_pi_max_angle_deg: Option<f64>,
     ) -> Self {
-        let set =
-            CoreInteractionSet::detect_all(&model.inner, ch_pi_max_distance, ch_pi_max_angle_deg);
+        let py = _cls.py();
+        let set = CoreInteractionSet::detect_all(
+            &model.to_core(py),
+            ch_pi_max_distance,
+            ch_pi_max_angle_deg,
+        );
         Self { inner: set }
     }
 

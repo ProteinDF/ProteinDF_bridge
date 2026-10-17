@@ -19,41 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with ProteinDF.  If not, see <http://www.gnu.org/licenses/>.
 
-class BrError(Exception):
-    """
-    Base class for this Bridge module
-    """
+from proteindf_bridge.rs import BrError, BrInputError, BrValueError
 
-    def __init__(self, errmsg=""):
-        self.errmsg = errmsg
+__all__ = ["BrError", "BrInputError", "BrValueError"]
 
-    def __str__(self):
-        return "Bridge module error: {}".format(self.errmsg)
-
-
-class BrInputError(BrError):
-    """
-    Exception raised for errors in the input.
-
-    Attributes:
-        expr -- input expression in which the error occurred
-        msg  -- explanation of the error
-    """
-
-    def __init__(self, expr, msg):
-        super().__init__()
-        self.errmsg = "Input Error: {} ({})".format(msg, str(expr))
-
-
-class BrValueError(BrError):
-    """
-    Exception raised for errors in the value.
-
-    Attributes:
-        expr -- input expression in which the error occurred
-        msg  -- explanation of the error
-    """
-
-    def __init__(self, expr, msg):
-        super().__init__()
-        self.errmsg = "Value Error: {} ({})".format(msg, str(expr))

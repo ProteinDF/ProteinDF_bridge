@@ -57,8 +57,8 @@ impl PyAmberPrmtop {
             .collect()
     }
 
-    pub fn get_atomgroup(&self) -> PyResult<PyAtomGroup> {
+    pub fn get_atomgroup(&self, py: Python<'_>) -> PyResult<PyAtomGroup> {
         let ag = self.inner.get_atomgroup().map_err(to_py_err)?;
-        Ok(PyAtomGroup::from_core(ag))
+        PyAtomGroup::from_core(py, ag)
     }
 }

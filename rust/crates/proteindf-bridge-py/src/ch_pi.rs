@@ -86,13 +86,14 @@ impl PyChPiInteraction {
 #[pyfunction]
 #[pyo3(signature = (root, max_distance=None, max_angle_deg=None))]
 pub fn calc_ch_pi_interactions(
+    py: Python<'_>,
     root: &PyAtomGroup,
     max_distance: Option<f64>,
     max_angle_deg: Option<f64>,
 ) -> Vec<PyChPiInteraction> {
     let d = max_distance.unwrap_or(DEFAULT_MAX_DISTANCE);
     let a = max_angle_deg.unwrap_or(DEFAULT_MAX_ANGLE_DEG);
-    core_calc_ch_pi_interactions_with_thresholds(&root.inner, d, a)
+    core_calc_ch_pi_interactions_with_thresholds(&root.to_core(py), d, a)
         .into_iter()
         .map(PyChPiInteraction::from)
         .collect()
@@ -101,11 +102,12 @@ pub fn calc_ch_pi_interactions(
 /// Detects CH-pi interactions with explicit distance and angle thresholds.
 #[pyfunction]
 pub fn calc_ch_pi_interactions_with_thresholds(
+    py: Python<'_>,
     root: &PyAtomGroup,
     max_distance: f64,
     max_angle_deg: f64,
 ) -> Vec<PyChPiInteraction> {
-    core_calc_ch_pi_interactions_with_thresholds(&root.inner, max_distance, max_angle_deg)
+    core_calc_ch_pi_interactions_with_thresholds(&root.to_core(py), max_distance, max_angle_deg)
         .into_iter()
         .map(PyChPiInteraction::from)
         .collect()
