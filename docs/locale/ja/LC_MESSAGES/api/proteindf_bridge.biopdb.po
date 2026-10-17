@@ -36,9 +36,8 @@ msgstr "戻り値の型"
 
 #: dd42c4c1fb344b048f8329c50a2d56cf of
 #: proteindf_bridge.biopdb.Pdb.get_atomgroup:3
-#, fuzzy
 msgid ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.rs.AtomGroup\\``"
-msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.atomgroup.AtomGroup\\``"
+msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.rs.AtomGroup\\``"
 
 #: 0c271759f9c44166b4bce7cd6dce1c2b of
 #: proteindf_bridge.biopdb.Pdb.get_modpdb_atomgroup:1
@@ -70,7 +69,6 @@ msgstr "名前変更後のオブジェクト"
 
 #: e5fb2f6212954ab9b32f071d737cc623 of
 #: proteindf_bridge.biopdb.Pdb.set_by_atomgroup:1
-#, fuzzy
 msgid ":sphinx_autodoc_typehints_type:`\\:sphinx\\_autodoc\\_typehints\\_constant\\:\\`None\\``"
-msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:obj\\:\\`None\\``"
+msgstr ":sphinx_autodoc_typehints_type:`\\:sphinx\\_autodoc\\_typehints\\_constant\\:\\`None\\``"
 

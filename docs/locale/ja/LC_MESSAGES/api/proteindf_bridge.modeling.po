@@ -41,6 +41,10 @@ msgid ""
 "parallel to in_a; see add_methyl/get_NH3 usage, which rotate a template's"
 " own reference axis (in_b) onto a real bond direction (in_a))."
 msgstr ""
+"`in_b` に R を適用すると `in_a` の方向を指すベクトルが得られるような回転行列"
+" R (3x3) を返す (すなわち R.dot(in_b) は in_a と平行になる。"
+"テンプレート自身の基準軸 (in_b) を実際の結合方向 (in_a) に回転させる "
+"add_methyl/get_NH3 の使用例を参照)。"
 
 #: 9fbb4bfbe3aa488cabbf2cfc6bf1de4a of
 #: proteindf_bridge.modeling.Modeling.arbitary_rotate_matrix:7
@@ -54,6 +58,13 @@ msgid ""
 "Rodrigues rotation formula; verified numerically (rotated vector matches "
 "the target direction to machine precision, matrix is orthonormal)."
 msgstr ""
+"注: この修正の前は、行列の (1, 2) 成分で `ny * nz` の代わりに `nx * nz` "
+"が使用されており、このバグは Rust 移植版 (rust/crates/proteindf-bridge"
+"/src/modeling.rs, arbitary_rotate_matrix) にそのまま引き継がれていた。"
+"一般的な (軸に沿っていない) 入力ペアに対して、これは適切な回転ではなく"
+"非正規直交行列 (~1-2% の誤差) を生成していた。ここでは標準的なロドリゲスの"
+"回転公式に従って修正されており、数値的に検証されている (回転されたベクトルは"
+"マシン精度で目標の方向と一致し、行列は正規直交である)。"
 
 #: 57ea9a8158ed468f828e380dc2707d63 f6a7f228a4bc47d99ede0fd5ff60e304 of
 #: proteindf_bridge.modeling.Modeling.get_ACE:1
