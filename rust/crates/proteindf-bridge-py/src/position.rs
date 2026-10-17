@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::error::to_py_err;
-use crate::matrix::PyMatrix;
 use proteindf_bridge::position::Position as CorePosition;
 use pyo3::exceptions::{PyIndexError, PyTypeError};
 use pyo3::prelude::*;
@@ -33,6 +32,28 @@ pub(crate) fn extract_position(arg: &Bound<'_, PyAny>) -> PyResult<CorePosition>
             arg.get_type()
         )))
     }
+}
+
+fn is_numbers_real(py: Python<'_>, obj: &Bound<'_, PyAny>) -> bool {
+    if let Ok(real_cls) = py.import("numbers").and_then(|m| m.getattr("Real")) {
+        obj.is_instance(&real_cls).unwrap_or(false)
+    } else {
+        false
+    }
+}
+
+fn extract_scalar(py: Python<'_>, obj: &Bound<'_, PyAny>) -> Option<f64> {
+    if is_numbers_real(py, obj) {
+        if let Ok(val) = obj.extract::<f64>() {
+            return Some(val);
+        }
+        if let Ok(f) = obj.call_method0("__float__") {
+            if let Ok(val) = f.extract::<f64>() {
+                return Some(val);
+            }
+        }
+    }
+    None
 }
 
 #[pymethods]
@@ -154,8 +175,9 @@ impl PyPosition {
         Ok(slf)
     }
 
-    pub fn rotate(&mut self, mat: &PyMatrix) -> PyResult<()> {
-        self.inner.rotate(&mat.inner).map_err(to_py_err)
+    pub fn rotate(&mut self, mat: &Bound<'_, PyAny>) -> PyResult<()> {
+        let core_mat = crate::matrix::extract_rotation_matrix(mat)?;
+        self.inner.rotate(&core_mat).map_err(to_py_err)
     }
 
     pub fn dot(&self, other: &Bound<'_, PyAny>) -> PyResult<f64> {
@@ -231,12 +253,23 @@ impl PyPosition {
         })
     }
 
+    pub fn __len__(&self) -> usize {
+        3
+    }
+
+    pub fn __iter__<'py>(slf: Bound<'py, Self>) -> PyResult<Bound<'py, pyo3::types::PyIterator>> {
+        let borrow = slf.borrow();
+        let py = slf.py();
+        let tuple = (borrow.inner.x, borrow.inner.y, borrow.inner.z).into_pyobject(py)?;
+        tuple.try_iter()
+    }
+
     pub fn __mul__<'py>(
         &self,
         py: Python<'py>,
         other: &Bound<'py, PyAny>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        if let Ok(val) = other.extract::<f64>() {
+        if let Some(val) = extract_scalar(py, other) {
             let res = Self {
                 inner: self.inner * val,
             };
@@ -251,9 +284,15 @@ impl PyPosition {
         }
     }
 
-    pub fn __rmul__(&self, scalar: f64) -> Self {
-        Self {
-            inner: self.inner * scalar,
+    pub fn __rmul__<'py>(&self, py: Python<'py>, other: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if let Some(val) = extract_scalar(py, other) {
+            Ok(Self {
+                inner: self.inner * val,
+            })
+        } else {
+            Err(PyTypeError::new_err(
+                "Unsupported type for Position multiplication",
+            ))
         }
     }
 
@@ -296,8 +335,15 @@ impl PyPosition {
     }
 
     pub fn __setstate__(&mut self, state: &Bound<'_, PyAny>) -> PyResult<()> {
-        let pos = extract_position(state)?;
-        self.inner = pos;
+        if state.cast::<pyo3::types::PyList>().is_err()
+            && state.cast::<pyo3::types::PyTuple>().is_err()
+        {
+            return Err(PyTypeError::new_err(
+                "Position.__setstate__ requires a list or tuple",
+            ));
+        }
+        let list = state.extract::<Vec<f64>>()?;
+        self.inner = CorePosition::from_slice(&list).map_err(to_py_err)?;
         Ok(())
     }
 

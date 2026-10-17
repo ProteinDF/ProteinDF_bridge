@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use crate::error::to_py_err;
-use crate::matrix::PyMatrix;
 use crate::position::PyPosition;
 use proteindf_bridge::atom::Atom as CoreAtom;
 use proteindf_bridge::position::Position;
@@ -77,6 +76,12 @@ fn extract_pos(arg: &Bound<'_, PyAny>) -> PyResult<Position> {
     }
 }
 
+fn to_charge(val: &Bound<'_, PyAny>) -> PyResult<f64> {
+    let py = val.py();
+    let float_type = py.get_type::<pyo3::types::PyFloat>();
+    float_type.call1((val,))?.extract()
+}
+
 #[pymethods]
 impl PyAtom {
     #[new]
@@ -104,7 +109,7 @@ impl PyAtom {
                     atom.name = name.extract::<String>()?;
                 }
                 if let Some(q) = dict.get_item("Q")? {
-                    atom.charge = q.extract::<f64>()?;
+                    atom.charge = to_charge(&q)?;
                 }
                 if let Some(xyz) = dict.get_item("xyz")? {
                     atom.xyz = extract_pos(&xyz)?;
@@ -133,7 +138,7 @@ impl PyAtom {
                 atom.label = label.extract::<String>()?;
             }
             if let Some(charge) = kw.get_item("charge")? {
-                atom.charge = charge.extract::<f64>()?;
+                atom.charge = to_charge(&charge)?;
             }
             if let Some(path) = kw.get_item("path")? {
                 atom.path = path.extract::<String>()?;
@@ -203,8 +208,9 @@ impl PyAtom {
     }
 
     #[setter]
-    pub fn set_charge(&mut self, val: f64) {
-        self.charge = val;
+    pub fn set_charge(&mut self, val: &Bound<'_, PyAny>) -> PyResult<()> {
+        self.charge = to_charge(val)?;
+        Ok(())
     }
 
     #[getter]
@@ -282,11 +288,12 @@ impl PyAtom {
         Ok(slf)
     }
 
-    pub fn rotate(&self, py: Python<'_>, rotmat: &PyMatrix) -> PyResult<()> {
+    pub fn rotate(&self, py: Python<'_>, rotmat: &Bound<'_, PyAny>) -> PyResult<()> {
+        let core_mat = crate::matrix::extract_rotation_matrix(rotmat)?;
         self.xyz
             .borrow_mut(py)
             .inner
-            .rotate(&rotmat.inner)
+            .rotate(&core_mat)
             .map_err(to_py_err)
     }
 
@@ -310,7 +317,7 @@ impl PyAtom {
             self.name = name.extract::<String>()?;
         }
         if let Some(q) = data.get_item("Q")? {
-            self.charge = q.extract::<f64>()?;
+            self.charge = to_charge(&q)?;
         }
         if let Some(xyz) = data.get_item("xyz")? {
             let pos = extract_pos(&xyz)?;

@@ -4,7 +4,7 @@
 use crate::error::to_py_err;
 use crate::vector::PyVector;
 use proteindf_bridge::matrix::{Matrix as CoreMatrix, SymmetricMatrix as CoreSymmetricMatrix};
-use pyo3::exceptions::{PyIndexError, PyTypeError};
+use pyo3::exceptions::{PyIndexError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 
 #[pyclass(name = "Matrix", module = "proteindf_bridge.rs", from_py_object)]
@@ -16,6 +16,52 @@ pub struct PyMatrix {
 impl PyMatrix {
     pub fn from_core(mat: CoreMatrix) -> Self {
         Self { inner: mat }
+    }
+}
+
+pub(crate) fn extract_rotation_matrix(arg: &Bound<'_, PyAny>) -> PyResult<CoreMatrix> {
+    if let Ok(m) = arg.extract::<PyRef<PyMatrix>>() {
+        if m.inner.rows() != 3 || m.inner.cols() != 3 {
+            return Err(PyValueError::new_err(format!(
+                "Rotation matrix must be 3x3, got {}x{}",
+                m.inner.rows(),
+                m.inner.cols()
+            )));
+        }
+        Ok(m.inner.clone())
+    } else {
+        let rows = arg
+            .getattr("rows")
+            .map_err(|_| {
+                PyTypeError::new_err(format!(
+                    "Expected Matrix or object with rows/cols/get, got {}",
+                    arg.get_type()
+                ))
+            })?
+            .extract::<usize>()?;
+        let cols = arg
+            .getattr("cols")
+            .map_err(|_| {
+                PyTypeError::new_err(format!(
+                    "Expected Matrix or object with rows/cols/get, got {}",
+                    arg.get_type()
+                ))
+            })?
+            .extract::<usize>()?;
+        if rows != 3 || cols != 3 {
+            return Err(PyValueError::new_err(format!(
+                "Rotation matrix must be 3x3, got {}x{}",
+                rows, cols
+            )));
+        }
+        let mut data = Vec::with_capacity(9);
+        for r in 0..3 {
+            for c in 0..3 {
+                let val = arg.call_method1("get", (r, c))?.extract::<f64>()?;
+                data.push(val);
+            }
+        }
+        Ok(CoreMatrix::from_vec(3, 3, data))
     }
 }
 
