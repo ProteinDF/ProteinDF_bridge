@@ -79,7 +79,7 @@ class PositionTests(unittest.TestCase):
         pos.__setstate__((7.0, 8.0, 9.0))
         self.assertEqual(pos.xyz, [7.0, 8.0, 9.0])
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(TypeError):
             pos.__setstate__({1.0, 2.0, 3.0})
 
     def test_indexing_and_iteration(self):
@@ -131,7 +131,7 @@ class PositionTests(unittest.TestCase):
         p2 = Position([2.0, 3.0, 4.0])
         self.assertEqual(p * p2, 20.0)
 
-        with self.assertRaises(BrInputError):
+        with self.assertRaises(TypeError):
             _ = p * "a"
 
     def test_parity_with_rust(self):
