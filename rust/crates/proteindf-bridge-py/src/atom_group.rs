@@ -533,7 +533,8 @@ impl PyAtomGroup {
     ///
     /// Args:
     ///     *args: Optional positional argument: a group name (str), another `AtomGroup`
-    ///         to clone, or a raw data dictionary.
+    ///         to clone, or a raw data dictionary. If a dictionary is given, unrecognized
+    ///         keys are ignored.
     ///     **kwargs: Optional keyword arguments: `name` (str) or `path` (str).
     ///
     /// Returns:
@@ -541,7 +542,7 @@ impl PyAtomGroup {
     ///
     /// Raises:
     ///     TypeError: If given more than one positional argument or an unsupported argument type.
-    ///     ValueError: If initializing from an invalid dictionary structure.
+    ///     BrValueError: If nested atom data within the dictionary is invalid.
     #[new]
     #[pyo3(signature = (*args, **kwargs))]
     pub fn new(
@@ -772,9 +773,6 @@ impl PyAtomGroup {
     ///
     /// Returns:
     ///     Optional[Atom]: The matching atom reference, or None if not found.
-    ///
-    /// Raises:
-    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn get_atom(slf: &Bound<'_, Self>, key: &Bound<'_, PyAny>) -> PyResult<Option<Py<PyAtom>>> {
         let k = extract_key(key)?;
         let py = slf.py();
@@ -808,7 +806,7 @@ impl PyAtomGroup {
     ///     atom (Atom): The atom to insert.
     ///
     /// Raises:
-    ///     TypeError: If `key` cannot be converted to a string key.
+    ///     TypeError: If `atom` is not an `Atom` instance.
     pub fn set_atom(
         slf: &Bound<'_, Self>,
         key: &Bound<'_, PyAny>,
@@ -851,9 +849,6 @@ impl PyAtomGroup {
     ///
     /// Returns:
     ///     bool: True if a matching atom is found, False otherwise.
-    ///
-    /// Raises:
-    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn has_atom(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<bool> {
         let k = extract_key(key)?;
         Ok(self.atoms.contains_key(&k)
@@ -870,9 +865,6 @@ impl PyAtomGroup {
     ///
     /// Returns:
     ///     bool: True if an atom with the key exists, False otherwise.
-    ///
-    /// Raises:
-    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn has_atomkey(&self, key: &Bound<'_, PyAny>) -> PyResult<bool> {
         let k = extract_key(key)?;
         Ok(self.atoms.contains_key(&k))
@@ -885,9 +877,6 @@ impl PyAtomGroup {
     ///
     /// Returns:
     ///     bool: True if an atom with the name exists, False otherwise.
-    ///
-    /// Raises:
-    ///     TypeError: If `name` cannot be converted to a string key.
     pub fn has_atomname(&self, py: Python<'_>, name: &Bound<'_, PyAny>) -> PyResult<bool> {
         let name_str = extract_key(name)?;
         let target = name_str.trim();
@@ -906,9 +895,6 @@ impl PyAtomGroup {
     ///
     /// Returns:
     ///     Optional[Atom]: The removed atom, or None if not found.
-    ///
-    /// Raises:
-    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn del_atom(
         &mut self,
         _py: Python<'_>,
@@ -925,9 +911,6 @@ impl PyAtomGroup {
     ///
     /// Returns:
     ///     Optional[Atom]: The removed atom, or None if not found.
-    ///
-    /// Raises:
-    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn remove_atom(
         &mut self,
         py: Python<'_>,
@@ -943,9 +926,6 @@ impl PyAtomGroup {
     ///
     /// Args:
     ///     key (Union[str, int]): The atom key to remove.
-    ///
-    /// Raises:
-    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn erase_atom(&mut self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<()> {
         warn_deprecation(py, "erase_atom() is deprecated, use remove_atom() instead.")?;
         self.remove_atom(py, key)?;
@@ -959,9 +939,6 @@ impl PyAtomGroup {
     ///
     /// Returns:
     ///     Optional[AtomGroup]: The child group reference, or None if not found.
-    ///
-    /// Raises:
-    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn get_group(
         slf: &Bound<'_, Self>,
         key: &Bound<'_, PyAny>,
@@ -997,7 +974,7 @@ impl PyAtomGroup {
     ///     group (AtomGroup): The child group to insert.
     ///
     /// Raises:
-    ///     TypeError: If `key` cannot be converted to a string key.
+    ///     TypeError: If `group` is not an `AtomGroup` instance.
     pub fn set_group(
         slf: &Bound<'_, Self>,
         key: &Bound<'_, PyAny>,
@@ -1030,9 +1007,6 @@ impl PyAtomGroup {
     ///
     /// Returns:
     ///     bool: True if a matching child group is found, False otherwise.
-    ///
-    /// Raises:
-    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn has_group(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<bool> {
         let k = extract_key(key)?;
         Ok(self.groups.contains_key(&k) || self.groups.values().any(|g| g.borrow(py).name == k))
@@ -1045,9 +1019,6 @@ impl PyAtomGroup {
     ///
     /// Returns:
     ///     bool: True if a child group with the key exists, False otherwise.
-    ///
-    /// Raises:
-    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn has_groupkey(&self, key: &Bound<'_, PyAny>) -> PyResult<bool> {
         let k = extract_key(key)?;
         Ok(self.groups.contains_key(&k))
@@ -1060,9 +1031,6 @@ impl PyAtomGroup {
     ///
     /// Returns:
     ///     bool: True if a child group with the name exists, False otherwise.
-    ///
-    /// Raises:
-    ///     TypeError: If `name` cannot be converted to a string key.
     pub fn has_groupname(&self, py: Python<'_>, name: &Bound<'_, PyAny>) -> PyResult<bool> {
         let target = extract_key(name)?;
         for g in self.groups.values() {
@@ -1080,9 +1048,6 @@ impl PyAtomGroup {
     ///
     /// Returns:
     ///     Optional[AtomGroup]: The removed child group, or None if not found.
-    ///
-    /// Raises:
-    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn del_group(
         slf: &Bound<'_, Self>,
         key: &Bound<'_, PyAny>,
@@ -1111,9 +1076,6 @@ impl PyAtomGroup {
     ///
     /// Returns:
     ///     Optional[AtomGroup]: The removed child group, or None if not found.
-    ///
-    /// Raises:
-    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn remove_group(
         slf: &Bound<'_, Self>,
         key: &Bound<'_, PyAny>,
@@ -1128,9 +1090,6 @@ impl PyAtomGroup {
     ///
     /// Args:
     ///     key (Union[str, int]): The child group key to remove.
-    ///
-    /// Raises:
-    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn erase_group(slf: &Bound<'_, Self>, key: &Bound<'_, PyAny>) -> PyResult<()> {
         let py = slf.py();
         warn_deprecation(
@@ -1322,9 +1281,6 @@ impl PyAtomGroup {
     ///
     /// Returns:
     ///     List[Atom]: List of matching atoms found across the hierarchy.
-    ///
-    /// Raises:
-    ///     TypeError: If `key_or_name` cannot be converted to a string key.
     pub fn pickup_atoms(
         slf: &Bound<'_, Self>,
         key_or_name: &Bound<'_, PyAny>,
@@ -1411,19 +1367,17 @@ impl PyAtomGroup {
         Ok(())
     }
 
-    /// Navigates the hierarchy tree and retrieves the group matching a query path.
+    /// Navigates the hierarchy tree and retrieves the group matching an absolute path.
     ///
-    /// Supports relative paths (e.g. ``"."``, ``".."``, ``"../res2"``) and absolute
-    /// paths starting with ``"/"``.
+    /// Searches descendants first; if not found within the subtree, traverses up
+    /// through ancestor groups to search the tree. Does not support relative paths
+    /// (such as ``"."`` or ``".."``).
     ///
     /// Args:
-    ///     query_path (Union[str, int]): The path to navigate to.
+    ///     query_path (Union[str, int]): The absolute path to navigate to (e.g. ``"/protein/chainA"``).
     ///
     /// Returns:
     ///     Optional[AtomGroup]: The matched group, or None if not found.
-    ///
-    /// Raises:
-    ///     TypeError: If `query_path` cannot be converted to a string.
     pub fn get_family(
         slf: &Bound<'_, Self>,
         query_path: &Bound<'_, PyAny>,
@@ -1490,9 +1444,6 @@ impl PyAtomGroup {
     ///
     /// Returns:
     ///     List[str]: List of path segment strings.
-    ///
-    /// Raises:
-    ///     TypeError: If `path` cannot be converted to a string.
     #[staticmethod]
     pub fn divide_path(path: &Bound<'_, PyAny>) -> PyResult<Vec<String>> {
         let s = extract_key(path)?;
@@ -1923,7 +1874,7 @@ impl PyAtomGroup {
     /// Assigns standard bonds, bond orders, and atom types using the built-in CCD template database.
     ///
     /// Raises:
-    ///     BridgeError: If template matching or topology assignment fails.
+    ///     BrValueError: If an atom has an unrecognized symbol or lacks covalent radius data.
     pub fn setup(&mut self, py: Python<'_>) -> PyResult<()> {
         let mut core = self.to_core(py);
         core.setup().map_err(to_py_err)?;
@@ -1937,7 +1888,7 @@ impl PyAtomGroup {
     ///     db (CcdTemplateDb): The Chemical Component Dictionary template database.
     ///
     /// Raises:
-    ///     BridgeError: If template matching or topology assignment fails.
+    ///     BrValueError: If an atom has an unrecognized symbol or lacks covalent radius data.
     pub fn setup_with_db(&mut self, py: Python<'_>, db: &PyCcdTemplateDb) -> PyResult<()> {
         let mut core = self.to_core(py);
         core.setup_with_db(&db.inner).map_err(to_py_err)?;
@@ -1953,9 +1904,6 @@ impl PyAtomGroup {
     ///
     /// Returns:
     ///     OverallHydrogenationReport: Summary report of added hydrogens.
-    ///
-    /// Raises:
-    ///     BridgeError: If hydrogen coordinate generation fails.
     #[pyo3(signature = (db=None))]
     pub fn add_missing_hydrogens(
         &mut self,
@@ -1975,9 +1923,6 @@ impl PyAtomGroup {
     /// Detects and assigns secondary structure annotations ('H', 'E', '-') to residues in this chain.
     ///
     /// Modifications are applied in-place to residue groups.
-    ///
-    /// Raises:
-    ///     BridgeError: If secondary structure calculation encounters an error.
     pub fn apply_secondary_structure(&mut self, py: Python<'_>) -> PyResult<()> {
         let mut core = self.to_core(py);
         core_apply_secondary_structure(&mut core);
@@ -2001,10 +1946,12 @@ impl PyAtomGroup {
     /// Rotates all atomic coordinates in this hierarchy using a 3x3 rotation matrix.
     ///
     /// Args:
-    ///     rotmat (Union[Matrix, Sequence[Sequence[float]]]): The 3x3 rotation matrix.
+    ///     rotmat (Union[Matrix, Any]): A 3x3 rotation matrix. Accepts a :class:`Matrix`
+    ///         instance or any object providing `rows`, `cols`, and `get(row, col)`.
     ///
     /// Raises:
-    ///     TypeError: If `rotmat` is not a valid 3x3 rotation matrix.
+    ///     TypeError: If `rotmat` is not a :class:`Matrix` or lacks `rows`, `cols`, or `get`.
+    ///     ValueError: If the dimensions of `rotmat` are not 3x3.
     pub fn rotate(&mut self, py: Python<'_>, rotmat: &Bound<'_, PyAny>) -> PyResult<()> {
         let core_mat = crate::matrix::extract_rotation_matrix(rotmat)?;
         self.rotate_core(py, &core_mat)
@@ -2183,6 +2130,8 @@ impl PyAtomGroup {
 
     /// Replaces the group content with data loaded from a nested dictionary.
     ///
+    /// Unrecognized keys at top level are ignored.
+    ///
     /// Args:
     ///     data (dict): Nested dictionary representing tree data.
     ///
@@ -2190,8 +2139,8 @@ impl PyAtomGroup {
     ///     AtomGroup: Self, populated with the dictionary data.
     ///
     /// Raises:
-    ///     TypeError: If `data` is not a valid dictionary.
-    ///     ValueError: If dictionary structure is corrupted or invalid.
+    ///     TypeError: If `data` is not a dict.
+    ///     BrValueError: If nested atom data within the dictionary is invalid.
     pub fn set_by_dict_data<'py>(
         slf: &Bound<'py, Self>,
         data: &Bound<'_, pyo3::types::PyDict>,
@@ -2334,7 +2283,7 @@ impl PyAtomGroup {
     ///     path (str): Destination file path for the CSV file.
     ///
     /// Raises:
-    ///     BridgeInputError: If file creation, writing, or renaming fails.
+    ///     BrInputError: If file creation, writing, or renaming fails.
     pub fn save_csv(&self, py: Python<'_>, path: &str) -> PyResult<()> {
         let path_ref = std::path::Path::new(path);
         let parent = path_ref
