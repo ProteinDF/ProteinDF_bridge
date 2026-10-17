@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-17 17:57+0900\n"
+"POT-Creation-Date: 2026-10-17 22:20+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: ja\n"
@@ -19,21 +19,21 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: ../../api/proteindf_bridge.modeling.rst:2 7dda7f69ba1e4257a9aeaf88e77d6b68
+#: ../../api/proteindf_bridge.modeling.rst:2 9827f196de594e4ebd2ab6a5f17fa1cc
 msgid "proteindf\\_bridge.modeling module"
 msgstr "proteindf\\_bridge.modeling モジュール"
 
-#: b7dc5b27a94643ddbac762998d10ad21 of
+#: 21c1f8db7ea14a418dba890393df0a4d of
 #: proteindf_bridge.modeling.Modeling.add_methyl:1
 msgid "Add the hydrogens of -CH3."
 msgstr "-CH3の水素を付加"
 
-#: e161951dcd7c4fb09854dfa21f70eaf6 of
+#: 733b46fa4395466e90d4e081724a626a of
 #: proteindf_bridge.modeling.Modeling.add_methyl:3
 msgid "Add a hydrogen to C1."
 msgstr "C1に水素を付加"
 
-#: 751e5b19077e47379d3313cfbc48c828 of
+#: a48839843479464ebb3c6cc8d8598a54 of
 #: proteindf_bridge.modeling.Modeling.arbitary_rotate_matrix:1
 msgid ""
 "Return the rotation matrix R (3x3) such that applying R to `in_b` yields "
@@ -41,54 +41,42 @@ msgid ""
 "parallel to in_a; see add_methyl/get_NH3 usage, which rotate a template's"
 " own reference axis (in_b) onto a real bond direction (in_a))."
 msgstr ""
-"`in_b` に R を適用すると `in_a` の方向を指すベクトルが得られるような回転行列"
-" R (3x3) を返す (すなわち R.dot(in_b) は in_a と平行になる。"
-"テンプレート自身の基準軸 (in_b) を実際の結合方向 (in_a) に回転させる "
+"`in_b` に R を適用すると `in_a` の方向を指すベクトルが得られるような回転行列 R (3x3) を返す (すなわち "
+"R.dot(in_b) は in_a と平行になる。テンプレート自身の基準軸 (in_b) を実際の結合方向 (in_a) に回転させる "
 "add_methyl/get_NH3 の使用例を参照)。"
 
-#: 9fbb4bfbe3aa488cabbf2cfc6bf1de4a of
+#: f34fb9e9471a43ae9cd527d99634274e of
 #: proteindf_bridge.modeling.Modeling.arbitary_rotate_matrix:7
-#, python-format
 msgid ""
-"Note: prior to this fix, the (1, 2) matrix entry used `nx * nz` instead "
-"of `ny * nz`, a bug inherited 1:1 by the Rust port (rust/crates"
-"/proteindf-bridge/src/modeling.rs, arbitary_rotate_matrix). For a general"
-" (non axis-aligned) input pair this produced a non-orthonormal matrix "
-"(~1-2% error), not a proper rotation. Fixed here following the standard "
-"Rodrigues rotation formula; verified numerically (rotated vector matches "
-"the target direction to machine precision, matrix is orthonormal)."
-msgstr ""
-"注: この修正の前は、行列の (1, 2) 成分で `ny * nz` の代わりに `nx * nz` "
-"が使用されており、このバグは Rust 移植版 (rust/crates/proteindf-bridge"
-"/src/modeling.rs, arbitary_rotate_matrix) にそのまま引き継がれていた。"
-"一般的な (軸に沿っていない) 入力ペアに対して、これは適切な回転ではなく"
-"非正規直交行列 (~1-2% の誤差) を生成していた。ここでは標準的なロドリゲスの"
-"回転公式に従って修正されており、数値的に検証されている (回転されたベクトルは"
-"マシン精度で目標の方向と一致し、行列は正規直交である)。"
+"Computed using Rodrigues' rotation formula, and the resulting matrix is "
+"orthonormal."
+msgstr "Rodrigues の回転公式で計算し、結果は正規直交行列である。"
 
-#: 57ea9a8158ed468f828e380dc2707d63 f6a7f228a4bc47d99ede0fd5ff60e304 of
+#: 88711764dc3447c38143aff0216eac1a a5489e0efb814b1faff59bb2de82664b of
 #: proteindf_bridge.modeling.Modeling.get_ACE:1
 #: proteindf_bridge.modeling.Modeling.get_NME:1
 msgid "template (ACE-ALA-NME) format::"
 msgstr "テンプレート(ACE-ALA-NME)フォーマット::"
 
-#: 8832c1a3a12142639480a8ab09083c70 b70d9a0499514125bcc19178a5e3e71c of
+#: 7246bf0325f648a6a247d20280d0f547 d755c3f59f8742809472eea0570bca61 of
 #: proteindf_bridge.modeling.Modeling.get_ACE_simple:1
 #: proteindf_bridge.modeling.Modeling.get_NME_simple:1
 msgid "Turn the neighboring C-alpha position into a methyl group."
 msgstr "隣のC-alphaの位置をメチル基にする。"
 
-#: 77086efda20141e68831e07740958483 of
+#: 947977d07dec4a3ebbda4bd3deb64e25 of
 #: proteindf_bridge.modeling.Modeling.neutralize_ARG:1
 msgid "case: 0; center case: 1; NH1 side case: 2; NH2 side"
 msgstr "case: 0; 中央 case: 1; NH1側 case: 2; NH2側"
 
-#: 3540b814204648cb9164778b156a3dd6 of
+#: adbfb65e2001495a804ef06bd2900ab7 of
 #: proteindf_bridge.modeling.Modeling.neutralize_Cterm:1
 msgid "Return a Na+ (AtomGroup) to neutralize the C-terminal side."
 msgstr "C末端側を中性化するためにNa+(AtomGroup)を返す"
 
-#: 9ff05bc90dc645269c75181913422516 of
+#: aa31fef9453d4461ab274f678539b365 of
 #: proteindf_bridge.modeling.Modeling.select_residues:1
 msgid "Return consecutive amino acid residues."
 msgstr "連続したアミノ酸残基を返す"
+
+
