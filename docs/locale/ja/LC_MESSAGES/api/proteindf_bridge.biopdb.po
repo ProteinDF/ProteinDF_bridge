@@ -9,67 +9,66 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-08 11:58+0800\n"
+"POT-Creation-Date: 2026-10-17 17:57+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: ja <LL@li.org>\n"
 "Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: ../../api/proteindf_bridge.biopdb.rst:2 a84e65862ce843b1be4d8c640683307c
+#: ../../api/proteindf_bridge.biopdb.rst:2 c4c39fb002fa42c391003f8b4fcd566b
 msgid "proteindf\\_bridge.biopdb module"
 msgstr "proteindf\\_bridge.biopdb モジュール"
 
-#: 7ac40872f103458aace12d4acfa08073 of
+#: 698b0cbca6cf4d4ab2f7c7a3978b6cec of
 #: proteindf_bridge.biopdb.Pdb.get_atomgroup:1
 msgid "return AtomGroup object"
 msgstr "AtomGroupオブジェクトを返す"
 
-#: ../../api/proteindf_bridge.biopdb.rst 038becc988314063950ebf2b178331a8
-#: 0b0d45a00a314b56b161212807dea144 790c5ff430284c8caab3c8ac6a7e6bcf
+#: ../../api/proteindf_bridge.biopdb.rst 191faa7e2f3e465d953276c0256af2bd
+#: af34dbfc190b47f19506a78b9669c578 ca9abaa2ad6c4270aa62695b10ecc229
 msgid "Return type"
 msgstr "戻り値の型"
 
-#: e0ebbee50a95484997e51fb664717a01 of
+#: dd42c4c1fb344b048f8329c50a2d56cf of
 #: proteindf_bridge.biopdb.Pdb.get_atomgroup:3
-msgid ""
-":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.atomgroup.AtomGroup\\``"
-msgstr ""
-":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.atomgroup.AtomGroup\\``"
+msgid ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.rs.AtomGroup\\``"
+msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.rs.AtomGroup\\``"
 
-#: f3bb2b6751fa47309ae69ad9ba9eda41 of
+#: 0c271759f9c44166b4bce7cd6dce1c2b of
 #: proteindf_bridge.biopdb.Pdb.get_modpdb_atomgroup:1
 msgid "Change the name of a residue or atom."
 msgstr "残基または原子の名前を変更する。"
 
-#: de6d65d6e43b4f46938484a4a21e25df of
+#: fcc1d425bf074f55ae9b884de9130e41 of
 #: proteindf_bridge.biopdb.Pdb.get_modpdb_atomgroup:2
 msgid "Called by 'set_by_atomgroup()'"
 msgstr "'set_by_atomgroup()' から呼ばれる"
 
-#: ../../api/proteindf_bridge.biopdb.rst ee94175028f9423f8a5d1a756f9bfcd7
+#: ../../api/proteindf_bridge.biopdb.rst 344fd61778d24d5aad4a6ed11a02eaf9
 msgid "Parameters"
 msgstr "パラメータ"
 
-#: 734ebb33b8224e6e8c8fc63400227d3d of
-#: proteindf_bridge.biopdb.Pdb.get_modpdb_atomgroup:5
+#: a2546b923eb749608f9ec1ea8ab366d0 of
+#: proteindf_bridge.biopdb.Pdb.get_modpdb_atomgroup:4
 msgid "AtomGroup object of protein"
 msgstr "タンパク質のAtomGroupオブジェクト"
 
-#: ../../api/proteindf_bridge.biopdb.rst 5b8fbc05612d44f187cf7c044d5f078a
+#: ../../api/proteindf_bridge.biopdb.rst 05ec6e6cfc56458197b1e8bfb568dec8
 msgid "Returns"
 msgstr "戻り値"
 
-#: 78fce0d3e49645b59f7f02d343133a14 of
-#: proteindf_bridge.biopdb.Pdb.get_modpdb_atomgroup:8
+#: 35dcb7b3f15347be850be1f9f850d5e9 of
+#: proteindf_bridge.biopdb.Pdb.get_modpdb_atomgroup:7
 msgid "renamed object"
 msgstr "名前変更後のオブジェクト"
 
-#: d91de1356f0d435dbd39be49c9d03b9a of
+#: e5fb2f6212954ab9b32f071d737cc623 of
 #: proteindf_bridge.biopdb.Pdb.set_by_atomgroup:1
-msgid ":sphinx_autodoc_typehints_type:`\\:py\\:obj\\:\\`None\\``"
-msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:obj\\:\\`None\\``"
+msgid ":sphinx_autodoc_typehints_type:`\\:sphinx\\_autodoc\\_typehints\\_constant\\:\\`None\\``"
+msgstr ":sphinx_autodoc_typehints_type:`\\:sphinx\\_autodoc\\_typehints\\_constant\\:\\`None\\``"
+

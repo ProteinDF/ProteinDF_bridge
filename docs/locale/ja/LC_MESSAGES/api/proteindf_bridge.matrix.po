@@ -9,35 +9,68 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"POT-Creation-Date: 2026-10-17 17:57+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: ja <LL@li.org>\n"
 "Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: ../../api/proteindf_bridge.matrix.rst:2 a06776ae844b445a9b762637017a8c79
+#: ../../api/proteindf_bridge.matrix.rst:2 e2b2a29b121d44d99b6014280ac7ccae
 msgid "proteindf\\_bridge.matrix module"
 msgstr "proteindf\\_bridge.matrix モジュール"
 
-#: 13a97398824a477e9d29da77df10aa42 of proteindf_bridge.matrix.Matrix.data:1
+#: 8824476d28dc48ccb172d1fc67c4045f of proteindf_bridge.matrix.Matrix.data:1
 msgid "return numpy array"
 msgstr "numpy配列を返す"
 
-#: d6c2e1ae07af4f6f85ec7f42d463dc0d of
+#: 1bb92246e0a140f7a4ebd55c14c87673 of
+#: proteindf_bridge.matrix.Matrix.get_buffer:1
+msgid ""
+"Return the matrix data as raw bytes (float64, native byte order, row-"
+"major)."
+msgstr ""
+"行列データを生のバイト列 (float64, native byte order, row-major) として返す。"
+
+#: 061a395f490e40e0ba2ff6e7cf2c2e45 of
 #: proteindf_bridge.matrix.Matrix.get_ndarray:1
 msgid "return numpy.ndarray object"
 msgstr "numpy.ndarrayオブジェクトを返す"
 
-#: 68988fe8bab9465bbf42d07a2b2ec0b1 of proteindf_bridge.matrix.Matrix.select:1
+#: 13e94fe2825649fba6c551d92a9bc58f of proteindf_bridge.matrix.Matrix.select:1
 msgid "select matrix sub-block"
 msgstr "部分行列を選択する"
 
-#: 1526f591f7af42a594811c4584a32e8a of
+#: 03ca9b0f69534e7dbacdac1c88cbe34f of
+#: proteindf_bridge.matrix.Matrix.set_buffer:1
+msgid ""
+"Set matrix data from a byte buffer (float64, native byte order, row-"
+"major)."
+msgstr ""
+"バイトバッファ (float64, native byte order, row-major) から行列データを設定する。"
+
+#: ../../api/proteindf_bridge.matrix.rst fa9bc66f71d649768740c63b9c2c6064
+msgid "Raises"
+msgstr "例外"
+
+#: 3a07bcde30cf49cea14291cfb97316d2 of
+#: proteindf_bridge.matrix.Matrix.set_buffer:3
+msgid "If the buffer length does not match rows * cols * 8 bytes."
+msgstr "バッファ長が rows * cols * 8 バイトに一致しない場合。"
+
+#: c3f51fcb262a482db0f82affc25eee3f of
 #: proteindf_bridge.matrix.SymmetricMatrix.eig:1
 msgid "return the eigenvalues and eigenvectors."
 msgstr "固有値と固有ベクトルを返す。"
+
+#: 9c3261d7fd294affb123f79d13f17fe3 of proteindf_bridge.matrix.logger:1
+msgid ""
+"Matrix (for general matrix) and SymmetricMatrix (for symmetric matrix) "
+"class using numpy.ndarray"
+msgstr ""
+"numpy.ndarray を使用した Matrix (一般行列用) および SymmetricMatrix (対称行列用) クラス"
+

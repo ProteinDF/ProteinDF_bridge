@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Test suite validating rs.AtomGroup lookup and selection methods (TASK_rs-ag-lookup).
+Test suite validating rs.AtomGroup lookup and selection methods.
 """
 
 import glob

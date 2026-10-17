@@ -422,14 +422,8 @@ class Modeling:
         which rotate a template's own reference axis (in_b) onto a real
         bond direction (in_a)).
 
-        Note: prior to this fix, the (1, 2) matrix entry used `nx * nz`
-        instead of `ny * nz`, a bug inherited 1:1 by the Rust port
-        (rust/crates/proteindf-bridge/src/modeling.rs, arbitary_rotate_matrix).
-        For a general (non axis-aligned) input pair this produced a
-        non-orthonormal matrix (~1-2% error), not a proper rotation.
-        Fixed here following the standard Rodrigues rotation formula;
-        verified numerically (rotated vector matches the target direction
-        to machine precision, matrix is orthonormal).
+        Computed using Rodrigues' rotation formula, and the resulting matrix
+        is orthonormal.
         """
         assert isinstance(in_a, Position)
         assert isinstance(in_b, Position)

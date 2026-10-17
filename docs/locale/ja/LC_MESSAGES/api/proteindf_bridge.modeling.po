@@ -8,68 +8,75 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-08 12:02+0800\n"
+"POT-Creation-Date: 2026-10-17 22:20+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: ja <LL@li.org>\n"
 "Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: ../../api/proteindf_bridge.modeling.rst:2 640b43e99985449f9a3983ae7b5d9b06
+#: ../../api/proteindf_bridge.modeling.rst:2 9827f196de594e4ebd2ab6a5f17fa1cc
 msgid "proteindf\\_bridge.modeling module"
 msgstr "proteindf\\_bridge.modeling モジュール"
 
-#: 5982e7a33d45493288c031443523f76b of
+#: 21c1f8db7ea14a418dba890393df0a4d of
 #: proteindf_bridge.modeling.Modeling.add_methyl:1
 msgid "Add the hydrogens of -CH3."
 msgstr "-CH3の水素を付加"
 
-#: 399b1213fb094b35ba8040eb82685da5 of
+#: 733b46fa4395466e90d4e081724a626a of
 #: proteindf_bridge.modeling.Modeling.add_methyl:3
 msgid "Add a hydrogen to C1."
 msgstr "C1に水素を付加"
 
-#: a252d867b28643fdac02c15b8cc1b157 of
+#: a48839843479464ebb3c6cc8d8598a54 of
 #: proteindf_bridge.modeling.Modeling.arbitary_rotate_matrix:1
-msgid "Return the rotation matrix (3x3) that aligns vector a with b."
-msgstr "ベクトルaをbへ合わせる回転行列(3x3)を返す"
+msgid ""
+"Return the rotation matrix R (3x3) such that applying R to `in_b` yields "
+"a vector pointing in the direction of `in_a` (i.e. R.dot(in_b) is "
+"parallel to in_a; see add_methyl/get_NH3 usage, which rotate a template's"
+" own reference axis (in_b) onto a real bond direction (in_a))."
+msgstr ""
+"`in_b` に R を適用すると `in_a` の方向を指すベクトルが得られるような回転行列 R (3x3) を返す (すなわち "
+"R.dot(in_b) は in_a と平行になる。テンプレート自身の基準軸 (in_b) を実際の結合方向 (in_a) に回転させる "
+"add_methyl/get_NH3 の使用例を参照)。"
 
-#: 5ef8c02c1beb40daa780c2c50327a1f3 of
+#: f34fb9e9471a43ae9cd527d99634274e of
+#: proteindf_bridge.modeling.Modeling.arbitary_rotate_matrix:7
+msgid ""
+"Computed using Rodrigues' rotation formula, and the resulting matrix is "
+"orthonormal."
+msgstr "Rodrigues の回転公式で計算し、結果は正規直交行列である。"
+
+#: 88711764dc3447c38143aff0216eac1a a5489e0efb814b1faff59bb2de82664b of
 #: proteindf_bridge.modeling.Modeling.get_ACE:1
 #: proteindf_bridge.modeling.Modeling.get_NME:1
 msgid "template (ACE-ALA-NME) format::"
 msgstr "テンプレート(ACE-ALA-NME)フォーマット::"
 
-#: 0ff58fb105e3461abdf5a29f6f56b21b of
+#: 7246bf0325f648a6a247d20280d0f547 d755c3f59f8742809472eea0570bca61 of
 #: proteindf_bridge.modeling.Modeling.get_ACE_simple:1
 #: proteindf_bridge.modeling.Modeling.get_NME_simple:1
 msgid "Turn the neighboring C-alpha position into a methyl group."
 msgstr "隣のC-alphaの位置をメチル基にする。"
 
-#: 22c6b049bc4e4a25886bd465490c279a of
+#: 947977d07dec4a3ebbda4bd3deb64e25 of
 #: proteindf_bridge.modeling.Modeling.neutralize_ARG:1
 msgid "case: 0; center case: 1; NH1 side case: 2; NH2 side"
 msgstr "case: 0; 中央 case: 1; NH1側 case: 2; NH2側"
 
-#: 5ab88a57a62b4263b0fc1f9724d68871 of
+#: adbfb65e2001495a804ef06bd2900ab7 of
 #: proteindf_bridge.modeling.Modeling.neutralize_Cterm:1
 msgid "Return a Na+ (AtomGroup) to neutralize the C-terminal side."
 msgstr "C末端側を中性化するためにNa+(AtomGroup)を返す"
 
-#: 243ec194a09e4aa1845558937dbe08f2 of
+#: aa31fef9453d4461ab274f678539b365 of
 #: proteindf_bridge.modeling.Modeling.select_residues:1
 msgid "Return consecutive amino acid residues."
 msgstr "連続したアミノ酸残基を返す"
 
-#~ msgid ""
-#~ "template (ACE-ALA-NME) format: HH3[1-3]-CH3-C -  N-CA(HA)-C-    "
-#~ "N-CH3-HH3[1-3]"
-#~ msgstr ""
-#~ "テンプレート(ACE-ALA-NME)フォーマット: HH3[1-3]-CH3-C -  N-CA(HA)-C-    N-CH3-HH3[1-3]"
 
-#~ msgid "||   | |      ||    | O    H CB     O     H"
-#~ msgstr "||   | |      ||    | O    H CB     O     H"

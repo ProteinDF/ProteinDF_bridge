@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Test suite validating rs.AtomGroup mutators, sorting properties, and charge assignment
-(TASK_rs-ag-mutators).
+Test suite validating rs.AtomGroup mutators, sorting properties, and charge assignment.
 """
 
 import copy

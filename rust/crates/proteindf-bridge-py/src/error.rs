@@ -9,9 +9,24 @@ use pyo3::prelude::*;
 
 use std::ffi::CString;
 
-create_exception!(proteindf_bridge.rs, BrError, PyException);
-create_exception!(proteindf_bridge.rs, BrInputError, BrError);
-create_exception!(proteindf_bridge.rs, BrValueError, BrError);
+create_exception!(
+    proteindf_bridge.rs,
+    BrError,
+    PyException,
+    "Base exception class for ProteinDF bridge errors."
+);
+create_exception!(
+    proteindf_bridge.rs,
+    BrInputError,
+    BrError,
+    "Exception raised for invalid input arguments or formats."
+);
+create_exception!(
+    proteindf_bridge.rs,
+    BrValueError,
+    BrError,
+    "Exception raised for invalid values or unsupported data."
+);
 
 pub fn register_exceptions(m: &Bound<'_, PyModule>) -> PyResult<()> {
     let py = m.py();

@@ -335,14 +335,14 @@ class TestCliGolden(unittest.TestCase):
         self.assertIsNone(exc)
         self._assert_brd_matches_golden(out_path, "brd_setup_bond.brd.json")
 
-        # Determinism check (TASK_core-determinism-display.md): 2 runs of brd-setup-bond.py produce identical byte sequences
+        # Determinism check: 2 runs of brd-setup-bond.py produce identical byte sequences
         out_path2 = os.path.join(self.temp_dir, "bonds2.brd")
         out2, err2, exc2 = self._run_cli(brd_setup_bond.main, ["brd-setup-bond.py", self.brd_1hls, "-o", out_path2])
         self.assertIsNone(exc2)
         with open(out_path, "rb") as f1, open(out_path2, "rb") as f2:
             self.assertEqual(f1.read(), f2.read(), "brd-setup-bond.py outputs must be bit-identical across runs")
 
-        # Correctness criteria per TASK_cli-rust-migration.md / docs/cli-migration-notes.md §3.5:
+        # Correctness criteria per docs/cli-migration-notes.md §3.5:
         # 1. Real PDB 1hls: GLU 4 backbone C=O bond is unique and has order 2 (from CCD template DB)
         # 2. Chain B ARG 22 has >= 2 double bonds (C=O and CZ=NH2)
         # 3. Inter-residue peptide bonds (Chain A 1-2, Chain B 1-2) detected with order 1
