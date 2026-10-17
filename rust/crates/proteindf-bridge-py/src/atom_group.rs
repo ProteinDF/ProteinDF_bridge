@@ -20,6 +20,22 @@ use pyo3::types::{PySet, PyString};
 use std::collections::HashMap;
 use std::str::FromStr;
 
+/// A hierarchical tree representation of molecular structures.
+///
+/// An `AtomGroup` represents a node in a molecular hierarchy containing child groups
+/// (`AtomGroup`) and atoms (`Atom`). Child groups typically represent structural units
+/// such as models, chains, or residues, while atoms represent the individual atomic sites.
+///
+/// Objects retrieved from the tree (via indexing, :meth:`get_group`, or :meth:`get_atom`)
+/// are direct references to the nodes within the tree; modifying them mutates the tree
+/// in-place. Conversely, inserting objects via :meth:`set_group` or :meth:`set_atom`
+/// deep-copies the provided objects into the tree.
+///
+/// The constructor accepts:
+/// - A group name string (e.g. ``AtomGroup("model_1")`` or ``AtomGroup(name="model_1")``).
+/// - Another `AtomGroup` to clone (e.g. ``AtomGroup(other_group)``).
+/// - A dictionary representing raw tree data (e.g. ``AtomGroup(raw_dict)``).
+/// - No arguments (creates an empty group with default settings).
 #[pyclass(
     name = "AtomGroup",
     module = "proteindf_bridge.rs",
@@ -513,6 +529,19 @@ impl PyAtomGroup {
         self.atoms.clear();
     }
 
+    /// Creates a new `AtomGroup`.
+    ///
+    /// Args:
+    ///     *args: Optional positional argument: a group name (str), another `AtomGroup`
+    ///         to clone, or a raw data dictionary.
+    ///     **kwargs: Optional keyword arguments: `name` (str) or `path` (str).
+    ///
+    /// Returns:
+    ///     AtomGroup: The newly created atom group.
+    ///
+    /// Raises:
+    ///     TypeError: If given more than one positional argument or an unsupported argument type.
+    ///     ValueError: If initializing from an invalid dictionary structure.
     #[new]
     #[pyo3(signature = (*args, **kwargs))]
     pub fn new(
@@ -559,26 +588,49 @@ impl PyAtomGroup {
         Ok(group)
     }
 
+    /// Name of this atom group.
+    ///
+    /// Returns:
+    ///     str: The group name.
     #[getter]
     pub fn name(&self) -> String {
         self.name.clone()
     }
 
+    /// Sets the name of this atom group.
+    ///
+    /// Args:
+    ///     val (str): The new group name.
     #[setter]
     pub fn set_name(&mut self, val: String) {
         self.name = val;
     }
 
+    /// Parent `AtomGroup` in the hierarchy, or None if this is a root group.
+    ///
+    /// Returns:
+    ///     Optional[AtomGroup]: The parent group reference, or None.
     #[getter]
     pub fn parent(&self, py: Python<'_>) -> Option<Py<PyAtomGroup>> {
         self.get_parent(py)
     }
 
+    /// Hierarchical path of this group from the root (e.g. "/model_1/A/").
+    ///
+    /// Returns:
+    ///     str: The hierarchical path.
     #[getter]
     pub fn path(&self) -> String {
         Python::attach(|py| self.compute_path(py))
     }
 
+    /// Sets the root path of this group.
+    ///
+    /// Args:
+    ///     val (str): The root path string.
+    ///
+    /// Raises:
+    ///     ValueError: If this group is a child group with a parent.
     #[setter]
     pub fn set_path(&mut self, py: Python<'_>, val: String) -> PyResult<()> {
         if self.get_parent(py).is_some() {
@@ -594,22 +646,42 @@ impl PyAtomGroup {
         Ok(())
     }
 
+    /// Returns the depth of this group in the hierarchy.
+    ///
+    /// Returns:
+    ///     int: The path depth (0 for root, 1 for model, 2 for chain, 3 for residue).
     pub fn path_depth(&self) -> usize {
         Python::attach(|py| self.compute_depth(py))
     }
 
+    /// Checks whether this group is at the model level (path depth 1).
+    ///
+    /// Returns:
+    ///     bool: True if at model level, False otherwise.
     pub fn is_model_level(&self) -> bool {
         self.path_depth() == 1
     }
 
+    /// Checks whether this group is at the chain level (path depth 2).
+    ///
+    /// Returns:
+    ///     bool: True if at chain level, False otherwise.
     pub fn is_chain_level(&self) -> bool {
         self.path_depth() == 2
     }
 
+    /// Checks whether this group is at the residue level (path depth 3).
+    ///
+    /// Returns:
+    ///     bool: True if at residue level, False otherwise.
     pub fn is_residue_level(&self) -> bool {
         self.path_depth() == 3
     }
 
+    /// Validates this group against the standard hierarchy schema.
+    ///
+    /// Returns:
+    ///     List[SchemaViolation]: A list of detected schema violations.
     pub fn validate_schema(&self) -> Vec<PySchemaViolation> {
         Python::attach(|py| {
             self.to_core(py)
@@ -620,11 +692,22 @@ impl PyAtomGroup {
         })
     }
 
+    /// Secondary structure code of this residue group ('H', 'E', '-', or None).
+    ///
+    /// Returns:
+    ///     Optional[str]: 'H' for helix, 'E' for strand, '-' for loop, or None.
     #[getter]
     pub fn secondary_structure(&self) -> Option<String> {
         self.secondary_structure.map(|ss| ss.to_string())
     }
 
+    /// Sets the secondary structure code of this residue group.
+    ///
+    /// Args:
+    ///     val (Optional[str]): 'H', 'E', '-', or None.
+    ///
+    /// Raises:
+    ///     ValueError: If `val` is not one of 'H', 'E', '-', or None.
     #[setter]
     pub fn set_secondary_structure(&mut self, val: Option<&str>) -> PyResult<()> {
         match val {
@@ -650,22 +733,48 @@ impl PyAtomGroup {
         }
     }
 
+    /// Returns the number of direct atoms contained in this group.
+    ///
+    /// Returns:
+    ///     int: Number of direct atoms.
     pub fn get_number_of_atoms(&self) -> usize {
         self.atoms.len()
     }
 
+    /// Returns the total number of atoms in this group and all its descendant groups.
+    ///
+    /// Returns:
+    ///     int: Total number of atoms across the entire sub-tree.
     pub fn get_number_of_all_atoms(&self) -> usize {
         Python::attach(|py| self.to_core(py).get_number_of_all_atoms())
     }
 
+    /// Returns the number of direct child groups contained in this group.
+    ///
+    /// Returns:
+    ///     int: Number of direct child groups.
     pub fn get_number_of_groups(&self) -> usize {
         self.groups.len()
     }
 
+    /// Returns the number of bonds stored directly in this group.
+    ///
+    /// Returns:
+    ///     int: Number of direct bonds.
     pub fn get_number_of_bonds(&self) -> usize {
         self.bonds.len()
     }
 
+    /// Retrieves an atom matching the given key or name from this group.
+    ///
+    /// Args:
+    ///     key (Union[str, int]): The atom key or name to search for.
+    ///
+    /// Returns:
+    ///     Optional[Atom]: The matching atom reference, or None if not found.
+    ///
+    /// Raises:
+    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn get_atom(slf: &Bound<'_, Self>, key: &Bound<'_, PyAny>) -> PyResult<Option<Py<PyAtom>>> {
         let k = extract_key(key)?;
         let py = slf.py();
@@ -688,6 +797,18 @@ impl PyAtomGroup {
         }
     }
 
+    /// Inserts an atom into this group or at a specified hierarchical path.
+    ///
+    /// If `key` contains path separators (e.g. ``"subgroup/C1"``), intermediate
+    /// child groups are created as needed and the atom is inserted at the leaf.
+    /// The inserted atom is deep-copied into the tree.
+    ///
+    /// Args:
+    ///     key (Union[str, int]): The atom key or relative/absolute path.
+    ///     atom (Atom): The atom to insert.
+    ///
+    /// Raises:
+    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn set_atom(
         slf: &Bound<'_, Self>,
         key: &Bound<'_, PyAny>,
@@ -723,6 +844,16 @@ impl PyAtomGroup {
         Ok(())
     }
 
+    /// Checks whether an atom matching the given key or name exists in this group.
+    ///
+    /// Args:
+    ///     key (Union[str, int]): The atom key or name to search for.
+    ///
+    /// Returns:
+    ///     bool: True if a matching atom is found, False otherwise.
+    ///
+    /// Raises:
+    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn has_atom(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<bool> {
         let k = extract_key(key)?;
         Ok(self.atoms.contains_key(&k)
@@ -732,11 +863,31 @@ impl PyAtomGroup {
                 .any(|a| a.borrow(py).name.trim() == k.trim()))
     }
 
+    /// Checks whether an atom with the given key exists directly in this group.
+    ///
+    /// Args:
+    ///     key (Union[str, int]): The atom key.
+    ///
+    /// Returns:
+    ///     bool: True if an atom with the key exists, False otherwise.
+    ///
+    /// Raises:
+    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn has_atomkey(&self, key: &Bound<'_, PyAny>) -> PyResult<bool> {
         let k = extract_key(key)?;
         Ok(self.atoms.contains_key(&k))
     }
 
+    /// Checks whether an atom with the given name exists directly in this group.
+    ///
+    /// Args:
+    ///     name (Union[str, int]): The atom name.
+    ///
+    /// Returns:
+    ///     bool: True if an atom with the name exists, False otherwise.
+    ///
+    /// Raises:
+    ///     TypeError: If `name` cannot be converted to a string key.
     pub fn has_atomname(&self, py: Python<'_>, name: &Bound<'_, PyAny>) -> PyResult<bool> {
         let name_str = extract_key(name)?;
         let target = name_str.trim();
@@ -748,6 +899,16 @@ impl PyAtomGroup {
         Ok(false)
     }
 
+    /// Removes an atom with the given key from this group.
+    ///
+    /// Args:
+    ///     key (Union[str, int]): The atom key to remove.
+    ///
+    /// Returns:
+    ///     Optional[Atom]: The removed atom, or None if not found.
+    ///
+    /// Raises:
+    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn del_atom(
         &mut self,
         _py: Python<'_>,
@@ -757,6 +918,16 @@ impl PyAtomGroup {
         Ok(self.atoms.shift_remove(&k))
     }
 
+    /// Removes an atom with the given key from this group.
+    ///
+    /// Args:
+    ///     key (Union[str, int]): The atom key to remove.
+    ///
+    /// Returns:
+    ///     Optional[Atom]: The removed atom, or None if not found.
+    ///
+    /// Raises:
+    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn remove_atom(
         &mut self,
         py: Python<'_>,
@@ -765,12 +936,32 @@ impl PyAtomGroup {
         self.del_atom(py, key)
     }
 
+    /// Removes an atom with the given key from this group.
+    ///
+    /// .. deprecated::
+    ///     Use :meth:`remove_atom` instead.
+    ///
+    /// Args:
+    ///     key (Union[str, int]): The atom key to remove.
+    ///
+    /// Raises:
+    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn erase_atom(&mut self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<()> {
         warn_deprecation(py, "erase_atom() is deprecated, use remove_atom() instead.")?;
         self.remove_atom(py, key)?;
         Ok(())
     }
 
+    /// Retrieves a child group matching the given key or name from this group.
+    ///
+    /// Args:
+    ///     key (Union[str, int]): The child group key or name.
+    ///
+    /// Returns:
+    ///     Optional[AtomGroup]: The child group reference, or None if not found.
+    ///
+    /// Raises:
+    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn get_group(
         slf: &Bound<'_, Self>,
         key: &Bound<'_, PyAny>,
@@ -797,6 +988,16 @@ impl PyAtomGroup {
         }
     }
 
+    /// Inserts a child group into this group with the specified key.
+    ///
+    /// The inserted group is deep-copied into the tree.
+    ///
+    /// Args:
+    ///     key (Union[str, int]): The child group key.
+    ///     group (AtomGroup): The child group to insert.
+    ///
+    /// Raises:
+    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn set_group(
         slf: &Bound<'_, Self>,
         key: &Bound<'_, PyAny>,
@@ -822,16 +1023,46 @@ impl PyAtomGroup {
         Ok(())
     }
 
+    /// Checks whether a child group matching the given key or name exists in this group.
+    ///
+    /// Args:
+    ///     key (Union[str, int]): The child group key or name.
+    ///
+    /// Returns:
+    ///     bool: True if a matching child group is found, False otherwise.
+    ///
+    /// Raises:
+    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn has_group(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<bool> {
         let k = extract_key(key)?;
         Ok(self.groups.contains_key(&k) || self.groups.values().any(|g| g.borrow(py).name == k))
     }
 
+    /// Checks whether a child group with the given key exists directly in this group.
+    ///
+    /// Args:
+    ///     key (Union[str, int]): The child group key.
+    ///
+    /// Returns:
+    ///     bool: True if a child group with the key exists, False otherwise.
+    ///
+    /// Raises:
+    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn has_groupkey(&self, key: &Bound<'_, PyAny>) -> PyResult<bool> {
         let k = extract_key(key)?;
         Ok(self.groups.contains_key(&k))
     }
 
+    /// Checks whether a child group with the given name exists directly in this group.
+    ///
+    /// Args:
+    ///     name (Union[str, int]): The child group name.
+    ///
+    /// Returns:
+    ///     bool: True if a child group with the name exists, False otherwise.
+    ///
+    /// Raises:
+    ///     TypeError: If `name` cannot be converted to a string key.
     pub fn has_groupname(&self, py: Python<'_>, name: &Bound<'_, PyAny>) -> PyResult<bool> {
         let target = extract_key(name)?;
         for g in self.groups.values() {
@@ -842,6 +1073,16 @@ impl PyAtomGroup {
         Ok(false)
     }
 
+    /// Removes a child group with the given key from this group.
+    ///
+    /// Args:
+    ///     key (Union[str, int]): The child group key to remove.
+    ///
+    /// Returns:
+    ///     Optional[AtomGroup]: The removed child group, or None if not found.
+    ///
+    /// Raises:
+    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn del_group(
         slf: &Bound<'_, Self>,
         key: &Bound<'_, PyAny>,
@@ -863,6 +1104,16 @@ impl PyAtomGroup {
         }
     }
 
+    /// Removes a child group with the given key from this group.
+    ///
+    /// Args:
+    ///     key (Union[str, int]): The child group key to remove.
+    ///
+    /// Returns:
+    ///     Optional[AtomGroup]: The removed child group, or None if not found.
+    ///
+    /// Raises:
+    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn remove_group(
         slf: &Bound<'_, Self>,
         key: &Bound<'_, PyAny>,
@@ -870,6 +1121,16 @@ impl PyAtomGroup {
         Self::del_group(slf, key)
     }
 
+    /// Removes a child group with the given key from this group.
+    ///
+    /// .. deprecated::
+    ///     Use :meth:`remove_group` instead.
+    ///
+    /// Args:
+    ///     key (Union[str, int]): The child group key to remove.
+    ///
+    /// Raises:
+    ///     TypeError: If `key` cannot be converted to a string key.
     pub fn erase_group(slf: &Bound<'_, Self>, key: &Bound<'_, PyAny>) -> PyResult<()> {
         let py = slf.py();
         warn_deprecation(
@@ -880,26 +1141,56 @@ impl PyAtomGroup {
         Ok(())
     }
 
+    /// Sorting mode for direct atoms.
+    ///
+    /// Setting to ``"nice"`` enables natural (alphanumeric) sorting of atom keys
+    /// (e.g. "C1", "C2", "C10" instead of alphabetical "C1", "C10", "C2") when
+    /// accessing atoms. Setting to None maintains insertion order.
+    ///
+    /// Returns:
+    ///     Optional[str]: The sorting mode (``"nice"`` or None).
     #[getter]
     pub fn sort_atoms(&self) -> Option<String> {
         self.sort_atoms.clone()
     }
 
+    /// Sets the sorting mode for direct atoms.
+    ///
+    /// Args:
+    ///     val (Optional[str]): The sorting mode (``"nice"`` or None).
     #[setter]
     pub fn set_sort_atoms(&mut self, val: Option<String>) {
         self.sort_atoms = val;
     }
 
+    /// Sorting mode for direct child groups.
+    ///
+    /// Setting to ``"nice"`` enables natural (alphanumeric) sorting of group keys
+    /// (e.g. "res1", "res2", "res10" instead of alphabetical "res1", "res10", "res2")
+    /// when accessing child groups. Setting to None maintains insertion order.
+    ///
+    /// Returns:
+    ///     Optional[str]: The sorting mode (``"nice"`` or None).
     #[getter]
     pub fn sort_groups(&self) -> Option<String> {
         self.sort_groups.clone()
     }
 
+    /// Sets the sorting mode for direct child groups.
+    ///
+    /// Args:
+    ///     val (Optional[str]): The sorting mode (``"nice"`` or None).
     #[setter]
     pub fn set_sort_groups(&mut self, val: Option<String>) {
         self.sort_groups = val;
     }
 
+    /// Returns a list of (key, atom) pairs for all atoms directly in this group.
+    ///
+    /// If :attr:`sort_atoms` is set to ``"nice"``, the items are sorted naturally.
+    ///
+    /// Returns:
+    ///     List[Tuple[str, Atom]]: List of (key, atom) pairs.
     pub fn atoms(slf: &Bound<'_, Self>) -> PyResult<Vec<(String, Py<PyAtom>)>> {
         let py = slf.py();
         let borrow = slf.borrow();
@@ -918,6 +1209,12 @@ impl PyAtomGroup {
         Ok(result)
     }
 
+    /// Returns a list of (key, group) pairs for all child groups directly in this group.
+    ///
+    /// If :attr:`sort_groups` is set to ``"nice"``, the items are sorted naturally.
+    ///
+    /// Returns:
+    ///     List[Tuple[str, AtomGroup]]: List of (key, group) pairs.
     pub fn groups(slf: &Bound<'_, Self>) -> PyResult<Vec<(String, Py<PyAtomGroup>)>> {
         let py = slf.py();
         let borrow = slf.borrow();
@@ -936,6 +1233,12 @@ impl PyAtomGroup {
         Ok(pairs)
     }
 
+    /// Returns a list of keys of all direct child groups.
+    ///
+    /// If :attr:`sort_groups` is set to ``"nice"``, the keys are sorted naturally.
+    ///
+    /// Returns:
+    ///     List[str]: List of child group keys.
     pub fn get_group_list(&self) -> Vec<String> {
         let mut keys: Vec<String> = self.groups.keys().cloned().collect();
         if self.sort_groups.as_deref() == Some("nice") {
@@ -944,6 +1247,12 @@ impl PyAtomGroup {
         keys
     }
 
+    /// Returns a list of keys of all direct atoms.
+    ///
+    /// If :attr:`sort_atoms` is set to ``"nice"``, the keys are sorted naturally.
+    ///
+    /// Returns:
+    ///     List[str]: List of atom keys.
     pub fn get_atom_keys(&self) -> Vec<String> {
         let mut keys: Vec<String> = self.atoms.keys().cloned().collect();
         if self.sort_atoms.as_deref() == Some("nice") {
@@ -952,6 +1261,10 @@ impl PyAtomGroup {
         keys
     }
 
+    /// Recursively collects and returns all atoms in this group and all descendant groups.
+    ///
+    /// Returns:
+    ///     List[Atom]: Flat list of all atoms in the hierarchy.
     pub fn get_atom_list(slf: &Bound<'_, Self>) -> PyResult<Vec<Py<PyAtom>>> {
         let py = slf.py();
         let mut list = Vec::new();
@@ -992,12 +1305,26 @@ impl PyAtomGroup {
         Ok(list)
     }
 
+    /// Recursively collects and returns the paths of all atoms in this group and descendant groups.
+    ///
+    /// Returns:
+    ///     List[str]: List of full paths for all atoms in the hierarchy.
     pub fn get_path_list(slf: &Bound<'_, Self>) -> PyResult<Vec<String>> {
         let py = slf.py();
         let atoms = Self::get_atom_list(slf)?;
         Ok(atoms.iter().map(|a| a.borrow(py).path.clone()).collect())
     }
 
+    /// Recursively searches and collects atoms whose key or name matches the target string.
+    ///
+    /// Args:
+    ///     key_or_name (Union[str, int]): The atom key or name to match.
+    ///
+    /// Returns:
+    ///     List[Atom]: List of matching atoms found across the hierarchy.
+    ///
+    /// Raises:
+    ///     TypeError: If `key_or_name` cannot be converted to a string key.
     pub fn pickup_atoms(
         slf: &Bound<'_, Self>,
         key_or_name: &Bound<'_, PyAny>,
@@ -1046,6 +1373,16 @@ impl PyAtomGroup {
         Ok(result)
     }
 
+    /// Sequentially assigns partial charges from a sequence to all atoms in the hierarchy.
+    ///
+    /// The number of values in `charges` must exactly match the total atom count.
+    ///
+    /// Args:
+    ///     charges (Sequence[float]): An iterable of numerical charge values.
+    ///
+    /// Raises:
+    ///     TypeError: If `charges` is not a valid sequence.
+    ///     ValueError: If the length of `charges` does not match the total atom count.
     pub fn assign_charges(slf: &Bound<'_, Self>, charges: &Bound<'_, PyAny>) -> PyResult<()> {
         let total_atoms = slf.borrow().get_number_of_all_atoms();
         let charges_len = charges.len().map_err(|_| {
@@ -1074,6 +1411,19 @@ impl PyAtomGroup {
         Ok(())
     }
 
+    /// Navigates the hierarchy tree and retrieves the group matching a query path.
+    ///
+    /// Supports relative paths (e.g. ``"."``, ``".."``, ``"../res2"``) and absolute
+    /// paths starting with ``"/"``.
+    ///
+    /// Args:
+    ///     query_path (Union[str, int]): The path to navigate to.
+    ///
+    /// Returns:
+    ///     Optional[AtomGroup]: The matched group, or None if not found.
+    ///
+    /// Raises:
+    ///     TypeError: If `query_path` cannot be converted to a string.
     pub fn get_family(
         slf: &Bound<'_, Self>,
         query_path: &Bound<'_, PyAny>,
@@ -1133,6 +1483,16 @@ impl PyAtomGroup {
         Ok(None)
     }
 
+    /// Splits a hierarchical path string into individual component strings.
+    ///
+    /// Args:
+    ///     path (Union[str, int]): The path string to split.
+    ///
+    /// Returns:
+    ///     List[str]: List of path segment strings.
+    ///
+    /// Raises:
+    ///     TypeError: If `path` cannot be converted to a string.
     #[staticmethod]
     pub fn divide_path(path: &Bound<'_, PyAny>) -> PyResult<Vec<String>> {
         let s = extract_key(path)?;
@@ -1144,6 +1504,10 @@ impl PyAtomGroup {
         Ok(parts)
     }
 
+    /// Total electric charge of this group and all its descendant groups.
+    ///
+    /// Returns:
+    ///     float: Sum of atomic partial charges.
     #[getter]
     pub fn charge(&self, py: Python<'_>) -> f64 {
         let mut sum = 0.0;
@@ -1156,6 +1520,10 @@ impl PyAtomGroup {
         sum
     }
 
+    /// Sum of atomic numbers of all atoms in this group and all descendant groups.
+    ///
+    /// Returns:
+    ///     float: Sum of atomic numbers.
     #[getter]
     pub fn real_nuclei_charge(&self, py: Python<'_>) -> f64 {
         let mut sum = 0.0;
@@ -1171,6 +1539,12 @@ impl PyAtomGroup {
         sum
     }
 
+    /// Nuclear charge of all atoms in this group and all descendant groups.
+    ///
+    /// For atoms where atomic number is zero, their partial charge is used instead.
+    ///
+    /// Returns:
+    ///     float: Total nuclear charge.
     #[getter]
     pub fn nuclei_charge(&self, py: Python<'_>) -> f64 {
         let mut sum = 0.0;
@@ -1188,12 +1562,20 @@ impl PyAtomGroup {
         sum
     }
 
+    /// Returns a set of unique chemical element symbols present in the hierarchy.
+    ///
+    /// Returns:
+    ///     Set[str]: Set of element symbols (e.g. `{"C", "H", "N", "O"}`).
     pub fn get_atom_kinds<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PySet>> {
         let set = PySet::empty(py)?;
         self.collect_atom_kinds(py, &set)?;
         Ok(set)
     }
 
+    /// Generates an XYZ-format coordinate block string for all atoms in the hierarchy.
+    ///
+    /// Returns:
+    ///     str: Multi-line XYZ coordinate string.
     pub fn get_xyz(&self, py: Python<'_>) -> PyResult<String> {
         let count = self.get_number_of_all_atoms();
         let mut output = format!("{}\n# \n", count);
@@ -1201,18 +1583,40 @@ impl PyAtomGroup {
         Ok(output)
     }
 
+    /// Returns a dictionary mapping element symbols to their occurrence counts.
+    ///
+    /// Returns:
+    ///     Dict[str, int]: Counts of each chemical element.
     pub fn get_atom_kinds_count(&self) -> HashMap<String, usize> {
         Python::attach(|py| self.to_core(py).get_atom_kinds_count())
     }
 
+    /// Computes the chemical formula formatted using the Hill system.
+    ///
+    /// If carbon is present, carbon is listed first, followed by hydrogen, and then
+    /// all other elements in alphabetical order. Otherwise, all elements are listed
+    /// in alphabetical order.
+    ///
+    /// Returns:
+    ///     str: The Hill-system chemical formula (e.g. "C6H12O6").
     pub fn get_formula(&self) -> String {
         Python::attach(|py| self.to_core(py).get_formula())
     }
 
+    /// Returns the chemical formula formatted using the Hill system.
+    ///
+    /// Alias for :meth:`get_formula`.
+    ///
+    /// Returns:
+    ///     str: The Hill-system chemical formula.
     pub fn formula(&self) -> String {
         self.get_formula()
     }
 
+    /// Total molecular weight of all atoms in this group and descendant groups.
+    ///
+    /// Returns:
+    ///     float: Total molecular weight in atomic mass units (Da).
     #[getter]
     pub fn weight(&self) -> f64 {
         Python::attach(|py| {
@@ -1224,10 +1628,18 @@ impl PyAtomGroup {
         })
     }
 
+    /// Computes the geometric center (centroid) of all atoms in the hierarchy.
+    ///
+    /// Returns:
+    ///     Position: The centroid coordinates.
     pub fn center(&self) -> PyPosition {
         Python::attach(|py| PyPosition::from_core(self.to_core(py).center()))
     }
 
+    /// Computes the axis-aligned bounding box enclosing all atoms in the hierarchy.
+    ///
+    /// Returns:
+    ///     Tuple[Position, Position]: A tuple of `(min_position, max_position)`.
     pub fn r#box(&self) -> (PyPosition, PyPosition) {
         Python::attach(|py| {
             let (bmin, bmax) = self.to_core(py).r#box();
@@ -1235,10 +1647,23 @@ impl PyAtomGroup {
         })
     }
 
+    /// Computes the axis-aligned bounding box enclosing all atoms in the hierarchy.
+    ///
+    /// Alias for :meth:`box`.
+    ///
+    /// Returns:
+    ///     Tuple[Position, Position]: A tuple of `(min_position, max_position)`.
     pub fn get_box(&self) -> (PyPosition, PyPosition) {
         self.r#box()
     }
 
+    /// Merges another `AtomGroup` hierarchy into this group in-place.
+    ///
+    /// Subgroups and atoms are merged recursively. Existing bonds and secondary
+    /// structure information from `other` are also incorporated.
+    ///
+    /// Args:
+    ///     other (AtomGroup): The atom group to merge into this group.
     pub fn merge(slf: &Bound<'_, Self>, other: &Bound<'_, PyAtomGroup>) -> PyResult<()> {
         let py = slf.py();
         let other_ref = other.borrow();
@@ -1301,6 +1726,17 @@ impl PyAtomGroup {
         Ok(())
     }
 
+    /// Extracts a subset of atoms/groups matching a selector into a new `AtomGroup`.
+    ///
+    /// Args:
+    ///     selector (Union[Selector, Any]): A selector object (e.g. `SelectSymbol`,
+    ///         `SelectName`, `SelectPath`, etc.) or any object providing an `is_match` method.
+    ///
+    /// Returns:
+    ///     AtomGroup: A new atom group containing only the matched components.
+    ///
+    /// Raises:
+    ///     TypeError: If `selector` is not a recognized selector type.
     pub fn select(&self, py: Python<'_>, selector: &Bound<'_, PyAny>) -> PyResult<PyAtomGroup> {
         let core = self.to_core(py);
         if let Ok(s) = selector.extract::<PyRef<crate::selector::PySelectSymbol>>() {
@@ -1398,6 +1834,14 @@ impl PyAtomGroup {
         )))
     }
 
+    /// Registers a chemical bond between two atoms in the group hierarchy.
+    ///
+    /// The bond is stored at the lowest common ancestor group of the two atoms.
+    ///
+    /// Args:
+    ///     atom1 (Atom): The first atom.
+    ///     atom2 (Atom): The second atom.
+    ///     order (int, optional): The bond order (1 for single, 2 for double, etc.). Defaults to 1.
     #[pyo3(signature = (atom1, atom2, order=1))]
     pub fn add_bond(
         slf: &Bound<'_, Self>,
@@ -1453,6 +1897,10 @@ impl PyAtomGroup {
         Ok(())
     }
 
+    /// Returns a list of bond records stored directly in this group.
+    ///
+    /// Returns:
+    ///     List[Tuple[str, str, int]]: List of `(atom1_path, atom2_path, order)` tuples.
     pub fn bonds(&self) -> Vec<(String, String, usize)> {
         self.bonds
             .iter()
@@ -1460,6 +1908,10 @@ impl PyAtomGroup {
             .collect()
     }
 
+    /// Returns a list of all bonds in this group and all its descendant groups.
+    ///
+    /// Returns:
+    ///     List[Tuple[str, str, int]]: List of `(atom1_path, atom2_path, order)` tuples.
     pub fn get_bond_list(&self, py: Python<'_>) -> Vec<(String, String, usize)> {
         let mut core = self.to_core(py);
         core.get_bond_list()
@@ -1468,6 +1920,10 @@ impl PyAtomGroup {
             .collect()
     }
 
+    /// Assigns standard bonds, bond orders, and atom types using the built-in CCD template database.
+    ///
+    /// Raises:
+    ///     BridgeError: If template matching or topology assignment fails.
     pub fn setup(&mut self, py: Python<'_>) -> PyResult<()> {
         let mut core = self.to_core(py);
         core.setup().map_err(to_py_err)?;
@@ -1475,6 +1931,13 @@ impl PyAtomGroup {
         Ok(())
     }
 
+    /// Assigns bonds, bond orders, and atom types using a provided CCD template database.
+    ///
+    /// Args:
+    ///     db (CcdTemplateDb): The Chemical Component Dictionary template database.
+    ///
+    /// Raises:
+    ///     BridgeError: If template matching or topology assignment fails.
     pub fn setup_with_db(&mut self, py: Python<'_>, db: &PyCcdTemplateDb) -> PyResult<()> {
         let mut core = self.to_core(py);
         core.setup_with_db(&db.inner).map_err(to_py_err)?;
@@ -1482,6 +1945,17 @@ impl PyAtomGroup {
         Ok(())
     }
 
+    /// Adds missing hydrogen atoms based on CCD residue templates.
+    ///
+    /// Args:
+    ///     db (Optional[CcdTemplateDb], optional): The CCD template database to use.
+    ///         If None, the global default database is used. Defaults to None.
+    ///
+    /// Returns:
+    ///     OverallHydrogenationReport: Summary report of added hydrogens.
+    ///
+    /// Raises:
+    ///     BridgeError: If hydrogen coordinate generation fails.
     #[pyo3(signature = (db=None))]
     pub fn add_missing_hydrogens(
         &mut self,
@@ -1498,6 +1972,12 @@ impl PyAtomGroup {
         PyOverallHydrogenationReport::new(py, report)
     }
 
+    /// Detects and assigns secondary structure annotations ('H', 'E', '-') to residues in this chain.
+    ///
+    /// Modifications are applied in-place to residue groups.
+    ///
+    /// Raises:
+    ///     BridgeError: If secondary structure calculation encounters an error.
     pub fn apply_secondary_structure(&mut self, py: Python<'_>) -> PyResult<()> {
         let mut core = self.to_core(py);
         core_apply_secondary_structure(&mut core);
@@ -1505,21 +1985,47 @@ impl PyAtomGroup {
         Ok(())
     }
 
+    /// Translates all atomic coordinates in this hierarchy by a displacement vector.
+    ///
+    /// Args:
+    ///     dir (Union[Position, str, Sequence[float]]): The translation displacement vector.
+    ///
+    /// Raises:
+    ///     TypeError: If `dir` cannot be converted to a `Position`.
     pub fn shift_by(&mut self, py: Python<'_>, dir: &Bound<'_, PyAny>) -> PyResult<()> {
         let pos = extract_pos(dir)?;
         self.shift_by_position(py, pos);
         Ok(())
     }
 
+    /// Rotates all atomic coordinates in this hierarchy using a 3x3 rotation matrix.
+    ///
+    /// Args:
+    ///     rotmat (Union[Matrix, Sequence[Sequence[float]]]): The 3x3 rotation matrix.
+    ///
+    /// Raises:
+    ///     TypeError: If `rotmat` is not a valid 3x3 rotation matrix.
     pub fn rotate(&mut self, py: Python<'_>, rotmat: &Bound<'_, PyAny>) -> PyResult<()> {
         let core_mat = crate::matrix::extract_rotation_matrix(rotmat)?;
         self.rotate_core(py, &core_mat)
     }
 
+    /// Returns the sum of atomic numbers of all atoms in this group and descendant groups.
+    ///
+    /// Returns:
+    ///     float: Sum of atomic numbers.
     pub fn sum_of_atomic_number(&self) -> f64 {
         Python::attach(|py| self.to_core(py).sum_of_atomic_number())
     }
 
+    /// Reorganizes atoms to match the hierarchy of a reference `AtomGroup` based on coordinate proximity.
+    ///
+    /// Args:
+    ///     reference (AtomGroup): Reference structure providing the target hierarchy.
+    ///     range (float, optional): Proximity distance threshold in Angstroms. Defaults to 1.0e-5.
+    ///
+    /// Returns:
+    ///     AtomGroup: A new restructured atom group.
     #[pyo3(signature = (reference, range=1.0e-5))]
     pub fn restructure(
         &self,
@@ -1665,12 +2171,27 @@ impl PyAtomGroup {
         Python::attach(|py| format!("{}", self.to_core(py)))
     }
 
+    /// Serializes the hierarchy tree into a nested dictionary representation.
+    ///
+    /// Returns:
+    ///     dict: Nested dictionary containing group and atom data.
     pub fn get_raw_data<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let core = self.to_core(py);
         let val = proteindf_bridge::brd::atomgroup_get_raw_data(&core);
         crate::value::value_to_py(py, &val)
     }
 
+    /// Replaces the group content with data loaded from a nested dictionary.
+    ///
+    /// Args:
+    ///     data (dict): Nested dictionary representing tree data.
+    ///
+    /// Returns:
+    ///     AtomGroup: Self, populated with the dictionary data.
+    ///
+    /// Raises:
+    ///     TypeError: If `data` is not a valid dictionary.
+    ///     ValueError: If dictionary structure is corrupted or invalid.
     pub fn set_by_dict_data<'py>(
         slf: &Bound<'py, Self>,
         data: &Bound<'_, pyo3::types::PyDict>,
@@ -1805,6 +2326,15 @@ impl PyAtomGroup {
         Ok((cls, empty_args, state))
     }
 
+    /// Exports the hierarchical atom and group data to a CSV file.
+    ///
+    /// The CSV is written atomically via a temporary file.
+    ///
+    /// Args:
+    ///     path (str): Destination file path for the CSV file.
+    ///
+    /// Raises:
+    ///     BridgeInputError: If file creation, writing, or renaming fails.
     pub fn save_csv(&self, py: Python<'_>, path: &str) -> PyResult<()> {
         let path_ref = std::path::Path::new(path);
         let parent = path_ref
