@@ -20,6 +20,30 @@ type AtomState = (
     (f64, f64, f64),
 );
 
+/// Represents an atom in a molecular structure.
+///
+/// Encapsulates atomic properties such as atomic number, element symbol,
+/// atom name, label, partial charge, hierarchical path, 3D coordinates,
+/// and forces.
+///
+/// Args:
+///     *args: At most 1 positional argument.
+///         - If an Atom: Clones the properties of the given atom.
+///         - If a str: Element symbol (e.g., "C", "CA").
+///         - If an int: Atomic number (Z).
+///         - If a dict: Dictionary with keys "Z", "name", "Q", "xyz", "force".
+///     **kwargs: Keyword arguments for atom properties:
+///         - symbol (str): Element symbol.
+///         - name (str): Atom name.
+///         - label (str): Atom label.
+///         - charge (float): Partial atomic charge.
+///         - path (str): Hierarchical path.
+///         - position or xyz (Position, sequence of floats, or str): 3D coordinates.
+///         - force (Position, sequence of floats, or str): Force vector.
+///
+/// Raises:
+///     TypeError: If positional arguments exceed 1 or argument types are invalid.
+///     BrValueError: If symbol is invalid or coordinates cannot be parsed.
 #[pyclass(name = "Atom", module = "proteindf_bridge.rs")]
 pub struct PyAtom {
     pub(crate) atomic_number: usize,
@@ -84,6 +108,15 @@ fn to_charge(val: &Bound<'_, PyAny>) -> PyResult<f64> {
 
 #[pymethods]
 impl PyAtom {
+    /// Initializes a new Atom instance.
+    ///
+    /// Args:
+    ///     *args: At most 1 positional argument (Atom, symbol string, atomic number int, or dict).
+    ///     **kwargs: Keyword arguments (symbol, name, label, charge, path, position/xyz, force).
+    ///
+    /// Raises:
+    ///     TypeError: If positional arguments exceed 1 or argument types are invalid.
+    ///     BrValueError: If symbol is invalid or coordinates cannot be parsed.
     #[new]
     #[pyo3(signature = (*args, **kwargs))]
     pub fn new(
@@ -157,6 +190,7 @@ impl PyAtom {
         Self::from_core(py, atom)
     }
 
+    /// The atomic number (Z) of the atom.
     #[getter]
     pub fn atomic_number(&self) -> usize {
         self.atomic_number
@@ -167,6 +201,7 @@ impl PyAtom {
         self.atomic_number = val;
     }
 
+    /// The chemical element symbol (e.g., 'C', 'N', 'O').
     #[getter]
     pub fn symbol(&self) -> PyResult<String> {
         proteindf_bridge::periodic_table::PeriodicTable::get_symbol(self.atomic_number)
@@ -182,6 +217,7 @@ impl PyAtom {
         Ok(())
     }
 
+    /// The atom name (e.g., 'CA', 'CB').
     #[getter]
     pub fn name(&self) -> String {
         self.name.clone()
@@ -192,6 +228,7 @@ impl PyAtom {
         self.name = val;
     }
 
+    /// The atom label.
     #[getter]
     pub fn label(&self) -> String {
         self.label.clone()
@@ -202,6 +239,7 @@ impl PyAtom {
         self.label = val;
     }
 
+    /// The partial atomic charge.
     #[getter]
     pub fn charge(&self) -> f64 {
         self.charge
@@ -213,6 +251,7 @@ impl PyAtom {
         Ok(())
     }
 
+    /// The hierarchical path of the atom in the structure tree.
     #[getter]
     pub fn path(&self) -> String {
         self.path.clone()
@@ -223,6 +262,7 @@ impl PyAtom {
         self.path = val;
     }
 
+    /// The 3D coordinates of the atom as a Position object.
     #[getter]
     pub fn xyz(&self, py: Python<'_>) -> Py<PyPosition> {
         self.xyz.clone_ref(py)
@@ -235,6 +275,7 @@ impl PyAtom {
         Ok(())
     }
 
+    /// Alias for xyz. The 3D coordinates of the atom as a Position object.
     #[getter]
     pub fn position(&self, py: Python<'_>) -> Py<PyPosition> {
         self.xyz(py)
@@ -245,6 +286,7 @@ impl PyAtom {
         self.set_xyz(py, val)
     }
 
+    /// The force vector acting on the atom as a Position object.
     #[getter]
     pub fn force(&self, py: Python<'_>) -> Py<PyPosition> {
         self.force.clone_ref(py)
@@ -257,21 +299,41 @@ impl PyAtom {
         Ok(())
     }
 
+    /// True if the atom represents a real element (atomic number > 0), False otherwise.
     #[getter]
     pub fn is_real(&self) -> bool {
         self.atomic_number > 0
     }
 
+    /// The van der Waals radius of the atom in Angstroms.
     #[getter]
     pub fn vdw(&self) -> PyResult<f64> {
         proteindf_bridge::periodic_table::PeriodicTable::vdw(self.atomic_number).map_err(to_py_err)
     }
 
+    /// Returns the standard atomic weight of the element.
+    ///
+    /// Returns:
+    ///     The atomic weight in unified atomic mass units (Da) as a float.
+    ///
+    /// Raises:
+    ///     BrValueError: If the atomic number has no standard atomic weight.
     pub fn weight(&self) -> PyResult<f64> {
         proteindf_bridge::periodic_table::PeriodicTable::atomic_weight(self.atomic_number)
             .map_err(to_py_err)
     }
 
+    /// Moves the atom to the specified position in-place.
+    ///
+    /// Args:
+    ///     pos: The target position as a Position, a sequence of 3 floats, or a coordinate string.
+    ///
+    /// Returns:
+    ///     The Atom object itself (self).
+    ///
+    /// Raises:
+    ///     TypeError: If pos is not a valid coordinate specification.
+    ///     BrValueError: If parsing pos fails.
     pub fn move_to(slf: Py<Self>, pos: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<Py<Self>> {
         let p = extract_pos(pos)?;
         let borrow = slf.borrow(py);
@@ -280,6 +342,17 @@ impl PyAtom {
         Ok(slf)
     }
 
+    /// Translates the atom coordinates by a displacement vector in-place.
+    ///
+    /// Args:
+    ///     dir: The displacement vector as a Position, a sequence of 3 floats, or a coordinate string.
+    ///
+    /// Returns:
+    ///     The Atom object itself (self).
+    ///
+    /// Raises:
+    ///     TypeError: If dir is not a valid coordinate specification.
+    ///     BrValueError: If parsing dir fails.
     pub fn shift_by(slf: Py<Self>, dir: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<Py<Self>> {
         let d = extract_pos(dir)?;
         let borrow = slf.borrow(py);
@@ -288,6 +361,14 @@ impl PyAtom {
         Ok(slf)
     }
 
+    /// Rotates the atom coordinates in-place using a 3x3 rotation matrix.
+    ///
+    /// Args:
+    ///     rotmat: A 3x3 rotation matrix (Matrix or nested sequence of numbers).
+    ///
+    /// Raises:
+    ///     TypeError: If rotmat cannot be parsed as a rotation matrix.
+    ///     BrValueError: If matrix dimensions are not 3x3.
     pub fn rotate(&self, py: Python<'_>, rotmat: &Bound<'_, PyAny>) -> PyResult<()> {
         let core_mat = crate::matrix::extract_rotation_matrix(rotmat)?;
         self.xyz
@@ -297,6 +378,10 @@ impl PyAtom {
             .map_err(to_py_err)
     }
 
+    /// Returns the atom properties as a dictionary.
+    ///
+    /// Returns:
+    ///     A dictionary with keys 'Z', 'name', 'Q', 'xyz', and 'force'.
     pub fn get_raw_data<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let dict = PyDict::new(py);
         dict.set_item("Z", self.atomic_number)?;
@@ -309,6 +394,14 @@ impl PyAtom {
         Ok(dict)
     }
 
+    /// Updates the atom properties from a dictionary in-place.
+    ///
+    /// Args:
+    ///     data: A dictionary containing atom attributes ('Z', 'name', 'Q', 'xyz', 'force').
+    ///
+    /// Raises:
+    ///     TypeError: If values in the dictionary cannot be converted to expected types.
+    ///     BrValueError: If position or force coordinates cannot be parsed.
     pub fn set_by_raw_data(&mut self, py: Python<'_>, data: &Bound<'_, PyDict>) -> PyResult<()> {
         if let Some(z) = data.get_item("Z")? {
             self.atomic_number = z.extract::<usize>()?;
