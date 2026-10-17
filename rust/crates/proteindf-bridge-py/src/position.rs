@@ -7,6 +7,20 @@ use pyo3::exceptions::{PyIndexError, PyTypeError};
 use pyo3::prelude::*;
 use std::str::FromStr;
 
+/// Represents a 3D Cartesian position vector (x, y, z).
+///
+/// Supports basic vector arithmetic (addition, subtraction, scalar multiplication,
+/// dot product, cross product, and normalization).
+///
+/// Args:
+///     *args: 0, 1, or 3 positional arguments.
+///         - If 0 arguments: Initializes to origin (0.0, 0.0, 0.0).
+///         - If 1 argument: Another Position, a sequence of 3 numbers, or a coordinate string.
+///         - If 3 arguments: Three numbers (x, y, z).
+///
+/// Raises:
+///     TypeError: If the arguments are invalid in count or type.
+///     BrInputError: If parsing from a string or slice fails.
 #[pyclass(name = "Position", module = "proteindf_bridge.rs", from_py_object)]
 #[derive(Clone)]
 pub struct PyPosition {
@@ -60,6 +74,17 @@ fn extract_scalar(py: Python<'_>, obj: &Bound<'_, PyAny>) -> Option<f64> {
 
 #[pymethods]
 impl PyPosition {
+    /// Initializes a new Position instance.
+    ///
+    /// Args:
+    ///     *args: 0, 1, or 3 positional arguments.
+    ///         - If 0 arguments: Initializes to (0.0, 0.0, 0.0).
+    ///         - If 1 argument: Another Position, a sequence of 3 numbers, or a coordinate string.
+    ///         - If 3 arguments: Three numbers (x, y, z).
+    ///
+    /// Raises:
+    ///     TypeError: If the arguments are invalid in count or type.
+    ///     BrInputError: If parsing from a string or slice fails.
     #[new]
     #[pyo3(signature = (*args))]
     pub fn new(args: &Bound<'_, pyo3::types::PyTuple>) -> PyResult<Self> {
@@ -84,6 +109,7 @@ impl PyPosition {
         }
     }
 
+    /// The x-coordinate value.
     #[getter]
     pub fn x(&self) -> f64 {
         self.inner.x
@@ -94,6 +120,7 @@ impl PyPosition {
         self.inner.x = val;
     }
 
+    /// The y-coordinate value.
     #[getter]
     pub fn y(&self) -> f64 {
         self.inner.y
@@ -104,6 +131,7 @@ impl PyPosition {
         self.inner.y = val;
     }
 
+    /// The z-coordinate value.
     #[getter]
     pub fn z(&self) -> f64 {
         self.inner.z
@@ -114,6 +142,7 @@ impl PyPosition {
         self.inner.z = val;
     }
 
+    /// The coordinates as a list of three floats [x, y, z].
     #[getter]
     pub fn xyz(&self) -> [f64; 3] {
         self.inner.xyz()
@@ -126,6 +155,7 @@ impl PyPosition {
         Ok(())
     }
 
+    /// Alias for xyz. The coordinates as a list of three floats [x, y, z].
     #[getter]
     pub fn position(&self) -> [f64; 3] {
         self.xyz()
@@ -136,6 +166,7 @@ impl PyPosition {
         self.set_xyz(arg)
     }
 
+    /// Distance tolerance threshold used for equality comparisons.
     #[getter]
     pub fn epsilon(&self) -> f64 {
         self.inner.epsilon
@@ -146,12 +177,32 @@ impl PyPosition {
         self.inner.epsilon = val;
     }
 
+    /// Sets the position to new coordinates in-place.
+    ///
+    /// Args:
+    ///     arg: Target coordinates as a Position, a sequence of 3 floats, or a coordinate string.
+    ///
+    /// Raises:
+    ///     TypeError: If arg is not a valid coordinate specification.
+    ///     BrInputError: If parsing from a string or slice fails.
     pub fn move_to(&mut self, arg: &Bound<'_, PyAny>) -> PyResult<()> {
         let new_pos = extract_position(arg)?;
         self.inner.move_to(new_pos);
         Ok(())
     }
 
+    /// Calculates the squared Euclidean distance to another position.
+    ///
+    /// Args:
+    ///     other: The target position as a Position, a sequence of 3 floats, or a coordinate string.
+    ///         Defaults to None (the origin).
+    ///
+    /// Returns:
+    ///     The squared Euclidean distance as a float.
+    ///
+    /// Raises:
+    ///     TypeError: If other is not a valid coordinate specification.
+    ///     BrInputError: If parsing other fails.
     #[pyo3(signature = (other=None))]
     pub fn square_distance_from(&self, other: Option<&Bound<'_, PyAny>>) -> PyResult<f64> {
         let target = match other {
@@ -161,6 +212,18 @@ impl PyPosition {
         Ok(self.inner.square_distance_from(&target))
     }
 
+    /// Calculates the Euclidean distance to another position.
+    ///
+    /// Args:
+    ///     other: The target position as a Position, a sequence of 3 floats, or a coordinate string.
+    ///         Defaults to None (the origin).
+    ///
+    /// Returns:
+    ///     The Euclidean distance as a float.
+    ///
+    /// Raises:
+    ///     TypeError: If other is not a valid coordinate specification.
+    ///     BrInputError: If parsing other fails.
     #[pyo3(signature = (other=None))]
     pub fn distance_from(&self, other: Option<&Bound<'_, PyAny>>) -> PyResult<f64> {
         let target = match other {
@@ -170,6 +233,13 @@ impl PyPosition {
         Ok(self.inner.distance_from(&target))
     }
 
+    /// Normalizes the position vector in-place to unit length.
+    ///
+    /// Returns:
+    ///     The normalized Position object (self).
+    ///
+    /// Raises:
+    ///     BrValueError: If the vector has zero length.
     pub fn norm(slf: Py<Self>, py: Python<'_>) -> PyResult<Py<Self>> {
         let mut borrow = slf.borrow_mut(py);
         borrow.inner.norm().map_err(to_py_err)?;
@@ -177,16 +247,46 @@ impl PyPosition {
         Ok(slf)
     }
 
+    /// Rotates the position vector in-place by a 3x3 rotation matrix.
+    ///
+    /// Args:
+    ///     mat: A 3x3 rotation matrix (Matrix or an object with rows, cols, and get(row, col)).
+    ///
+    /// Raises:
+    ///     TypeError: If mat is not a Matrix or an object with rows, cols, and get(row, col).
+    ///     ValueError: If matrix dimensions are not 3x3.
     pub fn rotate(&mut self, mat: &Bound<'_, PyAny>) -> PyResult<()> {
         let core_mat = crate::matrix::extract_rotation_matrix(mat)?;
         self.inner.rotate(&core_mat).map_err(to_py_err)
     }
 
+    /// Computes the dot product with another position vector.
+    ///
+    /// Args:
+    ///     other: The other position as a Position, sequence of 3 floats, or coordinate string.
+    ///
+    /// Returns:
+    ///     The dot product as a float.
+    ///
+    /// Raises:
+    ///     TypeError: If other cannot be parsed as a position.
+    ///     BrInputError: If parsing other fails.
     pub fn dot(&self, other: &Bound<'_, PyAny>) -> PyResult<f64> {
         let target = extract_position(other)?;
         Ok(self.inner.dot(&target))
     }
 
+    /// Computes the cross product with another position vector.
+    ///
+    /// Args:
+    ///     other: The other position as a Position, sequence of 3 floats, or coordinate string.
+    ///
+    /// Returns:
+    ///     A new Position instance representing the cross product vector.
+    ///
+    /// Raises:
+    ///     TypeError: If other cannot be parsed as a position.
+    ///     BrInputError: If parsing other fails.
     pub fn cross(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
         let target = extract_position(other)?;
         Ok(Self {
@@ -194,10 +294,30 @@ impl PyPosition {
         })
     }
 
+    /// Returns the coordinates as a list of three floats [x, y, z].
+    ///
+    /// Returns:
+    ///     A list containing the x, y, and z coordinates.
     pub fn get_raw_data(&self) -> [f64; 3] {
         self.inner.get_raw_data()
     }
 
+    /// Calculates the dihedral (torsion) angle in degrees formed by four points.
+    ///
+    /// The angle is measured around the axis formed by p2 and p3 for the sequence
+    /// (self, p2, p3, p4).
+    ///
+    /// Args:
+    ///     p2: The second position.
+    ///     p3: The third position.
+    ///     p4: The fourth position.
+    ///
+    /// Returns:
+    ///     The dihedral angle in degrees (-180.0 to 180.0).
+    ///
+    /// Raises:
+    ///     TypeError: If any point cannot be parsed as a position.
+    ///     BrInputError: If parsing any point fails.
     pub fn dihedral(
         &self,
         p2: &Bound<'_, PyAny>,
