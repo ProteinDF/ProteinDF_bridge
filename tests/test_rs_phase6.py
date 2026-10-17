@@ -650,7 +650,7 @@ class TestRsPhase6(unittest.TestCase):
     def test_atomgroup_save_csv(self):
         """
         Verify that rs_br.AtomGroup.save_csv produces correct CSV output
-        including CRLF line endings and expected atom lines.
+        including CRLF line endings, atom count, and exact first/last lines.
         """
         fixture_path = os.path.join(self.data_dir, "ACE_ALA_NME_trans1.brd")
         rs_ag = rs_br.load_atomgroup(fixture_path)
@@ -674,14 +674,14 @@ class TestRsPhase6(unittest.TestCase):
             # save_csv outputs one row per atom (without a header)
             self.assertEqual(len(lines), atom_count)
             self.assertEqual(atom_count, 22)
-            first_fields = lines[0].split(b",")
-            self.assertGreater(len(first_fields), 1)
+            self.assertEqual(lines[0], b"1,ACE,C,-3.371828,-1.14459,0.046331,0.0")
+            self.assertEqual(lines[-1], b"3,NME,H,4.481439,0.271273,0.257749,0.0")
 
     def test_atomgroup_save_csv_float_repr(self):
         """
         Verify that save_csv formats floats (charges and coordinates) correctly,
         including small exponents (1e-05, -2.5e-07), large exponents (1e16),
-        and normal numbers (123.0, 0.1).
+        and normal numbers (123.0, 0.1), matching expected byte-for-byte output.
         """
         test_values = [1e-05, -2.5e-07, 1e16, 123.0, 0.1, 0.0, -0.0]
         rs_ag = rs_br.AtomGroup("test_floats")
@@ -699,12 +699,16 @@ class TestRsPhase6(unittest.TestCase):
             with open(rs_csv, "rb") as f:
                 rs_bytes = f.read()
 
-            self.assertIn(b"1e-05", rs_bytes)
-            self.assertIn(b"-2.5e-07", rs_bytes)
-            self.assertIn(b"1e+16", rs_bytes)
-            self.assertIn(b"123.0", rs_bytes)
-            self.assertIn(b"0.1", rs_bytes)
-            self.assertIn(b"\r\n", rs_bytes)
+            expected_bytes = (
+                b"C,1e-05,-1e-05,2e-05,1e-05\r\n"
+                b"C,-2.5e-07,2.5e-07,-5e-07,-2.5e-07\r\n"
+                b"C,1e+16,-1e+16,2e+16,1e+16\r\n"
+                b"C,123.0,-123.0,246.0,123.0\r\n"
+                b"C,0.1,-0.1,0.2,0.1\r\n"
+                b"C,0.0,-0.0,0.0,0.0\r\n"
+                b"C,-0.0,0.0,-0.0,-0.0\r\n"
+            )
+            self.assertEqual(rs_bytes, expected_bytes)
 
     def test_atomgroup_save_csv_atomic_write_on_error(self):
         """
