@@ -16,7 +16,7 @@ use proteindf_bridge::secondary_structure::{
 };
 use pyo3::exceptions::{PyDeprecationWarning, PyKeyError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::PySet;
+use pyo3::types::{PySet, PyString};
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -1399,15 +1399,78 @@ impl PyAtomGroup {
     }
 
     #[pyo3(signature = (atom1, atom2, order=1))]
-    pub fn add_bond(&mut self, _py: Python<'_>, atom1: &PyAtom, atom2: &PyAtom, order: usize) {
+    pub fn add_bond(
+        slf: &Bound<'_, Self>,
+        atom1: &PyAtom,
+        atom2: &PyAtom,
+        order: usize,
+    ) -> PyResult<()> {
+        let py = slf.py();
+        let p1 = if atom1.path.is_empty() {
+            let borrow = slf.borrow();
+            borrow
+                .atoms
+                .iter()
+                .find(|(_, a)| a.borrow(py).name == atom1.name)
+                .map(|(k, _)| format!("{}{}", borrow.compute_path(py), k))
+                .unwrap_or_else(|| atom1.name.clone())
+        } else {
+            atom1.path.clone()
+        };
+        let p2 = if atom2.path.is_empty() {
+            let borrow = slf.borrow();
+            borrow
+                .atoms
+                .iter()
+                .find(|(_, a)| a.borrow(py).name == atom2.name)
+                .map(|(k, _)| format!("{}{}", borrow.compute_path(py), k))
+                .unwrap_or_else(|| atom2.name.clone())
+        } else {
+            atom2.path.clone()
+        };
+
+        let common_path = CoreAtomGroup::get_common_path(&p1, &p2);
+
+        let query_str = PyString::new(py, &common_path);
+        let target_group = if let Some(family) = Self::get_family(slf, query_str.as_any())? {
+            family.into_bound(py)
+        } else {
+            slf.clone()
+        };
+
+        let target_path = target_group.borrow().compute_path(py);
+        let common1 = CoreAtomGroup::get_common_path(&target_path, &p1);
+        let rel_p1 = if p1.starts_with(&common1) {
+            &p1[common1.len()..]
+        } else if p1.starts_with(&target_path) {
+            &p1[target_path.len()..]
+        } else {
+            p1.as_str()
+        }
+        .trim_start_matches('/');
+
+        let common2 = CoreAtomGroup::get_common_path(&target_path, &p2);
+        let rel_p2 = if p2.starts_with(&common2) {
+            &p2[common2.len()..]
+        } else if p2.starts_with(&target_path) {
+            &p2[target_path.len()..]
+        } else {
+            p2.as_str()
+        }
+        .trim_start_matches('/');
+
         let b = BondRecord {
-            atom1_path: atom1.path.clone(),
-            atom2_path: atom2.path.clone(),
+            atom1_path: rel_p1.to_string(),
+            atom2_path: rel_p2.to_string(),
             order,
         };
-        if !self.bonds.contains(&b) {
-            self.bonds.push(b);
+
+        let mut target_borrow = target_group.borrow_mut();
+        if !target_borrow.bonds.contains(&b) {
+            target_borrow.bonds.push(b);
         }
+
+        Ok(())
     }
 
     pub fn bonds(&self) -> Vec<(String, String, usize)> {
