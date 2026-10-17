@@ -8,62 +8,290 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-25 15:08+0900\n"
+"POT-Creation-Date: 2026-10-17 17:57+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: ja <LL@li.org>\n"
 "Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: ../../api/proteindf_bridge.position.rst:2 17d75163b55b433188b4b0d6dc8260b8
+#: ../../api/proteindf_bridge.position.rst:2 2d05d81045084d08bb43f91e00101d53
 msgid "proteindf\\_bridge.position module"
 msgstr "proteindf\\_bridge.position モジュール"
 
-#: 558774c4fdbe468a895c0c3b90fe1074 of
+#: ../../docstring 2da269711a564acf80e0534789345c55 of
+#: proteindf_bridge.rs.Position:1
+msgid "Represents a 3D Cartesian position vector (x, y, z)."
+msgstr "3次元デカルト座標の位置ベクトル (x, y, z) を表す。"
+
+#: ../../docstring bea7b0e4f3a84d189775154dbb040b4d of
+#: proteindf_bridge.rs.Position:3
+msgid ""
+"Supports basic vector arithmetic (addition, subtraction, scalar "
+"multiplication, dot product, cross product, and normalization)."
+msgstr "基本的なベクトル演算(加算、減算、スカラー倍、内積、外積、正規化)をサポートする。"
+
+#: ../../api/proteindf_bridge.position.rst 0685fd1e6b284525a12c348e612f18b4
+#: 137c30324ae740809a98455deaf8250f 25c00dd4b6a944ec878d0ddaa9382825
+#: 3ef211d957954d2c8ce7018bd996b451 9cabe71582b24ab093c7545cbba9438c
+#: c5a99c488678493ca123d40a6f816176 ef04a54c52034a7386ed46783ae97f15
+#: fe5e8437cdf840dd8ab96c0082742ac2
+msgid "Parameters"
+msgstr "パラメータ"
+
+#: ../../docstring 08aedda00e524f61911732342570ddfd of
+#: proteindf_bridge.rs.Position:7
+msgid ""
+"0, 1, or 3 positional arguments. - If 0 arguments: Initializes to origin "
+"(0.0, 0.0, 0.0). - If 1 argument: Another Position, a sequence of 3 "
+"numbers, or a coordinate string. - If 3 arguments: Three numbers (x, y, "
+"z)."
+msgstr "0個、1個、または3個の位置引数。 - 引数0個の場合: 原点 (0.0, 0.0, 0.0) で初期化。 - 引数1個の場合: 別の Position、3つの数値のシーケンス、または座標文字列。 - 引数3個の場合: 3つの数値 (x, y, z)。"
+
+#: ../../api/proteindf_bridge.position.rst 1eb82bf79de74533ad77db921f18b026
+#: 213f6d8c552749b1bbde6e25f33eb2a5 46abb6c09b9647fbbd099ede9096c2ba
+#: 787cb478c1cf4979bade73ecf16b5714 98583f048b97484a9d3d0fce9c579585
+#: be3d41b58275412788f9e2f773a77e10 cd9949b104eb43a6a3b0878340abe0c9
+#: dcb630a46a2547a6929d1f7eecbf1ac8 eaebd76bc2754c23882110857f581079
+msgid "Raises"
+msgstr "例外"
+
+#: ../../docstring b16cfd2c7b01400cb181792fb212b49a of
+#: proteindf_bridge.rs.Position:12
+msgid "If the arguments are invalid in count or type."
+msgstr "引数の数または型が無効な場合。"
+
+#: ../../docstring 44ad13e070a049e1b55b8744530b5e3d
+#: a66656d7e8b84acb880011dad706d7f7 of
+#: proteindf_bridge.position.Position.move_to:7 proteindf_bridge.rs.Position:13
+msgid "If parsing from a string or slice fails."
+msgstr "文字列またはスライスからの解析に失敗した場合。"
+
+#: ../../docstring c2530d2abc184291acd296f78c68a043 of
 #: proteindf_bridge.position.Position.cross:1
-msgid "Compute the cross product."
-msgstr "外積を求める"
+msgid "Computes the cross product with another position vector."
+msgstr "別の位置ベクトルとの外積を計算する。"
 
-#: ../../api/proteindf_bridge.position.rst 988cb6b1d45e4ac69cd4ac3b56b62e03
-#: 9e4f0ed968934f568f4671ea4f538ada a6c5db64ba3a4545a3742880da65c3eb
-#: c90479bd72944d98a589f36ff6bbe23f cb41b0e1d11047028a40d1537e942f43
-#: d5eb0da3de4849fbbd956469c5992f5c
-msgid "Return type"
-msgstr "戻り値の型"
+#: ../../docstring 58f95795a9bf4175adeea035136e8989
+#: a26f8dd0686a407aace43f8d4f91318b of
+#: proteindf_bridge.position.Position.cross:4
+#: proteindf_bridge.position.Position.dot:4
+msgid ""
+"The other position as a Position, sequence of 3 floats, or coordinate "
+"string."
+msgstr "別の位置。Position、3つの浮動小数点数のシーケンス、または座標文字列。"
 
-#: 269943b3bb4c49d3a100c466da38918f 6374d8fb27464b2db23d90cfa02a2c9e of
+#: ../../api/proteindf_bridge.position.rst 0c099c204b804fe088de1fccdc709f77
+#: 89df944079f142f1a1e70d5a9fee710d 8d71169e70c4456fab219134a85c623b
+#: c0a2eccf0c92458c9dc8069599f7338b c9966f688e814adebdc868984105ff0b
+#: ce7699e332ab44c19f0ea0bab081c574 dd61485e8f7844ca82c5896015ec6ef8
+msgid "Returns"
+msgstr "戻り値"
+
+#: ../../docstring e6e258b5d57d446ea102d482b8c9b737 of
+#: proteindf_bridge.position.Position.cross:6
+msgid "A new Position instance representing the cross product vector."
+msgstr "外積ベクトルを表す新しい Position インスタンス。"
+
+#: ../../docstring 051db11f687a482aae835e20ef10c541
+#: 4df200f9fa7147d5ba33fc660b1fbb51 of
+#: proteindf_bridge.position.Position.cross:8
+#: proteindf_bridge.position.Position.dot:8
+msgid "If other cannot be parsed as a position."
+msgstr "other を位置として解析できない場合。"
+
+#: ../../docstring 1c2dd6f074e048c9a83c0465b5f191b0
+#: 5e9ff936b2924478a19e6140cbe515f9 9789bf2305614ab7837ef73448d0e802
+#: a39ab4c9e4ea464d862867b2958ff155 of
+#: proteindf_bridge.position.Position.cross:9
+#: proteindf_bridge.position.Position.distance_from:10
+#: proteindf_bridge.position.Position.dot:9
+#: proteindf_bridge.position.Position.square_distance_from:10
+msgid "If parsing other fails."
+msgstr "other の解析に失敗した場合。"
+
+#: ../../docstring adec7c787fca4bb1a9a76fa7c4dd48db of
+#: proteindf_bridge.position.Position.dihedral:1
+msgid "Calculates the dihedral (torsion) angle in degrees formed by four points."
+msgstr "4点で形成される二面角(ねじれ角)を度単位で計算する。"
+
+#: ../../docstring 62bcf92d61e0428cafb2ab217bb351e1 of
+#: proteindf_bridge.position.Position.dihedral:3
+msgid ""
+"The angle is measured around the axis formed by p2 and p3 for the "
+"sequence (self, p2, p3, p4)."
+msgstr "シーケンス (self, p2, p3, p4) に対し、p2 と p3 で形成される軸の周りの角度を測定する。"
+
+#: ../../docstring f2f0195fcd544a72b18cfb726533fcc5 of
+#: proteindf_bridge.position.Position.dihedral:7
+msgid "The second position."
+msgstr "2番目の位置。"
+
+#: ../../docstring eab38fa9f3e14219bbdf54f36ce0844d of
+#: proteindf_bridge.position.Position.dihedral:9
+msgid "The third position."
+msgstr "3番目の位置。"
+
+#: ../../docstring c593196cb77744a7be47cd21867d359c of
+#: proteindf_bridge.position.Position.dihedral:11
+msgid "The fourth position."
+msgstr "4番目の位置。"
+
+#: ../../docstring dfd6690ed9504c4393b55bdb4b54cd31 of
+#: proteindf_bridge.position.Position.dihedral:13
+msgid "The dihedral angle in degrees (-180.0 to 180.0)."
+msgstr "度単位の二面角 (-180.0 から 180.0)。"
+
+#: ../../docstring 877fbe1e6c694343b6b1cb465a8283a4 of
+#: proteindf_bridge.position.Position.dihedral:15
+msgid "If any point cannot be parsed as a position."
+msgstr "いずれかの点を位置として解析できない場合。"
+
+#: ../../docstring 0ae73ddbd94e47a7810648dae8949755 of
+#: proteindf_bridge.position.Position.dihedral:16
+msgid "If parsing any point fails."
+msgstr "いずれかの点の解析に失敗した場合。"
+
+#: ../../docstring 20e50c8bc7c045ca89cf5b0486eb1991 of
 #: proteindf_bridge.position.Position.distance_from:1
-#: proteindf_bridge.position.Position.square_distance_from:1
-msgid ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`float\\``"
-msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`float\\``"
+msgid "Calculates the Euclidean distance to another position."
+msgstr "別の位置とのユークリッド距離を計算する。"
 
-#: 96ec838c32774866a2ac24187eba84c8 of
+#: ../../docstring 52721229d6a44152875e52c0cf1cc2ef
+#: b5e535b9d5e542fe92dfc3c2533a6566 of
+#: proteindf_bridge.position.Position.distance_from:4
+#: proteindf_bridge.position.Position.square_distance_from:4
+msgid ""
+"The target position as a Position, a sequence of 3 floats, or a "
+"coordinate string. Defaults to None (the origin)."
+msgstr "対象の位置。Position、3つの浮動小数点数のシーケンス、または座標文字列。デフォルトは None (原点)。"
+
+#: ../../docstring a5d7905c9a9046448753bc116172344b of
+#: proteindf_bridge.position.Position.distance_from:7
+msgid "The Euclidean distance as a float."
+msgstr "浮動小数点数としてのユークリッド距離。"
+
+#: ../../docstring 7981bae672e0431cab70ecddb74b2945
+#: 7bce8ef6105c42909b4f63699d5e9142 of
+#: proteindf_bridge.position.Position.distance_from:9
+#: proteindf_bridge.position.Position.square_distance_from:9
+msgid "If other is not a valid coordinate specification."
+msgstr "other が有効な座標指定でない場合。"
+
+#: ../../docstring 3334229af3e24852b5c0057f871e3d95 of
 #: proteindf_bridge.position.Position.dot:1
-msgid "Compute the dot product."
-msgstr "内積を求める"
+msgid "Computes the dot product with another position vector."
+msgstr "別の位置ベクトルとの内積を計算する。"
 
-#: 39eeeecd92bf464d96845108b267cfbc of
+#: ../../docstring 6758f99bcd7c4d258f914b4f544bbb96 of
+#: proteindf_bridge.position.Position.dot:6
+msgid "The dot product as a float."
+msgstr "浮動小数点数としての内積。"
+
+#: ../../docstring 4342c553b91f468b82b54a4efbca23bf of
+#: proteindf_bridge.position.Position.epsilon:1
+msgid "Distance tolerance threshold used for equality comparisons."
+msgstr "等価比較に使用される距離許容誤差の閾値。"
+
+#: ../../docstring 72d14e7ce0014e0e92a9cf491d99cfa0 of
 #: proteindf_bridge.position.Position.get_raw_data:1
-msgid ""
-":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~typing.List\\`\\\\ "
-"\\\\\\[\\:py\\:class\\:\\`float\\`\\]`"
-msgstr ""
-":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~typing.List\\`\\\\ "
-"\\\\\\[\\:py\\:class\\:\\`float\\`\\]`"
+msgid "Returns the coordinates as a list of three floats [x, y, z]."
+msgstr "3つの浮動小数点数のリスト [x, y, z] として座標を返す。"
 
-#: 766c3502080b4c068039cc2b44800f0c a1b8a6734397432bbd85b10e724f7605 of
+#: ../../docstring c4bc95d020f04120b53f2f521d886b8f of
+#: proteindf_bridge.position.Position.get_raw_data:3
+msgid "A list containing the x, y, and z coordinates."
+msgstr "x、y、z座標を格納したリスト。"
+
+#: ../../docstring 51722f0595dc430ab290519faaa14cbd of
 #: proteindf_bridge.position.Position.move_to:1
-#: proteindf_bridge.position.Position.rotate:1
-msgid ":sphinx_autodoc_typehints_type:`\\:py\\:obj\\:\\`None\\``"
-msgstr ":sphinx_autodoc_typehints_type:`\\:py\\:obj\\:\\`None\\``"
+msgid "Sets the position to new coordinates in-place."
+msgstr "インプレースで位置を新しい座標に設定する。"
 
-#: 1251517a73984a29bf99cdcea65f8ba6 of
-#: proteindf_bridge.position.Position.norm:1
+#: ../../docstring babcd37669a94eb2a9a584c70866dea3 of
+#: proteindf_bridge.position.Position.move_to:4
 msgid ""
-":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.position.Position\\``"
-msgstr ""
-":sphinx_autodoc_typehints_type:`\\:py\\:class\\:\\`\\~proteindf\\_bridge.position.Position\\``"
+"Target coordinates as a Position, a sequence of 3 floats, or a coordinate"
+" string."
+msgstr "対象の座標。Position、3つの浮動小数点数のシーケンス、または座標文字列。"
+
+#: ../../docstring 67bd7a10fa614a02a27a831254aad999 of
+#: proteindf_bridge.position.Position.move_to:6
+msgid "If arg is not a valid coordinate specification."
+msgstr "arg が有効な座標指定でない場合。"
+
+#: ../../docstring 09506461e9c442f79deb88466d9a5495 of
+#: proteindf_bridge.position.Position.norm:1
+msgid "Normalizes the position vector in-place to unit length."
+msgstr "インプレースで位置ベクトルを単位長さに正規化する。"
+
+#: ../../docstring cea6763ad42a41d9bbeb4b399f1e65d7 of
+#: proteindf_bridge.position.Position.norm:3
+msgid "The normalized Position object (self)."
+msgstr "正規化された Position オブジェクト (self)。"
+
+#: ../../docstring ca4eaac977ed470f90ea204f678baa83 of
+#: proteindf_bridge.position.Position.norm:5
+msgid "If the vector has zero length."
+msgstr "ベクトルの長さがゼロの場合。"
+
+#: ../../docstring ab2bb2891b10495ba32c8770bc53a153 of
+#: proteindf_bridge.position.Position.position:1
+msgid "Alias for xyz. The coordinates as a list of three floats [x, y, z]."
+msgstr "xyz の別名。3つの浮動小数点数のリスト [x, y, z] としての座標。"
+
+#: ../../docstring 3575cf1189aa456c877c8c9d667fca79 of
+#: proteindf_bridge.position.Position.rotate:1
+msgid "Rotates the position vector in-place by a 3x3 rotation matrix."
+msgstr "インプレースで 3x3 回転行列により位置ベクトルを回転させる。"
+
+#: ../../docstring db1b600e929141d5a657092816f0970d of
+#: proteindf_bridge.position.Position.rotate:4
+msgid ""
+"A 3x3 rotation matrix (Matrix or an object with rows, cols, and get(row, "
+"col))."
+msgstr "3x3 回転行列 (Matrix、または rows, cols, get(row, col) を持つオブジェクト)。"
+
+#: ../../docstring 674f71bcd170405b9ca5bfe78a371390 of
+#: proteindf_bridge.position.Position.rotate:6
+msgid "If mat is not a Matrix or an object with rows, cols, and get(row, col)."
+msgstr "mat が Matrix または rows, cols, get(row, col) を持つオブジェクトでない場合。"
+
+#: ../../docstring cc2bd7c53a464db58629297e24da4543 of
+#: proteindf_bridge.position.Position.rotate:7
+msgid "If matrix dimensions are not 3x3."
+msgstr "行列の次元が 3x3 でない場合。"
+
+#: ../../docstring d4aa66e3548440fc8fa71498e22f01c5 of
+#: proteindf_bridge.position.Position.square_distance_from:1
+msgid "Calculates the squared Euclidean distance to another position."
+msgstr "別の位置とのユークリッド距離の二乗を計算する。"
+
+#: ../../docstring 66ffecf45c3d4e46ad9a8d1f8e71baac of
+#: proteindf_bridge.position.Position.square_distance_from:7
+msgid "The squared Euclidean distance as a float."
+msgstr "浮動小数点数としてのユークリッド距離の二乗。"
+
+#: ../../docstring f0d04b228982461c9214725d3204e58c of
+#: proteindf_bridge.position.Position.x:1
+msgid "The x-coordinate value."
+msgstr "x座標の値。"
+
+#: ../../docstring 565a9761de164fa7bc5cfdd59235af3d of
+#: proteindf_bridge.position.Position.xyz:1
+msgid "The coordinates as a list of three floats [x, y, z]."
+msgstr "3つの浮動小数点数のリスト [x, y, z] としての座標。"
+
+#: ../../docstring 9b5bbde6b10a49dfa154a4b5d881d912 of
+#: proteindf_bridge.position.Position.y:1
+msgid "The y-coordinate value."
+msgstr "y座標の値。"
+
+#: ../../docstring 53496eb0471d45bdb8a0d589321041d4 of
+#: proteindf_bridge.position.Position.z:1
+msgid "The z-coordinate value."
+msgstr "z座標の値。"
