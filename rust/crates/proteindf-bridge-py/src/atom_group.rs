@@ -5,7 +5,6 @@ use crate::atom::PyAtom;
 use crate::ccd_templates::PyCcdTemplateDb;
 use crate::error::to_py_err;
 use crate::hydrogenation::PyOverallHydrogenationReport;
-use crate::matrix::PyMatrix;
 use crate::position::PyPosition;
 use crate::schema::PySchemaViolation;
 use indexmap::IndexMap;
@@ -97,6 +96,25 @@ impl PyAtomGroup {
         let path = self.compute_path(py);
         let depth = self.compute_depth(py);
         self.to_core_with_path(py, path, depth)
+    }
+
+    pub(crate) fn rotate_core(
+        &mut self,
+        py: Python<'_>,
+        rotmat: &proteindf_bridge::matrix::Matrix,
+    ) -> PyResult<()> {
+        for a in self.atoms.values() {
+            a.borrow(py)
+                .xyz
+                .borrow_mut(py)
+                .inner
+                .rotate(rotmat)
+                .map_err(to_py_err)?;
+        }
+        for g in self.groups.values() {
+            g.borrow_mut(py).rotate_core(py, rotmat)?;
+        }
+        Ok(())
     }
 
     pub(crate) fn to_core_with_path(
@@ -675,13 +693,33 @@ impl PyAtomGroup {
         key: &Bound<'_, PyAny>,
         atom: &Bound<'_, PyAtom>,
     ) -> PyResult<()> {
-        let k = extract_key(key)?;
         let py = slf.py();
-        let mut atom_copy = atom.borrow().__copy__(py)?;
-        let group_path = slf.borrow().compute_path(py);
-        atom_copy.path = format!("{}{}", group_path, k);
-        let atom_py = Py::new(py, atom_copy)?;
-        slf.borrow_mut().atoms.insert(k, atom_py);
+        let key_str = extract_key(key)?;
+        let mut cur_key = key_str.as_str();
+        while cur_key.starts_with('/') {
+            cur_key = &cur_key[1..];
+        }
+
+        if let Some((grp_key, rest)) = cur_key.split_once('/') {
+            let has_grp = slf.borrow().groups.contains_key(grp_key);
+            if !has_grp {
+                let new_group = Py::new(py, PyAtomGroup::default())?;
+                let grp_key_py = pyo3::types::PyString::new(py, grp_key);
+                Self::set_group(slf, grp_key_py.as_any(), new_group.bind(py))?;
+            }
+            let child_group = {
+                let borrow = slf.borrow();
+                borrow.groups.get(grp_key).unwrap().clone_ref(py)
+            };
+            let rest_py = pyo3::types::PyString::new(py, rest);
+            Self::set_atom(child_group.bind(py), rest_py.as_any(), atom)?;
+        } else {
+            let mut atom_copy = atom.borrow().__copy__(py)?;
+            let group_path = slf.borrow().compute_path(py);
+            atom_copy.path = format!("{}{}", group_path, cur_key);
+            let atom_py = Py::new(py, atom_copy)?;
+            slf.borrow_mut().atoms.insert(cur_key.to_string(), atom_py);
+        }
         Ok(())
     }
 
@@ -1430,14 +1468,9 @@ impl PyAtomGroup {
         Ok(())
     }
 
-    pub fn rotate(&mut self, py: Python<'_>, rotmat: &PyMatrix) -> PyResult<()> {
-        for a in self.atoms.values() {
-            a.borrow(py).rotate(py, rotmat)?;
-        }
-        for g in self.groups.values() {
-            g.borrow_mut(py).rotate(py, rotmat)?;
-        }
-        Ok(())
+    pub fn rotate(&mut self, py: Python<'_>, rotmat: &Bound<'_, PyAny>) -> PyResult<()> {
+        let core_mat = crate::matrix::extract_rotation_matrix(rotmat)?;
+        self.rotate_core(py, &core_mat)
     }
 
     pub fn sum_of_atomic_number(&self) -> f64 {
