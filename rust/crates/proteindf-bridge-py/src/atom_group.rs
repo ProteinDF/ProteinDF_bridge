@@ -2236,6 +2236,19 @@ impl PyAtomGroup {
         PyAtomGroup::from_core(py, &c1 ^ &c2)
     }
 
+    /// Multiplies the coordinates of all atoms in the hierarchy by a scalar in-place.
+    ///
+    /// Args:
+    ///     scalar (float): Scaling factor to multiply atomic coordinates by.
+    ///
+    /// Raises:
+    ///     TypeError: If `scalar` is not a numeric type.
+    pub fn __imul__(&mut self, py: Python<'_>, scalar: f64) {
+        self.for_each_atom_recursive(py, &mut |a| {
+            a.borrow().xyz.borrow_mut(py).inner *= scalar;
+        });
+    }
+
     pub fn __len__(&self) -> usize {
         self.atoms.len()
     }
