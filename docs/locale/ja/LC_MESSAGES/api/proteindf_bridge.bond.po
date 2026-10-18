@@ -4,22 +4,143 @@
 # package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
 #
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-25 12:23+0900\n"
+"POT-Creation-Date: 2026-10-18 08:57+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: ja <LL@li.org>\n"
 "Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: ../../api/proteindf_bridge.bond.rst:2 8e7cb3e0bcf64cb3b1b38651f6db0d27
+#: ../../api/proteindf_bridge.bond.rst:2 d1c91d059fe447d8ac8d0ba2d1312106
 msgid "proteindf\\_bridge.bond module"
 msgstr "proteindf\\_bridge.bond モジュール"
+
+#: ../../docstring f0925962e343400785e2a66418e3017a of
+#: proteindf_bridge.rs.Bond:1
+msgid "Heuristic bond detector based on covalent radii."
+msgstr "共有結合半径に基づくヒューリスティックな結合検出器。"
+
+#: ../../docstring eddf4e513e5b46dfb97c2acb6990c5b6 of
+#: proteindf_bridge.rs.Bond:3
+msgid "Bonds are established between pairs of atoms (p, q) satisfying:"
+msgstr "次の条件を満たす原子の組 (p, q) の間に結合を形成する:"
+
+#: ../../docstring dd5406867383450b8e79a8bb462aa8ba of
+#: proteindf_bridge.rs.Bond:5
+msgid "distance(p, q) <= covalent_radius(p) + covalent_radius(q) + 0.45 Å"
+msgstr "distance(p, q) <= covalent_radius(p) + covalent_radius(q) + 0.45 Å"
+
+#: ../../docstring 70a6709179d44c36b5ace6424435d6f8 of
+#: proteindf_bridge.rs.Bond:7
+msgid "where 0.45 Å is the covalent bond tolerance."
+msgstr "ここで 0.45 Å は共有結合許容誤差。"
+
+#: ../../docstring 7a2ac5ab8b894f8f824288ffcd9f083d of
+#: proteindf_bridge.rs.Bond:9
+msgid "Key behaviors:"
+msgstr "主な動作:"
+
+#: ../../docstring 729207b3cafe4876bd8df952b970118e of
+#: proteindf_bridge.rs.Bond:10
+msgid ""
+"No bonds across models: When the structure contains multiple models "
+"(satisfying Format.is_models), bonds are not formed between atoms "
+"belonging to different models."
+msgstr "別モデル間に結合を張らない: 構造が複数モデルを含む場合 (Format.is_models を満たす場合)、異なるモデルに属する原子間には結合を形成しない。"
+
+#: ../../docstring 0bd9e87ff16249f4b824009fc5c36229 of
+#: proteindf_bridge.rs.Bond:13
+msgid ""
+"Preservation of existing bonds: Pre-existing bonds and their bond orders "
+"in the AtomGroup are preserved and not duplicated."
+msgstr "既存結合の維持: AtomGroup 内の既存の結合およびその結合次数は保持され、重複登録されない。"
+
+#: ../../docstring 667e12551f004224a789e99f64c32fa7 of
+#: proteindf_bridge.rs.Bond:15
+msgid ""
+"Dense matrix threshold: If the number of atoms exceeds 2000, the pairwise"
+" matrices (distmat and bondmat) are None to prevent excessive memory "
+"usage, while bond connectivity is still recorded in the AtomGroup in O(N)"
+" time."
+msgstr "密行列の閾値: 原子数が2000を超える場合、過剰なメモリ消費を防ぐためペアごとの行列 (distmat および bondmat) は None となるが、結合の接続情報は O(N) の計算量で AtomGroup に記録される。"
+
+#: ../../docstring 63098924fb4a457cba2059aff7bde03f of
+#: proteindf_bridge.bond.Bond.bondmat:1
+msgid "Pairwise bond connectivity matrix, or None if atom count exceeds 2000."
+msgstr "原子対の結合接続行列。原子数が2000を超える場合は None。"
+
+#: ../../docstring 4313ff2bee984e09bba07ad720087992 of
+#: proteindf_bridge.bond.Bond.bondmat:3
+msgid ""
+"Returns a SymmetricMatrix (1.0 for bonded, 0.0 otherwise) when the number"
+" of atoms is 2000 or fewer, or None if there are more than 2000 atoms to "
+"protect against O(N^2) memory consumption."
+msgstr "原子数が2000以下の場合は SymmetricMatrix (結合ありは 1.0、なしは 0.0) を返し、2000原子を超える場合は O(N^2) のメモリ消費を防ぐため None を返す。"
+
+#: ../../docstring 89c4ffc9d0314577a745d47e3b178ef3 of
+#: proteindf_bridge.bond.Bond.distmat:1
+msgid "Pairwise atomic distance matrix, or None if atom count exceeds 2000."
+msgstr "原子対の距離行列。原子数が2000を超える場合は None。"
+
+#: ../../docstring 162e5415e3a34067bfda68d2b6b01de1 of
+#: proteindf_bridge.bond.Bond.distmat:3
+msgid ""
+"Returns a SymmetricMatrix when the number of atoms is 2000 or fewer, or "
+"None if there are more than 2000 atoms to protect against O(N^2) memory "
+"consumption."
+msgstr "原子数が2000以下の場合は SymmetricMatrix を返し、2000原子を超える場合は O(N^2) のメモリ消費を防ぐため None を返す。"
+
+#: ../../docstring cf55ffd877504722bfc1cdf1c5f0d65f of
+#: proteindf_bridge.bond.Bond.setup:1
+msgid "Detects and sets up covalent bonds for the given molecular structure."
+msgstr "指定された分子構造の共有結合を検出し設定する。"
+
+#: ../../docstring 4dc0fa0aace64a6ab81c505873effccd of
+#: proteindf_bridge.bond.Bond.setup:3
+msgid ""
+"Computes interatomic distances and adds detected covalent bonds to `mol`."
+" Existing bonds and their bond orders are preserved without duplicate "
+"registration. If `mol` represents multiple models, no bonds are formed "
+"across different models."
+msgstr "原子間距離を計算し、検出された共有結合を `mol` に追加する。既存の結合とその結合次数は重複登録されることなく保持される。`mol` が複数モデルを表す場合、別モデル間に結合は形成されない。"
+
+#: ../../api/proteindf_bridge.bond.rst 42b4055cf60149f5a94df91ae3e17e03
+msgid "Parameters"
+msgstr "パラメータ"
+
+#: ../../docstring e42e113c737e43f8a99691e70d019851 of
+#: proteindf_bridge.bond.Bond.setup:8
+msgid "Molecular structure to analyze and update."
+msgstr "解析および更新対象の分子構造。"
+
+#: ../../api/proteindf_bridge.bond.rst 8bac1f3a3fcd4dc6a84eb538895857a3
+msgid "Returns"
+msgstr "戻り値"
+
+#: ../../docstring 410144b4dd1446c3bc80c1bed23d2e85 of
+#: proteindf_bridge.bond.Bond.setup:11
+msgid "None"
+msgstr "None"
+
+#: ../../api/proteindf_bridge.bond.rst 32493d398d434e7bb5c96f8ea6b7ee60
+msgid "Raises"
+msgstr "例外"
+
+#: ../../docstring 591355b8353d4d0cb9588219ac229538 of
+#: proteindf_bridge.bond.Bond.setup:13
+msgid "If `mol` is not an AtomGroup instance."
+msgstr "`mol` が AtomGroup インスタンスでない場合。"
+
+#: ../../docstring 47519820d1bf4dcab2aa8bf41fb9b133 of
+#: proteindf_bridge.bond.Bond.setup:14
+msgid "If calculating covalent radii fails (e.g., unknown element)."
+msgstr "共有結合半径の計算に失敗した場合 (例: 未知の元素)。"
+
