@@ -16,7 +16,7 @@ use proteindf_bridge::secondary_structure::{
 };
 use pyo3::exceptions::{PyDeprecationWarning, PyKeyError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PySet, PyString};
+use pyo3::types::{PyDict, PyList, PySet, PyString};
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -1996,11 +1996,10 @@ impl PyAtomGroup {
     /// Returns:
     ///     List[Tuple[str, str, int]]: List of `(atom1_path, atom2_path, order)` tuples.
     pub fn get_bond_list(&self, py: Python<'_>) -> Vec<(String, String, usize)> {
-        let mut core = self.to_core(py);
-        core.get_bond_list()
-            .into_iter()
-            .map(|b| (b.atom1_path, b.atom2_path, b.order))
-            .collect()
+        let base_path = self.compute_path(py);
+        let mut bond_list = Vec::new();
+        collect_bond_list_py(self, py, &base_path, &mut bond_list);
+        bond_list
     }
 
     /// Assigns standard bonds, bond orders, and atom types using the built-in CCD template database.
@@ -2273,10 +2272,8 @@ impl PyAtomGroup {
     ///
     /// Returns:
     ///     dict: Nested dictionary containing group and atom data.
-    pub fn get_raw_data<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let core = self.to_core(py);
-        let val = proteindf_bridge::brd::atomgroup_get_raw_data(&core);
-        crate::value::value_to_py(py, &val)
+    pub fn get_raw_data<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        build_atomgroup_raw_data(self, py)
     }
 
     /// Replaces the group content with data loaded from a nested dictionary.
@@ -2328,13 +2325,11 @@ impl PyAtomGroup {
     }
 
     pub fn __getstate__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let core = self.to_core(py);
-        let val = proteindf_bridge::brd::atomgroup_get_raw_data(&core);
-        let raw_py = crate::value::value_to_py(py, &val)?;
+        let raw_py = build_atomgroup_raw_data(self, py)?;
         let path = self.compute_path(py);
 
         let mut ss_list = Vec::new();
-        collect_secondary_structures(&core, &mut ss_list);
+        collect_secondary_structures_py(self, py, &path, &mut ss_list);
 
         let ss_list_py = pyo3::types::PyList::empty(py);
         for (p, ss) in ss_list {
@@ -2354,7 +2349,7 @@ impl PyAtomGroup {
         let state_tuple = pyo3::types::PyTuple::new(
             py,
             &[
-                raw_py,
+                raw_py.into_any(),
                 path.into_pyobject(py)?.into_any(),
                 ss_list_py.into_any(),
                 sort_list_py.into_any(),
@@ -2616,13 +2611,84 @@ fn assign_rest_molecule(
     }
 }
 
-fn collect_secondary_structures(group: &CoreAtomGroup, out: &mut Vec<(String, String)>) {
-    if let Some(ss) = group.secondary_structure() {
-        out.push((group.path().to_string(), ss.as_char().to_string()));
+fn collect_bond_list_py(
+    group: &PyAtomGroup,
+    py: Python<'_>,
+    current_path: &str,
+    bond_list: &mut Vec<(String, String, usize)>,
+) {
+    for (key, child) in &group.groups {
+        let child_borrow = child.borrow(py);
+        let child_path = format!("{}{}/", current_path, key);
+        collect_bond_list_py(&child_borrow, py, &child_path, bond_list);
     }
-    for (_, child) in group.groups() {
-        collect_secondary_structures(child, out);
+    for b in &group.bonds {
+        let path1 = if b.atom1_path.starts_with('/') {
+            b.atom1_path.clone()
+        } else {
+            format!("{}{}", current_path, b.atom1_path)
+        };
+        let path2 = if b.atom2_path.starts_with('/') {
+            b.atom2_path.clone()
+        } else {
+            format!("{}{}", current_path, b.atom2_path)
+        };
+        bond_list.push((path1, path2, b.order));
     }
+}
+
+fn collect_secondary_structures_py(
+    group: &PyAtomGroup,
+    py: Python<'_>,
+    current_path: &str,
+    out: &mut Vec<(String, String)>,
+) {
+    if let Some(ss) = group.secondary_structure {
+        out.push((current_path.to_string(), ss.as_char().to_string()));
+    }
+    for (key, child) in &group.groups {
+        let child_borrow = child.borrow(py);
+        let child_path = format!("{}{}/", current_path, key);
+        collect_secondary_structures_py(&child_borrow, py, &child_path, out);
+    }
+}
+
+fn build_atomgroup_raw_data<'py>(
+    group: &PyAtomGroup,
+    py: Python<'py>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let dict = PyDict::new(py);
+    if !group.groups.is_empty() {
+        let grp_dict = PyDict::new(py);
+        for (key, grp) in &group.groups {
+            grp_dict.set_item(key, build_atomgroup_raw_data(&grp.borrow(py), py)?)?;
+        }
+        dict.set_item("groups", grp_dict)?;
+    }
+    if !group.atoms.is_empty() {
+        let atm_dict = PyDict::new(py);
+        for (key, atm) in &group.atoms {
+            atm_dict.set_item(key, atm.borrow(py).get_raw_data(py)?)?;
+        }
+        dict.set_item("atoms", atm_dict)?;
+    }
+    dict.set_item("name", &group.name)?;
+    if !group.bonds.is_empty() {
+        let bonds_list = PyList::empty(py);
+        for b in &group.bonds {
+            let entry = PyList::new(
+                py,
+                &[
+                    b.atom1_path.as_str().into_pyobject(py)?.into_any(),
+                    b.atom2_path.as_str().into_pyobject(py)?.into_any(),
+                    b.order.into_pyobject(py)?.into_any(),
+                ],
+            )?;
+            bonds_list.append(entry)?;
+        }
+        dict.set_item("bonds", bonds_list)?;
+    }
+    Ok(dict)
 }
 
 fn find_group_mut_by_path<'a>(
