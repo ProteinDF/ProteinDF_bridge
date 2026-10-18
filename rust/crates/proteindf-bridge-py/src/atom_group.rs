@@ -255,14 +255,17 @@ impl PyAtomGroup {
         depth: usize,
     ) -> CoreAtomGroup {
         let mut core = CoreAtomGroup::with_name(&self.name);
-        core.set_path_with_depth(path.clone(), depth);
+        core.set_path_with_depth(path, depth);
+        let current_path = core.path().to_string();
         for (k, g) in &self.groups {
-            let child_path = format!("{}{}/", path, k);
+            let child_path = format!("{}{}/", current_path, k);
             let child_core = g.borrow(py).to_core_with_path(py, child_path, depth + 1);
-            core.set_group(k, child_core);
+            core.insert_group_with_paths(k, child_core);
         }
         for (k, a) in &self.atoms {
-            core.set_atom(k, a.borrow(py).to_core(py));
+            let mut atom_core = a.borrow(py).to_core(py);
+            atom_core.path = format!("{}{}", current_path, k);
+            core.insert_atom_with_path(k, atom_core);
         }
         core.set_bonds(self.bonds.clone());
         core.set_secondary_structure(self.secondary_structure);
