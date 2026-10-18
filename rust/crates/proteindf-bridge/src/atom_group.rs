@@ -1058,11 +1058,6 @@ impl AtomGroup {
             .map(|s| s.to_string())
             .collect()
     }
-
-    /// Computes the chemical formula in Hill system from element occurrence counts.
-    pub fn formula_from_kinds(kinds: &HashMap<String, usize>) -> String {
-        formula_from_kinds(kinds)
-    }
 }
 
 /// Computes the chemical formula formatted using the Hill system from element occurrence counts.
