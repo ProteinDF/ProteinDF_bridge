@@ -108,6 +108,121 @@ impl PyAtomGroup {
         }
     }
 
+    pub(crate) fn for_each_child_group<F>(&self, py: Python<'_>, mut f: F)
+    where
+        F: FnMut(&Bound<'_, PyAtomGroup>),
+    {
+        if self.sort_groups.as_deref() == Some("nice") {
+            let mut grp_keys: Vec<String> = self.groups.keys().cloned().collect();
+            proteindf_bridge::brd::sort_nicely(&mut grp_keys);
+            for k in grp_keys {
+                if let Some(g) = self.groups.get(&k) {
+                    f(g.bind(py));
+                }
+            }
+        } else {
+            for g in self.groups.values() {
+                f(g.bind(py));
+            }
+        }
+    }
+
+    pub(crate) fn for_each_direct_atom<F>(&self, py: Python<'_>, mut f: F)
+    where
+        F: FnMut(&Bound<'_, PyAtom>),
+    {
+        if self.sort_atoms.as_deref() == Some("nice") {
+            let mut atm_keys: Vec<String> = self.atoms.keys().cloned().collect();
+            proteindf_bridge::brd::sort_nicely(&mut atm_keys);
+            for k in atm_keys {
+                if let Some(a) = self.atoms.get(&k) {
+                    f(a.bind(py));
+                }
+            }
+        } else {
+            for a in self.atoms.values() {
+                f(a.bind(py));
+            }
+        }
+    }
+
+    pub(crate) fn for_each_atom_recursive<F>(&self, py: Python<'_>, f: &mut F)
+    where
+        F: FnMut(&Bound<'_, PyAtom>),
+    {
+        self.for_each_child_group(py, |g| {
+            g.borrow().for_each_atom_recursive(py, f);
+        });
+        self.for_each_direct_atom(py, |a| {
+            f(a);
+        });
+    }
+
+    pub(crate) fn get_number_of_all_atoms_py(&self, py: Python<'_>) -> usize {
+        let mut count = self.atoms.len();
+        self.for_each_child_group(py, |g| {
+            count += g.borrow().get_number_of_all_atoms_py(py);
+        });
+        count
+    }
+
+    pub(crate) fn center_py(&self, py: Python<'_>) -> proteindf_bridge::position::Position {
+        let mut sum = proteindf_bridge::position::Position::default();
+        let mut total_atoms = 0;
+
+        self.for_each_child_group(py, |g| {
+            let g_ref = g.borrow();
+            let n = g_ref.get_number_of_all_atoms_py(py);
+            if n > 0 {
+                sum += g_ref.center_py(py) * (n as f64);
+                total_atoms += n;
+            }
+        });
+
+        self.for_each_direct_atom(py, |a| {
+            sum += a.borrow().xyz.borrow(py).inner;
+            total_atoms += 1;
+        });
+
+        if total_atoms > 0 {
+            sum /= total_atoms as f64;
+        }
+        sum
+    }
+
+    pub(crate) fn box_py(
+        &self,
+        py: Python<'_>,
+    ) -> (
+        proteindf_bridge::position::Position,
+        proteindf_bridge::position::Position,
+    ) {
+        let mut box_min = self.center_py(py);
+        let mut box_max = box_min;
+
+        self.for_each_child_group(py, |g| {
+            let (grp_min, grp_max) = g.borrow().box_py(py);
+            box_min.x = box_min.x.min(grp_min.x);
+            box_min.y = box_min.y.min(grp_min.y);
+            box_min.z = box_min.z.min(grp_min.z);
+            box_max.x = box_max.x.max(grp_max.x);
+            box_max.y = box_max.y.max(grp_max.y);
+            box_max.z = box_max.z.max(grp_max.z);
+        });
+
+        self.for_each_direct_atom(py, |a| {
+            let xyz = a.borrow().xyz.borrow(py).inner;
+            box_min.x = box_min.x.min(xyz.x);
+            box_min.y = box_min.y.min(xyz.y);
+            box_min.z = box_min.z.min(xyz.z);
+            box_max.x = box_max.x.max(xyz.x);
+            box_max.y = box_max.y.max(xyz.y);
+            box_max.z = box_max.z.max(xyz.z);
+        });
+
+        (box_min, box_max)
+    }
+
     pub(crate) fn to_core(&self, py: Python<'_>) -> CoreAtomGroup {
         let path = self.compute_path(py);
         let depth = self.compute_depth(py);
@@ -140,14 +255,17 @@ impl PyAtomGroup {
         depth: usize,
     ) -> CoreAtomGroup {
         let mut core = CoreAtomGroup::with_name(&self.name);
-        core.set_path_with_depth(path.clone(), depth);
+        core.set_path_with_depth(path, depth);
+        let current_path = core.path().to_string();
         for (k, g) in &self.groups {
-            let child_path = format!("{}{}/", path, k);
+            let child_path = format!("{}{}/", current_path, k);
             let child_core = g.borrow(py).to_core_with_path(py, child_path, depth + 1);
-            core.set_group(k, child_core);
+            core.insert_group_with_paths(k, child_core);
         }
         for (k, a) in &self.atoms {
-            core.set_atom(k, a.borrow(py).to_core(py));
+            let mut atom_core = a.borrow(py).to_core(py);
+            atom_core.path = format!("{}{}", current_path, k);
+            core.insert_atom_with_path(k, atom_core);
         }
         core.set_bonds(self.bonds.clone());
         core.set_secondary_structure(self.secondary_structure);
@@ -747,7 +865,7 @@ impl PyAtomGroup {
     /// Returns:
     ///     int: Total number of atoms across the entire sub-tree.
     pub fn get_number_of_all_atoms(&self) -> usize {
-        Python::attach(|py| self.to_core(py).get_number_of_all_atoms())
+        Python::attach(|py| self.get_number_of_all_atoms_py(py))
     }
 
     /// Returns the number of direct child groups contained in this group.
@@ -1539,7 +1657,17 @@ impl PyAtomGroup {
     /// Returns:
     ///     Dict[str, int]: Counts of each chemical element.
     pub fn get_atom_kinds_count(&self) -> HashMap<String, usize> {
-        Python::attach(|py| self.to_core(py).get_atom_kinds_count())
+        Python::attach(|py| {
+            let mut counts = HashMap::new();
+            self.for_each_atom_recursive(py, &mut |a| {
+                if let Ok(sym) = proteindf_bridge::periodic_table::PeriodicTable::get_symbol(
+                    a.borrow().atomic_number,
+                ) {
+                    *counts.entry(sym.to_string()).or_insert(0) += 1;
+                }
+            });
+            counts
+        })
     }
 
     /// Computes the chemical formula formatted using the Hill system.
@@ -1551,7 +1679,8 @@ impl PyAtomGroup {
     /// Returns:
     ///     str: The Hill-system chemical formula (e.g. "C6H12O6").
     pub fn get_formula(&self) -> String {
-        Python::attach(|py| self.to_core(py).get_formula())
+        let kinds = self.get_atom_kinds_count();
+        proteindf_bridge::atom_group::formula_from_kinds(&kinds)
     }
 
     /// Returns the chemical formula formatted using the Hill system.
@@ -1571,11 +1700,14 @@ impl PyAtomGroup {
     #[getter]
     pub fn weight(&self) -> f64 {
         Python::attach(|py| {
-            self.to_core(py)
-                .get_atom_list()
-                .iter()
-                .map(|a| a.weight().unwrap_or(0.0))
-                .sum()
+            let mut sum = 0.0;
+            self.for_each_atom_recursive(py, &mut |a| {
+                sum += proteindf_bridge::periodic_table::PeriodicTable::atomic_weight(
+                    a.borrow().atomic_number,
+                )
+                .unwrap_or(0.0);
+            });
+            sum
         })
     }
 
@@ -1584,7 +1716,7 @@ impl PyAtomGroup {
     /// Returns:
     ///     Position: The centroid coordinates.
     pub fn center(&self) -> PyPosition {
-        Python::attach(|py| PyPosition::from_core(self.to_core(py).center()))
+        Python::attach(|py| PyPosition::from_core(self.center_py(py)))
     }
 
     /// Computes the axis-aligned bounding box enclosing all atoms in the hierarchy.
@@ -1593,7 +1725,7 @@ impl PyAtomGroup {
     ///     Tuple[Position, Position]: A tuple of `(min_position, max_position)`.
     pub fn r#box(&self) -> (PyPosition, PyPosition) {
         Python::attach(|py| {
-            let (bmin, bmax) = self.to_core(py).r#box();
+            let (bmin, bmax) = self.box_py(py);
             (PyPosition::from_core(bmin), PyPosition::from_core(bmax))
         })
     }
@@ -1962,7 +2094,13 @@ impl PyAtomGroup {
     /// Returns:
     ///     float: Sum of atomic numbers.
     pub fn sum_of_atomic_number(&self) -> f64 {
-        Python::attach(|py| self.to_core(py).sum_of_atomic_number())
+        Python::attach(|py| {
+            let mut sum = 0.0;
+            self.for_each_atom_recursive(py, &mut |a| {
+                sum += a.borrow().atomic_number as f64;
+            });
+            sum
+        })
     }
 
     /// Reorganizes atoms to match the hierarchy of a reference `AtomGroup` based on coordinate proximity.
@@ -2096,6 +2234,19 @@ impl PyAtomGroup {
         let c1 = self.to_core(py);
         let c2 = other.to_core(py);
         PyAtomGroup::from_core(py, &c1 ^ &c2)
+    }
+
+    /// Multiplies the coordinates of all atoms in the hierarchy by a scalar in-place.
+    ///
+    /// Args:
+    ///     scalar (float): Scaling factor to multiply atomic coordinates by.
+    ///
+    /// Raises:
+    ///     TypeError: If `scalar` is not a numeric type.
+    pub fn __imul__(&mut self, py: Python<'_>, scalar: f64) {
+        self.for_each_atom_recursive(py, &mut |a| {
+            a.borrow().xyz.borrow_mut(py).inner *= scalar;
+        });
     }
 
     pub fn __len__(&self) -> usize {

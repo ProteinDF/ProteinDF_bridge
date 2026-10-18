@@ -379,6 +379,14 @@ impl AtomGroup {
         self.groups.insert(key.to_string(), group);
     }
 
+    /// Inserts a child group under `key` without recalculating paths or depths.
+    ///
+    /// The caller is responsible for ensuring that `group` and all its descendants
+    /// already have the correct `path` and `depth` set.
+    pub fn insert_group_with_paths(&mut self, key: &str, group: AtomGroup) {
+        self.groups.insert(key.to_string(), group);
+    }
+
     /// Removes a child group by key.
     pub fn remove_group(&mut self, key: &str) -> Option<AtomGroup> {
         self.groups.shift_remove(key)
@@ -483,6 +491,13 @@ impl AtomGroup {
         }
     }
 
+    /// Inserts an atom directly under `key` without recalculating its path.
+    ///
+    /// The caller is responsible for ensuring that `atom.path` is already correctly set.
+    pub fn insert_atom_with_path(&mut self, key: &str, atom: Atom) {
+        self.atoms.insert(key.to_string(), atom);
+    }
+
     /// Removes an atom by key.
     pub fn remove_atom(&mut self, key: &str) -> Option<Atom> {
         self.atoms.shift_remove(key)
@@ -556,65 +571,7 @@ impl AtomGroup {
     ///    element symbols (e.g. `Cl` < `Na` < `O`).
     pub fn get_formula(&self) -> String {
         let kinds = self.get_atom_kinds_count();
-        if kinds.is_empty() {
-            return String::new();
-        }
-
-        let mut formula = String::new();
-        let append_element = |out: &mut String, sym: &str, count: usize| {
-            out.push_str(sym);
-            if count > 1 {
-                out.push_str(&count.to_string());
-            }
-        };
-
-        let has_c = kinds.get("C").copied().unwrap_or(0) > 0;
-        let x_count = kinds.get("X").copied().unwrap_or(0);
-
-        if has_c {
-            let c_count = kinds["C"];
-            append_element(&mut formula, "C", c_count);
-
-            if let Some(&h_count) = kinds.get("H") {
-                if h_count > 0 {
-                    append_element(&mut formula, "H", h_count);
-                }
-            }
-
-            let mut others: Vec<&str> = kinds
-                .keys()
-                .map(|s| s.as_str())
-                .filter(|&sym| sym != "C" && sym != "H" && sym != "X")
-                .collect();
-            others.sort_unstable();
-
-            for sym in others {
-                let cnt = kinds[sym];
-                if cnt > 0 {
-                    append_element(&mut formula, sym, cnt);
-                }
-            }
-        } else {
-            let mut others: Vec<&str> = kinds
-                .keys()
-                .map(|s| s.as_str())
-                .filter(|&sym| sym != "X")
-                .collect();
-            others.sort_unstable();
-
-            for sym in others {
-                let cnt = kinds[sym];
-                if cnt > 0 {
-                    append_element(&mut formula, sym, cnt);
-                }
-            }
-        }
-
-        if x_count > 0 {
-            append_element(&mut formula, "X", x_count);
-        }
-
-        formula
+        formula_from_kinds(&kinds)
     }
 
     /// Merges another `AtomGroup` into this group.
@@ -1116,6 +1073,80 @@ impl AtomGroup {
             .map(|s| s.to_string())
             .collect()
     }
+}
+
+/// Computes the chemical formula formatted using the Hill system from element occurrence counts.
+///
+/// # Rules (Hill system)
+/// 1. If Carbon (C) is present: `C` first, then `H` (if present), followed by
+///    all other elements in alphabetical order of their chemical symbols.
+/// 2. If Carbon is not present: all elements (including `H`) in alphabetical
+///    order of their chemical symbols.
+/// 3. If the count of an element is 1, the number is omitted (e.g. `CH4`, `NaCl`, `H2O`).
+/// 4. Unknown/dummy atoms (`X`) are appended at the very end as `X{count}` (or `X` if count is 1).
+/// 5. If there are no atoms, returns an empty string `""`.
+/// 6. Alphabetical ordering is based on standard ASCII/string ordering of the
+///    element symbols (e.g. `Cl` < `Na` < `O`).
+pub fn formula_from_kinds(kinds: &HashMap<String, usize>) -> String {
+    if kinds.is_empty() {
+        return String::new();
+    }
+
+    let mut formula = String::new();
+    let append_element = |out: &mut String, sym: &str, count: usize| {
+        out.push_str(sym);
+        if count > 1 {
+            out.push_str(&count.to_string());
+        }
+    };
+
+    let has_c = kinds.get("C").copied().unwrap_or(0) > 0;
+    let x_count = kinds.get("X").copied().unwrap_or(0);
+
+    if has_c {
+        let c_count = kinds["C"];
+        append_element(&mut formula, "C", c_count);
+
+        if let Some(&h_count) = kinds.get("H") {
+            if h_count > 0 {
+                append_element(&mut formula, "H", h_count);
+            }
+        }
+
+        let mut others: Vec<&str> = kinds
+            .keys()
+            .map(|s| s.as_str())
+            .filter(|&sym| sym != "C" && sym != "H" && sym != "X")
+            .collect();
+        others.sort_unstable();
+
+        for sym in others {
+            let cnt = kinds[sym];
+            if cnt > 0 {
+                append_element(&mut formula, sym, cnt);
+            }
+        }
+    } else {
+        let mut others: Vec<&str> = kinds
+            .keys()
+            .map(|s| s.as_str())
+            .filter(|&sym| sym != "X")
+            .collect();
+        others.sort_unstable();
+
+        for sym in others {
+            let cnt = kinds[sym];
+            if cnt > 0 {
+                append_element(&mut formula, sym, cnt);
+            }
+        }
+    }
+
+    if x_count > 0 {
+        append_element(&mut formula, "X", x_count);
+    }
+
+    formula
 }
 
 // Indexing: group["key"] returns child AtomGroup
@@ -2178,5 +2209,83 @@ mod tests {
     bond 1/N <-1-> 1/CA
 ";
         assert_eq!(output, expected);
+    }
+
+    #[test]
+    fn test_insert_with_paths_matches_set_group_and_set_atom() {
+        // Build reference tree using set_group and set_atom
+        let mut ref_root = AtomGroup::with_name("protein");
+        let mut ref_model = AtomGroup::with_name("model_1");
+        let mut ref_chain = AtomGroup::with_name("A");
+        let mut ref_res = AtomGroup::with_name("ALA");
+
+        let mut a1 = Atom::from_symbol("N").unwrap();
+        a1.name = "N".to_string();
+        a1.xyz = Position::new(1.0, 2.0, 3.0);
+
+        let mut a2 = Atom::from_symbol("C").unwrap();
+        a2.name = "CA".to_string();
+        a2.xyz = Position::new(2.0, 3.0, 4.0);
+
+        ref_res.set_atom("N", a1.clone());
+        ref_res.set_atom("CA", a2.clone());
+        ref_chain.set_group("1", ref_res);
+        ref_model.set_group("A", ref_chain);
+        ref_root.set_group("model_1", ref_model);
+
+        // Build equivalent tree using insert_group_with_paths and insert_atom_with_path
+        let mut fast_root = AtomGroup::with_name("protein");
+        fast_root.set_path_with_depth("/".to_string(), 0);
+
+        let mut fast_model = AtomGroup::with_name("model_1");
+        fast_model.set_path_with_depth("/model_1/".to_string(), 1);
+
+        let mut fast_chain = AtomGroup::with_name("A");
+        fast_chain.set_path_with_depth("/model_1/A/".to_string(), 2);
+
+        let mut fast_res = AtomGroup::with_name("ALA");
+        fast_res.set_path_with_depth("/model_1/A/1/".to_string(), 3);
+
+        let mut fast_a1 = a1;
+        fast_a1.path = "/model_1/A/1/N".to_string();
+        fast_res.insert_atom_with_path("N", fast_a1);
+
+        let mut fast_a2 = a2;
+        fast_a2.path = "/model_1/A/1/CA".to_string();
+        fast_res.insert_atom_with_path("CA", fast_a2);
+
+        fast_chain.insert_group_with_paths("1", fast_res);
+        fast_model.insert_group_with_paths("A", fast_chain);
+        fast_root.insert_group_with_paths("model_1", fast_model);
+
+        // Verify paths and depths match at every level
+        assert_eq!(ref_root.path(), fast_root.path());
+        assert_eq!(ref_root.path_depth(), fast_root.path_depth());
+
+        let ref_m = ref_root.get_group("model_1").unwrap();
+        let fast_m = fast_root.get_group("model_1").unwrap();
+        assert_eq!(ref_m.path(), fast_m.path());
+        assert_eq!(ref_m.path_depth(), fast_m.path_depth());
+
+        let ref_c = ref_m.get_group("A").unwrap();
+        let fast_c = fast_m.get_group("A").unwrap();
+        assert_eq!(ref_c.path(), fast_c.path());
+        assert_eq!(ref_c.path_depth(), fast_c.path_depth());
+
+        let ref_r = ref_c.get_group("1").unwrap();
+        let fast_r = fast_c.get_group("1").unwrap();
+        assert_eq!(ref_r.path(), fast_r.path());
+        assert_eq!(ref_r.path_depth(), fast_r.path_depth());
+
+        for key in ["N", "CA"] {
+            let atom_ref = ref_r.get_atom(key).unwrap();
+            let atom_fast = fast_r.get_atom(key).unwrap();
+            assert_eq!(atom_ref.path, atom_fast.path);
+            assert_eq!(atom_ref.name, atom_fast.name);
+            assert_eq!(atom_ref.xyz, atom_fast.xyz);
+        }
+
+        // Entire trees must be equal
+        assert_eq!(ref_root, fast_root);
     }
 }
