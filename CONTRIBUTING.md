@@ -85,6 +85,8 @@ Options:
    Output is saved under `.git/agent-logs/`. Extra directories the agent may access
    (e.g. ProteinDF_test) are listed one per line in `$(git rev-parse --git-common-dir)/delegate.conf`.
    When agy stops on its usage limit, the script exits with 75; resume with `-c`, or wait with `-W`.
+   The model is taken from the task file's `- **Model**:` line (a bare name for agy,
+   `copilot=<model>` for Copilot), or given with `-m <model>`; without either, the CLI's default is used.
 3. **Review**: Claude runs `devtool/review.sh <branch>` (the `develop` copy of
    `scripts/ci-local.sh` against the branch's worktree) and appends the result to the task file.
 4. **Merge**: after the user approves, `devtool/flow.sh finish <branch>`. Releases use
