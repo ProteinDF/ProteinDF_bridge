@@ -16,15 +16,16 @@ use pyo3::prelude::*;
 /// where 0.45 Å is the covalent bond tolerance.
 ///
 /// Key behaviors:
-///     - No bonds across models: When the structure contains multiple models
-///       (satisfying Format.is_models), bonds are not formed between atoms
-///       belonging to different models.
-///     - Preservation of existing bonds: Pre-existing bonds and their bond
-///       orders in the AtomGroup are preserved and not duplicated.
-///     - Dense matrix threshold: If the number of atoms exceeds 2000,
-///       the pairwise matrices (distmat and bondmat) are None to prevent
-///       excessive memory usage, while bond connectivity is still recorded
-///       in the AtomGroup in O(N) time.
+///
+/// - No bonds across models: When the structure contains multiple models
+///   (satisfying Format.is_models), bonds are not formed between atoms
+///   belonging to different models.
+/// - Preservation of existing bonds: Pre-existing bonds and their bond
+///   orders in the AtomGroup are preserved and not duplicated.
+/// - Dense matrix threshold: If the number of atoms exceeds 2000,
+///   the pairwise matrices (distmat and bondmat) are None to prevent
+///   excessive memory usage, while bond connectivity is still recorded
+///   in the AtomGroup in O(N) time.
 #[pyclass(name = "Bond", module = "proteindf_bridge.rs")]
 #[derive(Default)]
 pub struct PyBond {
@@ -56,7 +57,7 @@ impl PyBond {
     ///
     /// Raises:
     ///     TypeError: If `mol` is not an AtomGroup instance.
-    ///     BrInputError: If calculating covalent radii fails (e.g., unknown element).
+    ///     BrValueError: If an atom lacks a covalent radius (e.g., dummy atom). In this case, `mol` is not modified.
     pub fn setup(&mut self, py: Python<'_>, mol: &mut PyAtomGroup) -> PyResult<()> {
         let mut core = mol.to_core(py);
         self.inner.setup_heuristic(&mut core).map_err(to_py_err)?;
