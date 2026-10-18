@@ -7,6 +7,7 @@
 1. **タスク指示書を書く**: ユーザーと相談して`private/tasks/TASK_<name>.md`を`private/tasks/TEMPLATE.md`から作る。**タスク指示書・`TODO.md`・`SPEC.md`は非公開**で、このリポジトリとは別の非公開リポジトリで管理する(developのworktreeの`private/`はそこの`bridge/`へのシンボリックリンク、`TODO.md`・`SPEC.md`も`private/`へのリンク)。書いたら非公開リポジトリにコミットする(`git -C private commit`)。このリポジトリにはコミットしない。内容をコミットメッセージや公開されるファイルに書き写さない。設計判断が必要な点は書く前にユーザーに確認する。
    - **指示書は短く、タスクは小さくする**: 約3KB、対象・完了の定義とも各5項目以内、背景は5行以内。超えるなら複数のTASKに分ける。
 2. **実装を依頼する**: ユーザーの指示があれば`devtool/delegate.sh private/tasks/TASK_<name>.md`を実行する(時間がかかるのでバックグラウンドで実行する)。ユーザー自身がagy / Copilotに渡す場合もある。
+   - **モデルを仕事の重さで選ぶ**: 指示書の`- **Model**:`の行に書く(`delegate.sh`が読む。`-m`で上書きできる)。目安は、軽い(翻訳・docstringの直し・小さな整理)は`gemini-3.8-flash-medium`、普通(テスト付きの機能追加・バグ修正)は`claude-sonnet-5-5-medium`、重い(設計を伴う切り替え・Rust本体のAPI・複数モジュールにまたがる変更)は`claude-opus-5-5-high`。使えるモデルは`agy models`で確かめる。軽いモデルでレビューの往復が増えたら、次の回から重さを1段上げる。
    - agyが利用上限で止まると`delegate.sh`は終了コード75で終わる。再開の方法(`-c`で続ける、`-W`で自動的に待つ、`-a copilot`に切り替える)はユーザーに確認する。
 3. **レビューする**: ブランチのworktree(`devtool/flow.sh path <branch>`)で差分を読み、あわせて次を行う。
    - `devtool/review.sh <branch>`を**自分で実行する**(developの`scripts/ci-local.sh`をブランチのworktreeに対して実行し、出力を`.git/review-logs/`に保存する。QCの実データのテストは`devtool/review.sh <branch> qc-data`で、`PROTEINDF_BRIDGE_QC_DATA`が必要)。実装担当の完了報告の数字・出力を鵜呑みにしない。
