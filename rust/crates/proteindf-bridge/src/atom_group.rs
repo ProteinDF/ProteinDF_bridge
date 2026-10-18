@@ -556,65 +556,7 @@ impl AtomGroup {
     ///    element symbols (e.g. `Cl` < `Na` < `O`).
     pub fn get_formula(&self) -> String {
         let kinds = self.get_atom_kinds_count();
-        if kinds.is_empty() {
-            return String::new();
-        }
-
-        let mut formula = String::new();
-        let append_element = |out: &mut String, sym: &str, count: usize| {
-            out.push_str(sym);
-            if count > 1 {
-                out.push_str(&count.to_string());
-            }
-        };
-
-        let has_c = kinds.get("C").copied().unwrap_or(0) > 0;
-        let x_count = kinds.get("X").copied().unwrap_or(0);
-
-        if has_c {
-            let c_count = kinds["C"];
-            append_element(&mut formula, "C", c_count);
-
-            if let Some(&h_count) = kinds.get("H") {
-                if h_count > 0 {
-                    append_element(&mut formula, "H", h_count);
-                }
-            }
-
-            let mut others: Vec<&str> = kinds
-                .keys()
-                .map(|s| s.as_str())
-                .filter(|&sym| sym != "C" && sym != "H" && sym != "X")
-                .collect();
-            others.sort_unstable();
-
-            for sym in others {
-                let cnt = kinds[sym];
-                if cnt > 0 {
-                    append_element(&mut formula, sym, cnt);
-                }
-            }
-        } else {
-            let mut others: Vec<&str> = kinds
-                .keys()
-                .map(|s| s.as_str())
-                .filter(|&sym| sym != "X")
-                .collect();
-            others.sort_unstable();
-
-            for sym in others {
-                let cnt = kinds[sym];
-                if cnt > 0 {
-                    append_element(&mut formula, sym, cnt);
-                }
-            }
-        }
-
-        if x_count > 0 {
-            append_element(&mut formula, "X", x_count);
-        }
-
-        formula
+        formula_from_kinds(&kinds)
     }
 
     /// Merges another `AtomGroup` into this group.
@@ -1116,6 +1058,85 @@ impl AtomGroup {
             .map(|s| s.to_string())
             .collect()
     }
+
+    /// Computes the chemical formula in Hill system from element occurrence counts.
+    pub fn formula_from_kinds(kinds: &HashMap<String, usize>) -> String {
+        formula_from_kinds(kinds)
+    }
+}
+
+/// Computes the chemical formula formatted using the Hill system from element occurrence counts.
+///
+/// # Rules (Hill system)
+/// 1. If Carbon (C) is present: `C` first, then `H` (if present), followed by
+///    all other elements in alphabetical order of their chemical symbols.
+/// 2. If Carbon is not present: all elements (including `H`) in alphabetical
+///    order of their chemical symbols.
+/// 3. If the count of an element is 1, the number is omitted (e.g. `CH4`, `NaCl`, `H2O`).
+/// 4. Unknown/dummy atoms (`X`) are appended at the very end as `X{count}` (or `X` if count is 1).
+/// 5. If there are no atoms, returns an empty string `""`.
+/// 6. Alphabetical ordering is based on standard ASCII/string ordering of the
+///    element symbols (e.g. `Cl` < `Na` < `O`).
+pub fn formula_from_kinds(kinds: &HashMap<String, usize>) -> String {
+    if kinds.is_empty() {
+        return String::new();
+    }
+
+    let mut formula = String::new();
+    let append_element = |out: &mut String, sym: &str, count: usize| {
+        out.push_str(sym);
+        if count > 1 {
+            out.push_str(&count.to_string());
+        }
+    };
+
+    let has_c = kinds.get("C").copied().unwrap_or(0) > 0;
+    let x_count = kinds.get("X").copied().unwrap_or(0);
+
+    if has_c {
+        let c_count = kinds["C"];
+        append_element(&mut formula, "C", c_count);
+
+        if let Some(&h_count) = kinds.get("H") {
+            if h_count > 0 {
+                append_element(&mut formula, "H", h_count);
+            }
+        }
+
+        let mut others: Vec<&str> = kinds
+            .keys()
+            .map(|s| s.as_str())
+            .filter(|&sym| sym != "C" && sym != "H" && sym != "X")
+            .collect();
+        others.sort_unstable();
+
+        for sym in others {
+            let cnt = kinds[sym];
+            if cnt > 0 {
+                append_element(&mut formula, sym, cnt);
+            }
+        }
+    } else {
+        let mut others: Vec<&str> = kinds
+            .keys()
+            .map(|s| s.as_str())
+            .filter(|&sym| sym != "X")
+            .collect();
+        others.sort_unstable();
+
+        for sym in others {
+            let cnt = kinds[sym];
+            if cnt > 0 {
+                append_element(&mut formula, sym, cnt);
+            }
+        }
+    }
+
+    if x_count > 0 {
+        append_element(&mut formula, "X", x_count);
+    }
+
+    formula
 }
 
 // Indexing: group["key"] returns child AtomGroup
