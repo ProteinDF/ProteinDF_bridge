@@ -25,14 +25,14 @@ class TestBond(unittest.TestCase):
         bond = Bond()
         bond.setup(ag)
 
-        self.assertIsNotNone(bond._distmat)
-        self.assertIsNotNone(bond._bondmat)
+        self.assertIsNotNone(bond.distmat)
+        self.assertIsNotNone(bond.bondmat)
         # c1 と c2 の距離は約 1.5
-        self.assertAlmostEqual(bond._distmat.get(1, 0), 1.5)
+        self.assertAlmostEqual(bond.distmat.get(1, 0), 1.5)
         # c1 と c2 は結合あり(1)、c1/c2 と c3 は結合なし(0)
-        self.assertEqual(bond._bondmat.get(1, 0), 1)
-        self.assertEqual(bond._bondmat.get(2, 0), 0)
-        self.assertEqual(bond._bondmat.get(2, 1), 0)
+        self.assertEqual(bond.bondmat.get(1, 0), 1)
+        self.assertEqual(bond.bondmat.get(2, 0), 0)
+        self.assertEqual(bond.bondmat.get(2, 1), 0)
 
     def test_covalent_criteria_and_no_duplicate(self):
         # 1. from proteindf_bridge import Bond ができる
@@ -49,7 +49,7 @@ class TestBond(unittest.TestCase):
 
         bond = Bond()
         bond.setup(ag_cc)
-        self.assertEqual(bond._bondmat.get(1, 0), 0)
+        self.assertEqual(bond.bondmat.get(1, 0), 0)
         self.assertEqual(len(ag_cc.get_bond_list()), 0)
 
         # 3. C-H 1.1 Å (cov_C(0.76) + cov_H(0.31) + 0.45 = 1.52 Å) が結合になる
@@ -61,7 +61,7 @@ class TestBond(unittest.TestCase):
 
         bond = Bond()
         bond.setup(ag_ch)
-        self.assertEqual(bond._bondmat.get(1, 0), 1)
+        self.assertEqual(bond.bondmat.get(1, 0), 1)
         self.assertEqual(len(ag_ch.get_bond_list()), 1)
         self.assertEqual(ag_ch.get_bond_list()[0][2], 1)
 
@@ -114,7 +114,8 @@ class TestBond(unittest.TestCase):
         rs_bond.setup(rs_ag)
         rs_bonds = rs_ag.get_bond_list()
 
-        self.assertEqual(len(py_bonds), len(rs_bonds))
+        self.assertEqual(len(py_bonds), 793)
+        self.assertEqual(len(rs_bonds), 793)
 
     def test_bond_cross_model_avoided_with_custom_names(self):
         # (a) 子グループの名前が model_* でなくても、is_models を満たす2モデルを重ねると別モデル間に結合しない
@@ -166,13 +167,14 @@ class TestBond(unittest.TestCase):
             self.assertEqual(m_a, m_b)
 
         # 密行列 (bondmat) でも別モデル間が 0 であることを確認
-        self.assertIsNotNone(bond._bondmat)
-        for p in range(len(bond._atoms)):
-            m_p = get_model_from_path(bond._atoms[p].path)
+        self.assertIsNotNone(bond.bondmat)
+        atoms = root.get_atom_list()
+        for p in range(len(atoms)):
+            m_p = get_model_from_path(atoms[p].path)
             for q in range(p):
-                m_q = get_model_from_path(bond._atoms[q].path)
+                m_q = get_model_from_path(atoms[q].path)
                 if m_p != m_q:
-                    self.assertEqual(bond._bondmat.get(p, q), 0)
+                    self.assertEqual(bond.bondmat.get(p, q), 0)
 
     def test_bond_cross_group_allowed_when_not_models(self):
         # (b) is_models を満たさない木では、別の最上位グループの原子どうしでも距離が近ければ結合する
