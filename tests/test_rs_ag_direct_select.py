@@ -336,6 +336,88 @@ class TestRsAgDirectSelect(unittest.TestCase):
         self.assertEqual(selected.get_group("model_1").name, "mutated_model")
         self.assertEqual(ag.get_group("model_1").name, "model_1")
 
+    def test_sort_settings_reset_to_none_and_key_order_preserved(self):
+        ag = rs.AtomGroup("root")
+        ag.sort_groups = "nice"
+
+        sub_parent = rs.AtomGroup("parent_grp")
+        sub_parent.sort_groups = "nice"
+        sub_parent.sort_atoms = "nice"
+
+        # Insert "10" then "2"
+        g10 = rs.AtomGroup("grp_10")
+        g10.sort_groups = "nice"
+        g10.set_atom("C1", rs.Atom(name="C1", symbol="C", xyz=rs.Position(0.0, 0.0, 0.0)))
+
+        g2 = rs.AtomGroup("grp_2")
+        g2.sort_groups = "nice"
+        g2.set_atom("C2", rs.Atom(name="C2", symbol="C", xyz=rs.Position(1.0, 0.0, 0.0)))
+        g2.set_atom("N1", rs.Atom(name="N1", symbol="N", xyz=rs.Position(2.0, 0.0, 0.0)))
+
+        sub_parent.set_group("10", g10)
+        sub_parent.set_group("2", g2)
+        ag.set_group("sub", sub_parent)
+
+        # In original tree with sort_groups="nice", groups() sorts "2" before "10"
+        self.assertEqual([k for k, _ in sub_parent.groups()], ["2", "10"])
+
+        # Case 1a: Built-in selector where child matches as a whole (SelectPath)
+        res_whole = ag.select(rs.SelectPath("/sub/2/"))
+        res_sub_whole = res_whole.get_group("sub")
+        self.assertIsNone(res_whole.sort_groups)
+        self.assertIsNone(res_whole.sort_atoms)
+        self.assertIsNone(res_sub_whole.sort_groups)
+        self.assertIsNone(res_sub_whole.sort_atoms)
+        child_2 = res_sub_whole.get_group("2")
+        self.assertIsNone(child_2.sort_groups)
+        self.assertIsNone(child_2.sort_atoms)
+        self.assertEqual([k for k, _ in res_sub_whole.groups()], ["2"])
+
+        # Case 1b: Built-in selector where parent matches as a whole (SelectName)
+        res_parent = ag.select(rs.SelectName("parent_grp"))
+        res_sub_p = res_parent.get_group("sub")
+        self.assertIsNone(res_parent.sort_groups)
+        self.assertIsNone(res_parent.sort_atoms)
+        self.assertIsNone(res_sub_p.sort_groups)
+        self.assertIsNone(res_sub_p.sort_atoms)
+        self.assertIsNone(res_sub_p.get_group("10").sort_groups)
+        self.assertIsNone(res_sub_p.get_group("10").sort_atoms)
+        self.assertIsNone(res_sub_p.get_group("2").sort_groups)
+        self.assertIsNone(res_sub_p.get_group("2").sort_atoms)
+        self.assertEqual([k for k, _ in res_sub_p.groups()], ["10", "2"])
+
+        # Case 2: Built-in selector where child does NOT match as a whole (SelectSymbol matches atoms in both)
+        res_atoms = ag.select(rs.SelectSymbol("C"))
+        res_sub_atoms = res_atoms.get_group("sub")
+        self.assertIsNone(res_atoms.sort_groups)
+        self.assertIsNone(res_atoms.sort_atoms)
+        self.assertIsNone(res_sub_atoms.sort_groups)
+        self.assertIsNone(res_sub_atoms.sort_atoms)
+        self.assertIsNone(res_sub_atoms.get_group("10").sort_groups)
+        self.assertIsNone(res_sub_atoms.get_group("10").sort_atoms)
+        self.assertIsNone(res_sub_atoms.get_group("2").sort_groups)
+        self.assertIsNone(res_sub_atoms.get_group("2").sort_atoms)
+        self.assertEqual([k for k, _ in res_sub_atoms.groups()], ["10", "2"])
+
+        # Case 3: Custom selector
+        class CarbonSelector:
+            def is_match(self, obj):
+                if hasattr(obj, "symbol"):
+                    return obj.symbol == "C"
+                return False
+
+        res_custom = ag.select(CarbonSelector())
+        res_sub_custom = res_custom.get_group("sub")
+        self.assertIsNone(res_custom.sort_groups)
+        self.assertIsNone(res_custom.sort_atoms)
+        self.assertIsNone(res_sub_custom.sort_groups)
+        self.assertIsNone(res_sub_custom.sort_atoms)
+        self.assertIsNone(res_sub_custom.get_group("10").sort_groups)
+        self.assertIsNone(res_sub_custom.get_group("10").sort_atoms)
+        self.assertIsNone(res_sub_custom.get_group("2").sort_groups)
+        self.assertIsNone(res_sub_custom.get_group("2").sort_atoms)
+        self.assertEqual([k for k, _ in res_sub_custom.groups()], ["10", "2"])
+
 
 if __name__ == "__main__":
     unittest.main()
