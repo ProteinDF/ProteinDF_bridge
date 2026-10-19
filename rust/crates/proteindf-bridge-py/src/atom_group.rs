@@ -481,6 +481,79 @@ impl PyAtomGroup {
         Ok(new_group_py)
     }
 
+    pub(crate) fn clone_for_select(&self, py: Python<'_>) -> PyResult<Self> {
+        let current_path = self.compute_path(py);
+        let mut atoms = IndexMap::with_capacity(self.atoms.len());
+        for (k, atom_py) in &self.atoms {
+            let atom_copy = atom_py.borrow(py).__copy__(py)?;
+            atoms.insert(k.clone(), Py::new(py, atom_copy)?);
+        }
+
+        let mut groups = IndexMap::with_capacity(self.groups.len());
+        for (k, child_py) in &self.groups {
+            let child_borrow = child_py.borrow(py);
+            let child_clone =
+                Self::clone_subtree_for_select(py, &child_borrow, None, Some(k.clone()))?;
+            groups.insert(k.clone(), child_clone);
+        }
+
+        Ok(Self {
+            name: self.name.clone(),
+            atoms,
+            groups,
+            bonds: self.bonds.clone(),
+            secondary_structure: self.secondary_structure,
+            parent: None,
+            my_key: None,
+            root_path: Some(current_path),
+            sort_atoms: None,
+            sort_groups: None,
+        })
+    }
+
+    pub(crate) fn clone_subtree_for_select(
+        py: Python<'_>,
+        original: &PyAtomGroup,
+        parent: Option<Py<PyAtomGroup>>,
+        my_key: Option<String>,
+    ) -> PyResult<Py<PyAtomGroup>> {
+        let mut atoms = IndexMap::with_capacity(original.atoms.len());
+        for (k, atom_py) in &original.atoms {
+            let atom_copy = atom_py.borrow(py).__copy__(py)?;
+            atoms.insert(k.clone(), Py::new(py, atom_copy)?);
+        }
+
+        let new_group = PyAtomGroup {
+            name: original.name.clone(),
+            atoms,
+            groups: IndexMap::new(),
+            bonds: original.bonds.clone(),
+            secondary_structure: original.secondary_structure,
+            parent,
+            my_key,
+            root_path: None,
+            sort_atoms: None,
+            sort_groups: None,
+        };
+        let new_group_py = Py::new(py, new_group)?;
+
+        for (k, child_py) in &original.groups {
+            let child_borrow = child_py.borrow(py);
+            let child_clone = Self::clone_subtree_for_select(
+                py,
+                &child_borrow,
+                Some(new_group_py.clone_ref(py)),
+                Some(k.clone()),
+            )?;
+            new_group_py
+                .borrow_mut(py)
+                .groups
+                .insert(k.clone(), child_clone);
+        }
+
+        Ok(new_group_py)
+    }
+
     fn shift_by_position(&mut self, py: Python<'_>, pos: Position) {
         for a in self.atoms.values() {
             a.borrow(py).xyz.borrow_mut(py).inner += pos;
@@ -1853,7 +1926,7 @@ impl PyAtomGroup {
         let root_path = slf.borrow().compute_path(py);
 
         if sel.is_match_group(py, slf, &root_path)? {
-            return slf.borrow().deep_clone(py);
+            return slf.borrow().clone_for_select(py);
         }
 
         let child_groups: Vec<(String, Py<PyAtomGroup>)> = slf
@@ -1899,8 +1972,8 @@ impl PyAtomGroup {
             parent: None,
             my_key: None,
             root_path: Some(root_path),
-            sort_atoms: self_borrow.sort_atoms.clone(),
-            sort_groups: self_borrow.sort_groups.clone(),
+            sort_atoms: None,
+            sort_groups: None,
         })
     }
 
@@ -2819,7 +2892,7 @@ fn select_child_group<'py>(
         if child_group_py.borrow(py).get_number_of_all_atoms_py(py) == 0 {
             return Ok(None);
         }
-        let cloned = PyAtomGroup::deep_clone_py(
+        let cloned = PyAtomGroup::clone_subtree_for_select(
             py,
             &child_group_py.borrow(py),
             parent_py,
@@ -2881,8 +2954,8 @@ fn select_child_group<'py>(
         parent: parent_py,
         my_key: Some(my_key.to_string()),
         root_path: None,
-        sort_atoms: child_borrow.sort_atoms.clone(),
-        sort_groups: child_borrow.sort_groups.clone(),
+        sort_atoms: None,
+        sort_groups: None,
     };
     drop(child_borrow);
 
