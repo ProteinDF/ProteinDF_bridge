@@ -2324,8 +2324,14 @@ impl PyAtomGroup {
         })
     }
 
-    pub fn __str__(&self) -> String {
-        Python::attach(|py| format!("{}", self.to_core(py)))
+    pub fn __str__(&self, py: Python<'_>) -> String {
+        let mut out = String::new();
+        let mut root_path = self.compute_path(py);
+        if root_path.is_empty() || !root_path.ends_with('/') {
+            root_path.push('/');
+        }
+        format_atom_group_indented(self, py, &mut out, "", 0, &root_path);
+        out
     }
 
     /// Serializes the hierarchy tree into a nested dictionary representation.
@@ -2528,8 +2534,7 @@ impl PyAtomGroup {
         let mut writer = std::io::BufWriter::new(file);
 
         let mut rows = Vec::new();
-        let core = self.to_core(py);
-        collect_csv_rows(&core, &[], &mut rows, py)?;
+        collect_csv_rows(self, &[], &mut rows, py)?;
 
         use std::io::Write;
         for row in rows {
@@ -2577,25 +2582,60 @@ impl PyAtomGroup {
     }
 }
 
+fn format_atom_group_indented(
+    group: &PyAtomGroup,
+    py: Python<'_>,
+    f: &mut String,
+    key: &str,
+    depth: usize,
+    current_path: &str,
+) {
+    use std::fmt::Write;
+    let indent = "  ".repeat(depth);
+    let _ = writeln!(f, "{}# group key={} name={}", indent, key, group.name);
+    for (sub_key, child_py) in &group.groups {
+        let child = child_py.borrow(py);
+        let child_path = format!("{}{}/", current_path, sub_key);
+        format_atom_group_indented(&child, py, f, sub_key, depth + 1, &child_path);
+    }
+    for (atom_key, atom_py) in &group.atoms {
+        let mut atom_core = atom_py.borrow(py).to_core(py);
+        atom_core.path = format!("{}{}", current_path, atom_key);
+        let _ = writeln!(f, "{}{}", indent, atom_core);
+    }
+    for bond in &group.bonds {
+        let _ = writeln!(
+            f,
+            "{}bond {} <-{}-> {}",
+            indent, bond.atom1_path, bond.order, bond.atom2_path
+        );
+    }
+}
+
 fn collect_csv_rows(
-    ag: &CoreAtomGroup,
+    ag: &PyAtomGroup,
     parents: &[String],
     rows: &mut Vec<Vec<String>>,
     py: Python<'_>,
 ) -> PyResult<()> {
-    for (key, subgrp) in ag.groups() {
+    for (key, subgrp_py) in &ag.groups {
+        let subgrp = subgrp_py.borrow(py);
         let mut new_parents = parents.to_vec();
         new_parents.push(key.clone());
         new_parents.push(subgrp.name.clone());
-        collect_csv_rows(subgrp, &new_parents, rows, py)?;
+        collect_csv_rows(&subgrp, &new_parents, rows, py)?;
     }
-    for (_key, atom) in ag.atoms() {
+    for (_key, atom_py) in &ag.atoms {
+        let atom = atom_py.borrow(py);
         let mut row = parents.to_vec();
-        let sym = atom.symbol().unwrap_or("X").to_string();
+        let sym = proteindf_bridge::periodic_table::PeriodicTable::get_symbol(atom.atomic_number)
+            .unwrap_or("X")
+            .to_string();
+        let xyz = atom.xyz.borrow(py).inner;
         row.push(sym);
-        row.push(format_py_float(py, atom.xyz.x)?);
-        row.push(format_py_float(py, atom.xyz.y)?);
-        row.push(format_py_float(py, atom.xyz.z)?);
+        row.push(format_py_float(py, xyz.x)?);
+        row.push(format_py_float(py, xyz.y)?);
+        row.push(format_py_float(py, xyz.z)?);
         row.push(format_py_float(py, atom.charge)?);
         rows.push(row);
     }
