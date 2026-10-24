@@ -27,6 +27,10 @@
       (`brew install --cask mactex-no-gui`, or `texlive-lang-japanese` on
       Linux for the Japanese PDF) and verify `make latexpdf` /
       `make latexpdf-ja`.
-- [ ] Review the auto-generated API reference (`docs/api/*.rst`) for modules
+- [x] Review the auto-generated API reference (`docs/api/*.rst`) for modules
       that should be excluded or reorganized (e.g. `dbmanager.py`, `mail.py`
       if not part of the public API).
+      Nothing is excluded: `DbManager` and `Mail` are exported from the
+      top-level package and used by other ProteinDF repositories. Added the
+      `sphinx-apidoc` command that reproduces `docs/api` exactly to
+      `CONTRIBUTING.md`.
