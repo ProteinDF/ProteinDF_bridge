@@ -13,12 +13,16 @@ use crate::atom::Atom;
 use crate::atom_group::AtomGroup;
 use crate::brd::sort_nicely;
 use crate::ccd_templates::{CcdAtom, CcdBondTemplate, CcdTemplateDb};
+use crate::position::Position;
 
 /// Minimum plausible $O3'_{prev} - P$ bond distance in Angstroms for nucleic acid backbone continuity.
 const MIN_PHOSPHODIESTER_O3_P_DISTANCE: f64 = 1.3;
 
 /// Maximum plausible $O3'_{prev} - P$ bond distance in Angstroms for nucleic acid backbone continuity.
 const MAX_PHOSPHODIESTER_O3_P_DISTANCE: f64 = 2.0;
+
+/// Maximum $SG - SG$ distance in Angstroms to treat two cysteine residues as disulfide-bonded.
+pub(crate) const MAX_DISULFIDE_SG_SG_DISTANCE: f64 = 2.5;
 
 /// Options for missing-atom inspection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -128,6 +132,27 @@ fn is_nucleic_template(template: &CcdBondTemplate) -> bool {
     template.get_atom("O3'").is_some() && template.get_atom("C1'").is_some()
 }
 
+/// Checks if a template represents a cysteine-like thiol component (possesses `SG` and `HG`).
+fn is_cysteine_template(template: &CcdBondTemplate) -> bool {
+    template.get_atom("SG").is_some() && template.get_atom("HG").is_some()
+}
+
+/// Given `(residue_id, sg_position)` entries collected within a single scope (model or chain),
+/// returns the set of `residue_id`s whose `SG` atom lies within [`MAX_DISULFIDE_SG_SG_DISTANCE`]
+/// (2.5 Å) of another residue's `SG`.
+pub(crate) fn find_disulfide_bonded_ids(sgs: &[(usize, Position)]) -> HashSet<usize> {
+    let mut bonded = HashSet::new();
+    for (i, (id1, pos1)) in sgs.iter().enumerate() {
+        for (id2, pos2) in sgs.iter().skip(i + 1) {
+            if id1 != id2 && pos1.distance_from(pos2) <= MAX_DISULFIDE_SG_SG_DISTANCE {
+                bonded.insert(*id1);
+                bonded.insert(*id2);
+            }
+        }
+    }
+    bonded
+}
+
 /// Determines whether a nucleic acid residue is at the 5' terminus.
 ///
 /// A residue is considered 5'-terminal if:
@@ -163,6 +188,7 @@ pub(crate) fn is_five_prime_terminal(
 pub(crate) fn optional_atom_names(
     residue: &AtomGroup,
     prev_residue: Option<&AtomGroup>,
+    is_disulfide_bonded: bool,
     template: &CcdBondTemplate,
     options: &MissingAtomsOptions,
 ) -> HashSet<&'static str> {
@@ -173,6 +199,14 @@ pub(crate) fn optional_atom_names(
         if options.include_hydrogens {
             optional.extend(["H", "H1", "H2", "H3", "HXT"]);
         }
+    }
+
+    if options.include_hydrogens
+        && is_disulfide_bonded
+        && is_cysteine_template(template)
+        && has_atom_by_name(residue, "SG")
+    {
+        optional.insert("HG");
     }
 
     if is_nucleic_template(template) {
@@ -202,10 +236,17 @@ pub(crate) fn optional_atom_names(
 pub(crate) fn expected_atoms<'a>(
     residue: &AtomGroup,
     prev_residue: Option<&AtomGroup>,
+    is_disulfide_bonded: bool,
     template: &'a CcdBondTemplate,
     options: &MissingAtomsOptions,
 ) -> Vec<&'a CcdAtom> {
-    let optional = optional_atom_names(residue, prev_residue, template, options);
+    let optional = optional_atom_names(
+        residue,
+        prev_residue,
+        is_disulfide_bonded,
+        template,
+        options,
+    );
     template
         .atoms
         .iter()
@@ -218,6 +259,7 @@ pub(crate) fn expected_atoms<'a>(
 fn check_single_residue(
     residue: &AtomGroup,
     prev_residue: Option<&AtomGroup>,
+    is_disulfide_bonded: bool,
     db: &CcdTemplateDb,
     options: &MissingAtomsOptions,
 ) -> ResidueAtomCheck {
@@ -236,8 +278,20 @@ fn check_single_residue(
         };
     };
 
-    let optional = optional_atom_names(residue, prev_residue, template, options);
-    let expected_list = expected_atoms(residue, prev_residue, template, options);
+    let optional = optional_atom_names(
+        residue,
+        prev_residue,
+        is_disulfide_bonded,
+        template,
+        options,
+    );
+    let expected_list = expected_atoms(
+        residue,
+        prev_residue,
+        is_disulfide_bonded,
+        template,
+        options,
+    );
     let expected_set: HashSet<&str> = expected_list.iter().map(|a| a.name.as_str()).collect();
 
     // Collect atom names from the residue for the relevant elements (preserving tree order)
@@ -288,43 +342,85 @@ fn check_single_residue(
     }
 }
 
-/// Checks all residues in a chain group (where direct children are leaf residue groups).
-fn check_chain(
-    chain: &AtomGroup,
-    db: &CcdTemplateDb,
-    options: &MissingAtomsOptions,
-    report: &mut MissingAtomsReport,
+/// Entry for a leaf residue collected during a single tree traversal.
+struct CollectedResidue<'a> {
+    residue: &'a AtomGroup,
+    prev_residue: Option<&'a AtomGroup>,
+}
+
+/// State accumulated during a single pass over the [`AtomGroup`] tree.
+#[derive(Default)]
+struct TraversalState<'a> {
+    residues: Vec<CollectedResidue<'a>>,
+    sgs_by_scope: Vec<Vec<(usize, Position)>>,
+}
+
+impl<'a> TraversalState<'a> {
+    fn new_scope(&mut self) -> usize {
+        let id = self.sgs_by_scope.len();
+        self.sgs_by_scope.push(Vec::new());
+        id
+    }
+
+    fn push_residue(
+        &mut self,
+        residue: &'a AtomGroup,
+        prev_residue: Option<&'a AtomGroup>,
+        scope_id: usize,
+        collect_sgs: bool,
+    ) {
+        let res_idx = self.residues.len();
+        if collect_sgs {
+            if let Some(sg) = find_atom_by_name(residue, "SG") {
+                self.sgs_by_scope[scope_id].push((res_idx, sg.xyz));
+            }
+        }
+        self.residues.push(CollectedResidue {
+            residue,
+            prev_residue,
+        });
+    }
+}
+
+/// Collects all residues in a chain group (where direct children are leaf residue groups).
+fn collect_from_chain<'a>(
+    chain: &'a AtomGroup,
+    scope_id: usize,
+    collect_sgs: bool,
+    state: &mut TraversalState<'a>,
 ) {
     let mut res_keys = chain.get_group_list();
     sort_nicely(&mut res_keys);
 
-    let mut prev_residue: Option<&AtomGroup> = None;
+    let mut prev_residue: Option<&'a AtomGroup> = None;
 
     for key in &res_keys {
         if let Some(residue) = chain.get_group(key) {
             if residue.get_number_of_atoms() > 0 {
-                report
-                    .residues
-                    .push(check_single_residue(residue, prev_residue, db, options));
+                state.push_residue(residue, prev_residue, scope_id, collect_sgs);
                 prev_residue = Some(residue);
             }
         }
     }
 }
 
-/// Recursively traverses an [`AtomGroup`] hierarchy using the same leaf/chain rules
-/// as `orchestrator::traverse_and_hydrogenate`.
-fn traverse_and_check(
-    group: &AtomGroup,
-    db: &CcdTemplateDb,
-    options: &MissingAtomsOptions,
-    report: &mut MissingAtomsReport,
+/// Recursively traverses an [`AtomGroup`] hierarchy in a single pass using the same
+/// leaf/chain rules as `orchestrator::traverse_and_hydrogenate`, collecting residues
+/// and per-scope `SG` coordinates.
+///
+/// A disulfide search scope corresponds to a group that contains chains (e.g. a model
+/// `/model_N/` in a full PDB/mmCIF tree), or the root of the call itself when called on
+/// a single chain or residue.
+fn collect_from_group<'a>(
+    group: &'a AtomGroup,
+    inherited_scope: Option<usize>,
+    collect_sgs: bool,
+    state: &mut TraversalState<'a>,
 ) {
     if group.get_number_of_groups() == 0 {
         if group.get_number_of_atoms() > 0 {
-            report
-                .residues
-                .push(check_single_residue(group, None, db, options));
+            let scope = inherited_scope.unwrap_or_else(|| state.new_scope());
+            state.push_residue(group, None, scope, collect_sgs);
         }
         return;
     }
@@ -334,14 +430,27 @@ fn traverse_and_check(
         .all(|(_, child)| child.get_number_of_groups() == 0);
 
     if all_children_are_leaves {
-        check_chain(group, db, options, report);
+        let scope = inherited_scope.unwrap_or_else(|| state.new_scope());
+        collect_from_chain(group, scope, collect_sgs, state);
     } else {
         let mut child_keys = group.get_group_list();
         sort_nicely(&mut child_keys);
 
+        let mut shared_chain_scope = inherited_scope;
+
         for key in &child_keys {
             if let Some(child) = group.get_group(key) {
-                traverse_and_check(child, db, options, report);
+                if child.get_number_of_groups() == 0 {
+                    if child.get_number_of_atoms() > 0 {
+                        let scope = *shared_chain_scope.get_or_insert_with(|| state.new_scope());
+                        state.push_residue(child, None, scope, collect_sgs);
+                    }
+                } else if child.groups().all(|(_, gc)| gc.get_number_of_groups() == 0) {
+                    let scope = *shared_chain_scope.get_or_insert_with(|| state.new_scope());
+                    collect_from_chain(child, scope, collect_sgs, state);
+                } else {
+                    collect_from_group(child, inherited_scope, collect_sgs, state);
+                }
             }
         }
     }
@@ -353,9 +462,32 @@ pub fn check_missing_atoms(
     db: &CcdTemplateDb,
     options: &MissingAtomsOptions,
 ) -> MissingAtomsReport {
-    let mut report = MissingAtomsReport::default();
-    traverse_and_check(group, db, options, &mut report);
-    report
+    let mut state = TraversalState::default();
+    collect_from_group(group, None, options.include_hydrogens, &mut state);
+
+    let mut disulfide_bonded = HashSet::new();
+    if options.include_hydrogens {
+        for sgs in &state.sgs_by_scope {
+            disulfide_bonded.extend(find_disulfide_bonded_ids(sgs));
+        }
+    }
+
+    let residues = state
+        .residues
+        .iter()
+        .enumerate()
+        .map(|(idx, item)| {
+            check_single_residue(
+                item.residue,
+                item.prev_residue,
+                disulfide_bonded.contains(&idx),
+                db,
+                options,
+            )
+        })
+        .collect();
+
+    MissingAtomsReport { residues }
 }
 
 impl AtomGroup {
@@ -607,6 +739,99 @@ LIG H1 H
     }
 
     #[test]
+    fn test_cys_disulfide_hg_optional() {
+        let db = CcdTemplateDb::global();
+        let h_opts = MissingAtomsOptions {
+            include_hydrogens: true,
+        };
+
+        let make_cys_with_sg_at = |sg_pos: Position| -> AtomGroup {
+            let mut cys =
+                build_residue_from_template("CYS", true, &["OXT", "H", "H2", "HXT", "HG"]);
+            for (_, atom) in cys.atoms_mut() {
+                if atom.name == "SG" {
+                    atom.xyz = sg_pos;
+                }
+            }
+            cys
+        };
+
+        // 1. Two CYS residues with SG 2.05 A apart in the same model -> HG is optional (not missing)
+        let mut model_close = AtomGroup::with_name("model_1");
+        let mut chain_a = AtomGroup::with_name("A");
+        chain_a.set_group("1", make_cys_with_sg_at(Position::new(0.0, 0.0, 0.0)));
+        let mut chain_b = AtomGroup::with_name("B");
+        chain_b.set_group("1", make_cys_with_sg_at(Position::new(2.05, 0.0, 0.0)));
+        model_close.set_group("A", chain_a);
+        model_close.set_group("B", chain_b);
+
+        let rep_close = model_close.check_missing_atoms(db, &h_opts);
+        assert_eq!(rep_close.residues.len(), 2);
+        assert!(rep_close.is_complete());
+        assert_eq!(rep_close.total_missing(), 0);
+        for r in &rep_close.residues {
+            assert_eq!(r.status, ResidueStatus::Complete);
+            assert!(r.missing.is_empty());
+            assert!(r.unexpected.is_empty());
+        }
+
+        // Same-chain pair 2.05 A apart also treats HG as optional, and present HG is not unexpected
+        let mut chain_close = AtomGroup::with_name("A");
+        chain_close.set_group("1", make_cys_with_sg_at(Position::new(0.0, 0.0, 0.0)));
+        let mut cys_with_hg = make_cys_with_sg_at(Position::new(2.05, 0.0, 0.0));
+        cys_with_hg.set_atom("99_HG", make_atom("H", "HG", Position::new(2.5, 0.5, 0.0)));
+        chain_close.set_group("2", cys_with_hg);
+        let rep_chain_close = chain_close.check_missing_atoms(db, &h_opts);
+        assert!(rep_chain_close.is_complete());
+        assert!(rep_chain_close.residues[0].missing.is_empty());
+        assert!(rep_chain_close.residues[1].unexpected.is_empty());
+
+        // 2. Two CYS residues with SG 5.0 A apart -> HG is missing on both
+        let mut chain_far = AtomGroup::with_name("A");
+        chain_far.set_group("1", make_cys_with_sg_at(Position::new(0.0, 0.0, 0.0)));
+        chain_far.set_group("2", make_cys_with_sg_at(Position::new(5.0, 0.0, 0.0)));
+        let rep_far = chain_far.check_missing_atoms(db, &h_opts);
+        assert!(!rep_far.is_complete());
+        assert_eq!(rep_far.total_missing(), 2);
+        for r in &rep_far.residues {
+            assert_eq!(r.status, ResidueStatus::Incomplete);
+            assert_eq!(r.missing, vec!["HG"]);
+        }
+
+        // 3. Nearby SG (2.05 A) in a different model is NOT counted -> HG is missing on both
+        let mut root_two_models = AtomGroup::new();
+        let mut m1 = AtomGroup::with_name("model_1");
+        let mut m1_chain = AtomGroup::with_name("A");
+        m1_chain.set_group("1", make_cys_with_sg_at(Position::new(0.0, 0.0, 0.0)));
+        m1.set_group("A", m1_chain);
+
+        let mut m2 = AtomGroup::with_name("model_2");
+        let mut m2_chain = AtomGroup::with_name("A");
+        m2_chain.set_group("1", make_cys_with_sg_at(Position::new(2.05, 0.0, 0.0)));
+        m2.set_group("A", m2_chain);
+
+        root_two_models.set_group("model_1", m1);
+        root_two_models.set_group("model_2", m2);
+
+        let rep_two_models = root_two_models.check_missing_atoms(db, &h_opts);
+        assert_eq!(rep_two_models.residues.len(), 2);
+        assert!(!rep_two_models.is_complete());
+        assert_eq!(rep_two_models.total_missing(), 2);
+        for r in &rep_two_models.residues {
+            assert_eq!(r.status, ResidueStatus::Incomplete);
+            assert_eq!(r.missing, vec!["HG"]);
+        }
+
+        // 4. Calling check_missing_atoms on a single residue alone cannot see its partner -> HG is missing
+        let single_cys = model_close.get_group("A").unwrap().get_group("1").unwrap();
+        let rep_single = single_cys.check_missing_atoms(db, &h_opts);
+        assert_eq!(rep_single.residues.len(), 1);
+        assert!(!rep_single.is_complete());
+        assert_eq!(rep_single.residues[0].status, ResidueStatus::Incomplete);
+        assert_eq!(rep_single.residues[0].missing, vec!["HG"]);
+    }
+
+    #[test]
     fn test_unexpected_atoms() {
         let db = CcdTemplateDb::global();
         let opts = MissingAtomsOptions::default();
@@ -765,7 +990,7 @@ LIG H1 H
         assert_eq!(rep_2fb4_h.residues.len(), 550);
         assert!(!rep_2fb4_h.is_complete());
         assert_eq!(rep_2fb4_h.incomplete().len(), 550);
-        assert_eq!(rep_2fb4_h.total_missing(), 3043);
+        assert_eq!(rep_2fb4_h.total_missing(), 3031);
         assert!(rep_2fb4_h.no_template_components().is_empty());
 
         // 2MGO (NMR structure with 20 models and hydrogens)
@@ -798,9 +1023,9 @@ LIG H1 H
             rep_2mgo_h.no_template_components()
         );
         assert_eq!(rep_2mgo_h.residues.len(), 180);
-        assert!(!rep_2mgo_h.is_complete());
-        assert_eq!(rep_2mgo_h.incomplete().len(), 40);
-        assert_eq!(rep_2mgo_h.total_missing(), 40);
+        assert!(rep_2mgo_h.is_complete());
+        assert_eq!(rep_2mgo_h.incomplete().len(), 0);
+        assert_eq!(rep_2mgo_h.total_missing(), 0);
         assert!(rep_2mgo_h.no_template_components().is_empty());
     }
 }
