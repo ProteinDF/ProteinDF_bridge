@@ -11,7 +11,9 @@
 #   -W  if the agent stops on its usage limit, wait until the limit resets and
 #       continue the session once (-c). Without -W the script exits with 75.
 #   -b  branch (default: the "Branch:" line in the TASK file)
-#   -m  model passed to the agent CLI
+#   -m  model passed to the agent CLI (default: the "Model:" line in the TASK file,
+#       e.g. "- **Model**: `gemini-3.8-flash-medium` `copilot=auto`"; a bare name is
+#       for agy, "<agent>=<model>" for a given agent; none: the CLI's default)
 #   -v  stream the agent's whole output (default: only the last 80 lines, with
 #       consecutive duplicate lines collapsed, are shown after the run)
 #
@@ -36,11 +38,11 @@ while getopts "a:icWb:m:vh" opt; do
         b) branch=$OPTARG ;;
         m) model=$OPTARG ;;
         v) verbose=1 ;;
-        *) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+        *) sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
     esac
 done
 shift $((OPTIND - 1))
-(($# >= 1)) || { sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+(($# >= 1)) || { sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
 
 task=$(realpath "$1"); shift
 extra="$*"
@@ -51,6 +53,18 @@ if [[ -z "$branch" ]]; then
     # e.g. "- **Branch**: `fix/gcc15-build`"
     branch=$(grep -m1 -oP '\*\*Branch\*\*:\s*`\K[^`]+' "$task" || true)
     [[ -n "$branch" ]] || { echo "error: no **Branch** line in $task; use -b" >&2; exit 1; }
+fi
+
+if [[ -z "$model" ]]; then
+    # e.g. "- **Model**: `gemini-3.8-flash-medium` `copilot=auto`"
+    line=$(grep -m1 -P '^\s*-\s*\*\*Model\*\*:' "$task" || true)
+    for m in $(grep -oP '`\K[^`]+(?=`)' <<<"$line"); do
+        if [[ "$m" == *=* ]]; then
+            [[ "${m%%=*}" == "$agent" ]] && model=${m#*=}
+        elif [[ "$agent" == agy && -z "$model" ]]; then
+            model=$m
+        fi
+    done
 fi
 
 if git show-ref --verify --quiet "refs/heads/$branch"; then
@@ -81,6 +95,7 @@ if ((continue_session)); then
 fi
 
 echo "agent:    $agent ($([[ $interactive == 1 ]] && echo interactive || echo non-interactive, auto-approve))"
+echo "model:    ${model:-(default)}"
 echo "branch:   $branch"
 echo "worktree: $wt"
 echo "task:     $task"
