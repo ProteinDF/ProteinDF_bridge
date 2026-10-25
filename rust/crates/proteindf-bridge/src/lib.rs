@@ -15,6 +15,7 @@ pub mod hydrogen_bond;
 pub mod hydrogenation;
 pub mod ion_pair;
 pub mod matrix;
+pub mod missing_atoms;
 pub mod modeling;
 pub mod neutralize;
 pub mod orchestrator;
@@ -67,6 +68,9 @@ pub use hydrogenation::{
 };
 pub use ion_pair::{IonPair, IonPairRecord};
 pub use matrix::{identity_matrix, Matrix, SymmetricMatrix};
+pub use missing_atoms::{
+    check_missing_atoms, MissingAtomsOptions, MissingAtomsReport, ResidueAtomCheck, ResidueStatus,
+};
 pub use modeling::Modeling;
 pub use neutralize::Neutralize;
 pub use orchestrator::{hydrogenate_atomgroup, OverallHydrogenationReport};
