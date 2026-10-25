@@ -23,10 +23,11 @@
       `proteindf_bridge/modeling.py` (`Modeling.get_ACE`/`get_NME`
       docstrings — an ACE/NME diagram with the same indentation issue),
       same fix (turned into a literal block).
-- [ ] Install a local TeX distribution to build PDFs
-      (`brew install --cask mactex-no-gui`, or `texlive-lang-japanese` on
-      Linux for the Japanese PDF) and verify `make latexpdf` /
-      `make latexpdf-ja`.
+- [x] ~~Install a local TeX distribution to build PDFs and verify
+      `make latexpdf` / `make latexpdf-ja`.~~ Not needed for now (2026-10-25):
+      the PDF edition is not required at the moment. The `pdf` job of the
+      `docs` workflow still builds both PDFs (`continue-on-error`) and uploads
+      them as the `pdf-site` artifact if they are needed later.
 - [x] Review the auto-generated API reference (`docs/api/*.rst`) for modules
       that should be excluded or reorganized (e.g. `dbmanager.py`, `mail.py`
       if not part of the public API).
