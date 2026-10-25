@@ -1949,6 +1949,7 @@ impl PyAtomGroup {
 
         let mut answer_groups = IndexMap::new();
         for (k, child_py) in &child_groups {
+            ensure_child_link(slf, k, child_py)?;
             let child_path = format!("{}{}/", root_path, k);
             if let Some(res_sub_py) = select_child_group(py, child_py, &child_path, k, None, &sel)?
             {
@@ -3016,6 +3017,7 @@ fn select_child_group<'py>(
 
     let mut sub_groups = IndexMap::new();
     for (sub_k, sub_py) in &child_groups {
+        ensure_child_link(child_bound, sub_k, sub_py)?;
         let sub_path = format!("{}{}/", current_path, sub_k);
         if let Some(res_sub_py) = select_child_group(py, sub_py, &sub_path, sub_k, None, selector)?
         {
