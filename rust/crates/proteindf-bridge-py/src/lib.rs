@@ -10,6 +10,7 @@ pub mod bond;
 pub mod brd;
 pub mod ccd_templates;
 pub mod ch_pi;
+pub mod complete_atoms;
 pub mod error;
 pub mod format;
 pub mod hydrogen_bond;
@@ -121,6 +122,10 @@ fn rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Missing atoms inspection
     m.add_class::<missing_atoms::PyResidueAtomCheck>()?;
     m.add_class::<missing_atoms::PyMissingAtomsReport>()?;
+
+    // Missing atoms completion
+    m.add_class::<complete_atoms::PyResidueCompletion>()?;
+    m.add_class::<complete_atoms::PyCompletionReport>()?;
 
     // Analysis (PR#47)
     // Hydrogen bonds
