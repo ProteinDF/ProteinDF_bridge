@@ -9,12 +9,14 @@ pub mod bond;
 pub mod brd;
 pub mod ccd_templates;
 pub mod ch_pi;
+pub mod complete_atoms;
 pub mod error;
 pub mod format;
 pub mod hydrogen_bond;
 pub mod hydrogenation;
 pub mod ion_pair;
 pub mod matrix;
+pub mod missing_atoms;
 pub mod modeling;
 pub mod neutralize;
 pub mod orchestrator;
@@ -49,6 +51,9 @@ pub use ch_pi::{
     calc_ring_geometry, AromaticRing, AromaticRingDef, ChPiInteraction, AROMATIC_RINGS,
     DEFAULT_MAX_ANGLE_DEG, DEFAULT_MAX_DISTANCE,
 };
+pub use complete_atoms::{
+    complete_missing_atoms, CompleteOptions, CompletionReport, CompletionStatus, ResidueCompletion,
+};
 pub use error::{BridgeError, Result};
 pub use format::{
     AmberPrmtop, Cube, CubeAtom, CubeUnit, Format, MmcifStructureReport, MmcifWriteOptions, Pdb,
@@ -67,6 +72,9 @@ pub use hydrogenation::{
 };
 pub use ion_pair::{IonPair, IonPairRecord};
 pub use matrix::{identity_matrix, Matrix, SymmetricMatrix};
+pub use missing_atoms::{
+    check_missing_atoms, MissingAtomsOptions, MissingAtomsReport, ResidueAtomCheck, ResidueStatus,
+};
 pub use modeling::Modeling;
 pub use neutralize::Neutralize;
 pub use orchestrator::{hydrogenate_atomgroup, OverallHydrogenationReport};
