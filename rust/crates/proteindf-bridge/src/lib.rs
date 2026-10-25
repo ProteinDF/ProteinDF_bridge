@@ -9,6 +9,7 @@ pub mod bond;
 pub mod brd;
 pub mod ccd_templates;
 pub mod ch_pi;
+pub mod complete_atoms;
 pub mod error;
 pub mod format;
 pub mod hydrogen_bond;
@@ -49,6 +50,9 @@ pub use ch_pi::{
     calc_ch_pi_interactions, calc_ch_pi_interactions_with_thresholds, calc_ring_center_and_normal,
     calc_ring_geometry, AromaticRing, AromaticRingDef, ChPiInteraction, AROMATIC_RINGS,
     DEFAULT_MAX_ANGLE_DEG, DEFAULT_MAX_DISTANCE,
+};
+pub use complete_atoms::{
+    complete_missing_atoms, CompleteOptions, CompletionReport, CompletionStatus, ResidueCompletion,
 };
 pub use error::{BridgeError, Result};
 pub use format::{

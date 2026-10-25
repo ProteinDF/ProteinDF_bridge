@@ -343,16 +343,16 @@ fn check_single_residue(
 }
 
 /// Entry for a leaf residue collected during a single tree traversal.
-struct CollectedResidue<'a> {
-    residue: &'a AtomGroup,
-    prev_residue: Option<&'a AtomGroup>,
+pub(crate) struct CollectedResidue<'a> {
+    pub(crate) residue: &'a AtomGroup,
+    pub(crate) prev_residue: Option<&'a AtomGroup>,
 }
 
 /// State accumulated during a single pass over the [`AtomGroup`] tree.
 #[derive(Default)]
-struct TraversalState<'a> {
-    residues: Vec<CollectedResidue<'a>>,
-    sgs_by_scope: Vec<Vec<(usize, Position)>>,
+pub(crate) struct TraversalState<'a> {
+    pub(crate) residues: Vec<CollectedResidue<'a>>,
+    pub(crate) sgs_by_scope: Vec<Vec<(usize, Position)>>,
 }
 
 impl<'a> TraversalState<'a> {
@@ -411,7 +411,7 @@ fn collect_from_chain<'a>(
 /// A disulfide search scope corresponds to a group that contains chains (e.g. a model
 /// `/model_N/` in a full PDB/mmCIF tree), or the root of the call itself when called on
 /// a single chain or residue.
-fn collect_from_group<'a>(
+pub(crate) fn collect_from_group<'a>(
     group: &'a AtomGroup,
     inherited_scope: Option<usize>,
     collect_sgs: bool,
