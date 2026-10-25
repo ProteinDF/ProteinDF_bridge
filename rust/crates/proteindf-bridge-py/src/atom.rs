@@ -45,7 +45,7 @@ type AtomState = (
 ///     TypeError: If positional arguments exceed 1 or argument types are invalid.
 ///     BrValueError: If the element symbol is unknown.
 ///     BrInputError: If coordinate parsing fails from a string or slice.
-#[pyclass(name = "Atom", module = "proteindf_bridge.rs")]
+#[pyclass(name = "Atom", module = "proteindf_bridge.rs", subclass)]
 pub struct PyAtom {
     pub(crate) atomic_number: usize,
     pub(crate) name: String,
