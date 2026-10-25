@@ -5,11 +5,13 @@ use crate::atom::PyAtom;
 use crate::ccd_templates::PyCcdTemplateDb;
 use crate::error::to_py_err;
 use crate::hydrogenation::PyOverallHydrogenationReport;
+use crate::missing_atoms::PyMissingAtomsReport;
 use crate::position::PyPosition;
 use crate::schema::PySchemaViolation;
 use indexmap::IndexMap;
 use proteindf_bridge::atom_group::{AtomGroup as CoreAtomGroup, BondRecord, Selector};
 use proteindf_bridge::ccd_templates::CcdTemplateDb as CoreCcdTemplateDb;
+use proteindf_bridge::missing_atoms::MissingAtomsOptions;
 use proteindf_bridge::position::Position;
 use proteindf_bridge::secondary_structure::{
     apply_secondary_structure as core_apply_secondary_structure, SsCode,
@@ -2109,6 +2111,33 @@ impl PyAtomGroup {
         let report = core.add_missing_hydrogens(core_db).map_err(to_py_err)?;
         self.update_from_core(py, core)?;
         PyOverallHydrogenationReport::new(py, report)
+    }
+
+    /// Checks for missing and unexpected atoms based on CCD residue templates.
+    ///
+    /// Args:
+    ///     db (Optional[CcdTemplateDb], optional): The CCD template database to use.
+    ///         If None, the global default database is used. Defaults to None.
+    ///     include_hydrogens (bool, optional): Whether to include hydrogen atoms
+    ///         in the check. Defaults to False.
+    ///
+    /// Returns:
+    ///     MissingAtomsReport: Summary report of missing and unexpected atoms.
+    #[pyo3(signature = (db=None, include_hydrogens=false))]
+    pub fn check_missing_atoms(
+        &self,
+        py: Python<'_>,
+        db: Option<&PyCcdTemplateDb>,
+        include_hydrogens: bool,
+    ) -> PyResult<PyMissingAtomsReport> {
+        let core_db = match db {
+            Some(d) => &d.inner,
+            None => CoreCcdTemplateDb::global(),
+        };
+        let core = self.to_core(py);
+        let options = MissingAtomsOptions { include_hydrogens };
+        let report = core.check_missing_atoms(core_db, &options);
+        PyMissingAtomsReport::new(py, report)
     }
 
     /// Detects and assigns secondary structure annotations ('H', 'E', '-') to residues in this chain.

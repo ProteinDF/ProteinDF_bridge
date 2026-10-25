@@ -17,6 +17,7 @@ pub mod hydrogenation;
 pub mod interaction_set;
 pub mod ion_pair;
 pub mod matrix;
+pub mod missing_atoms;
 pub mod modeling;
 pub mod neutralize;
 pub mod periodic_table;
@@ -116,6 +117,10 @@ fn rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Hydrogenation (PR#46)
     m.add_class::<hydrogenation::PyHydrogenationReport>()?;
     m.add_class::<hydrogenation::PyOverallHydrogenationReport>()?;
+
+    // Missing atoms inspection
+    m.add_class::<missing_atoms::PyResidueAtomCheck>()?;
+    m.add_class::<missing_atoms::PyMissingAtomsReport>()?;
 
     // Analysis (PR#47)
     // Hydrogen bonds
