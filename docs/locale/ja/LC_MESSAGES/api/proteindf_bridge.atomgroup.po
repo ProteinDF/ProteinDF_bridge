@@ -1137,3 +1137,16 @@ msgstr "このグループおよび子孫グループ内のすべての原子の
 #: proteindf_bridge.atomgroup.AtomGroup.weight:3
 msgid "Total molecular weight in atomic mass units (Da)."
 msgstr "統一原子質量単位 (Da) での総分子量。"
+
+#: proteindf_bridge.atomgroup.AtomGroup.check_missing_atoms:1
+msgid "Checks for missing and unexpected atoms based on CCD residue templates."
+msgstr "CCD残基テンプレートに基づいて欠損原子および予期しない原子を検査する。"
+
+#: proteindf_bridge.atomgroup.AtomGroup.check_missing_atoms:6
+msgid "Whether to include hydrogen atoms in the check. Defaults to False."
+msgstr "検査に水素原子を含めるかどうか。デフォルトは False。"
+
+#: proteindf_bridge.atomgroup.AtomGroup.check_missing_atoms:10
+msgid "Summary report of missing and unexpected atoms."
+msgstr "欠損原子および予期しない原子のサマリーレポート。"
+
