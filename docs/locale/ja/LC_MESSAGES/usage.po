@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ProteinDF_bridge 2024.3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-25 11:26+0900\n"
+"POT-Creation-Date: 2026-10-25 12:52+0900\n"
 "PO-Revision-Date: 2026-08-25 12:23+0900\n"
 "Last-Translator: Toshiyuki HIRANO <hiracchi@users.noreply.github.com>\n"
 "Language: ja\n"
@@ -20,11 +20,11 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: ../../usage.md:1 a24271613dc9460b965d5544decf8285
+#: ../../usage.md:1 bb797a99f33149059810027c4dde2405
 msgid "Command-line tools"
 msgstr "コマンドラインツール"
 
-#: ../../usage.md:3 59cb994fa2364f9088704b8269304947
+#: ../../usage.md:3 480f644978f842b796dfd6645d5c0baf
 #, fuzzy
 msgid ""
 "`ProteinDF_bridge` installs a set of small, single-purpose CLI scripts as"
@@ -40,295 +40,295 @@ msgstr ""
 "の薄いラッパーで、あるフォーマットを読み込んで別のフォーマットを書き出すか、bridge(`.brd`)ファイルに対して1つの構造編集操作を行います。詳しいオプションは各スクリプトを"
 " `-h` 付きで実行してください。"
 
-#: ../../usage.md:10 b6d2779dbfa8493fbe045a14bf85dad4
+#: ../../usage.md:10 013c1e13b17c47368b010bb19d1bd956
 msgid "Format conversion"
 msgstr "フォーマット変換"
 
-#: ../../usage.md 0e543bb008be459db348b596cb2ee2a4
-#: 53eebda721284002af5351c3924d1405 6886bfe89d274523979528158bf4157e
-#: bf560ccf27c14fed9f5a5d388efe7b7f
+#: ../../usage.md 0933e0768c0447e19c69470c080d65a5
+#: 740e62ccaa814a9f9b392e375eab997a 85fd278319a14f47b925b282ced70e18
+#: d31536cb16e6424e995ee34671a88d3c
 msgid "Script"
 msgstr "スクリプト"
 
-#: ../../usage.md 0780a101a75841c59dc2e051dd1517c1
-#: 6d4504c874b7492fbbcda045afcad851 7a483355263e4965a7bf8c422735a7d5
-#: c33130963ed140dfb98592a85346384d
+#: ../../usage.md 4f58b2da0d68417db684d556444ac29f
+#: 680a3c4aab4540f780b0016614ee127e b48eb27bd0df405e9c103be51133f4da
+#: b6f8de26f13040ff9a69cb9ea3f2671c
 msgid "Description"
 msgstr "説明"
 
-#: ../../usage.md d35219f5e5cd49bf83388e4954801b31
+#: ../../usage.md 378ea8a935c142b4a06e117dd6a7d946
 msgid "`pdb2brd.py`"
 msgstr ""
 
-#: ../../usage.md 96ffa688cda84496be39b11060f2fe72
+#: ../../usage.md 0bf2d68dfe8a43f992f15bd27eefc04a
 msgid "translate from PDB to bridge file"
 msgstr "PDBファイルからbridgeファイルへ変換"
 
-#: ../../usage.md 073ea00674c94db7a21a5955944ee38d
+#: ../../usage.md 3f5a0c56d2d04ab081437aa6e037708e
 msgid "`brd2pdb.py`"
 msgstr ""
 
-#: ../../usage.md 35028720c0774f38a0836e46624fe77d
+#: ../../usage.md c68d22ce66ce47fb9918e99c703746df
 msgid "transform bridge file to PDB file"
 msgstr "bridgeファイルからPDBファイルへ変換"
 
-#: ../../usage.md df11580bc75d49babfda70dc6c1d782b
+#: ../../usage.md 83fe1ece0dc24ed5bc72c732e2785c4b
 msgid "`gro2brd.py`"
 msgstr ""
 
-#: ../../usage.md 4bb9729f368340099e3faca4f6e7d3ff
+#: ../../usage.md faf18080a9a347ff94470df744361e5e
 msgid "translate from gro to bridge file"
 msgstr "groファイルからbridgeファイルへ変換"
 
-#: ../../usage.md 8c3fa2cac8a5427fb5f178375755c862
+#: ../../usage.md 4a366fd8b39f4155a5b36d7dc0faf15f
 msgid "`brd2gro.py`"
 msgstr ""
 
-#: ../../usage.md 135bc315de2c446b98e1251d35a9edbe
+#: ../../usage.md 3c3d6ea316d044f1af0343bbac68c3cc
 msgid "output gro format from bridge file"
 msgstr "bridgeファイルからgro形式を出力"
 
-#: ../../usage.md 0d6e0bb8c35c48ffb5ca17998defdb70
+#: ../../usage.md 87081daa88974fd8ab6dd045c835eba4
 msgid "`xyz2brd.py`"
 msgstr ""
 
-#: ../../usage.md 3cdf56e1cd6341979a81444859965183
+#: ../../usage.md bcc5a433701e4d4598355b54a827c086
 msgid "transform XYZ file to bridge file"
 msgstr "XYZファイルからbridgeファイルへ変換"
 
-#: ../../usage.md b42451c5c6924a42b5032cc62809de44
+#: ../../usage.md 700bbebccae14bddb3c16f84d29c9b17
 msgid "`brd2xyz.py`"
 msgstr ""
 
-#: ../../usage.md 4b0dfad2f1cc44b18f634fc86b8a9c20
+#: ../../usage.md d5aaf575dbb64151b5992f02e7be1917
 msgid "transform bridge file to XYZ file"
 msgstr "bridgeファイルからXYZファイルへ変換"
 
-#: ../../usage.md bbbd26f7b9474e619b6af066b8d17e34
+#: ../../usage.md 5a18956c4a094765a15e80b976644c14
 msgid "`mmcif2txt.py`"
 msgstr ""
 
-#: ../../usage.md 310e5aa5267f4b99a0a822be6a580368
+#: ../../usage.md 28ceb5a47ada4462b7f12fe3106db395
 msgid "parse mmCIF file"
 msgstr "mmCIFファイルを解析"
 
-#: ../../usage.md da068fbfd40640f2a2a98095c67860b2
+#: ../../usage.md c20189cdcd6d493fa8a5ff691c19d01d
 msgid "`mmcif2mol2.py`"
 msgstr ""
 
-#: ../../usage.md db20efdffcfb406c8110940f7555c067
+#: ../../usage.md ac3952db2c714715adc2f0496db7f63f
 msgid "parse mmCIF file to mol2 file"
 msgstr "mmCIFファイルをmol2ファイルへ変換"
 
-#: ../../usage.md 5b78ccd212eb4fe884ec15b95bacd9a1
+#: ../../usage.md 1519ca0842b74040a99d4e3da5c5594a
 msgid "`read_amber_prmtop.py`"
 msgstr ""
 
-#: ../../usage.md e4d24fe6edff471fb00cb742246eb48f
+#: ../../usage.md 32e5d6602ced4b2e98adc3232694caad
 msgid "parse Amber prmtop"
 msgstr "Amber prmtopを解析"
 
-#: ../../usage.md 9b82ee92320a4dc7a68fc914cb435eaf
+#: ../../usage.md e9cce59b0842435dbcf25f2d2053a35e
 msgid "`mpac2yml.py` / `yml2mpac.py`"
 msgstr ""
 
-#: ../../usage.md 5d5fff7d32ff4b39afa3e91bd893162e
+#: ../../usage.md 7b263ab4d94540cabc2716ebc102efa8
 msgid "convert between MsgPack and YAML bridge representations"
 msgstr "MsgPack表現とYAML表現のbridgeファイルを相互変換"
 
-#: ../../usage.md af4ed7a9fede4d8b9caa31e38a490e85
+#: ../../usage.md 1effdf238672427186d408a56914eb82
 msgid "`mpac2txt.py`"
 msgstr ""
 
-#: ../../usage.md 379bf6ea244d4f99b994838c3da1c696
+#: ../../usage.md ce69bd53813e4126a99e03ac88d96a98
 msgid "display file formatted by MsgPack using YAML"
 msgstr "MsgPack形式のファイルをYAMLとして表示"
 
-#: ../../usage.md ff3b42c988fb462aa366d8cf249ed1e2
+#: ../../usage.md d1c66b84336d4c1eba80df5a4cd8580e
 msgid "`brd2txt.py`"
 msgstr ""
 
-#: ../../usage.md 896aa3e52fb34ccd8e0d7f8a89a0f8b0
+#: ../../usage.md d9336301dd3f4267b7a23fe0135584c6
 msgid "print molecular bridge file"
 msgstr "分子bridgeファイルの内容を表示"
 
-#: ../../usage.md 0263a23855374880a9ac17f10bd60c0f
+#: ../../usage.md 8da81071f6254e29964c732370327fd3
 msgid "`db2txt.py`"
 msgstr ""
 
-#: ../../usage.md dd0983a45bd44a15b642815be4f6f0f9
+#: ../../usage.md f218fedd1f3a46f0a1e13e8170e352fd
 msgid "print DB (sqlite3) file"
 msgstr "DB(sqlite3)ファイルの内容を表示"
 
-#: ../../usage.md:28 34148f9fe8fc4f56939751db37872715
+#: ../../usage.md:28 492f56c531ce460b9a9c79218265542f
 msgid "Structure editing"
 msgstr "構造編集"
 
-#: ../../usage.md ba2b7c37e2a841d69f02c243a8ceb9b1
+#: ../../usage.md d523ac0c07a546b8a51eb8c464c7ebed
 msgid "`brd-select.py`"
 msgstr ""
 
-#: ../../usage.md 65ef00ac0d1848be80c961a262ca36a2
+#: ../../usage.md deac0c6708064b229abdabf4de25f695
 msgid "bridge file selector"
 msgstr "bridgeファイルのセレクタ"
 
-#: ../../usage.md bb0adec7b12f49b7ba2934a8735f4276
+#: ../../usage.md 1069144bb459496ca5e590c427fb43c8
 msgid "`brd-select-path.py`"
 msgstr ""
 
-#: ../../usage.md c6a1c7cad7e241a18e251341a31c9a40
+#: ../../usage.md 780a684bd5b94fab9cad3c5d4aae3c63
 msgid "bridge file selector (by path)"
 msgstr "bridgeファイルのセレクタ(パス指定)"
 
-#: ../../usage.md 9b5987c93ff24681a082f849334667ee
+#: ../../usage.md 53bc9b3612504d11a07b829b90350f19
 msgid "`brd-divide.py`"
 msgstr ""
 
-#: ../../usage.md 2918592d77564d58be204ed109a7ca16
+#: ../../usage.md 1c1b466ae56b41b982cb00ff9b38f59e
 msgid "bridge file divider"
 msgstr "bridgeファイルの分割"
 
-#: ../../usage.md c3b8494916924f6398370ef93a9a78ec
+#: ../../usage.md 0ececdd5e7fd44bb963c79fae4cba12e
 msgid "`brd-divide-mainchain.py`"
 msgstr ""
 
-#: ../../usage.md 70520d9dcadc40d0ae8aff1cb4b30c13
+#: ../../usage.md 44de5d01606e413d9e6d6def3b647879
 msgid "bridge file divider (main chain)"
 msgstr "bridgeファイルの分割(主鎖)"
 
-#: ../../usage.md cc11c8d60e49497294a4e3e7d7d3b78b
+#: ../../usage.md 3fe8cda4a2eb4f819138ebbeaf72b866
 msgid "`brd-restructure.py`"
 msgstr ""
 
-#: ../../usage.md 050675c7a6474e24b69a5df5a5bb0b31
+#: ../../usage.md fed2944233994a5b8214fed061e3b93b
 msgid "restructure brd file by reference file"
 msgstr "参照ファイルを用いてbrdファイルを再構成"
 
-#: ../../usage.md beedd45933e641b388e234b954aa60ab
+#: ../../usage.md 42bdbe937a654d18b902b3ed86612a6d
 msgid "`brd-renumber-resid.py`"
 msgstr ""
 
-#: ../../usage.md 06aebdc64d8d42babcda3a1afad036a3
+#: ../../usage.md d8fee29c24804ef0a2a6a1d38d487161
 msgid "renumber resid in bridge file"
 msgstr "bridgeファイル内の残基番号を振り直す"
 
-#: ../../usage.md d0ef0cf4fa914447b4bf193c6b4eabd7
+#: ../../usage.md 337ab7524b904fef94dfebce2737b11d
 msgid "`brd-setup-bond.py`"
 msgstr ""
 
-#: ../../usage.md b403f70b411842419e2e4975efde5903
+#: ../../usage.md 0db29e5e58104671a59037ae6cf00d79
 msgid "setup bonds"
 msgstr "結合を設定"
 
-#: ../../usage.md c5af4567ece547ee90264e7dcac572a0
+#: ../../usage.md f62454da3a904084aba7143fbb6c4bd9
 msgid "`brd-show-bonds.py`"
 msgstr ""
 
-#: ../../usage.md e6da7e42a13f4a70a36ed606eadc8ff2
+#: ../../usage.md d2f15dbc861e4137b4e1ea53312bf80e
 msgid "show bonds"
 msgstr "結合を表示"
 
-#: ../../usage.md d514142b78ee4c149e9e6e5859f84ba3
+#: ../../usage.md 591add489fff4c0bb4af672a55434c1e
 msgid "`brd-show-res.py`"
 msgstr ""
 
-#: ../../usage.md f7be7e0c75bd48cca22e649652bd6907
+#: ../../usage.md e936932ef21641d28a401878066abb08
 msgid "print residues in the bridge file"
 msgstr "bridgeファイル内の残基を表示"
 
-#: ../../usage.md 2d5a54c3874d4135a6e239414e075312
+#: ../../usage.md 0e0d816703804ae8976b482bbfc8fbdf
 msgid "`reorder.py`"
 msgstr ""
 
-#: ../../usage.md ef1e353c054d46c295aefa3a0a845fdb
+#: ../../usage.md 3cf1901cbde94fb78c3bb3e6b2b4b4b9
 msgid "reorder protein"
 msgstr "タンパク質の原子順序を並べ替え"
 
-#: ../../usage.md 45914a25eb7142068f4003c7502fd1e9
+#: ../../usage.md 349b1c6837c34e27b32d90c36b4a4c26
 msgid "`neutralize.py`"
 msgstr ""
 
-#: ../../usage.md 061fc63dcfed4bdf9ebfb6f971c242ea
+#: ../../usage.md 7cf2ae1339a64d64b0f948e8f1669c2e
 msgid "neutralize protein"
 msgstr "タンパク質を中和"
 
-#: ../../usage.md 33ce877f3fc14dbaa9ae4512f395fa7f
+#: ../../usage.md 759348945ba7456f8377a1b8fc31e9e3
 msgid "`crystallize.py`"
 msgstr ""
 
-#: ../../usage.md e17a116cad7f457580dca9a5633d3cd0
+#: ../../usage.md 9329c745b50348a6ac9b329f2d3bc8ae
 msgid "crystallize molecules"
 msgstr "分子を結晶化"
 
-#: ../../usage.md 9fd1305ec60d42e5965db7aff9ffd6a4
+#: ../../usage.md cfe9d4e0fe944b8db12c9fc4df7dbf8a
 msgid "`superposer.py`"
 msgstr ""
 
-#: ../../usage.md 91d7ebea6a6d4e00a84aa1ca8a80149a
+#: ../../usage.md b0c8eca3a1984cb3b3d8732d59e814bb
 msgid "superpose"
 msgstr "構造の重ね合わせ"
 
-#: ../../usage.md:46 c30a7e95f11f4cd6b82916f0f0909be8
+#: ../../usage.md:46 fc788b6b8c21476a91df17351805954c
 msgid "Analysis"
 msgstr "解析"
 
-#: ../../usage.md f7ecef5eaeb44be5ac8bb8c73a73b2da
+#: ../../usage.md 80532db86c0845a08f1213ef671f1311
 msgid "`brd-box.py`"
 msgstr ""
 
-#: ../../usage.md 6169033e54d54accb3717b48ac4bbf3d
+#: ../../usage.md 18fb595ae9464616b7fb55c955cf0bc9
 msgid "calc box size"
 msgstr "ボックスサイズを計算"
 
-#: ../../usage.md cebeace977da478cb26c6291a9b8bf97
+#: ../../usage.md b3f5dfd14dbf46978c0d667d7080992a
 msgid "`brd-density.py`"
 msgstr ""
 
-#: ../../usage.md 8b36eb58dde04378a86f44bca7c74bd2
+#: ../../usage.md 4c7aa11b63a24f95bca907e13710522a
 msgid "calc density"
 msgstr "密度を計算"
 
-#: ../../usage.md 6c8dd1709fc442cd924f1756417a5313
+#: ../../usage.md 8a2d87c0f281476eb4de21f86ea5bb30
 msgid "`brd-formula.py`"
 msgstr ""
 
-#: ../../usage.md 2d0bc51721f54ac5a18d4632b25d4ec4
+#: ../../usage.md 1cb9564b54eb4fdb8ead520490512101
 msgid "print molecular formula"
 msgstr "分子式を表示"
 
-#: ../../usage.md 8a0525141a5e4edfb326f8370a585c8c
+#: ../../usage.md 069e435585434494bab5f4865a9323c6
 msgid "`brd-ramachandran.py`"
 msgstr ""
 
-#: ../../usage.md 77cb4722f3854d63930913e5f89e4ba7
+#: ../../usage.md 2901d94b52044ac1a3bd217bde2b53c7
 msgid "calculate Ramachandran angles (phi/psi)"
 msgstr ""
 
-#: ../../usage.md:55 c6fa95abb30c425e9c421c345dd3cb2e
+#: ../../usage.md:55 34a99c66706c4abcb05fcf1a43faf618
 msgid "Development"
 msgstr "開発"
 
-#: ../../usage.md e383b88179eb48ef83c0ee2810d2e574
+#: ../../usage.md b78388ce27f5479ea09ddb4db8463ffc
 msgid "`doctest_runner.py`"
 msgstr ""
 
-#: ../../usage.md 3665c23110ce41f9ab34641275ac3f12
+#: ../../usage.md 1ae9f7b16ab242ee8376503cd5954ec1
 msgid "run doctests across `proteindf_bridge`"
 msgstr "`proteindf_bridge` 全体のdoctestを実行"
 
-#: ../../usage.md 8a1aebf0bf404937ac3f8d4e0786c15b
+#: ../../usage.md f7abdd493d654af1a0abcdee49e09071
 msgid "`module_inspect.py`"
 msgstr ""
 
-#: ../../usage.md 83d2a142f2ba46b0a70f1ba0444cc72b
+#: ../../usage.md fa6ba0bd0504496e97017fa9962af182
 msgid "inspect module contents"
 msgstr "モジュールの内容を調査"
 
-#: ../../usage.md:62 f49735e984294564aba176127c89fc6f
+#: ../../usage.md:62 1bab3f6f8e5f49d9b3ea35896aa3594e
 msgid "Python: checking missing atoms"
 msgstr "Python: 欠損原子の検査"
 
-#: ../../usage.md:64 9726ec36435b474db19b150efc13245e
+#: ../../usage.md:64 bd1b32ae0d19476fa0a42c03a71346bc
 msgid ""
 "You can inspect an `AtomGroup` hierarchy for missing atoms against "
 "standard Chemical Component Dictionary (CCD) residue definitions using "
@@ -336,18 +336,21 @@ msgid ""
 " does not modify the tree. By default, only heavy atoms are verified; "
 "pass `include_hydrogens=True` to inspect hydrogen atoms as well."
 msgstr ""
-"`AtomGroup.check_missing_atoms()` を使用すると、標準の Chemical Component Dictionary "
-"(CCD) 残基定義に基づいて `AtomGroup` 階層内の欠損原子を検査できます。この検査は非破壊的であり、木を変更しません。デフォルトでは重原子のみが検証されますが、`include_hydrogens=True` を渡すことで水素原子も検査できます。"
+"`AtomGroup.check_missing_atoms()` を使用すると、標準の Chemical Component "
+"Dictionary (CCD) 残基定義に基づいて `AtomGroup` "
+"階層内の欠損原子を検査できます。この検査は非破壊的であり、木を変更しません。デフォルトでは重原子のみが検証されますが、`include_hydrogens=True`"
+" を渡すことで水素原子も検査できます。"
 
-#: ../../usage.md:70 64dbc61544454aa39de95f570825d4e0
+#: ../../usage.md:70 ../../usage.md:134 2b7650d8e8784f79bb482032fde33b2b
+#: 54b6b5e51fe7402fa77aa214f3dc72c3
 msgid "Basic usage"
 msgstr "基本的な使い方"
 
-#: ../../usage.md:89 4dd5891379794f97985629b3265ca05d
+#: ../../usage.md:89 6ed87309e7034dd1810ace53e0e96c88
 msgid "Components without CCD templates"
 msgstr "CCDテンプレートにない分子"
 
-#: ../../usage.md:91 62c82ca80e664ae98f3e653cc85dd28f
+#: ../../usage.md:91 1468d0a3a39f442eade4cbd4d224ae91
 msgid ""
 "If the structure contains residues or ligands not found in the CCD "
 "template database, their check status is set to `\"no_template\"`. These "
@@ -356,46 +359,52 @@ msgid ""
 "load the built-in database, register your definitions with "
 "`add_from_file()`, and pass `db` to `check_missing_atoms()`:"
 msgstr ""
-"CCDテンプレートデータベースに存在しない残基やリガンドが構造に含まれる場合、それらの検査ステータスは `\"no_template\"` に設定されます。これらのコンポーネントは `report.no_template_components` (コンポーネントIDから出現数へのマッピング) に集計されます。カスタムコンポーネント定義を提供するには、ビルトインデータベースを読み込み、`add_from_file()` で定義を登録して、その `db` を `check_missing_atoms()` に渡します:"
+"CCDテンプレートデータベースに存在しない残基やリガンドが構造に含まれる場合、それらの検査ステータスは `\"no_template\"` "
+"に設定されます。これらのコンポーネントは `report.no_template_components` "
+"(コンポーネントIDから出現数へのマッピング) "
+"に集計されます。カスタムコンポーネント定義を提供するには、ビルトインデータベースを読み込み、`add_from_file()` "
+"で定義を登録して、その `db` を `check_missing_atoms()` に渡します:"
 
-#: ../../usage.md:106 df10db08b2434521b005d409e0e9c831
+#: ../../usage.md:106 a922b7c7bc3d4220a8d35c972e2924ab
 msgid "Optional and unexpected atoms"
 msgstr "任意原子および予期しない原子"
 
-#: ../../usage.md:108 ae514fe594b04b268b4eca8024ca9ddc
+#: ../../usage.md:108 e6d21c9ee5a341a389fe9d472ad52875
 msgid ""
 "Certain atoms are treated as optional and do not cause a residue to be "
 "marked incomplete if absent:"
 msgstr "特定の原子は任意 (optional) として扱われ、存在しなくても残基が不完全 (incomplete) と判定されることはありません:"
 
-#: ../../usage.md:110 4a34c996501b45109077d269ef75d2c2
+#: ../../usage.md:110 caba12c5203d46d99dadda96edd49b83
 msgid "C-terminal `OXT` for amino acids"
 msgstr "アミノ酸のC末端 `OXT`"
 
-#: ../../usage.md:111 c3819be3147d419abceba01020a899fe
+#: ../../usage.md:111 58ee705ce2694aa6a4b051eae6ca191e
 msgid "5'-terminal phosphate atoms (`P`, `OP1`, `OP2`, `OP3`) for nucleic acids"
 msgstr "核酸の5'末端リン酸原子 (`P`, `OP1`, `OP2`, `OP3`)"
 
-#: ../../usage.md:112 98e7cfcb064243fe88f1c336926722d8
+#: ../../usage.md:112 0f946aaa10ee4836a5729303db013a72
 msgid ""
 "Thiol hydrogen `HG` on cysteine residues participating in disulfide bonds"
 " (in hydrogen mode)"
 msgstr "ジスルフィド結合を形成しているシステイン残基のチオール水素 `HG` (水素モード時)"
 
-#: ../../usage.md:114 64e22483863f49c5a576d931eb72fd4b
+#: ../../usage.md:114 16da2c3eb56b4dcea97537104aeb9f06
 msgid ""
 "Atoms present in the residue that are not defined in the template are "
 "reported in `ResidueAtomCheck.unexpected`. If all required template atoms"
 " are present, the residue status remains `\"complete\"` even when "
 "unexpected atoms exist."
 msgstr ""
-"テンプレートで定義されていないが残基内に存在する原子は `ResidueAtomCheck.unexpected` に報告されます。必要なテンプレート原子がすべて存在していれば、予期しない原子が存在していても残基ステータスは `\"complete\"` のままとなります。"
+"テンプレートで定義されていないが残基内に存在する原子は `ResidueAtomCheck.unexpected` "
+"に報告されます。必要なテンプレート原子がすべて存在していれば、予期しない原子が存在していても残基ステータスは `\"complete\"` "
+"のままとなります。"
 
-#: ../../usage.md:118 45608d52b9a94f528ce3e148cfc88b3f
+#: ../../usage.md:118 6e059fa0266641a4b634b2b91da4fb1a
 msgid "Hydrogen inspection caveats"
 msgstr "水素検査における注意点"
 
-#: ../../usage.md:120 a2eff62407444faf8bb6ef9b956af0b2
+#: ../../usage.md:120 0bc26be0fa564ac4b4567818d361f6be
 msgid ""
 "When checking hydrogens (`include_hydrogens=True`), false positives may "
 "occur due to physiological or non-standard protonation states (such as "
@@ -403,7 +412,105 @@ msgid ""
 "atoms expected by the standard neutral template may be absent from the "
 "structure."
 msgstr ""
-"水素を検査する場合 (`include_hydrogens=True`)、生理的または非標準のプロトン化状態 (HIS、ASP、GLU の中性型と荷電型の違いなど) によって偽陽性 (誤報) が発生することがあります。そのような場合、標準的な中性テンプレートが期待する水素原子が構造内に存在しないことがあります。"
+"水素を検査する場合 (`include_hydrogens=True`)、生理的または非標準のプロトン化状態 (HIS、ASP、GLU "
+"の中性型と荷電型の違いなど) によって偽陽性 (誤報) "
+"が発生することがあります。そのような場合、標準的な中性テンプレートが期待する水素原子が構造内に存在しないことがあります。"
+
+#: ../../usage.md:125 23f5866e169349888841c53fa18deb5e
+msgid "Python: completing missing atoms"
+msgstr "Python: 欠損原子の補完"
+
+#: ../../usage.md:127 a488681116234d52ac664897bd699cba
+msgid ""
+"You can reconstruct and add missing **heavy atoms** to incomplete "
+"residues in an `AtomGroup` hierarchy using "
+"`AtomGroup.complete_missing_atoms()`. Missing heavy atoms are generated "
+"from ideal coordinates in the Chemical Component Dictionary (CCD) residue"
+" template and inserted into the residue. Existing atoms are never moved "
+"or removed. Hydrogen atoms are not reconstructed by this method, and "
+"entirely missing residues (where no anchor atoms exist) are not handled."
+msgstr ""
+"`AtomGroup.complete_missing_atoms()` を使用すると、`AtomGroup` 階層内の不完全な残基に対して欠損した**重原子**を再構築して追加できます。欠損した重原子は Chemical Component Dictionary (CCD) 残基テンプレートの理想座標から生成され、残基に挿入されます。既存の原子が移動されたり削除されたりすることはありません。水素原子はこのメソッドでは再構築されず、残基全体が丸ごと欠損している場合 (アンカー原子が存在しない場合) は対象外となります。"
+
+#: ../../usage.md:136 a958426d40544132b87a71781387ccaa
+msgid ""
+"The recommended workflow is to inspect for missing atoms with "
+"`check_missing_atoms()`, reconstruct missing heavy atoms with "
+"`complete_missing_atoms()`, and finally add missing hydrogens with "
+"`add_missing_hydrogens()`:"
+msgstr ""
+"推奨されるワークフローは、まず `check_missing_atoms()` で欠損原子を検査し、次に `complete_missing_atoms()` で欠損した重原子を再構築し、最後に `add_missing_hydrogens()` で欠損した水素原子を付加する手順です:"
+
+#: ../../usage.md:172 554dc3f0fe5b47bd9e382f0041d91cbb
+msgid "Completion statuses"
+msgstr "補完ステータス"
+
+#: ../../usage.md:174 d121c190dafd43079e6d0d5fbd176457
+msgid ""
+"Each inspected residue in `report.residues` is assigned one of the "
+"following statuses:"
+msgstr "`report.residues` 内の検査された各残基には、以下のいずれかのステータスが割り当てられます:"
+
+#: ../../usage.md:176 ea6538e73a404562be10325ec508aae5
+msgid ""
+"`\"completed\"`: Missing heavy atoms were successfully reconstructed and "
+"added."
+msgstr "`\"completed\"`: 欠損した重原子が正常に再構築され追加された。"
+
+#: ../../usage.md:177 5f10e06643424b04bb28bac01bc4d74d
+msgid "`\"unchanged\"`: The residue already contains all required heavy atoms."
+msgstr "`\"unchanged\"`: 残基に必要なすべての重原子がすでに含まれている。"
+
+#: ../../usage.md:178 2bdeedd34b264f4eb68d90aac34b03e4
+msgid ""
+"`\"no_template\"`: The component ID was not found in the CCD template "
+"database."
+msgstr "`\"no_template\"`: コンポーネントIDがCCDテンプレートデータベースに見つからない。"
+
+#: ../../usage.md:179 a813bf7aa9214345871805cb69d200fd
+msgid ""
+"`\"insufficient_anchors\"`: Fewer than 3 matching heavy atoms are "
+"available for superposition, or existing anchor atoms are collinear."
+msgstr "`\"insufficient_anchors\"`: 重ね合わせに利用可能な対応重原子が3個未満であるか、既存のアンカー原子が同一直線上にある。"
+
+#: ../../usage.md:181 2f8074b0fc9e4dc3a85b442c056d9957
+msgid ""
+"`\"poor_fit\"`: Anchor superposition RMSD exceeded `max_rmsd` (default: "
+"1.0 Å), indicating possible atom misnaming or incorrect element "
+"assignment."
+msgstr "`\"poor_fit\"`: アンカーの重ね合わせRMSDが `max_rmsd` (デフォルト: 1.0 Å) を超えており、原子名の誤りや元素割り当ての誤りの疑いがある。"
+
+#: ../../usage.md:184 6e48dc5e7556467395351fac6dc9278e
+msgid "Residues that could not be completed are collected in `report.skipped`."
+msgstr "補完できなかった残基は `report.skipped` に集約されます。"
+
+#: ../../usage.md:186 0b721f167eed47259e7d33fa46c5a6dd
+msgid "Limitations and accuracy"
+msgstr "制限事項と精度"
+
+#: ../../usage.md:188 8dd8fdb668a64e89acf3e11b39a059af
+msgid ""
+"Reconstruction superimposes ideal coordinates from CCD templates onto "
+"existing anchor atoms. When distal side-chain atoms are missing, their "
+"torsional angles cannot be determined from the remaining anchors and may "
+"differ from the true conformation. This method does not perform protein "
+"structure prediction; its goal is to produce a complete set of atoms that"
+" satisfies structural inspection."
+msgstr ""
+"再構築は、CCDテンプレートの理想座標を既存のアンカー原子上に重ね合わせることで行われます。側鎖先端の原子が欠損している場合、残されたアンカー原子からねじれ角を決定することはできず、実際の立体配座とは異なる位置に配置される可能性があります。このメソッドはタンパク質の立体構造予測を行うものではなく、構造検査を満たす完全な原子の組を生成することを目的としています。"
+
+#: ../../usage.md:194 b748fbe67d8b48cc8017269192d732db
+msgid "Order of operations"
+msgstr "実行の順序"
+
+#: ../../usage.md:196 1e1a3fe89f85475f8a5cd82d46c63f75
+msgid ""
+"Always run `complete_missing_atoms()` before adding hydrogen atoms "
+"(`add_missing_hydrogens()`). Reconstructing heavy atoms first ensures "
+"that subsequent hydrogen placement can use the complete heavy-atom "
+"framework to position all attached hydrogens correctly."
+msgstr ""
+"水素原子を付加する (`add_missing_hydrogens()`) 前に、必ず `complete_missing_atoms()` を実行してください。先に重原子を再構築しておくことで、後続の水素配置において完全な重原子フレームワークを利用して、結合するすべての水素を正しく配置できるようになります。"
 
 #~ msgid "`remove_wat.py`"
 #~ msgstr ""
