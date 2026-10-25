@@ -122,3 +122,80 @@ due to physiological or non-standard protonation states (such as neutral vs.
 charged forms of HIS, ASP, or GLU). In such cases, hydrogen atoms expected by the
 standard neutral template may be absent from the structure.
 
+## Python: completing missing atoms
+
+You can reconstruct and add missing **heavy atoms** to incomplete residues in an
+`AtomGroup` hierarchy using `AtomGroup.complete_missing_atoms()`. Missing heavy
+atoms are generated from ideal coordinates in the Chemical Component Dictionary
+(CCD) residue template and inserted into the residue. Existing atoms are never
+moved or removed. Hydrogen atoms are not reconstructed by this method, and
+entirely missing residues (where no anchor atoms exist) are not handled.
+
+### Basic usage
+
+The recommended workflow is to inspect for missing atoms with
+`check_missing_atoms()`, reconstruct missing heavy atoms with
+`complete_missing_atoms()`, and finally add missing hydrogens with
+`add_missing_hydrogens()`:
+
+```python
+import proteindf_bridge as pb
+
+pdb = pb.Pdb("proteindf_bridge/data/1hls.pdb")
+ag = pdb.get_atomgroup()
+
+# Simulate missing heavy atoms
+ag["model_1"]["A"]["1"].del_atom("4_O")
+ag["model_1"]["A"]["3"].del_atom("35_CG2")
+
+# 1. Inspect missing atoms before completion
+check_before = ag.check_missing_atoms()
+print(check_before.is_complete)    # False
+print(check_before.total_missing)  # 2
+
+# 2. Reconstruct missing heavy atoms
+report = ag.complete_missing_atoms()
+print(report.total_added)          # 2
+print(len(report.completed))       # 2
+print(len(report.skipped))         # 0
+print(str(report))
+# CompletionReport: 2 heavy atom(s) added across 2 completed residue(s), 0 skipped residue(s)
+
+# 3. Add missing hydrogens after heavy atoms are complete
+ag.add_missing_hydrogens()
+
+# 4. Verify that the structure is now complete
+check_after = ag.check_missing_atoms()
+print(check_after.is_complete)     # True
+```
+
+### Completion statuses
+
+Each inspected residue in `report.residues` is assigned one of the following
+statuses:
+- `"completed"`: Missing heavy atoms were successfully reconstructed and added.
+- `"unchanged"`: The residue already contains all required heavy atoms.
+- `"no_template"`: The component ID was not found in the CCD template database.
+- `"insufficient_anchors"`: Fewer than 3 matching heavy atoms are available for
+  superposition, or existing anchor atoms are collinear.
+- `"poor_fit"`: Anchor superposition RMSD exceeded `max_rmsd` (default: 1.0 Å),
+  indicating possible atom misnaming or incorrect element assignment.
+
+Residues that could not be completed are collected in `report.skipped`.
+
+### Limitations and accuracy
+
+Reconstruction superimposes ideal coordinates from CCD templates onto existing
+anchor atoms. When distal side-chain atoms are missing, their torsional angles
+cannot be determined from the remaining anchors and may differ from the true
+conformation. This method does not perform protein structure prediction; its goal
+is to produce a complete set of atoms that satisfies structural inspection.
+
+### Order of operations
+
+Always run `complete_missing_atoms()` before adding hydrogen atoms
+(`add_missing_hydrogens()`). Reconstructing heavy atoms first ensures that
+subsequent hydrogen placement can use the complete heavy-atom framework to position
+all attached hydrogens correctly.
+
+
