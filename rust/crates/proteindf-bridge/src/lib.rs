@@ -23,6 +23,7 @@ pub mod orchestrator;
 pub mod periodic_table;
 pub mod position;
 pub mod ramachandran;
+pub mod sasa;
 pub mod secondary_structure;
 pub mod selector;
 pub mod spatial;
@@ -81,6 +82,7 @@ pub use orchestrator::{hydrogenate_atomgroup, OverallHydrogenationReport};
 pub use periodic_table::PeriodicTable;
 pub use position::{dihedral_angle, Position};
 pub use ramachandran::{calc_phi_psi, RamachandranAngle, PEPTIDE_BOND_MAX_DISTANCE};
+pub use sasa::{AtomSasa, ResidueSasa, SasaOptions, SasaReport};
 pub use secondary_structure::{
     apply_secondary_structure, calc_secondary_structure, SecondaryStructure, SsCode,
 };
