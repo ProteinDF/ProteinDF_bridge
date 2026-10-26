@@ -21,10 +21,8 @@ use crate::atom_group::AtomGroup;
 use crate::backbone_hydrogen::add_backbone_hydrogens_to_residue_in_place;
 use crate::brd::sort_nicely;
 use crate::ccd_templates::CcdTemplateDb;
-use crate::error::Result;
-use crate::his_state::{
-    his_states, is_histidine_comp_id, HisSiteReport, HisState, HisStateOptions,
-};
+use crate::error::{BridgeError, Result};
+use crate::his_state::{his_states, is_histidine_comp_id, HisState, HisStateOptions};
 use crate::hydrogenation::{
     add_hydrogens_to_component_in_place_excluding, HydrogenationOptions, HydrogenationReport,
 };
@@ -32,12 +30,14 @@ use crate::hydrogenation::{
 /// Default histidine protonation mode (`"auto"`).
 pub const DEFAULT_HIS_MODE: &str = "auto";
 
-/// Internal histidine ring-nitrogen hydrogenation strategy during structure traversal.
-enum HisHydrogenationMode {
-    /// Select `HD1`/`HE2` per residue according to precomputed [`his_states`] results.
-    Auto(std::vec::IntoIter<HisSiteReport>),
-    /// Do not attach `HD1` or `HE2` to histidine ring nitrogens (`"none"` or other values).
-    None,
+/// Histidine ring-nitrogen hydrogenation mode during structure traversal.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HisHydrogenationMode {
+    /// Select `HD1`/`HE2` per residue according to precomputed [`his_states`] results
+    /// keyed by residue path.
+    Auto(HashMap<String, HisState>),
+    /// Attach both `HD1` and `HE2` to histidine residues (traditional full protonation behavior).
+    Hip,
 }
 
 /// Summary report of the overall hydrogenation process on a structure.
@@ -137,7 +137,7 @@ fn hydrogenate_single_residue(
     residue: &mut AtomGroup,
     prev_residue: Option<&AtomGroup>,
     db: &CcdTemplateDb,
-    his_mode: &mut HisHydrogenationMode,
+    his_mode: &HisHydrogenationMode,
     report: &mut OverallHydrogenationReport,
 ) -> Result<()> {
     let res_path = residue.path().to_string();
@@ -145,15 +145,21 @@ fn hydrogenate_single_residue(
     let is_his = is_histidine_comp_id(&residue.name);
     let excluded_his_hydrogens: &[&str] = if is_his && residue.get_number_of_atoms() > 0 {
         match his_mode {
-            HisHydrogenationMode::Auto(ref mut sites) => {
-                match sites.next().map(|s| s.state).unwrap_or(HisState::Hid) {
+            HisHydrogenationMode::Auto(ref sites_map) => {
+                let state = sites_map.get(&res_path).ok_or_else(|| {
+                    BridgeError::value_error(
+                        &res_path,
+                        format!("histidine state not found for residue path: {res_path}"),
+                    )
+                })?;
+                match state {
                     HisState::Hid => &["HE2"],
                     HisState::Hie => &["HD1"],
                     HisState::Hip => &[],
                     HisState::MetalBridge => &["HD1", "HE2"],
                 }
             }
-            HisHydrogenationMode::None => &["HD1", "HE2"],
+            HisHydrogenationMode::Hip => &[],
         }
     } else {
         &[]
@@ -280,7 +286,7 @@ fn hydrogenate_single_residue(
 fn hydrogenate_chain(
     chain: &mut AtomGroup,
     db: &CcdTemplateDb,
-    his_mode: &mut HisHydrogenationMode,
+    his_mode: &HisHydrogenationMode,
     report: &mut OverallHydrogenationReport,
 ) -> Result<()> {
     let mut res_keys = chain.get_group_list();
@@ -333,37 +339,49 @@ pub fn hydrogenate_atomgroup(
 /// Recursively traverses an [`AtomGroup`] hierarchy and applies hydrogen addition
 /// with an explicit histidine mode (`his`).
 ///
-/// When `his` is `"auto"`, histidine ring-nitrogen hydrogens (`HD1`, `HE2`) are chosen
-/// according to [`his_states`] using [`HisStateOptions::default`]:
-/// - [`HisState::Hid`]: `HD1` only
-/// - [`HisState::Hie`]: `HE2` only
-/// - [`HisState::Hip`]: both `HD1` and `HE2`
-/// - [`HisState::MetalBridge`]: neither `HD1` nor `HE2`
+/// Supported modes:
+/// - `"auto"` (default): selects `HD1`/`HE2` using [`his_states`] with [`HisStateOptions::default`]:
+///   - [`HisState::Hid`]: `HD1` only
+///   - [`HisState::Hie`]: `HE2` only
+///   - [`HisState::Hip`]: both `HD1` and `HE2`
+///   - [`HisState::MetalBridge`]: neither `HD1` nor `HE2`
+/// - `"hip"`: adds both `HD1` and `HE2` to histidine residues (traditional full protonation behavior)
 ///
-/// When `his` is any other value (such as `"none"`), neither `HD1` nor `HE2` is added to
-/// histidine residues. Existing hydrogens in the input are never removed, and residue names
-/// remain unchanged.
+/// Any other value for `his` returns a [`BridgeError::ValueError`]. Existing hydrogens
+/// in the input are never removed, and residue names remain unchanged.
 pub fn hydrogenate_atomgroup_with_his(
     group: &mut AtomGroup,
     db: &CcdTemplateDb,
     his: &str,
 ) -> Result<OverallHydrogenationReport> {
-    let mut his_mode = if his == "auto" {
-        let his_report = his_states(group, &HisStateOptions::default());
-        HisHydrogenationMode::Auto(his_report.sites.into_iter())
-    } else {
-        HisHydrogenationMode::None
+    let his_mode = match his {
+        "auto" => {
+            let his_report = his_states(group, &HisStateOptions::default());
+            let sites_map = his_report
+                .sites
+                .into_iter()
+                .map(|s| (s.path, s.state))
+                .collect::<HashMap<_, _>>();
+            HisHydrogenationMode::Auto(sites_map)
+        }
+        "hip" => HisHydrogenationMode::Hip,
+        other => {
+            return Err(BridgeError::value_error(
+                "his",
+                format!("unsupported his mode '{other}'; expected 'auto' or 'hip'"),
+            ));
+        }
     };
 
     let mut report = OverallHydrogenationReport::new();
-    traverse_and_hydrogenate(group, db, &mut his_mode, &mut report)?;
+    traverse_and_hydrogenate(group, db, &his_mode, &mut report)?;
     Ok(report)
 }
 
 fn traverse_and_hydrogenate(
     group: &mut AtomGroup,
     db: &CcdTemplateDb,
-    his_mode: &mut HisHydrogenationMode,
+    his_mode: &HisHydrogenationMode,
     report: &mut OverallHydrogenationReport,
 ) -> Result<()> {
     if group.get_number_of_groups() == 0 {
@@ -411,7 +429,9 @@ impl AtomGroup {
     /// Adds missing hydrogens across this entire structure with an explicit histidine mode (`his`).
     ///
     /// - `"auto"` (default): selects `HD1`/`HE2` using [`his_states`] with [`HisStateOptions::default`].
-    /// - `"none"` (or any other value): does not add `HD1` or `HE2` to histidine ring nitrogens.
+    /// - `"hip"`: adds both `HD1` and `HE2` to histidine residues (traditional full protonation behavior).
+    ///
+    /// Passing any other value returns [`BridgeError::ValueError`].
     ///
     /// Delegates to [`crate::orchestrator::hydrogenate_atomgroup_with_his`].
     pub fn add_missing_hydrogens_with_his(
@@ -680,51 +700,62 @@ mod tests {
         assert_eq!(report.total_added_hydrogens, 8);
         assert_eq!(his.name, "HIS");
 
-        // Also verify with his="none" that existing HE2 is not removed
-        let mut his_none = make_his_heavy_from_ccd("HIS");
-        his_none.set_atom("HE2", make_atom("H", "HE2", custom_he2_pos));
-        let rep_none = his_none
-            .add_missing_hydrogens_with_his(db, "none")
-            .expect("hydrogenate with his=none");
-        assert!(his_none.has_atom("HE2"));
-        assert_eq!(his_none.get_atom("HE2").unwrap().xyz, custom_he2_pos);
-        assert!(!his_none.has_atom("HD1"));
-        assert_eq!(rep_none.total_removed_hydrogens, 0);
-        assert_eq!(rep_none.total_added_hydrogens, 8);
+        // Also verify with his="hip" that existing HE2 is preserved and HD1 is added
+        let mut his_hip = make_his_heavy_from_ccd("HIS");
+        his_hip.set_atom("HE2", make_atom("H", "HE2", custom_he2_pos));
+        let rep_hip = his_hip
+            .add_missing_hydrogens_with_his(db, "hip")
+            .expect("hydrogenate with his=hip");
+        assert!(his_hip.has_atom("HE2"), "existing HE2 must not be removed");
+        assert_eq!(
+            his_hip.get_atom("HE2").unwrap().xyz,
+            custom_he2_pos,
+            "existing HE2 coordinates must be preserved"
+        );
+        assert!(his_hip.has_atom("HD1"), "HIP must attach HD1");
+        assert_eq!(rep_hip.total_removed_hydrogens, 0);
+        // N-term H1, H2, H3 (3) + HA, HB2, HB3, HD1, HD2, HE1 (6) = 9
+        assert_eq!(rep_hip.total_added_hydrogens, 9);
     }
 
-    // ⑥ his を別の値にすると水素を付けない(従来と同じ動作を残すための "none" を作る)
+    // ⑥ his="hip" で両方(HD1・HE2)を付加(従来の動作)、および "auto"・"hip" 以外の値でエラー
     #[test]
-    fn test_06_his_none_does_not_attach_ring_hydrogens() {
+    fn test_06_his_hip_and_invalid_modes() {
         let db = CcdTemplateDb::global();
 
-        let mut his_none = make_his_heavy_from_ccd("HIS");
-        let report_none = his_none
-            .add_missing_hydrogens_with_his(db, "none")
-            .expect("hydrogenate with his=none");
-        assert!(
-            !his_none.has_atom("HD1"),
-            "his=\"none\" must not attach HD1"
-        );
-        assert!(
-            !his_none.has_atom("HE2"),
-            "his=\"none\" must not attach HE2"
-        );
-        assert!(his_none.has_atom("HA"));
-        assert!(his_none.has_atom("HD2"));
-        assert!(his_none.has_atom("HE1"));
-        assert_eq!(his_none.name, "HIS");
-        // N-term H1, H2, H3 (3) + HA, HB2, HB3, HD2, HE1 (5) = 8
-        assert_eq!(report_none.total_added_hydrogens, 8);
+        // 1. his="hip" attaches both HD1 and HE2
+        let mut his_hip = make_his_heavy_from_ccd("HIS");
+        let report_hip = his_hip
+            .add_missing_hydrogens_with_his(db, "hip")
+            .expect("hydrogenate with his=hip");
+        assert!(his_hip.has_atom("HD1"), "his=\"hip\" must attach HD1");
+        assert!(his_hip.has_atom("HE2"), "his=\"hip\" must attach HE2");
+        assert!(his_hip.has_atom("HA"));
+        assert!(his_hip.has_atom("HD2"));
+        assert!(his_hip.has_atom("HE1"));
+        assert_eq!(his_hip.name, "HIS");
+        // N-term H1, H2, H3 (3) + HA, HB2, HB3, HD1, HD2, HE1, HE2 (7) = 10
+        assert_eq!(report_hip.total_added_hydrogens, 10);
 
-        // Also verify another non-"auto" value
-        let mut his_other = make_his_heavy_from_ccd("HIS");
-        let report_other = his_other
-            .add_missing_hydrogens_with_his(db, "off")
-            .expect("hydrogenate with his=off");
-        assert!(!his_other.has_atom("HD1"));
-        assert!(!his_other.has_atom("HE2"));
-        assert_eq!(report_other.total_added_hydrogens, 8);
+        // 2. Invalid modes ("none", "off", "", etc.) must return an error
+        let mut his_invalid = make_his_heavy_from_ccd("HIS");
+        for invalid_mode in ["none", "off", "hid", "hie", ""] {
+            let res = his_invalid.add_missing_hydrogens_with_his(db, invalid_mode);
+            assert!(
+                matches!(res, Err(BridgeError::ValueError { .. })),
+                "mode '{invalid_mode}' must return BridgeError::ValueError"
+            );
+        }
+
+        // 3. If a histidine residue has no entry in the Auto sites map, an error is returned
+        let mut his_unmapped = make_his_heavy_from_ccd("HIS");
+        let mut report = OverallHydrogenationReport::new();
+        let empty_auto_mode = HisHydrogenationMode::Auto(HashMap::new());
+        let err = traverse_and_hydrogenate(&mut his_unmapped, db, &empty_auto_mode, &mut report);
+        assert!(
+            matches!(err, Err(BridgeError::ValueError { .. })),
+            "missing path in Auto sites map must return BridgeError::ValueError"
+        );
     }
 
     // ⑦ 1hls で、付いた水素の数と残基の状態を報告する
@@ -760,6 +791,21 @@ mod tests {
         assert_eq!(rep_native_auto.hydrogenated_residues, 12);
         assert_eq!(count_all_hydrogens(&ag_native), 391);
 
+        // Compare native 1hls with his="hip" (adds missing HE2 to the 3 HIS residues: 12 + 3 = 15 added, 394 total)
+        let mut ag_native_hip = pdb.get_atomgroup(None, None).expect("1hls atomgroup");
+        let rep_native_hip = ag_native_hip
+            .add_missing_hydrogens_with_his(db, "hip")
+            .expect("hydrogenate native 1hls (hip)");
+        println!(
+            "1hls native (his=hip): added={}, hydrogenated_residues={}, final_h={}",
+            rep_native_hip.total_added_hydrogens,
+            rep_native_hip.hydrogenated_residues,
+            count_all_hydrogens(&ag_native_hip)
+        );
+        assert_eq!(rep_native_hip.total_added_hydrogens, 15);
+        assert_eq!(rep_native_hip.hydrogenated_residues, 15);
+        assert_eq!(count_all_hydrogens(&ag_native_hip), 394);
+
         // 2. Heavy-atom-only 1hls.pdb (all hydrogens stripped first -> 0 initial hydrogens)
         let mut ag_stripped_auto = pdb.get_atomgroup(None, None).expect("1hls atomgroup");
         strip_all_hydrogens(&mut ag_stripped_auto);
@@ -790,13 +836,13 @@ mod tests {
         assert_eq!(rep_stripped_auto.hydrogenated_residues, 51);
         assert_eq!(count_all_hydrogens(&ag_stripped_auto), 391);
 
-        let chain_b = ag_stripped_auto
+        let chain_b_auto = ag_stripped_auto
             .get_group("model_1")
             .unwrap()
             .get_group("B")
             .unwrap();
         for res_key in ["5", "10", "16"] {
-            let his_res = chain_b.get_group(res_key).unwrap();
+            let his_res = chain_b_auto.get_group(res_key).unwrap();
             assert_eq!(his_res.name, "HIS");
             assert!(his_res.has_atom("HD1"));
             assert!(!his_res.has_atom("HE2"));
@@ -804,19 +850,34 @@ mod tests {
             assert_eq!(rep_stripped_auto.residue_reports[&path].added_hydrogens, 7);
         }
 
-        // 3. Compare with his="none" on stripped 1hls.pdb
-        let mut ag_stripped_none = pdb.get_atomgroup(None, None).expect("1hls atomgroup");
-        strip_all_hydrogens(&mut ag_stripped_none);
-        let rep_stripped_none = ag_stripped_none
-            .add_missing_hydrogens_with_his(db, "none")
-            .expect("hydrogenate stripped 1hls (none)");
+        // 3. Compare with his="hip" on stripped 1hls.pdb (conventional behavior -> 394 total)
+        let mut ag_stripped_hip = pdb.get_atomgroup(None, None).expect("1hls atomgroup");
+        strip_all_hydrogens(&mut ag_stripped_hip);
+        let rep_stripped_hip = ag_stripped_hip
+            .add_missing_hydrogens_with_his(db, "hip")
+            .expect("hydrogenate stripped 1hls (hip)");
         println!(
-            "1hls stripped (his=none): added={}, hydrogenated_residues={}, final_h={}",
-            rep_stripped_none.total_added_hydrogens,
-            rep_stripped_none.hydrogenated_residues,
-            count_all_hydrogens(&ag_stripped_none)
+            "1hls stripped (his=hip): added={}, hydrogenated_residues={}, final_h={}",
+            rep_stripped_hip.total_added_hydrogens,
+            rep_stripped_hip.hydrogenated_residues,
+            count_all_hydrogens(&ag_stripped_hip)
         );
-        assert_eq!(rep_stripped_none.total_added_hydrogens, 388);
-        assert_eq!(count_all_hydrogens(&ag_stripped_none), 388);
+        assert_eq!(rep_stripped_hip.total_added_hydrogens, 394);
+        assert_eq!(rep_stripped_hip.hydrogenated_residues, 51);
+        assert_eq!(count_all_hydrogens(&ag_stripped_hip), 394);
+
+        let chain_b_hip = ag_stripped_hip
+            .get_group("model_1")
+            .unwrap()
+            .get_group("B")
+            .unwrap();
+        for res_key in ["5", "10", "16"] {
+            let his_res = chain_b_hip.get_group(res_key).unwrap();
+            assert_eq!(his_res.name, "HIS");
+            assert!(his_res.has_atom("HD1"));
+            assert!(his_res.has_atom("HE2"));
+            let path = format!("/model_1/B/{res_key}/");
+            assert_eq!(rep_stripped_hip.residue_reports[&path].added_hydrogens, 8);
+        }
     }
 }
