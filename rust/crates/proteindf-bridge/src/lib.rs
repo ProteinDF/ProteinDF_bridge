@@ -12,6 +12,7 @@ pub mod ch_pi;
 pub mod complete_atoms;
 pub mod error;
 pub mod format;
+pub mod his_state;
 pub mod hydrogen_bond;
 pub mod hydrogenation;
 pub mod ion_pair;
@@ -60,6 +61,10 @@ pub use format::{
     AmberPrmtop, Cube, CubeAtom, CubeUnit, Format, MmcifStructureReport, MmcifWriteOptions, Pdb,
     SimpleGro, SimpleMmcif, SimpleMol2, StructConnPartnerUnresolved, StructConnRecord,
     UnresolvedStructConn, Xyz, BOHR_TO_ANGSTROM,
+};
+pub use his_state::{
+    his_states, HisDecidedBy, HisReport, HisSiteReport, HisState, HisStateOptions,
+    COORDINATING_METALS, DEFAULT_BURIAL_RADIUS, DEFAULT_METAL_DISTANCE, SALT_BRIDGE_DISTANCE,
 };
 pub use hydrogen_bond::{
     calc_backbone_hbonds, calc_kabsch_sander_energy, calc_pseudo_hydrogen, calc_sidechain_hbonds,
