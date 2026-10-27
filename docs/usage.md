@@ -216,7 +216,8 @@ report = ag.add_missing_hydrogens(his="hip")
 The `his` parameter controls how histidine residues are protonated:
 
 - `"auto"` (default): Automatically determines the protonation state (HID, HIE, HIP,
-  or metal-coordinated) based on the local hydrogen-bonding network and metal contacts.
+  or metal-coordinated) based on metal coordination, residue name, existing hydrogens,
+  salt bridges, and heavy-atom burial (in priority order).
 - `"hip"`: Traditional full protonation behavior where both `HD1` and `HE2` are added
   to every histidine residue.
 

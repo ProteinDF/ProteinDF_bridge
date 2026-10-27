@@ -2103,8 +2103,9 @@ impl PyAtomGroup {
     ///     his (str, optional): Histidine protonation handling mode.
     ///         Must be either "auto" or "hip". "auto" automatically decides
     ///         the tautomeric state (HID, HIE, HIP, or metal-coordinated) based on
-    ///         the local hydrogen-bonding network and metal contacts. "hip" adds both
-    ///         HD1 and HE2 (traditional full protonation behavior). Defaults to "auto".
+    ///         metal coordination, residue name, existing hydrogens, salt bridges,
+    ///         and heavy-atom burial (priority order). "hip" adds both HD1 and HE2
+    ///         (traditional full protonation behavior). Defaults to "auto".
     ///
     /// Returns:
     ///     OverallHydrogenationReport: Summary report of added hydrogens.
