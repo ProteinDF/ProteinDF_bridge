@@ -8,7 +8,7 @@
 //! 0. Metal coordination (`ZN`, `FE`, `CU`, `MG`, `MN`, `CO`, `NI`; `Ca` excluded)
 //! 1. Explicit residue name (`HID`, `HIE`, `HIP`)
 //! 2. Existing ring hydrogens (`HD1`, `HE2`)
-//! 3. Salt bridge to nearby `ASP` (`OD1`/`OD2`) or `GLU` (`OE1`/`OE2`) within 3.5 Å
+//! 3. Salt bridge to nearby unpaired `ASP` (`OD1`/`OD2`) or `GLU` (`OE1`/`OE2`) within 3.5 Å
 //! 4. Heavy-atom burial count within `burial_radius` around `ND1` vs. `NE2`
 //! 5. Default fallback (`Hid`)
 
@@ -31,6 +31,11 @@ pub const DEFAULT_BURIAL_RADIUS: f64 = 8.0;
 /// (`OD1`/`OD2`) or `GLU` (`OE1`/`OE2`) carboxylate oxygen to form a salt bridge.
 pub const SALT_BRIDGE_DISTANCE: f64 = 3.5;
 
+/// Default maximum distance in Angstroms from an `ASP` (`OD1`/`OD2`) or `GLU`
+/// (`OE1`/`OE2`) carboxylate oxygen to a same-model `LYS` (`NZ`) or `ARG`
+/// (`NH1`/`NH2`/`NE`) nitrogen for the oxygen to be considered already paired.
+pub const DEFAULT_PAIR_DISTANCE: f64 = 4.0;
+
 /// Element symbols of transition/divalent metals considered capable of coordinating
 /// histidine ring nitrogens (`Ca` is intentionally excluded).
 pub const COORDINATING_METALS: &[&str] = &["ZN", "FE", "CU", "MG", "MN", "CO", "NI"];
@@ -44,6 +49,11 @@ pub struct HisStateOptions {
     /// Radius in Angstroms around `ND1` or `NE2` within which heavy atoms of other
     /// residues are counted for burial comparison (default: `8.0`).
     pub burial_radius: f64,
+    /// Maximum distance in Angstroms from an acidic carboxylate oxygen (`ASP` `OD1`/`OD2`
+    /// or `GLU` `OE1`/`OE2`) to a same-model basic nitrogen (`LYS` `NZ` or `ARG`
+    /// `NH1`/`NH2`/`NE`) to consider the acid already paired and exclude it from
+    /// histidine salt-bridge candidates (default: `4.0`).
+    pub pair_distance: f64,
 }
 
 impl Default for HisStateOptions {
@@ -51,6 +61,7 @@ impl Default for HisStateOptions {
         Self {
             metal_distance: DEFAULT_METAL_DISTANCE,
             burial_radius: DEFAULT_BURIAL_RADIUS,
+            pair_distance: DEFAULT_PAIR_DISTANCE,
         }
     }
 }
@@ -174,6 +185,21 @@ fn is_acidic_carboxylate_oxygen(comp_id: &str, atom_name: &str) -> bool {
     }
 }
 
+/// Returns `true` if an atom with `atom_name` in a residue with `comp_id` is a
+/// basic side-chain nitrogen capable of pairing with an acidic oxygen (`LYS` `NZ`
+/// or `ARG` `NH1`/`NH2`/`NE`).
+fn is_basic_sidechain_nitrogen(comp_id: &str, atom_name: &str) -> bool {
+    let comp = comp_id.trim();
+    let name = atom_name.trim();
+    if comp.eq_ignore_ascii_case("LYS") {
+        name == "NZ"
+    } else if comp.eq_ignore_ascii_case("ARG") {
+        name == "NH1" || name == "NH2" || name == "NE"
+    } else {
+        false
+    }
+}
+
 struct ScopedResidue<'a> {
     residue: &'a AtomGroup,
     scope_id: usize,
@@ -260,6 +286,7 @@ fn collect_from_group<'a>(
 struct ScopeEnvironment {
     metals: Vec<Position>,
     carboxyl_oxygens: Vec<(usize, Position)>,
+    basic_nitrogens: Vec<Position>,
     heavy_atoms: Vec<(usize, Position)>,
 }
 
@@ -367,10 +394,15 @@ fn decide_single_his(
         };
     }
 
-    // 3. Salt bridge to other residues' ASP (OD1/OD2) or GLU (OE1/OE2) within 3.5 Å
+    // 3. Salt bridge to other residues' unpaired ASP (OD1/OD2) or GLU (OE1/OE2) within 3.5 Å
     let has_salt_bridge = [nd1_pos, ne2_pos].into_iter().flatten().any(|n_pos| {
         env.carboxyl_oxygens.iter().any(|(other_idx, o_pos)| {
-            *other_idx != res_idx && n_pos.distance_from(o_pos) <= SALT_BRIDGE_DISTANCE
+            *other_idx != res_idx
+                && !env
+                    .basic_nitrogens
+                    .iter()
+                    .any(|b_pos| o_pos.distance_from(b_pos) <= options.pair_distance)
+                && n_pos.distance_from(o_pos) <= SALT_BRIDGE_DISTANCE
         })
     });
     if has_salt_bridge {
@@ -447,6 +479,9 @@ pub fn his_states(group: &AtomGroup, options: &HisStateOptions) -> HisReport {
             }
             if is_acidic_carboxylate_oxygen(comp_id, &atom.name) {
                 env.carboxyl_oxygens.push((res_idx, atom.xyz));
+            }
+            if is_basic_sidechain_nitrogen(comp_id, &atom.name) {
+                env.basic_nitrogens.push(atom.xyz);
             }
         }
     }
@@ -898,5 +933,150 @@ mod tests {
             assert_eq!(site.state, HisState::Hid);
             assert_eq!(site.decided_by, HisDecidedBy::Burial);
         }
+    }
+
+    #[test]
+    fn test_13_unpaired_asp_within_3_5_gives_hip() {
+        let opts = HisStateOptions::default();
+        assert_eq!(opts.pair_distance, DEFAULT_PAIR_DISTANCE);
+
+        let mut asp = AtomGroup::with_name("ASP");
+        asp.set_atom("OD1", make_atom("O", "OD1", Position::new(3.2, 0.0, 0.0)));
+
+        let chain = make_chain_with_two_residues(make_his_residue("HIS"), asp);
+        let report = chain.his_states(&opts);
+        assert_eq!(report.sites.len(), 1);
+        assert_eq!(report.sites[0].state, HisState::Hip);
+        assert_eq!(report.sites[0].decided_by, HisDecidedBy::SaltBridge);
+    }
+
+    #[test]
+    fn test_14_asp_paired_with_lys_nz_within_4_0_not_hip() {
+        let opts = HisStateOptions::default();
+
+        // ASP OD1 is 3.2 Å from HIS ND1, and LYS NZ is 4.0 Å from ASP OD1
+        let mut asp = AtomGroup::with_name("ASP");
+        asp.set_atom("OD1", make_atom("O", "OD1", Position::new(3.2, 0.0, 0.0)));
+
+        let mut lys = AtomGroup::with_name("LYS");
+        lys.set_atom("NZ", make_atom("N", "NZ", Position::new(3.2, 4.0, 0.0)));
+
+        let mut chain = AtomGroup::with_name("A");
+        chain.set_group("1", make_his_residue("HIS"));
+        chain.set_group("2", asp);
+        chain.set_group("3", lys);
+
+        let report = chain.his_states(&opts);
+        assert_eq!(report.sites.len(), 1);
+        assert_ne!(report.sites[0].state, HisState::Hip);
+        assert_ne!(report.sites[0].decided_by, HisDecidedBy::SaltBridge);
+        assert_eq!(report.sites[0].state, HisState::Hid);
+        assert_eq!(report.sites[0].decided_by, HisDecidedBy::Burial);
+
+        // Also verify ARG basic nitrogens (NH1, NH2, NE) within 4.0 Å exclude the acid oxygen
+        for arg_atom in ["NH1", "NH2", "NE"] {
+            let mut glu = AtomGroup::with_name("GLU");
+            glu.set_atom("OE1", make_atom("O", "OE1", Position::new(3.2, 0.0, 0.0)));
+
+            let mut arg = AtomGroup::with_name("ARG");
+            arg.set_atom(
+                arg_atom,
+                make_atom("N", arg_atom, Position::new(3.2, 3.9, 0.0)),
+            );
+
+            let mut c = AtomGroup::with_name("A");
+            c.set_group("1", make_his_residue("HIS"));
+            c.set_group("2", glu);
+            c.set_group("3", arg);
+
+            let rep = c.his_states(&opts);
+            assert_eq!(rep.sites.len(), 1);
+            assert_ne!(rep.sites[0].state, HisState::Hip);
+            assert_eq!(rep.sites[0].state, HisState::Hid);
+            assert_eq!(rep.sites[0].decided_by, HisDecidedBy::Burial);
+        }
+    }
+
+    #[test]
+    fn test_15_asp_with_arg_nh1_at_4_1_gives_hip() {
+        let opts = HisStateOptions::default();
+
+        // ASP OD1 is 3.2 Å from HIS ND1, and ARG NH1 is 4.1 Å (> 4.0 Å) from ASP OD1
+        let mut asp = AtomGroup::with_name("ASP");
+        asp.set_atom("OD1", make_atom("O", "OD1", Position::new(3.2, 0.0, 0.0)));
+
+        let mut arg = AtomGroup::with_name("ARG");
+        arg.set_atom("NH1", make_atom("N", "NH1", Position::new(3.2, 4.1, 0.0)));
+
+        let mut chain = AtomGroup::with_name("A");
+        chain.set_group("1", make_his_residue("HIS"));
+        chain.set_group("2", asp);
+        chain.set_group("3", arg);
+
+        let report = chain.his_states(&opts);
+        assert_eq!(report.sites.len(), 1);
+        assert_eq!(report.sites[0].state, HisState::Hip);
+        assert_eq!(report.sites[0].decided_by, HisDecidedBy::SaltBridge);
+    }
+
+    #[test]
+    fn test_16_custom_pair_distance_changes_result() {
+        // ASP OD1 at (3.2, 0, 0) (3.2 Å from HIS ND1), LYS NZ at (3.2, 3.8, 0) (3.8 Å from OD1)
+        let mut asp = AtomGroup::with_name("ASP");
+        asp.set_atom("OD1", make_atom("O", "OD1", Position::new(3.2, 0.0, 0.0)));
+
+        let mut lys = AtomGroup::with_name("LYS");
+        lys.set_atom("NZ", make_atom("N", "NZ", Position::new(3.2, 3.8, 0.0)));
+
+        let mut chain = AtomGroup::with_name("A");
+        chain.set_group("1", make_his_residue("HIS"));
+        chain.set_group("2", asp);
+        chain.set_group("3", lys);
+
+        // With default pair_distance (4.0 Å), 3.8 Å is paired -> not HIP
+        let rep_default = chain.his_states(&HisStateOptions::default());
+        assert_eq!(rep_default.sites[0].state, HisState::Hid);
+        assert_eq!(rep_default.sites[0].decided_by, HisDecidedBy::Burial);
+
+        // With smaller pair_distance (3.5 Å), 3.8 Å is unpaired -> HIP (SaltBridge)
+        let opts_narrow = HisStateOptions {
+            pair_distance: 3.5,
+            ..HisStateOptions::default()
+        };
+        let rep_narrow = chain.his_states(&opts_narrow);
+        assert_eq!(rep_narrow.sites[0].state, HisState::Hip);
+        assert_eq!(rep_narrow.sites[0].decided_by, HisDecidedBy::SaltBridge);
+    }
+
+    #[test]
+    fn test_17_lys_in_different_model_does_not_pair_asp() {
+        let opts = HisStateOptions::default();
+
+        // model_1 has HIS and ASP (OD1 at 3.2 Å from ND1)
+        let mut asp = AtomGroup::with_name("ASP");
+        asp.set_atom("OD1", make_atom("O", "OD1", Position::new(3.2, 0.0, 0.0)));
+        let mut m1_chain = AtomGroup::with_name("A");
+        m1_chain.set_group("1", make_his_residue("HIS"));
+        m1_chain.set_group("2", asp);
+        let mut m1 = AtomGroup::with_name("model_1");
+        m1.set_group("A", m1_chain);
+
+        // model_2 has LYS with NZ at 2.5 Å from model_1's ASP OD1 position
+        let mut lys = AtomGroup::with_name("LYS");
+        lys.set_atom("NZ", make_atom("N", "NZ", Position::new(3.2, 2.5, 0.0)));
+        let mut m2_chain = AtomGroup::with_name("A");
+        m2_chain.set_group("1", lys);
+        let mut m2 = AtomGroup::with_name("model_2");
+        m2.set_group("A", m2_chain);
+
+        let mut root = AtomGroup::new();
+        root.set_group("model_1", m1);
+        root.set_group("model_2", m2);
+
+        let report = root.his_states(&opts);
+        assert_eq!(report.sites.len(), 1);
+        assert_eq!(report.sites[0].path, "/model_1/A/1/");
+        assert_eq!(report.sites[0].state, HisState::Hip);
+        assert_eq!(report.sites[0].decided_by, HisDecidedBy::SaltBridge);
     }
 }
