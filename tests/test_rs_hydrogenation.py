@@ -533,6 +533,41 @@ class TestRsHydrogenation(unittest.TestCase):
         self.assertEqual(report.total_added_hydrogens, 12)
         self.assertEqual(count_all_hydrogens(structure), 391)
 
+    def test_add_missing_hydrogens_his_mode(self):
+        """
+        Test histidine protonation handling in add_missing_hydrogens:
+        1. Default mode ('auto') results in 391 hydrogens for 1hls.
+        2. Explicit 'hip' mode results in 394 hydrogens for 1hls.
+        3. Explicit 'auto' mode results in 391 hydrogens for 1hls.
+        4. Invalid mode (e.g. 'none') raises ValueError.
+        """
+        # 1. Default mode: 391 hydrogens
+        structure_default = self._load_1hls()
+        structure_default.setup()
+        report_default = structure_default.add_missing_hydrogens()
+        self.assertEqual(report_default.total_added_hydrogens, 12)
+        self.assertEqual(count_all_hydrogens(structure_default), 391)
+
+        # 2. Explicit 'hip' mode: 394 hydrogens
+        structure_hip = self._load_1hls()
+        structure_hip.setup()
+        report_hip = structure_hip.add_missing_hydrogens(his="hip")
+        self.assertEqual(report_hip.total_added_hydrogens, 15)
+        self.assertEqual(count_all_hydrogens(structure_hip), 394)
+
+        # 3. Explicit 'auto' mode: 391 hydrogens
+        structure_auto = self._load_1hls()
+        structure_auto.setup()
+        report_auto = structure_auto.add_missing_hydrogens(his="auto")
+        self.assertEqual(report_auto.total_added_hydrogens, 12)
+        self.assertEqual(count_all_hydrogens(structure_auto), 391)
+
+        # 4. Invalid mode raises ValueError
+        structure_invalid = self._load_1hls()
+        structure_invalid.setup()
+        with self.assertRaises(ValueError):
+            structure_invalid.add_missing_hydrogens(his="none")
+
 
 if __name__ == "__main__":
     unittest.main()
