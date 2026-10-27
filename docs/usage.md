@@ -198,4 +198,27 @@ Always run `complete_missing_atoms()` before adding hydrogen atoms
 subsequent hydrogen placement can use the complete heavy-atom framework to position
 all attached hydrogens correctly.
 
+## Python: adding missing hydrogens
+
+Hydrogen atoms can be added to an `AtomGroup` using `add_missing_hydrogens()` based
+on ideal coordinates from CCD residue templates:
+
+```python
+# Add missing hydrogens using automatic histidine tautomer detection (default)
+report = ag.add_missing_hydrogens()
+
+# Or specify the histidine protonation mode explicitly
+report = ag.add_missing_hydrogens(his="hip")
+```
+
+### Histidine protonation handling
+
+The `his` parameter controls how histidine residues are protonated:
+
+- `"auto"` (default): Automatically determines the protonation state (HID, HIE, HIP,
+  or metal-coordinated) based on the local hydrogen-bonding network and metal contacts.
+- `"hip"`: Traditional full protonation behavior where both `HD1` and `HE2` are added
+  to every histidine residue.
+
+Any value other than `"auto"` or `"hip"` raises a `ValueError`.
 
