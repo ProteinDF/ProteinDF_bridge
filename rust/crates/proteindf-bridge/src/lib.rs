@@ -84,8 +84,8 @@ pub use missing_atoms::{
 pub use modeling::Modeling;
 pub use neutralize::Neutralize;
 pub use orchestrator::{
-    hydrogenate_atomgroup, hydrogenate_atomgroup_with_his, HisHydrogenationMode,
-    OverallHydrogenationReport, DEFAULT_HIS_MODE,
+    hydrogenate_atomgroup, hydrogenate_atomgroup_with_his, OverallHydrogenationReport,
+    DEFAULT_HIS_MODE,
 };
 pub use periodic_table::PeriodicTable;
 pub use position::{dihedral_angle, Position};

@@ -32,7 +32,7 @@ pub const DEFAULT_HIS_MODE: &str = "auto";
 
 /// Histidine ring-nitrogen hydrogenation mode during structure traversal.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum HisHydrogenationMode {
+pub(crate) enum HisHydrogenationMode {
     /// Select `HD1`/`HE2` per residue according to precomputed [`his_states`] results
     /// keyed by residue path.
     Auto(HashMap<String, HisState>),
