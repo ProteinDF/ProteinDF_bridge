@@ -152,7 +152,7 @@ fn has_atom_by_name(residue: &AtomGroup, name: &str) -> bool {
 }
 
 /// Returns `true` if `comp_id` is a histidine residue name (`HIS`, `HID`, `HIE`, `HIP`).
-fn is_histidine_comp_id(comp_id: &str) -> bool {
+pub(crate) fn is_histidine_comp_id(comp_id: &str) -> bool {
     let trimmed = comp_id.trim();
     trimmed.eq_ignore_ascii_case("HIS")
         || trimmed.eq_ignore_ascii_case("HID")

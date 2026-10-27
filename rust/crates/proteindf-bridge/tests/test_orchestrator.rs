@@ -107,15 +107,15 @@ fn test_hydrogenate_1hls_full_structure() {
 
     // Total hydrogens added should match report.total_added_hydrogens
     // 1hls has 51 residues (21 in chain A, 30 in chain B, 1 Proline B28).
-    // Standard total hydrogens = 394:
+    // Standard total hydrogens = 391 (with default his="auto", 3 HIS residues are HID):
     // - 2 N-termini (GLY A1: H1,H2,H3, PHE B1: H1,H2,H3) = 6 backbone NH
     // - 48 internal non-Proline residues (H) = 48 backbone NH (B28 is PRO: 0 backbone H)
     // - Total backbone NH = 54
-    // - Sidechain & CA hydrogens across 51 residues = 340
-    // Total = 394 hydrogens.
+    // - Sidechain & CA hydrogens across 51 residues = 337
+    // Total = 391 hydrogens.
     let final_h_count = count_all_hydrogens(&structure);
     assert_eq!(final_h_count, report.total_added_hydrogens);
-    assert_eq!(final_h_count, 394);
+    assert_eq!(final_h_count, 391);
 }
 
 #[test]
@@ -136,10 +136,10 @@ fn test_hydrogenate_partial_existing_hydrogens() {
         .add_missing_hydrogens(db)
         .expect("Hydrogenation on partially hydrogenated structure should succeed");
 
-    // Missing hydrogens (394 - 379 = 15) should be added
-    assert_eq!(report.total_added_hydrogens, 15);
+    // Missing hydrogens (391 - 379 = 12) should be added
+    assert_eq!(report.total_added_hydrogens, 12);
     let final_h = count_all_hydrogens(&structure);
-    assert_eq!(final_h, 394);
+    assert_eq!(final_h, 391);
 }
 
 /// Regression test for Bug 1: Water molecules (HOH) have only 1 heavy atom ('O') in CCD templates,
@@ -242,9 +242,9 @@ fn test_1hls_with_crystal_waters() {
         .add_missing_hydrogens(db)
         .expect("Hydrogenation must succeed on 1hls with crystal waters");
 
-    // All 51 protein residues must be hydrogenated (394 hydrogens)
+    // All 51 protein residues must be hydrogenated (391 hydrogens)
     assert_eq!(report.hydrogenated_residues, 51);
-    assert_eq!(report.total_added_hydrogens, 394);
+    assert_eq!(report.total_added_hydrogens, 391);
 
     // The water molecule must be in skipped_residues and not in residue_reports
     assert_eq!(report.skipped_residues.len(), 1);
