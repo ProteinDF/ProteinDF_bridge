@@ -14,6 +14,7 @@ use indexmap::IndexMap;
 use proteindf_bridge::atom_group::{AtomGroup as CoreAtomGroup, BondRecord, Selector};
 use proteindf_bridge::ccd_templates::CcdTemplateDb as CoreCcdTemplateDb;
 use proteindf_bridge::complete_atoms::CompleteOptions;
+use proteindf_bridge::error::BridgeError;
 use proteindf_bridge::missing_atoms::MissingAtomsOptions;
 use proteindf_bridge::position::Position;
 use proteindf_bridge::sasa::SasaOptions;
@@ -2099,21 +2100,35 @@ impl PyAtomGroup {
     /// Args:
     ///     db (Optional[CcdTemplateDb], optional): The CCD template database to use.
     ///         If None, the global default database is used. Defaults to None.
+    ///     his (str, optional): Histidine protonation handling mode.
+    ///         Must be either "auto" or "hip". "auto" automatically decides
+    ///         the tautomeric state (HID, HIE, HIP, or metal-coordinated) based on
+    ///         the local hydrogen-bonding network and metal contacts. "hip" adds both
+    ///         HD1 and HE2 (traditional full protonation behavior). Defaults to "auto".
     ///
     /// Returns:
     ///     OverallHydrogenationReport: Summary report of added hydrogens.
-    #[pyo3(signature = (db=None))]
+    ///
+    /// Raises:
+    ///     ValueError: If `his` is neither "auto" nor "hip".
+    #[pyo3(signature = (db=None, his="auto"))]
     pub fn add_missing_hydrogens(
         &mut self,
         py: Python<'_>,
         db: Option<&PyCcdTemplateDb>,
+        his: &str,
     ) -> PyResult<PyOverallHydrogenationReport> {
         let core_db = match db {
             Some(d) => &d.inner,
             None => CoreCcdTemplateDb::global(),
         };
         let mut core = self.to_core(py);
-        let report = core.add_missing_hydrogens(core_db).map_err(to_py_err)?;
+        let report =
+            core.add_missing_hydrogens_with_his(core_db, his)
+                .map_err(|err| match err {
+                    BridgeError::ValueError { .. } => PyValueError::new_err(err.to_string()),
+                    other => to_py_err(other),
+                })?;
         self.update_from_core(py, core)?;
         PyOverallHydrogenationReport::new(py, report)
     }
