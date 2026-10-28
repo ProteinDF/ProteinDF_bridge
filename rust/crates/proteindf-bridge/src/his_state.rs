@@ -9,8 +9,7 @@
 //! 1. Explicit residue name (`HID`, `HIE`, `HIP`)
 //! 2. Existing ring hydrogens (`HD1`, `HE2`)
 //! 3. Salt bridge to nearby unpaired `ASP` (`OD1`/`OD2`) or `GLU` (`OE1`/`OE2`) within 3.5 Å
-//! 4. Heavy-atom burial count within `burial_radius` around `ND1` vs. `NE2`
-//! 5. Default fallback (`Hid`)
+//! 4. Default fallback (`Hid`)
 
 use std::collections::BTreeMap;
 
@@ -22,10 +21,6 @@ use crate::position::Position;
 /// Default maximum distance in Angstroms from a ring nitrogen (`ND1`/`NE2`) to a
 /// coordinating metal atom.
 pub const DEFAULT_METAL_DISTANCE: f64 = 2.5;
-
-/// Default radius in Angstroms around a ring nitrogen (`ND1`/`NE2`) within which
-/// surrounding heavy atoms of other residues are counted for burial comparison.
-pub const DEFAULT_BURIAL_RADIUS: f64 = 8.0;
 
 /// Maximum distance in Angstroms from a ring nitrogen (`ND1`/`NE2`) to an `ASP`
 /// (`OD1`/`OD2`) or `GLU` (`OE1`/`OE2`) carboxylate oxygen to form a salt bridge.
@@ -46,9 +41,6 @@ pub struct HisStateOptions {
     /// Maximum distance in Angstroms from `ND1` or `NE2` to a metal atom to consider
     /// the nitrogen coordinated (default: `2.5`).
     pub metal_distance: f64,
-    /// Radius in Angstroms around `ND1` or `NE2` within which heavy atoms of other
-    /// residues are counted for burial comparison (default: `8.0`).
-    pub burial_radius: f64,
     /// Maximum distance in Angstroms from an acidic carboxylate oxygen (`ASP` `OD1`/`OD2`
     /// or `GLU` `OE1`/`OE2`) to a same-model basic nitrogen (`LYS` `NZ` or `ARG`
     /// `NH1`/`NH2`/`NE`) to consider the acid already paired and exclude it from
@@ -60,7 +52,6 @@ impl Default for HisStateOptions {
     fn default() -> Self {
         Self {
             metal_distance: DEFAULT_METAL_DISTANCE,
-            burial_radius: DEFAULT_BURIAL_RADIUS,
             pair_distance: DEFAULT_PAIR_DISTANCE,
         }
     }
@@ -92,8 +83,6 @@ pub enum HisDecidedBy {
     Hydrogens,
     /// Decided by a salt bridge (`<= 3.5` Å) to `ASP` (`OD1`/`OD2`) or `GLU` (`OE1`/`OE2`).
     SaltBridge,
-    /// Decided by comparing heavy-atom burial counts within `burial_radius` around `ND1` and `NE2`.
-    Burial,
     /// Assigned the default state ([`HisState::Hid`]) when no earlier rule decided.
     #[default]
     Default,
@@ -287,7 +276,6 @@ struct ScopeEnvironment {
     metals: Vec<Position>,
     carboxyl_oxygens: Vec<(usize, Position)>,
     basic_nitrogens: Vec<Position>,
-    heavy_atoms: Vec<(usize, Position)>,
 }
 
 fn decide_single_his(
@@ -414,40 +402,7 @@ fn decide_single_his(
         };
     }
 
-    // 4. Heavy-atom burial within burial_radius (other residues only)
-    if let (Some(nd1), Some(ne2)) = (nd1_pos, ne2_pos) {
-        let mut nd1_burial = 0usize;
-        let mut ne2_burial = 0usize;
-        for &(other_idx, pos) in &env.heavy_atoms {
-            if other_idx == res_idx {
-                continue;
-            }
-            if nd1.distance_from(&pos) <= options.burial_radius {
-                nd1_burial += 1;
-            }
-            if ne2.distance_from(&pos) <= options.burial_radius {
-                ne2_burial += 1;
-            }
-        }
-        if nd1_burial > ne2_burial {
-            return HisSiteReport {
-                path,
-                comp_id,
-                state: HisState::Hid,
-                decided_by: HisDecidedBy::Burial,
-            };
-        }
-        if ne2_burial > nd1_burial {
-            return HisSiteReport {
-                path,
-                comp_id,
-                state: HisState::Hie,
-                decided_by: HisDecidedBy::Burial,
-            };
-        }
-    }
-
-    // 5. Default fallback (HID)
+    // 4. Default fallback (HID)
     HisSiteReport {
         path,
         comp_id,
@@ -473,7 +428,6 @@ pub fn his_states(group: &AtomGroup, options: &HisStateOptions) -> HisReport {
             if is_hydrogen(atom) {
                 continue;
             }
-            env.heavy_atoms.push((res_idx, atom.xyz));
             if is_coordinating_metal(atom) {
                 env.metals.push(atom.xyz);
             }
@@ -608,16 +562,16 @@ mod tests {
         let opts = HisStateOptions::default();
         let his = make_his_residue("HIS");
         let mut zn_res = AtomGroup::with_name("ZN");
-        // 3.0 Å from ND1 (> 2.5 Å metal_distance, but <= 8.0 Å burial_radius)
+        // 3.0 Å from ND1 (> 2.5 Å metal_distance)
         zn_res.set_atom("ZN", make_atom("Zn", "ZN", Position::new(3.0, 0.0, 0.0)));
 
         let chain = make_chain_with_two_residues(his, zn_res);
         let report = chain.his_states(&opts);
         assert_eq!(report.sites.len(), 1);
         assert_ne!(report.sites[0].decided_by, HisDecidedBy::Metal);
-        // Since ZN is a heavy atom within 8.0 Å of ND1, burial decides HID
+        // Falls back to default HID
         assert_eq!(report.sites[0].state, HisState::Hid);
-        assert_eq!(report.sites[0].decided_by, HisDecidedBy::Burial);
+        assert_eq!(report.sites[0].decided_by, HisDecidedBy::Default);
     }
 
     // ⑤ 残基名 HID → HID(ResidueName) (HIE, HIP も確認)
@@ -704,7 +658,7 @@ mod tests {
         assert_eq!(rep_sym.sites[0].decided_by, HisDecidedBy::Default);
     }
 
-    // ⑧ 密度が高い方 ND1 → HID(Burial) (NE2 が高いとき HIE(Burial) も確認)
+    // ⑧ 埋もれた側が多くても HID(Default) (HIE になるのは金属・残基名・入力の水素(HE2 のみ))
     #[test]
     fn test_08_burial_higher_density_nd1_and_ne2() {
         let opts = HisStateOptions::default();
@@ -722,17 +676,36 @@ mod tests {
         let rep_nd1 = chain_nd1.his_states(&opts);
         assert_eq!(rep_nd1.sites.len(), 1);
         assert_eq!(rep_nd1.sites[0].state, HisState::Hid);
-        assert_eq!(rep_nd1.sites[0].decided_by, HisDecidedBy::Burial);
+        assert_eq!(rep_nd1.sites[0].decided_by, HisDecidedBy::Default);
 
-        // Higher density near NE2 (at (20, 0, 0))
+        // Higher density near NE2 (at (20, 0, 0)) -> still defaults to HID(Default), not HIE
         let mut env_ne2 = AtomGroup::with_name("ALA");
         env_ne2.set_atom("N", make_atom("N", "N", Position::new(24.0, 0.0, 0.0)));
         env_ne2.set_atom("CA", make_atom("C", "CA", Position::new(25.0, 0.0, 0.0)));
         let chain_ne2 = make_chain_with_two_residues(make_his_residue("HIS"), env_ne2);
         let rep_ne2 = chain_ne2.his_states(&opts);
         assert_eq!(rep_ne2.sites.len(), 1);
-        assert_eq!(rep_ne2.sites[0].state, HisState::Hie);
-        assert_eq!(rep_ne2.sites[0].decided_by, HisDecidedBy::Burial);
+        assert_eq!(rep_ne2.sites[0].state, HisState::Hid);
+        assert_eq!(rep_ne2.sites[0].decided_by, HisDecidedBy::Default);
+
+        // Confirm HIE only occurs via metal, residue name, or input HE2
+        let mut zn_res = AtomGroup::with_name("ZN");
+        zn_res.set_atom("ZN", make_atom("Zn", "ZN", Position::new(2.0, 0.0, 0.0)));
+        let chain_metal = make_chain_with_two_residues(make_his_residue("HIS"), zn_res);
+        let rep_metal = chain_metal.his_states(&opts);
+        assert_eq!(rep_metal.sites[0].state, HisState::Hie);
+        assert_eq!(rep_metal.sites[0].decided_by, HisDecidedBy::Metal);
+
+        let his_name_hie = make_his_residue("HIE");
+        let rep_name = his_name_hie.his_states(&opts);
+        assert_eq!(rep_name.sites[0].state, HisState::Hie);
+        assert_eq!(rep_name.sites[0].decided_by, HisDecidedBy::ResidueName);
+
+        let mut his_he2 = make_his_residue("HIS");
+        his_he2.set_atom("HE2", make_atom("H", "HE2", Position::new(21.0, 0.0, 0.0)));
+        let rep_he2 = his_he2.his_states(&opts);
+        assert_eq!(rep_he2.sites[0].state, HisState::Hie);
+        assert_eq!(rep_he2.sites[0].decided_by, HisDecidedBy::Hydrogens);
     }
 
     // ⑨a 窒素から 3.5 Å に Asp の OD1 がある → HIP(SaltBridge)
@@ -768,7 +741,7 @@ mod tests {
         assert_eq!(rep_9b.sites.len(), 1);
         assert_ne!(rep_9b.sites[0].decided_by, HisDecidedBy::SaltBridge);
         assert_eq!(rep_9b.sites[0].state, HisState::Hid);
-        assert_eq!(rep_9b.sites[0].decided_by, HisDecidedBy::Burial);
+        assert_eq!(rep_9b.sites[0].decided_by, HisDecidedBy::Default);
 
         // ⑨c: ARG atoms within 3.0 Å -> NOT SaltBridge
         let mut arg_near = AtomGroup::with_name("ARG");
@@ -779,7 +752,7 @@ mod tests {
         assert_eq!(rep_9c.sites.len(), 1);
         assert_ne!(rep_9c.sites[0].decided_by, HisDecidedBy::SaltBridge);
         assert_eq!(rep_9c.sites[0].state, HisState::Hid);
-        assert_eq!(rep_9c.sites[0].decided_by, HisDecidedBy::Burial);
+        assert_eq!(rep_9c.sites[0].decided_by, HisDecidedBy::Default);
     }
 
     // ⑩ Ca は配位とみなさない
@@ -795,9 +768,9 @@ mod tests {
         let report = chain.his_states(&opts);
         assert_eq!(report.sites.len(), 1);
         assert_ne!(report.sites[0].decided_by, HisDecidedBy::Metal);
-        // Ca is counted only as a surrounding heavy atom near ND1 -> HID (Burial)
+        // Falls back to default HID
         assert_eq!(report.sites[0].state, HisState::Hid);
-        assert_eq!(report.sites[0].decided_by, HisDecidedBy::Burial);
+        assert_eq!(report.sites[0].decided_by, HisDecidedBy::Default);
     }
 
     // ⑪ 空の木と、残基・鎖・モデルから呼んで同じ結果（モデルをまたがないことも確認）
@@ -931,7 +904,7 @@ mod tests {
             );
             assert_eq!(site.comp_id, "HIS");
             assert_eq!(site.state, HisState::Hid);
-            assert_eq!(site.decided_by, HisDecidedBy::Burial);
+            assert_eq!(site.decided_by, HisDecidedBy::Default);
         }
     }
 
@@ -971,7 +944,7 @@ mod tests {
         assert_ne!(report.sites[0].state, HisState::Hip);
         assert_ne!(report.sites[0].decided_by, HisDecidedBy::SaltBridge);
         assert_eq!(report.sites[0].state, HisState::Hid);
-        assert_eq!(report.sites[0].decided_by, HisDecidedBy::Burial);
+        assert_eq!(report.sites[0].decided_by, HisDecidedBy::Default);
 
         // Also verify ARG basic nitrogens (NH1, NH2, NE) within 4.0 Å exclude the acid oxygen
         for arg_atom in ["NH1", "NH2", "NE"] {
@@ -993,7 +966,7 @@ mod tests {
             assert_eq!(rep.sites.len(), 1);
             assert_ne!(rep.sites[0].state, HisState::Hip);
             assert_eq!(rep.sites[0].state, HisState::Hid);
-            assert_eq!(rep.sites[0].decided_by, HisDecidedBy::Burial);
+            assert_eq!(rep.sites[0].decided_by, HisDecidedBy::Default);
         }
     }
 
@@ -1036,7 +1009,7 @@ mod tests {
         // With default pair_distance (4.0 Å), 3.8 Å is paired -> not HIP
         let rep_default = chain.his_states(&HisStateOptions::default());
         assert_eq!(rep_default.sites[0].state, HisState::Hid);
-        assert_eq!(rep_default.sites[0].decided_by, HisDecidedBy::Burial);
+        assert_eq!(rep_default.sites[0].decided_by, HisDecidedBy::Default);
 
         // With smaller pair_distance (3.5 Å), 3.8 Å is unpaired -> HIP (SaltBridge)
         let opts_narrow = HisStateOptions {

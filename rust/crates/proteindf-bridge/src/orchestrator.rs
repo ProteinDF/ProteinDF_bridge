@@ -820,7 +820,7 @@ mod tests {
             );
             assert_eq!(site.comp_id, "HIS");
             assert_eq!(site.state, HisState::Hid);
-            assert_eq!(site.decided_by, HisDecidedBy::Burial);
+            assert_eq!(site.decided_by, HisDecidedBy::Default);
         }
 
         let rep_stripped_auto = ag_stripped_auto
