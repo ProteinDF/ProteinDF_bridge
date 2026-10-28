@@ -64,7 +64,8 @@ pub use format::{
 };
 pub use his_state::{
     his_states, HisDecidedBy, HisReport, HisSiteReport, HisState, HisStateOptions,
-    COORDINATING_METALS, DEFAULT_BURIAL_RADIUS, DEFAULT_METAL_DISTANCE, SALT_BRIDGE_DISTANCE,
+    COORDINATING_METALS, DEFAULT_BURIAL_RADIUS, DEFAULT_METAL_DISTANCE, DEFAULT_PAIR_DISTANCE,
+    SALT_BRIDGE_DISTANCE,
 };
 pub use hydrogen_bond::{
     calc_backbone_hbonds, calc_kabsch_sander_energy, calc_pseudo_hydrogen, calc_sidechain_hbonds,
