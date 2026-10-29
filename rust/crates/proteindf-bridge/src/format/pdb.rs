@@ -154,6 +154,16 @@ impl Pdb {
 
     /// Parses PDB contents from a string.
     pub fn parse_str(&mut self, content: &str) -> Result<()> {
+        self.parse_str_impl(content).map_err(|e| {
+            if looks_like_mmcif(content) {
+                annotate_mmcif_error(e)
+            } else {
+                e
+            }
+        })
+    }
+
+    fn parse_str_impl(&mut self, content: &str) -> Result<()> {
         self.data.clear();
         self.ssbonds.clear();
         self.conects.clear();
@@ -890,5 +900,22 @@ fn format_charge_display(charge: &str) -> String {
         }
     } else {
         trimmed.to_string()
+    }
+}
+
+fn looks_like_mmcif(content: &str) -> bool {
+    content.lines().any(|line| {
+        let trimmed = line.trim();
+        trimmed.starts_with("data_") || line.contains("_atom_site.")
+    })
+}
+
+fn annotate_mmcif_error(err: BridgeError) -> BridgeError {
+    match err {
+        BridgeError::InputError { expr, msg } => BridgeError::InputError {
+            expr,
+            msg: format!("mmCIF のようです。SimpleMmcif を使ってください: {msg}"),
+        },
+        other => other,
     }
 }
