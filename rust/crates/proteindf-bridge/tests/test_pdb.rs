@@ -595,3 +595,29 @@ fn test_pdb_negative_resseq_and_icode() {
         assert_eq!(&line[26..27], *exp_icode);
     }
 }
+
+#[test]
+fn test_pdb_load_mmcif_error_message() {
+    let path = test_data_dir().join("2FB4.cif");
+    let mut pdb = Pdb::new(None);
+    let result = pdb.load(&path);
+    assert!(result.is_err(), "Loading mmCIF as PDB must fail");
+    let err_str = result.unwrap_err().to_string();
+    assert!(
+        err_str.contains("SimpleMmcif"),
+        "Error message should mention SimpleMmcif, got: {err_str}"
+    );
+}
+
+#[test]
+fn test_pdb_parse_invalid_pdb_not_mentioning_mmcif() {
+    let mut pdb = Pdb::new(None);
+    let bad_pdb = "ATOM  invalid_line\n";
+    let result = pdb.parse_str(bad_pdb);
+    assert!(result.is_err());
+    let err_str = result.unwrap_err().to_string();
+    assert!(
+        !err_str.contains("SimpleMmcif"),
+        "Non-mmCIF error should not mention SimpleMmcif, got: {err_str}"
+    );
+}

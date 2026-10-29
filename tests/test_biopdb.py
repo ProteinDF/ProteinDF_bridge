@@ -3,6 +3,7 @@ import unittest
 import doctest
 
 from proteindf_bridge.biopdb import Pdb
+from proteindf_bridge.error import BrInputError
 
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "proteindf_bridge", "data"))
 
@@ -233,6 +234,46 @@ class PdbTests(unittest.TestCase):
                 os.remove(input_path)
             if os.path.exists(output_path):
                 os.remove(output_path)
+
+    def test_pdb_load_mmcif_error(self):
+        """Loading an mmCIF file as PDB should raise BrInputError suggesting SimpleMmcif."""
+        cif_path = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "rust",
+                "crates",
+                "proteindf-bridge",
+                "tests",
+                "data",
+                "2FB4.cif",
+            )
+        )
+        self.assertTrue(os.path.exists(cif_path), f"2FB4.cif not found at {cif_path}")
+
+        # 1. Pure Python Pdb constructor
+        with self.assertRaises(BrInputError) as ctx_py:
+            Pdb(cif_path)
+        self.assertIn("SimpleMmcif", str(ctx_py.exception))
+
+        # 2. Pure Python Pdb.load()
+        pdb_py = Pdb()
+        with self.assertRaises(BrInputError) as ctx_py_load:
+            pdb_py.load(cif_path)
+        self.assertIn("SimpleMmcif", str(ctx_py_load.exception))
+
+        # 3. Rust Pdb constructor
+        import proteindf_bridge.rs as rs_br
+
+        with self.assertRaises(rs_br.BrInputError) as ctx_rs:
+            rs_br.Pdb(cif_path)
+        self.assertIn("SimpleMmcif", str(ctx_rs.exception))
+
+        # 4. Rust Pdb.load()
+        pdb_rs = rs_br.Pdb()
+        with self.assertRaises(rs_br.BrInputError) as ctx_rs_load:
+            pdb_rs.load(cif_path)
+        self.assertIn("SimpleMmcif", str(ctx_rs_load.exception))
 
 
 def load_tests(loader, tests, ignore):

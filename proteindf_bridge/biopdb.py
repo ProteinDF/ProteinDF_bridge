@@ -27,6 +27,7 @@ from .atomgroup import AtomGroup
 from .atom import Atom
 from .position import Position
 from .functions import split_residue_key
+from .error import BrInputError
 import sys
 import os
 import optparse
@@ -35,6 +36,18 @@ import copy
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _is_likely_mmcif(file_path: str) -> bool:
+    try:
+        with open(file_path, "r", errors="replace") as fin:
+            for line in fin:
+                trimmed = line.strip()
+                if trimmed.startswith("data_") or "_atom_site." in line:
+                    return True
+    except Exception:
+        pass
+    return False
 
 
 class Pdb(object):
@@ -134,6 +147,17 @@ class Pdb(object):
                 model[index]["serial"] = index + 1
 
     def load(self, file_path):
+        try:
+            self._load_impl(file_path)
+        except ValueError as e:
+            if _is_likely_mmcif(file_path):
+                raise BrInputError(
+                    "Pdb.load",
+                    f"mmCIF のようです。SimpleMmcif を使ってください: {e}",
+                ) from e
+            raise
+
+    def _load_impl(self, file_path):
         if os.path.isfile(file_path) != True:
             logger.critical("file not found: {}".format(file_path))
             raise FileNotFoundError("file not found: {}".format(file_path))
