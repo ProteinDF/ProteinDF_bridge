@@ -24,6 +24,7 @@ pub mod neutralize;
 pub mod periodic_table;
 pub mod position;
 pub mod ramachandran;
+pub mod sasa;
 pub mod schema;
 pub mod secondary_structure;
 pub mod selector;
@@ -172,6 +173,11 @@ fn rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Neutralize (PR#48)
     m.add_class::<neutralize::PyNeutralize>()?;
+
+    // Solvent-accessible surface area (SASA)
+    m.add_class::<sasa::PyAtomSasa>()?;
+    m.add_class::<sasa::PyResidueSasa>()?;
+    m.add_class::<sasa::PySasaReport>()?;
 
     Ok(())
 }

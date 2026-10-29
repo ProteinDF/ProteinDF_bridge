@@ -12,6 +12,7 @@ pub mod ch_pi;
 pub mod complete_atoms;
 pub mod error;
 pub mod format;
+pub mod his_state;
 pub mod hydrogen_bond;
 pub mod hydrogenation;
 pub mod ion_pair;
@@ -23,6 +24,7 @@ pub mod orchestrator;
 pub mod periodic_table;
 pub mod position;
 pub mod ramachandran;
+pub mod sasa;
 pub mod secondary_structure;
 pub mod selector;
 pub mod spatial;
@@ -60,6 +62,10 @@ pub use format::{
     SimpleGro, SimpleMmcif, SimpleMol2, StructConnPartnerUnresolved, StructConnRecord,
     UnresolvedStructConn, Xyz, BOHR_TO_ANGSTROM,
 };
+pub use his_state::{
+    his_states, HisDecidedBy, HisReport, HisSiteReport, HisState, HisStateOptions,
+    COORDINATING_METALS, DEFAULT_METAL_DISTANCE, DEFAULT_PAIR_DISTANCE, SALT_BRIDGE_DISTANCE,
+};
 pub use hydrogen_bond::{
     calc_backbone_hbonds, calc_kabsch_sander_energy, calc_pseudo_hydrogen, calc_sidechain_hbonds,
     calc_sidechain_hbonds_with_options, HydrogenBond, SidechainAtomType, SidechainHydrogenBond,
@@ -77,10 +83,14 @@ pub use missing_atoms::{
 };
 pub use modeling::Modeling;
 pub use neutralize::Neutralize;
-pub use orchestrator::{hydrogenate_atomgroup, OverallHydrogenationReport};
+pub use orchestrator::{
+    hydrogenate_atomgroup, hydrogenate_atomgroup_with_his, OverallHydrogenationReport,
+    DEFAULT_HIS_MODE,
+};
 pub use periodic_table::PeriodicTable;
 pub use position::{dihedral_angle, Position};
 pub use ramachandran::{calc_phi_psi, RamachandranAngle, PEPTIDE_BOND_MAX_DISTANCE};
+pub use sasa::{AtomSasa, ResidueSasa, SasaOptions, SasaReport};
 pub use secondary_structure::{
     apply_secondary_structure, calc_secondary_structure, SecondaryStructure, SsCode,
 };

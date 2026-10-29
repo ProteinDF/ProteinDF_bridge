@@ -8,13 +8,16 @@ use crate::error::to_py_err;
 use crate::hydrogenation::PyOverallHydrogenationReport;
 use crate::missing_atoms::PyMissingAtomsReport;
 use crate::position::PyPosition;
+use crate::sasa::PySasaReport;
 use crate::schema::PySchemaViolation;
 use indexmap::IndexMap;
 use proteindf_bridge::atom_group::{AtomGroup as CoreAtomGroup, BondRecord, Selector};
 use proteindf_bridge::ccd_templates::CcdTemplateDb as CoreCcdTemplateDb;
 use proteindf_bridge::complete_atoms::CompleteOptions;
+use proteindf_bridge::error::BridgeError;
 use proteindf_bridge::missing_atoms::MissingAtomsOptions;
 use proteindf_bridge::position::Position;
+use proteindf_bridge::sasa::SasaOptions;
 use proteindf_bridge::secondary_structure::{
     apply_secondary_structure as core_apply_secondary_structure, SsCode,
 };
@@ -2097,21 +2100,36 @@ impl PyAtomGroup {
     /// Args:
     ///     db (Optional[CcdTemplateDb], optional): The CCD template database to use.
     ///         If None, the global default database is used. Defaults to None.
+    ///     his (str, optional): Histidine protonation handling mode.
+    ///         Must be either "auto" or "hip". "auto" automatically decides
+    ///         the tautomeric state (HID, HIE, HIP, or metal-coordinated) based on
+    ///         metal coordination, residue name, existing hydrogens, salt bridges,
+    ///         and heavy-atom burial (priority order). "hip" adds both HD1 and HE2
+    ///         (traditional full protonation behavior). Defaults to "auto".
     ///
     /// Returns:
     ///     OverallHydrogenationReport: Summary report of added hydrogens.
-    #[pyo3(signature = (db=None))]
+    ///
+    /// Raises:
+    ///     ValueError: If `his` is neither "auto" nor "hip".
+    #[pyo3(signature = (db=None, his="auto"))]
     pub fn add_missing_hydrogens(
         &mut self,
         py: Python<'_>,
         db: Option<&PyCcdTemplateDb>,
+        his: &str,
     ) -> PyResult<PyOverallHydrogenationReport> {
         let core_db = match db {
             Some(d) => &d.inner,
             None => CoreCcdTemplateDb::global(),
         };
         let mut core = self.to_core(py);
-        let report = core.add_missing_hydrogens(core_db).map_err(to_py_err)?;
+        let report =
+            core.add_missing_hydrogens_with_his(core_db, his)
+                .map_err(|err| match err {
+                    BridgeError::ValueError { .. } => PyValueError::new_err(err.to_string()),
+                    other => to_py_err(other),
+                })?;
         self.update_from_core(py, core)?;
         PyOverallHydrogenationReport::new(py, report)
     }
@@ -2169,6 +2187,34 @@ impl PyAtomGroup {
         let report = core.complete_missing_atoms(core_db, &options);
         self.update_from_core(py, core)?;
         PyCompletionReport::new(py, report)
+    }
+
+    /// Calculates solvent-accessible surface areas (SASA) using the Shrake-Rupley algorithm.
+    ///
+    /// Computes per-atom and per-residue solvent-accessible surface areas on heavy atoms
+    /// using a Fibonacci sphere point distribution and Bondi van der Waals radii.
+    /// Hydrogen atoms are ignored.
+    ///
+    /// Args:
+    ///     probe_radius (float, optional): Solvent probe radius in Angstroms. Defaults to 1.4.
+    ///     n_points (int, optional): Number of test points placed on each atomic sphere. Defaults to 92.
+    ///
+    /// Returns:
+    ///     SasaReport: Structure-wide report of per-atom and per-residue SASA.
+    #[pyo3(signature = (probe_radius=1.4, n_points=92))]
+    pub fn sasa(
+        &self,
+        py: Python<'_>,
+        probe_radius: f64,
+        n_points: usize,
+    ) -> PyResult<PySasaReport> {
+        let core = self.to_core(py);
+        let options = SasaOptions {
+            probe_radius,
+            n_points,
+        };
+        let report = core.sasa(&options);
+        PySasaReport::new(py, report)
     }
 
     /// Detects and assigns secondary structure annotations ('H', 'E', '-') to residues in this chain.

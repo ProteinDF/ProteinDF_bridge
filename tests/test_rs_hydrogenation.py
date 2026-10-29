@@ -106,22 +106,22 @@ class TestRsHydrogenation(unittest.TestCase):
         report = structure.add_missing_hydrogens()
 
         # Verify report values against test_orchestrator.rs lines 136-143
-        self.assertEqual(report.total_added_hydrogens, 15)
+        self.assertEqual(report.total_added_hydrogens, 12)
         self.assertEqual(report.total_removed_hydrogens, 0)
         self.assertEqual(
             report.hydrogenated_residues,
-            15,
-            "15 residues were missing 1 hydrogen each in 1hls.pdb natively",
+            12,
+            "12 residues were missing 1 hydrogen each in 1hls.pdb natively",
         )
         self.assertEqual(len(report.skipped_residues), 0)
         self.assertEqual(len(report.step_errors), 0)
 
-        # Final structure hydrogen count = 394
+        # Final structure hydrogen count = 391
         final_h = count_all_hydrogens(structure)
         self.assertEqual(
             final_h,
-            394,
-            "1hls must have 394 total hydrogens after hydrogenation (test_orchestrator.rs line 142)",
+            391,
+            "1hls must have 391 total hydrogens after hydrogenation (test_orchestrator.rs line 142)",
         )
 
         # Verify residue addition: GLU A4 received HE2
@@ -138,7 +138,7 @@ class TestRsHydrogenation(unittest.TestCase):
         reloaded_struct = reloaded_cif.get_structure_atomgroup()
 
         reloaded_h = count_all_hydrogens(reloaded_struct)
-        # 394 total hydrogens baseline from test_orchestrator.rs line 142;
+        # 391 total hydrogens baseline from test_orchestrator.rs line 142;
         # roundtrip equality between saved and reloaded structure verified per test_mmcif_writer.rs line 306
         self.assertEqual(
             reloaded_h,
@@ -147,8 +147,8 @@ class TestRsHydrogenation(unittest.TestCase):
         )
         self.assertEqual(
             reloaded_h,
-            394,
-            "Total hydrogens must match 394 baseline from test_orchestrator.rs line 142",
+            391,
+            "Total hydrogens must match 391 baseline from test_orchestrator.rs line 142",
         )
         self.assertEqual(
             reloaded_struct.get_number_of_all_atoms(),
@@ -509,10 +509,10 @@ class TestRsHydrogenation(unittest.TestCase):
 
         # Hydrogenate the subtree copy
         sub_rep = model_copy.add_missing_hydrogens()
-        self.assertEqual(sub_rep.total_added_hydrogens, 15)
+        self.assertEqual(sub_rep.total_added_hydrogens, 12)
 
-        # Subtree copy now has 394 hydrogens
-        self.assertEqual(count_all_hydrogens(model_copy), 394)
+        # Subtree copy now has 391 hydrogens
+        self.assertEqual(count_all_hydrogens(model_copy), 391)
 
         # Original parent tree must remain unchanged at 379 hydrogens
         self.assertEqual(
@@ -530,8 +530,43 @@ class TestRsHydrogenation(unittest.TestCase):
 
         db = rs_br.CcdTemplateDb.builtin()
         report = structure.add_missing_hydrogens(db=db)
-        self.assertEqual(report.total_added_hydrogens, 15)
-        self.assertEqual(count_all_hydrogens(structure), 394)
+        self.assertEqual(report.total_added_hydrogens, 12)
+        self.assertEqual(count_all_hydrogens(structure), 391)
+
+    def test_add_missing_hydrogens_his_mode(self):
+        """
+        Test histidine protonation handling in add_missing_hydrogens:
+        1. Default mode ('auto') results in 391 hydrogens for 1hls.
+        2. Explicit 'hip' mode results in 394 hydrogens for 1hls.
+        3. Explicit 'auto' mode results in 391 hydrogens for 1hls.
+        4. Invalid mode (e.g. 'none') raises ValueError.
+        """
+        # 1. Default mode: 391 hydrogens
+        structure_default = self._load_1hls()
+        structure_default.setup()
+        report_default = structure_default.add_missing_hydrogens()
+        self.assertEqual(report_default.total_added_hydrogens, 12)
+        self.assertEqual(count_all_hydrogens(structure_default), 391)
+
+        # 2. Explicit 'hip' mode: 394 hydrogens
+        structure_hip = self._load_1hls()
+        structure_hip.setup()
+        report_hip = structure_hip.add_missing_hydrogens(his="hip")
+        self.assertEqual(report_hip.total_added_hydrogens, 15)
+        self.assertEqual(count_all_hydrogens(structure_hip), 394)
+
+        # 3. Explicit 'auto' mode: 391 hydrogens
+        structure_auto = self._load_1hls()
+        structure_auto.setup()
+        report_auto = structure_auto.add_missing_hydrogens(his="auto")
+        self.assertEqual(report_auto.total_added_hydrogens, 12)
+        self.assertEqual(count_all_hydrogens(structure_auto), 391)
+
+        # 4. Invalid mode raises ValueError
+        structure_invalid = self._load_1hls()
+        structure_invalid.setup()
+        with self.assertRaises(ValueError):
+            structure_invalid.add_missing_hydrogens(his="none")
 
 
 if __name__ == "__main__":

@@ -142,6 +142,19 @@ pub fn add_hydrogens_to_component_in_place_with_options(
     template: &CcdBondTemplate,
     options: &HydrogenationOptions,
 ) -> Result<HydrogenationReport> {
+    add_hydrogens_to_component_in_place_excluding(component, template, options, &[])
+}
+
+/// In-place variant with custom [`HydrogenationOptions`] and a list of hydrogen atom names
+/// to skip adding (even if absent from `component` and present in `template`).
+///
+/// Existing atoms in `component` are never removed.
+pub(crate) fn add_hydrogens_to_component_in_place_excluding(
+    component: &mut AtomGroup,
+    template: &CcdBondTemplate,
+    options: &HydrogenationOptions,
+    excluded_hydrogens: &[&str],
+) -> Result<HydrogenationReport> {
     // 1. Identify shared heavy atoms with valid coordinates in both component and template
     let mut template_heavy_group = AtomGroup::new();
     let mut actual_heavy_group = AtomGroup::new();
@@ -234,6 +247,11 @@ pub fn add_hydrogens_to_component_in_place_with_options(
 
     for ccd_atom in &template.atoms {
         if !ccd_atom.is_hydrogen() {
+            continue;
+        }
+
+        // Check if this hydrogen is explicitly excluded (e.g. by histidine protonation state)
+        if excluded_hydrogens.contains(&ccd_atom.name.as_str()) {
             continue;
         }
 
