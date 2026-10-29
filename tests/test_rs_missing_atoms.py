@@ -485,7 +485,7 @@ LIG H1 H
         self.assertEqual(len(rep_2fb4_h.residues), 550)
         self.assertFalse(rep_2fb4_h.is_complete)
         self.assertEqual(len(rep_2fb4_h.incomplete), 550)
-        self.assertEqual(rep_2fb4_h.total_missing, 3031)
+        self.assertEqual(rep_2fb4_h.total_missing, 3019)
         self.assertEqual(rep_2fb4_h.no_template_components, {})
 
         # 2MGO: heavy-atom mode
@@ -516,6 +516,75 @@ LIG H1 H
         )
         avg_ms = (total_time / runs) * 1000.0
         print(f"\n[BENCHMARK] 2FB4 check_missing_atoms(heavy) 20-run average: {avg_ms:.2f} ms")
+
+    def test_his_hd1_he2_optional(self):
+        """HIS HD1 and HE2 are optional in hydrogen inspection mode."""
+        # 1. HIS with HD1 only -> complete
+        his_hd1 = build_residue_from_template(
+            "HIS", include_hydrogens=True, exclude=("OXT", "H2", "HXT", "HE2")
+        )
+        rep_hd1 = his_hd1.check_missing_atoms(include_hydrogens=True)
+        self.assertTrue(rep_hd1.is_complete)
+        self.assertEqual(rep_hd1.total_missing, 0)
+        self.assertEqual(rep_hd1.residues[0].unexpected, [])
+
+        # 2. HIS with HE2 only -> complete
+        his_he2 = build_residue_from_template(
+            "HIS", include_hydrogens=True, exclude=("OXT", "H2", "HXT", "HD1")
+        )
+        rep_he2 = his_he2.check_missing_atoms(include_hydrogens=True)
+        self.assertTrue(rep_he2.is_complete)
+        self.assertEqual(rep_he2.total_missing, 0)
+        self.assertEqual(rep_he2.residues[0].unexpected, [])
+
+        # 3. HIS with neither HD1 nor HE2 -> complete
+        his_neither = build_residue_from_template(
+            "HIS", include_hydrogens=True, exclude=("OXT", "H2", "HXT", "HD1", "HE2")
+        )
+        rep_neither = his_neither.check_missing_atoms(include_hydrogens=True)
+        self.assertTrue(rep_neither.is_complete)
+        self.assertEqual(rep_neither.total_missing, 0)
+        self.assertEqual(rep_neither.residues[0].unexpected, [])
+
+        # 4. HIS missing CB -> incomplete
+        his_no_cb = build_residue_from_template(
+            "HIS", include_hydrogens=True, exclude=("OXT", "H2", "HXT", "CB")
+        )
+        rep_no_cb = his_no_cb.check_missing_atoms(include_hydrogens=True)
+        self.assertFalse(rep_no_cb.is_complete)
+        self.assertEqual(rep_no_cb.residues[0].missing, ["CB"])
+
+        # 5. Heavy-atom mode is unaffected
+        his_heavy = build_residue_from_template(
+            "HIS", include_hydrogens=False, exclude=("OXT",)
+        )
+        self.assertTrue(his_heavy.check_missing_atoms(include_hydrogens=False).is_complete)
+
+    def test_1hls_his_missing_hydrogens_after_add_missing_hydrogens(self):
+        """Criterion 3: 1hls has 0 missing atoms in HIS residues after add_missing_hydrogens()."""
+        pdb_path = os.path.join(DATA_DIR, "1hls.pdb")
+        self.assertTrue(os.path.exists(pdb_path), f"1hls.pdb not found at {pdb_path}")
+
+        pdb = rs_br.Pdb()
+        pdb.load(pdb_path)
+        ag = pdb.get_atomgroup()
+        ag.setup()
+        ag.add_missing_hydrogens()
+
+        rep = ag.check_missing_atoms(include_hydrogens=True)
+        his_checks = [r for r in rep.residues if r.comp_id in ("HIS", "HID", "HIE", "HIP")]
+        self.assertEqual(len(his_checks), 3, "1hls has 3 histidine residues")
+        for his in his_checks:
+            self.assertEqual(
+                his.missing,
+                [],
+                f"HIS residue at {his.path} has missing atoms: {his.missing}",
+            )
+            self.assertEqual(
+                his.status,
+                "complete",
+                f"HIS residue at {his.path} should be complete",
+            )
 
 
 if __name__ == "__main__":

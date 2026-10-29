@@ -137,6 +137,12 @@ fn is_cysteine_template(template: &CcdBondTemplate) -> bool {
     template.get_atom("SG").is_some() && template.get_atom("HG").is_some()
 }
 
+/// Checks if a residue/template represents a histidine residue (`HIS`, `HID`, `HIE`, `HIP`).
+fn is_histidine_component(residue: &AtomGroup, template: &CcdBondTemplate) -> bool {
+    crate::his_state::is_histidine_comp_id(&residue.name)
+        || crate::his_state::is_histidine_comp_id(&template.comp_id)
+}
+
 /// Given `(residue_id, sg_position)` entries collected within a single scope (model or chain),
 /// returns the set of `residue_id`s whose `SG` atom lies within [`MAX_DISULFIDE_SG_SG_DISTANCE`]
 /// (2.5 Å) of another residue's `SG`.
@@ -209,6 +215,10 @@ pub(crate) fn optional_atom_names(
         optional.insert("HG");
     }
 
+    if options.include_hydrogens && is_histidine_component(residue, template) {
+        optional.extend(["HD1", "HE2"]);
+    }
+
     if is_nucleic_template(template) {
         optional.insert("OP3");
         if options.include_hydrogens {
@@ -266,7 +276,15 @@ fn check_single_residue(
     let path = residue.path().to_string();
     let comp_id = residue.name.clone();
 
-    let Some(template) = db.lookup(&comp_id) else {
+    let template_opt = db.lookup(&comp_id).or_else(|| {
+        if crate::his_state::is_histidine_comp_id(&comp_id) {
+            db.lookup("HIS")
+        } else {
+            None
+        }
+    });
+
+    let Some(template) = template_opt else {
         return ResidueAtomCheck {
             path,
             comp_id,
@@ -950,6 +968,103 @@ LIG H1 H
     }
 
     #[test]
+    fn test_his_hd1_he2_optional_in_missing_atoms() {
+        let db = CcdTemplateDb::global();
+        let default_opts = MissingAtomsOptions::default();
+        let h_opts = MissingAtomsOptions {
+            include_hydrogens: true,
+        };
+
+        // Complete HIS with all non-terminal hydrogens except OXT, H2, HXT (non-terminal representation)
+        // Check expected_atoms pub(crate) behavior
+        let template = db.lookup("HIS").expect("HIS template must exist");
+        let base_his = build_residue_from_template("HIS", true, &["OXT", "H2", "HXT"]);
+        let exp = expected_atoms(&base_his, None, false, template, &h_opts);
+        let exp_names: Vec<&str> = exp.iter().map(|a| a.name.as_str()).collect();
+        assert!(
+            !exp_names.contains(&"HD1"),
+            "HD1 must be optional in expected_atoms"
+        );
+        assert!(
+            !exp_names.contains(&"HE2"),
+            "HE2 must be optional in expected_atoms"
+        );
+        assert!(!exp_names.contains(&"OXT"), "OXT must be optional");
+        assert!(!exp_names.contains(&"H"), "H must be optional");
+
+        // 1. HIS with HD1 only (HE2 excluded) -> complete, 0 missing, 0 unexpected
+        let his_hd1_only = build_residue_from_template("HIS", true, &["OXT", "H2", "HXT", "HE2"]);
+        let rep_hd1 = his_hd1_only.check_missing_atoms(db, &h_opts);
+        assert!(rep_hd1.is_complete());
+        assert_eq!(rep_hd1.total_missing(), 0);
+        let r_hd1 = &rep_hd1.residues[0];
+        assert_eq!(r_hd1.status, ResidueStatus::Complete);
+        assert!(r_hd1.missing.is_empty());
+        assert!(
+            r_hd1.unexpected.is_empty(),
+            "present HD1 must not be unexpected"
+        );
+
+        // 2. HIS with HE2 only (HD1 excluded) -> complete, 0 missing, 0 unexpected
+        let his_he2_only = build_residue_from_template("HIS", true, &["OXT", "H2", "HXT", "HD1"]);
+        let rep_he2 = his_he2_only.check_missing_atoms(db, &h_opts);
+        assert!(rep_he2.is_complete());
+        assert_eq!(rep_he2.total_missing(), 0);
+        let r_he2 = &rep_he2.residues[0];
+        assert_eq!(r_he2.status, ResidueStatus::Complete);
+        assert!(r_he2.missing.is_empty());
+        assert!(
+            r_he2.unexpected.is_empty(),
+            "present HE2 must not be unexpected"
+        );
+
+        // 3. HIS with neither HD1 nor HE2 -> complete, 0 missing, 0 unexpected
+        let his_neither =
+            build_residue_from_template("HIS", true, &["OXT", "H2", "HXT", "HD1", "HE2"]);
+        let rep_neither = his_neither.check_missing_atoms(db, &h_opts);
+        assert!(rep_neither.is_complete());
+        assert_eq!(rep_neither.total_missing(), 0);
+        let r_neither = &rep_neither.residues[0];
+        assert_eq!(r_neither.status, ResidueStatus::Complete);
+        assert!(r_neither.missing.is_empty());
+        assert!(r_neither.unexpected.is_empty());
+
+        // Also both HD1 and HE2 present (HIP) -> complete, 0 missing, 0 unexpected
+        let rep_both = base_his.check_missing_atoms(db, &h_opts);
+        assert!(rep_both.is_complete());
+        assert_eq!(rep_both.total_missing(), 0);
+        assert!(rep_both.residues[0].unexpected.is_empty());
+
+        // Check explicit HID / HIE / HIP residue names fallback to HIS template
+        let mut hid = his_hd1_only.clone();
+        hid.name = "HID".to_string();
+        let rep_hid = hid.check_missing_atoms(db, &h_opts);
+        assert!(rep_hid.is_complete());
+        assert_eq!(rep_hid.residues[0].status, ResidueStatus::Complete);
+        assert_eq!(rep_hid.total_missing(), 0);
+        assert!(rep_hid.residues[0].unexpected.is_empty());
+
+        // 4. Heavy atom missing (CB missing) -> detected as incomplete with CB in missing
+        let his_no_cb = build_residue_from_template("HIS", true, &["OXT", "H2", "HXT", "CB"]);
+        let rep_no_cb_h = his_no_cb.check_missing_atoms(db, &h_opts);
+        assert!(!rep_no_cb_h.is_complete());
+        assert_eq!(rep_no_cb_h.total_missing(), 1);
+        assert_eq!(rep_no_cb_h.residues[0].missing, vec!["CB"]);
+
+        // 5. Heavy-atom mode (include_hydrogens=false) is unaffected
+        let his_heavy = build_residue_from_template("HIS", false, &["OXT"]);
+        let rep_heavy = his_heavy.check_missing_atoms(db, &default_opts);
+        assert!(rep_heavy.is_complete());
+        assert_eq!(rep_heavy.total_missing(), 0);
+
+        let his_heavy_no_cb = build_residue_from_template("HIS", false, &["OXT", "CB"]);
+        let rep_heavy_no_cb = his_heavy_no_cb.check_missing_atoms(db, &default_opts);
+        assert!(!rep_heavy_no_cb.is_complete());
+        assert_eq!(rep_heavy_no_cb.total_missing(), 1);
+        assert_eq!(rep_heavy_no_cb.residues[0].missing, vec!["CB"]);
+    }
+
+    #[test]
     fn test_real_2fb4_and_2mgo() {
         let data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data");
         let db = CcdTemplateDb::global();
@@ -990,7 +1105,7 @@ LIG H1 H
         assert_eq!(rep_2fb4_h.residues.len(), 550);
         assert!(!rep_2fb4_h.is_complete());
         assert_eq!(rep_2fb4_h.incomplete().len(), 550);
-        assert_eq!(rep_2fb4_h.total_missing(), 3031);
+        assert_eq!(rep_2fb4_h.total_missing(), 3019);
         assert!(rep_2fb4_h.no_template_components().is_empty());
 
         // 2MGO (NMR structure with 20 models and hydrogens)
