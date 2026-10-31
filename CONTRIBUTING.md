@@ -1,5 +1,7 @@
 # Contributing
 
+> `devtool/` の作業スクリプト(`flow.sh`・`review.sh`・`delegate.sh`・`tasks.sh`)は、公開リポジトリには含まれない。非公開リポジトリの共有フォルダ `common/devtool/` にあり、プロジェクトごとの設定は git 管理の外の `devtool.conf` に書く(手順は共有フォルダの README を参照)。以下に出てくる `devtool/` は、この共有フォルダを指す。
+
 ## Branching model (GitFlow)
 
 This project follows a GitFlow-style branching model (2026-09-15 onward, reverting to the

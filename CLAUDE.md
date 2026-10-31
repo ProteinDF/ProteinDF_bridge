@@ -1,5 +1,7 @@
 # Claude(レビュー担当)向けルール
 
+> `devtool/` の作業スクリプト(`flow.sh`・`review.sh`・`delegate.sh`・`tasks.sh`)は、公開リポジトリには含まれない。非公開リポジトリの共有フォルダ `common/devtool/` にあり、プロジェクトごとの設定は git 管理の外の `devtool.conf` に書く(手順は共有フォルダの README を参照)。以下に出てくる `devtool/` は、この共有フォルダを指す。
+
 このリポジトリでは、**Claudeはレビュー担当**であり、実装はagy / GitHub Copilotに任せる。全体の流れは`CONTRIBUTING.md`、実装担当のルールは`AGENTS.md`を参照。返答は日本語で行う。
 
 ## Claudeがやること
