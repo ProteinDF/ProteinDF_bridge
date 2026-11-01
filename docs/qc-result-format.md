@@ -3,15 +3,15 @@
 本ドキュメントは、ProteinDFの計算結果データ（HDF5形式 `reference.h5` / `pdfresults.h5`、および外部バイナリ行列 `.mat` / ベクトル `.vtr`）の形式調査結果をまとめ、Rust移植版 `proteindf-bridge` における計算結果I/O（PR#60）および軌道別Mulliken寄与計算（PR#61）の設計基礎とするものである。
 
 調査対象・参照ソース:
-- テストデータ: `/home/toshi/work/dev/pdf-dev/ProteinDF_test/serial_dev/*/reference.h5`
-- 既存ツール: `/home/toshi/work/dev/pdf-dev/ProteinDF_pytools`
+- テストデータ: `ProteinDF_test/serial_dev/*/reference.h5`（ProteinDF_test リポジトリ）
+- 既存ツール: `ProteinDF_pytools` リポジトリ
   - `proteindf_tools/pdfparam_hdf5.py`
   - `proteindf_tools/matrix.py`
   - `proteindf_tools/vector.py`
   - `proteindf_tools/orbinfo.py`
   - `proteindf_tools/basisset.py`
   - `scripts/pdf-archive-h5.py`
-- ProteinDF本体: `/home/toshi/work/dev/pdf-dev/ProteinDF`
+- ProteinDF本体: `ProteinDF` リポジトリ
   - `src/libpdf/DfObject.cpp`
   - `devtool/pyscf_scf_check.py`
 
@@ -250,7 +250,7 @@ ProteinDF_test の回帰テスト基準値用 `reference.h5` では、ファイ�
 - **形状**: `(N_AO, N_AO)` (対称行列)
 - **属性**: `type: "SY"`, `row: N_AO`, `col: N_AO`
 - **内容**: 原子基底関数間の重なり積分行列 $S_{\mu\nu} = \langle \chi_\mu | \chi_\nu \rangle$。
-- **実データでの確認**: `/tmp/test_compare/with_xc/pdfresults.h5` において shape=(14, 14), float64, 属性 `row=14, col=14, type="SY"` を確認。
+- **実データでの確認**: 作業用の計算結果（`with_xc/pdfresults.h5`） において shape=(14, 14), float64, 属性 `row=14, col=14, type="SY"` を確認。
 - **保存処理**: `scripts/pdf-archive-h5.py` 128-133行目 `archive_s` (`entry.save_s_matrix(S)`)。
 
 #### (10) `P` (密度行列)・`F` (Fock行列)
@@ -258,7 +258,7 @@ ProteinDF_test の回帰テスト基準値用 `reference.h5` では、ファイ�
 - **データ型**: `float64`
 - **形状**: `(N_AO, N_AO)`
 - **属性**: `type: "SY"`, `row: N_AO`, `col: N_AO`, `iteration: itr`
-- **実データでの確認**: `/tmp/test_compare/with_xc/pdfresults.h5` に全反復 (1..27) 分が存在。
+- **実データでの確認**: 作業用の計算結果（`with_xc/pdfresults.h5`） に全反復 (1..27) 分が存在。
 - **保存処理**: `scripts/pdf-archive-h5.py` 162-170行目 `archive_p`, 172-180行目 `archive_f`。
 
 #### (11) `h`, `h2` (1電子・2電子ハミルトニアン行列)
@@ -266,7 +266,7 @@ ProteinDF_test の回帰テスト基準値用 `reference.h5` では、ファイ�
 - **データ型**: `float64`
 - **形状**: `(N_AO, N_AO)`
 - **属性**: `type: "SY"`, `row: N_AO`, `col: N_AO`
-- **実データでの確認**: `/tmp/test_compare/with_xc/pdfresults.h5` において shape=(14, 14), float64 を確認。
+- **実データでの確認**: 作業用の計算結果（`with_xc/pdfresults.h5`） において shape=(14, 14), float64 を確認。
 - **保存処理**: `scripts/pdf-archive-h5.py` 136-141行目 `archive_h`, 144-149行目 `archive_h2`。
 
 #### (12) SY行列 (対称行列) の格納仕様と読み込み規則 (PR#61)
@@ -366,7 +366,7 @@ Mullikenポピュレーション解析の定式化:
 2. **重なり行列 $S$**:
    - `reference.h5` (ProteinDF_test の回帰テスト用基準値) にはデータセット `s` が保存されていない（サイズ節約等のため除外）。
    - 一方、ProteinDFの計算結果をHDF5にまとめる標準スクリプト `pdf-archive-h5.py` は、`archive_s`(128-133行目、`logger.debug("save S")` → `filepath = pdfparam.get_s_mat_path()` → `S = pdf.SymmetricMatrix(); S.load(filepath)` → `entry.save_s_matrix(S)`) により、**常に重なり行列をデータセット `s` として書き出す**。
-   - 実データ (`/tmp/test_compare/with_xc/pdfresults.h5`、Ne B3LYP計算) においても、データセット `s` (shape=(14, 14), float64, type="SY") が存在することを確認済み。
+   - 実データ (作業用の計算結果（`with_xc/pdfresults.h5`）、Ne B3LYP計算) においても、データセット `s` (shape=(14, 14), float64, type="SY") が存在することを確認済み。
 3. **基底関数と原子の対応付け ($p \mapsto A$)**:
    - `molecule/xyzc` と `basisset` (`name`, `cgto`, `pgto`) から **完全に導出可能**。
    - ProteinDFの規約 (`orbinfo.py` 71-97行目 `OrbInfo._setup_by_param`):
@@ -434,9 +434,9 @@ Mullikenポピュレーション解析の定式化:
 
 ### 5.2 個人データの確認方法と結果
 
-コピー前に、リポジトリ外の一時環境 (`/tmp/survey_hdf5_venv`) において以下の2段階の検査を実施した。
+コピー前に、リポジトリ外の一時環境 (リポジトリ外の一時環境) において以下の2段階の検査を実施した。
 
-1. **HDF5構造化データの走査 (`/tmp/check_privacy.py`)**:
+1. **HDF5構造化データの走査 (検査用スクリプト)**:
    - 全属性名・属性値、および文字列データセット (`molecule/xyzc`, `basisset/*`) の全要素に対し、正規表現パターン (`/home/`, `/Users/`, ユーザー名 `toshi`, `hirano`, メールアドレスパターン, プライベートIP `192.168.*`, `10.*`, `127.0.0.1`, `localhost`) で走査。
    - **結果**: 3ファイルすべてにおいて検出件数 **0件**。
 2. **バイナリ全体の文字列走査 (`strings` + `grep`)**:
