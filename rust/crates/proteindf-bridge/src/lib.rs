@@ -12,6 +12,7 @@ pub mod ch_pi;
 pub mod complete_atoms;
 pub mod error;
 pub mod format;
+pub mod geometry;
 pub mod his_state;
 pub mod hydrogen_bond;
 pub mod hydrogenation;
@@ -61,6 +62,10 @@ pub use format::{
     AmberPrmtop, Cube, CubeAtom, CubeUnit, Format, MmcifStructureReport, MmcifWriteOptions, Pdb,
     SimpleGro, SimpleMmcif, SimpleMol2, StructConnPartnerUnresolved, StructConnRecord,
     UnresolvedStructConn, Xyz, BOHR_TO_ANGSTROM,
+};
+pub use geometry::{
+    check_bond_angles, check_bond_lengths, check_planarity, GeometryReport, GeometryViolation,
+    GeometryViolationKind,
 };
 pub use his_state::{
     his_states, HisDecidedBy, HisReport, HisSiteReport, HisState, HisStateOptions,
