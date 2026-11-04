@@ -103,6 +103,11 @@ fn ideal_pos(template: &CcdBondTemplate, name: &str) -> Option<Position> {
     Some(Position::new(x, y, z))
 }
 
+/// Returns true when the atom name denotes a hydrogen or deuterium (starts with `H` or `D`).
+fn is_hydrogen_name(name: &str) -> bool {
+    name.starts_with('H') || name.starts_with('D')
+}
+
 fn angle_deg(a: &Position, vertex: &Position, c: &Position) -> Option<f64> {
     let v1 = Position::new(a.x - vertex.x, a.y - vertex.y, a.z - vertex.z);
     let v2 = Position::new(c.x - vertex.x, c.y - vertex.y, c.z - vertex.z);
@@ -117,7 +122,8 @@ fn angle_deg(a: &Position, vertex: &Position, c: &Position) -> Option<f64> {
 ///
 /// A bond is reported when `|observed - ideal| > max_deviation` (Angstrom). Bonds whose
 /// atoms are absent from the residue, or whose template atoms have no ideal coordinates,
-/// are skipped; residues without a template are skipped.
+/// are skipped; residues without a template are skipped. When `include_hydrogens` is
+/// false, bonds involving an atom whose name starts with `H` or `D` are not checked.
 ///
 /// # Errors
 /// Returns an error if `max_deviation` is negative or NaN.
@@ -125,6 +131,7 @@ pub fn check_bond_lengths(
     group: &AtomGroup,
     db: &CcdTemplateDb,
     max_deviation: f64,
+    include_hydrogens: bool,
 ) -> Result<GeometryReport> {
     validate_threshold("max_deviation", max_deviation)?;
     let mut residues = Vec::new();
@@ -136,6 +143,9 @@ pub fn check_bond_lengths(
             continue;
         };
         for (n1, n2, _) in &template.bonds {
+            if !include_hydrogens && (is_hydrogen_name(n1) || is_hydrogen_name(n2)) {
+                continue;
+            }
             let (Some(i1), Some(i2)) = (ideal_pos(template, n1), ideal_pos(template, n2)) else {
                 continue;
             };
@@ -165,7 +175,9 @@ pub fn check_bond_lengths(
 ///
 /// For every atom with two or more template neighbors, each neighbor pair forms an angle.
 /// An angle is reported when `|observed - ideal| > max_deviation_deg` (degrees).
-/// Angles with missing atoms or without ideal coordinates are skipped.
+/// Angles with missing atoms or without ideal coordinates are skipped. When
+/// `include_hydrogens` is false, angles involving an atom whose name starts with `H` or
+/// `D` are not checked.
 ///
 /// # Errors
 /// Returns an error if `max_deviation_deg` is negative or NaN.
@@ -173,6 +185,7 @@ pub fn check_bond_angles(
     group: &AtomGroup,
     db: &CcdTemplateDb,
     max_deviation_deg: f64,
+    include_hydrogens: bool,
 ) -> Result<GeometryReport> {
     validate_threshold("max_deviation_deg", max_deviation_deg)?;
     let mut residues = Vec::new();
@@ -200,6 +213,13 @@ pub fn check_bond_angles(
             for i in 0..neighbors.len() {
                 for j in (i + 1)..neighbors.len() {
                     let (n1, n2) = (neighbors[i], neighbors[j]);
+                    if !include_hydrogens
+                        && [n1.as_str(), center.name.as_str(), n2.as_str()]
+                            .iter()
+                            .any(|n| is_hydrogen_name(n))
+                    {
+                        continue;
+                    }
                     let (Some(p1), Some(pc), Some(p2)) = (
                         ideal_pos(template, n1),
                         ideal_pos(template, &center.name),
@@ -324,8 +344,8 @@ mod tests {
     fn ideal_residue_has_no_violations() {
         let db = CcdTemplateDb::global();
         let res = build_residue("ALA");
-        assert!(check_bond_lengths(&res, db, 0.01).unwrap().is_empty());
-        assert!(check_bond_angles(&res, db, 0.1).unwrap().is_empty());
+        assert!(check_bond_lengths(&res, db, 0.01, true).unwrap().is_empty());
+        assert!(check_bond_angles(&res, db, 0.1, true).unwrap().is_empty());
         let phe = build_residue("PHE");
         assert!(check_planarity(&phe, 0.01).unwrap().is_empty());
     }
@@ -348,13 +368,13 @@ mod tests {
         );
 
         // threshold 0.1: CA-CB reported (deviation 0.2); threshold 0.3: nothing.
-        let tight = check_bond_lengths(&res, db, 0.1).unwrap();
+        let tight = check_bond_lengths(&res, db, 0.1, true).unwrap();
         assert_eq!(tight.len(), 1);
         let v = &tight.violations[0];
         assert_eq!(v.kind, GeometryViolationKind::BondLength);
         assert_eq!(v.atoms, vec!["CA".to_string(), "CB".to_string()]);
         assert!((v.deviation - 0.2).abs() < 1e-6);
-        assert!(check_bond_lengths(&res, db, 0.3).unwrap().is_empty());
+        assert!(check_bond_lengths(&res, db, 0.3, true).unwrap().is_empty());
     }
 
     #[test]
@@ -363,7 +383,7 @@ mod tests {
         let mut res = build_residue("ALA");
         // Displace CB perpendicular-ish to change N-CA-CB and CB-CA-C angles.
         shift_atom(&mut res, "CB", 0.0, 0.0, 0.6);
-        let loose = check_bond_angles(&res, db, 1.0).unwrap();
+        let loose = check_bond_angles(&res, db, 1.0, true).unwrap();
         assert!(!loose.is_empty());
         assert!(loose
             .violations
@@ -374,10 +394,47 @@ mod tests {
             .iter()
             .any(|v| v.atoms[2] == "CB" || v.atoms[0] == "CB"));
         // A huge threshold reports nothing.
-        assert!(check_bond_angles(&res, db, 180.0).unwrap().is_empty());
+        assert!(check_bond_angles(&res, db, 180.0, true).unwrap().is_empty());
         // The number of violations does not increase when the threshold is relaxed.
-        let mid = check_bond_angles(&res, db, 5.0).unwrap();
+        let mid = check_bond_angles(&res, db, 5.0, true).unwrap();
         assert!(mid.len() <= loose.len());
+    }
+
+    #[test]
+    fn hydrogen_angles_can_be_excluded() {
+        let db = CcdTemplateDb::global();
+        let mut res = build_residue("ALA");
+        // Move the amide hydrogen so that H-N-CA changes, and CB so that a heavy angle changes.
+        shift_atom(&mut res, "H", 0.0, 0.0, 0.8);
+        shift_atom(&mut res, "CB", 0.0, 0.0, 0.6);
+        let has_h = |v: &GeometryViolation| v.atoms.iter().any(|n| is_hydrogen_name(n));
+
+        let with_h = check_bond_angles(&res, db, 1.0, true).unwrap();
+        assert!(with_h.violations.iter().any(has_h));
+
+        let without_h = check_bond_angles(&res, db, 1.0, false).unwrap();
+        assert!(!without_h.is_empty());
+        assert!(!without_h.violations.iter().any(has_h));
+
+        // Heavy-atom angles are identical in both modes.
+        let heavy_of_with_h: Vec<_> = with_h.violations.iter().filter(|v| !has_h(v)).collect();
+        assert_eq!(heavy_of_with_h.len(), without_h.len());
+        for (a, b) in heavy_of_with_h.iter().zip(without_h.violations.iter()) {
+            assert_eq!(a.atoms, b.atoms);
+            assert!((a.observed - b.observed).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn hydrogen_bonds_can_be_excluded() {
+        let db = CcdTemplateDb::global();
+        let mut res = build_residue("ALA");
+        shift_atom(&mut res, "H", 0.0, 0.0, 0.8);
+        let has_h = |v: &GeometryViolation| v.atoms.iter().any(|n| is_hydrogen_name(n));
+        let with_h = check_bond_lengths(&res, db, 0.1, true).unwrap();
+        assert!(with_h.violations.iter().any(has_h));
+        let without_h = check_bond_lengths(&res, db, 0.1, false).unwrap();
+        assert!(!without_h.violations.iter().any(has_h));
     }
 
     #[test]
@@ -412,10 +469,10 @@ mod tests {
     fn invalid_threshold_is_an_error() {
         let db = CcdTemplateDb::global();
         let res = build_residue("ALA");
-        assert!(check_bond_lengths(&res, db, -0.1).is_err());
-        assert!(check_bond_lengths(&res, db, f64::NAN).is_err());
-        assert!(check_bond_angles(&res, db, -1.0).is_err());
-        assert!(check_bond_angles(&res, db, f64::NAN).is_err());
+        assert!(check_bond_lengths(&res, db, -0.1, true).is_err());
+        assert!(check_bond_lengths(&res, db, f64::NAN, true).is_err());
+        assert!(check_bond_angles(&res, db, -1.0, true).is_err());
+        assert!(check_bond_angles(&res, db, f64::NAN, true).is_err());
         assert!(check_planarity(&res, -0.1).is_err());
         assert!(check_planarity(&res, f64::NAN).is_err());
     }
