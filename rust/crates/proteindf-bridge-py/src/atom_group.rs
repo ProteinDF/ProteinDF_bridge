@@ -5,6 +5,7 @@ use crate::atom::PyAtom;
 use crate::ccd_templates::PyCcdTemplateDb;
 use crate::complete_atoms::PyCompletionReport;
 use crate::error::to_py_err;
+use crate::geometry::PyGeometryReport;
 use crate::hydrogenation::PyOverallHydrogenationReport;
 use crate::missing_atoms::PyMissingAtomsReport;
 use crate::position::PyPosition;
@@ -15,6 +16,7 @@ use proteindf_bridge::atom_group::{AtomGroup as CoreAtomGroup, BondRecord, Selec
 use proteindf_bridge::ccd_templates::CcdTemplateDb as CoreCcdTemplateDb;
 use proteindf_bridge::complete_atoms::CompleteOptions;
 use proteindf_bridge::error::BridgeError;
+use proteindf_bridge::geometry::{check_bond_angles, check_bond_lengths, check_planarity};
 use proteindf_bridge::missing_atoms::MissingAtomsOptions;
 use proteindf_bridge::position::Position;
 use proteindf_bridge::sasa::SasaOptions;
@@ -2159,6 +2161,50 @@ impl PyAtomGroup {
         let options = MissingAtomsOptions { include_hydrogens };
         let report = core.check_missing_atoms(core_db, &options);
         PyMissingAtomsReport::new(py, report)
+    }
+
+    /// Checks bond lengths, bond angles and aromatic ring planarity against CCD templates.
+    ///
+    /// All three thresholds are required; there are no default values.
+    ///
+    /// Args:
+    ///     db (Optional[CcdTemplateDb], optional): The CCD template database to use.
+    ///         If None, the global default database is used. Defaults to None.
+    ///     max_bond_length_deviation (float): Maximum allowed bond length deviation (Angstrom).
+    ///     max_bond_angle_deviation_deg (float): Maximum allowed bond angle deviation (degrees).
+    ///     max_planarity_deviation (float): Maximum allowed out-of-plane distance (Angstrom).
+    ///
+    /// Returns:
+    ///     GeometryReport: Violations exceeding the thresholds.
+    ///
+    /// Raises:
+    ///     ValueError: If a threshold is negative or NaN.
+    #[pyo3(signature = (db=None, *, max_bond_length_deviation, max_bond_angle_deviation_deg, max_planarity_deviation))]
+    pub fn check_geometry(
+        &self,
+        py: Python<'_>,
+        db: Option<&PyCcdTemplateDb>,
+        max_bond_length_deviation: f64,
+        max_bond_angle_deviation_deg: f64,
+        max_planarity_deviation: f64,
+    ) -> PyResult<PyGeometryReport> {
+        let core_db = match db {
+            Some(d) => &d.inner,
+            None => CoreCcdTemplateDb::global(),
+        };
+        let core = self.to_core(py);
+        let value_err = |err: BridgeError| match err {
+            BridgeError::ValueError { .. } => PyValueError::new_err(err.to_string()),
+            other => to_py_err(other),
+        };
+        let mut report =
+            check_bond_lengths(&core, core_db, max_bond_length_deviation).map_err(value_err)?;
+        let angles =
+            check_bond_angles(&core, core_db, max_bond_angle_deviation_deg).map_err(value_err)?;
+        let planarity = check_planarity(&core, max_planarity_deviation).map_err(value_err)?;
+        report.violations.extend(angles.violations);
+        report.violations.extend(planarity.violations);
+        PyGeometryReport::new(py, report)
     }
 
     /// Reconstructs and adds missing heavy atoms based on CCD residue templates.
