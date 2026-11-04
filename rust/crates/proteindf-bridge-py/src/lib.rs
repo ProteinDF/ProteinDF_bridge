@@ -13,6 +13,7 @@ pub mod ch_pi;
 pub mod complete_atoms;
 pub mod error;
 pub mod format;
+pub mod geometry;
 pub mod hydrogen_bond;
 pub mod hydrogenation;
 pub mod interaction_set;
@@ -119,6 +120,10 @@ fn rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Hydrogenation (PR#46)
     m.add_class::<hydrogenation::PyHydrogenationReport>()?;
     m.add_class::<hydrogenation::PyOverallHydrogenationReport>()?;
+
+    // Geometry inspection
+    m.add_class::<geometry::PyGeometryViolation>()?;
+    m.add_class::<geometry::PyGeometryReport>()?;
 
     // Missing atoms inspection
     m.add_class::<missing_atoms::PyResidueAtomCheck>()?;
