@@ -10,7 +10,7 @@ Validates:
 1. Violations beyond the thresholds are reported.
 2. Deviations within the thresholds are not reported.
 3. Negative or NaN thresholds raise ValueError.
-4. Thresholds are required keyword-only arguments.
+4. Thresholds are keyword-only arguments with default values (10% / 10% / 0.10 A).
 5. 1hls with the default CCD: large thresholds give zero violations.
 6. include_hydrogens=False excludes hydrogen-containing angles; it is a required argument.
 """
@@ -52,10 +52,10 @@ def build_ala(shift_cb: float = 0.0) -> rs_br.AtomGroup:
 
 
 class TestRsGeometry(unittest.TestCase):
-    def check(self, group, length=0.1, angle=5.0, planarity=0.1, include_hydrogens=True):
+    def check(self, group, length=0.05, angle=0.05, planarity=0.1, include_hydrogens=True):
         return group.check_geometry(
-            max_bond_length_deviation=length,
-            max_bond_angle_deviation_deg=angle,
+            max_bond_length_ratio=length,
+            max_bond_angle_ratio=angle,
             max_planarity_deviation=planarity,
             include_hydrogens=include_hydrogens,
         )
@@ -79,7 +79,7 @@ class TestRsGeometry(unittest.TestCase):
         self.assertEqual(len(rep), 0)
         self.assertEqual(len(rep.violations), 0)
 
-        rep = self.check(build_ala(shift_cb=0.05), length=0.5, angle=30.0, planarity=0.5)
+        rep = self.check(build_ala(shift_cb=0.05), length=0.5, angle=0.3, planarity=0.5)
         self.assertEqual(len(rep), 0)
 
     def test_invalid_threshold_raises_value_error(self):
@@ -93,15 +93,30 @@ class TestRsGeometry(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.check(ala, planarity=bad)
 
-    def test_thresholds_required(self):
-        """Omitting any threshold, or passing them positionally, raises TypeError."""
+    def test_thresholds_keyword_only(self):
+        """Passing thresholds positionally raises TypeError."""
         ala = build_ala()
         with self.assertRaises(TypeError):
-            ala.check_geometry()
-        with self.assertRaises(TypeError):
-            ala.check_geometry(max_bond_length_deviation=0.1, max_bond_angle_deviation_deg=5.0)
-        with self.assertRaises(TypeError):
-            ala.check_geometry(None, 0.1, 5.0, 0.1)
+            ala.check_geometry(None, 0.1, 0.1, 0.1, True)
+
+    def test_default_thresholds(self):
+        """Omitted thresholds use 10% / 10% / 0.10 A."""
+        # CA-CB stretched by 1.0 A (about 65%): reported with the defaults.
+        rep = build_ala(shift_cb=1.0).check_geometry(include_hydrogens=False)
+        self.assertTrue(any(v.kind == "bond_length" and set(v.atoms) == {"CA", "CB"} for v in rep.violations))
+        # A small shift (about 0.05 A, about 3%) stays within the defaults.
+        rep = build_ala(shift_cb=0.05).check_geometry(include_hydrogens=False)
+        self.assertEqual(len(rep), 0)
+        # The defaults are the same as passing them explicitly.
+        ala = build_ala(shift_cb=0.3)
+        explicit = ala.check_geometry(
+            max_bond_length_ratio=0.10,
+            max_bond_angle_ratio=0.10,
+            max_planarity_deviation=0.10,
+            include_hydrogens=False,
+        )
+        default = ala.check_geometry(include_hydrogens=False)
+        self.assertEqual(len(default), len(explicit))
 
     def test_1hls_default_ccd(self):
         """1hls with the default CCD: tight thresholds report violations; huge ones report none."""
@@ -117,7 +132,7 @@ class TestRsGeometry(unittest.TestCase):
         ag = rs_br.SimpleMmcif(os.path.join(DATA_DIR, "1HLS.cif")).get_structure_atomgroup()
 
         def angles(include_hydrogens):
-            rep = self.check(ag, length=HUGE, angle=5.0, planarity=HUGE, include_hydrogens=include_hydrogens)
+            rep = self.check(ag, length=HUGE, angle=0.05, planarity=HUGE, include_hydrogens=include_hydrogens)
             return [v for v in rep.violations if v.kind == "bond_angle"]
 
         def has_h(v):
@@ -134,10 +149,12 @@ class TestRsGeometry(unittest.TestCase):
         ala = build_ala()
         with self.assertRaises(TypeError):
             ala.check_geometry(
-                max_bond_length_deviation=0.1,
-                max_bond_angle_deviation_deg=5.0,
+                max_bond_length_ratio=0.1,
+                max_bond_angle_ratio=0.1,
                 max_planarity_deviation=0.1,
             )
+        with self.assertRaises(TypeError):
+            ala.check_geometry()
 
 
 if __name__ == "__main__":
