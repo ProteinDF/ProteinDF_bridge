@@ -12,7 +12,7 @@ Validates:
 3. Negative or NaN thresholds raise ValueError.
 4. Thresholds are keyword-only arguments with default values (10% / 10% / 0.10 A).
 5. 1hls with the default CCD: large thresholds give zero violations.
-6. include_hydrogens=False excludes hydrogen-containing angles; it is a required argument.
+6. include_hydrogens defaults to False and excludes hydrogen-containing angles.
 """
 
 import math
@@ -144,17 +144,23 @@ class TestRsGeometry(unittest.TestCase):
         self.assertFalse(any(has_h(v) for v in without_h))
         self.assertEqual(len([v for v in with_h if not has_h(v)]), len(without_h))
 
-    def test_include_hydrogens_required(self):
-        """Omitting include_hydrogens raises TypeError."""
-        ala = build_ala()
-        with self.assertRaises(TypeError):
-            ala.check_geometry(
-                max_bond_length_ratio=0.1,
-                max_bond_angle_ratio=0.1,
-                max_planarity_deviation=0.1,
-            )
-        with self.assertRaises(TypeError):
-            ala.check_geometry()
+    def test_include_hydrogens_default_is_false(self):
+        """Omitting include_hydrogens gives the same result as include_hydrogens=False."""
+        ag = rs_br.SimpleMmcif(os.path.join(DATA_DIR, "1HLS.cif")).get_structure_atomgroup()
+        rep_omitted = ag.check_geometry()
+        rep_explicit = ag.check_geometry(include_hydrogens=False)
+        self.assertEqual(len(rep_omitted), len(rep_explicit))
+        self.assertEqual(
+            [(v.kind, v.comp_id, v.atoms) for v in rep_omitted.violations],
+            [(v.kind, v.comp_id, v.atoms) for v in rep_explicit.violations],
+        )
+
+    def test_include_hydrogens_true_reports_hydrogen_violations(self):
+        """include_hydrogens=True reports violations involving hydrogen atoms on 1HLS."""
+        ag = rs_br.SimpleMmcif(os.path.join(DATA_DIR, "1HLS.cif")).get_structure_atomgroup()
+        rep = ag.check_geometry(include_hydrogens=True)
+        h_violations = [v for v in rep.violations if any(n.startswith(("H", "D")) for n in v.atoms)]
+        self.assertGreater(len(h_violations), 0)
 
 
 if __name__ == "__main__":

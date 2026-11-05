@@ -2167,7 +2167,7 @@ impl PyAtomGroup {
     ///
     /// The bond length and bond angle thresholds are ratios of the ideal value
     /// (|observed - ideal| / ideal); the planarity threshold is in Angstrom.
-    /// `include_hydrogens` is required; it has no default value.
+    /// `include_hydrogens` defaults to False.
     ///
     /// Args:
     ///     db (Optional[CcdTemplateDb], optional): The CCD template database to use.
@@ -2178,15 +2178,15 @@ impl PyAtomGroup {
     ///         deviation (0.10 means 10%). Defaults to 0.10.
     ///     max_planarity_deviation (float, optional): Maximum allowed out-of-plane distance
     ///         (Angstrom). Defaults to 0.10.
-    ///     include_hydrogens (bool): If False, bonds and angles involving an atom whose
-    ///         name starts with H or D are not checked.
+    ///     include_hydrogens (bool, optional): If False, bonds and angles involving an atom whose
+    ///         name starts with H or D are not checked. Defaults to False.
     ///
     /// Returns:
     ///     GeometryReport: Violations exceeding the thresholds.
     ///
     /// Raises:
     ///     ValueError: If a threshold is negative or NaN.
-    #[pyo3(signature = (db=None, *, max_bond_length_ratio=0.10, max_bond_angle_ratio=0.10, max_planarity_deviation=0.10, include_hydrogens))]
+    #[pyo3(signature = (db=None, *, max_bond_length_ratio=0.10, max_bond_angle_ratio=0.10, max_planarity_deviation=0.10, include_hydrogens=false))]
     pub fn check_geometry(
         &self,
         py: Python<'_>,
