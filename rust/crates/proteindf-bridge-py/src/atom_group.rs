@@ -2165,7 +2165,7 @@ impl PyAtomGroup {
 
     /// Checks bond lengths, bond angles and aromatic ring planarity against CCD templates.
     ///
-    /// All three thresholds are required; there are no default values.
+    /// All three thresholds and `include_hydrogens` are required; there are no default values.
     ///
     /// Args:
     ///     db (Optional[CcdTemplateDb], optional): The CCD template database to use.
@@ -2173,13 +2173,15 @@ impl PyAtomGroup {
     ///     max_bond_length_deviation (float): Maximum allowed bond length deviation (Angstrom).
     ///     max_bond_angle_deviation_deg (float): Maximum allowed bond angle deviation (degrees).
     ///     max_planarity_deviation (float): Maximum allowed out-of-plane distance (Angstrom).
+    ///     include_hydrogens (bool): If False, bonds and angles involving an atom whose
+    ///         name starts with H or D are not checked.
     ///
     /// Returns:
     ///     GeometryReport: Violations exceeding the thresholds.
     ///
     /// Raises:
     ///     ValueError: If a threshold is negative or NaN.
-    #[pyo3(signature = (db=None, *, max_bond_length_deviation, max_bond_angle_deviation_deg, max_planarity_deviation))]
+    #[pyo3(signature = (db=None, *, max_bond_length_deviation, max_bond_angle_deviation_deg, max_planarity_deviation, include_hydrogens))]
     pub fn check_geometry(
         &self,
         py: Python<'_>,
@@ -2187,6 +2189,7 @@ impl PyAtomGroup {
         max_bond_length_deviation: f64,
         max_bond_angle_deviation_deg: f64,
         max_planarity_deviation: f64,
+        include_hydrogens: bool,
     ) -> PyResult<PyGeometryReport> {
         let core_db = match db {
             Some(d) => &d.inner,
@@ -2198,9 +2201,15 @@ impl PyAtomGroup {
             other => to_py_err(other),
         };
         let mut report =
-            check_bond_lengths(&core, core_db, max_bond_length_deviation).map_err(value_err)?;
-        let angles =
-            check_bond_angles(&core, core_db, max_bond_angle_deviation_deg).map_err(value_err)?;
+            check_bond_lengths(&core, core_db, max_bond_length_deviation, include_hydrogens)
+                .map_err(value_err)?;
+        let angles = check_bond_angles(
+            &core,
+            core_db,
+            max_bond_angle_deviation_deg,
+            include_hydrogens,
+        )
+        .map_err(value_err)?;
         let planarity = check_planarity(&core, max_planarity_deviation).map_err(value_err)?;
         report.violations.extend(angles.violations);
         report.violations.extend(planarity.violations);
