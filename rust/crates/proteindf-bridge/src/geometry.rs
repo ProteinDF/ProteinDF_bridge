@@ -4,8 +4,9 @@
 //! Geometry inspection (bond lengths, bond angles, aromatic ring planarity).
 //!
 //! Ideal bond lengths and angles are derived from the idealized coordinates
-//! (`ideal_xyz`) of the CCD templates in [`CcdTemplateDb`]. Thresholds must always be
-//! given explicitly; there are no default values. Only violations are reported.
+//! (`ideal_xyz`) of the CCD templates in [`CcdTemplateDb`]. Bond length and bond angle
+//! thresholds are ratios of the ideal value; the planarity threshold is in Angstrom.
+//! Thresholds must always be given explicitly at this level. Only violations are reported.
 
 use crate::atom_group::AtomGroup;
 use crate::brd::sort_nicely;
@@ -120,20 +121,20 @@ fn angle_deg(a: &Position, vertex: &Position, c: &Position) -> Option<f64> {
 
 /// Checks bond lengths against the template ideal values.
 ///
-/// A bond is reported when `|observed - ideal| > max_deviation` (Angstrom). Bonds whose
-/// atoms are absent from the residue, or whose template atoms have no ideal coordinates,
-/// are skipped; residues without a template are skipped. When `include_hydrogens` is
+/// A bond is reported when `|observed - ideal| / ideal > max_ratio` (e.g. `0.10` for 10%).
+/// Bonds whose ideal length is zero or less are skipped, as are bonds whose
+/// atoms are absent from the residue, or whose template atoms have no ideal coordinates; residues without a template are skipped. When `include_hydrogens` is
 /// false, bonds involving an atom whose name starts with `H` or `D` are not checked.
 ///
 /// # Errors
-/// Returns an error if `max_deviation` is negative or NaN.
+/// Returns an error if `max_ratio` is negative or NaN.
 pub fn check_bond_lengths(
     group: &AtomGroup,
     db: &CcdTemplateDb,
-    max_deviation: f64,
+    max_ratio: f64,
     include_hydrogens: bool,
 ) -> Result<GeometryReport> {
-    validate_threshold("max_deviation", max_deviation)?;
+    validate_threshold("max_ratio", max_ratio)?;
     let mut residues = Vec::new();
     collect_leaf_residues(group, &mut residues);
 
@@ -154,8 +155,11 @@ pub fn check_bond_lengths(
             };
             let ideal = i1.distance_from(&i2);
             let observed = a1.xyz.distance_from(&a2.xyz);
+            if ideal <= 0.0 {
+                continue;
+            }
             let deviation = (observed - ideal).abs();
-            if deviation > max_deviation {
+            if deviation / ideal > max_ratio {
                 report.violations.push(GeometryViolation {
                     kind: GeometryViolationKind::BondLength,
                     path: res.path().to_string(),
@@ -174,20 +178,21 @@ pub fn check_bond_lengths(
 /// Checks bond angles against the template ideal values.
 ///
 /// For every atom with two or more template neighbors, each neighbor pair forms an angle.
-/// An angle is reported when `|observed - ideal| > max_deviation_deg` (degrees).
-/// Angles with missing atoms or without ideal coordinates are skipped. When
+/// An angle is reported when `|observed - ideal| / ideal > max_ratio` (e.g. `0.10` for 10%).
+/// Angles whose ideal value is zero or less, with missing atoms, or without ideal
+/// coordinates are skipped. When
 /// `include_hydrogens` is false, angles involving an atom whose name starts with `H` or
 /// `D` are not checked.
 ///
 /// # Errors
-/// Returns an error if `max_deviation_deg` is negative or NaN.
+/// Returns an error if `max_ratio` is negative or NaN.
 pub fn check_bond_angles(
     group: &AtomGroup,
     db: &CcdTemplateDb,
-    max_deviation_deg: f64,
+    max_ratio: f64,
     include_hydrogens: bool,
 ) -> Result<GeometryReport> {
-    validate_threshold("max_deviation_deg", max_deviation_deg)?;
+    validate_threshold("max_ratio", max_ratio)?;
     let mut residues = Vec::new();
     collect_leaf_residues(group, &mut residues);
 
@@ -240,8 +245,11 @@ pub fn check_bond_angles(
                     ) else {
                         continue;
                     };
+                    if ideal <= 0.0 {
+                        continue;
+                    }
                     let deviation = (observed - ideal).abs();
-                    if deviation > max_deviation_deg {
+                    if deviation / ideal > max_ratio {
                         report.violations.push(GeometryViolation {
                             kind: GeometryViolationKind::BondAngle,
                             path: res.path().to_string(),
@@ -344,8 +352,10 @@ mod tests {
     fn ideal_residue_has_no_violations() {
         let db = CcdTemplateDb::global();
         let res = build_residue("ALA");
-        assert!(check_bond_lengths(&res, db, 0.01, true).unwrap().is_empty());
-        assert!(check_bond_angles(&res, db, 0.1, true).unwrap().is_empty());
+        assert!(check_bond_lengths(&res, db, 0.001, true)
+            .unwrap()
+            .is_empty());
+        assert!(check_bond_angles(&res, db, 0.001, true).unwrap().is_empty());
         let phe = build_residue("PHE");
         assert!(check_planarity(&phe, 0.01).unwrap().is_empty());
     }
@@ -367,14 +377,15 @@ mod tests {
             (cb.z - ca.z) * s,
         );
 
-        // threshold 0.1: CA-CB reported (deviation 0.2); threshold 0.3: nothing.
-        let tight = check_bond_lengths(&res, db, 0.1, true).unwrap();
+        // CA-CB lengthens by 0.2 A (about 13% of the ideal length).
+        // ratio 0.05: CA-CB reported; ratio 0.2: nothing.
+        let tight = check_bond_lengths(&res, db, 0.05, true).unwrap();
         assert_eq!(tight.len(), 1);
         let v = &tight.violations[0];
         assert_eq!(v.kind, GeometryViolationKind::BondLength);
         assert_eq!(v.atoms, vec!["CA".to_string(), "CB".to_string()]);
         assert!((v.deviation - 0.2).abs() < 1e-6);
-        assert!(check_bond_lengths(&res, db, 0.3, true).unwrap().is_empty());
+        assert!(check_bond_lengths(&res, db, 0.2, true).unwrap().is_empty());
     }
 
     #[test]
@@ -383,7 +394,7 @@ mod tests {
         let mut res = build_residue("ALA");
         // Displace CB perpendicular-ish to change N-CA-CB and CB-CA-C angles.
         shift_atom(&mut res, "CB", 0.0, 0.0, 0.6);
-        let loose = check_bond_angles(&res, db, 1.0, true).unwrap();
+        let loose = check_bond_angles(&res, db, 0.01, true).unwrap();
         assert!(!loose.is_empty());
         assert!(loose
             .violations
@@ -394,9 +405,9 @@ mod tests {
             .iter()
             .any(|v| v.atoms[2] == "CB" || v.atoms[0] == "CB"));
         // A huge threshold reports nothing.
-        assert!(check_bond_angles(&res, db, 180.0, true).unwrap().is_empty());
+        assert!(check_bond_angles(&res, db, 100.0, true).unwrap().is_empty());
         // The number of violations does not increase when the threshold is relaxed.
-        let mid = check_bond_angles(&res, db, 5.0, true).unwrap();
+        let mid = check_bond_angles(&res, db, 0.05, true).unwrap();
         assert!(mid.len() <= loose.len());
     }
 
@@ -409,10 +420,10 @@ mod tests {
         shift_atom(&mut res, "CB", 0.0, 0.0, 0.6);
         let has_h = |v: &GeometryViolation| v.atoms.iter().any(|n| is_hydrogen_name(n));
 
-        let with_h = check_bond_angles(&res, db, 1.0, true).unwrap();
+        let with_h = check_bond_angles(&res, db, 0.01, true).unwrap();
         assert!(with_h.violations.iter().any(has_h));
 
-        let without_h = check_bond_angles(&res, db, 1.0, false).unwrap();
+        let without_h = check_bond_angles(&res, db, 0.01, false).unwrap();
         assert!(!without_h.is_empty());
         assert!(!without_h.violations.iter().any(has_h));
 
@@ -471,7 +482,7 @@ mod tests {
         let res = build_residue("ALA");
         assert!(check_bond_lengths(&res, db, -0.1, true).is_err());
         assert!(check_bond_lengths(&res, db, f64::NAN, true).is_err());
-        assert!(check_bond_angles(&res, db, -1.0, true).is_err());
+        assert!(check_bond_angles(&res, db, -0.1, true).is_err());
         assert!(check_bond_angles(&res, db, f64::NAN, true).is_err());
         assert!(check_planarity(&res, -0.1).is_err());
         assert!(check_planarity(&res, f64::NAN).is_err());

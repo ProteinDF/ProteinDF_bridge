@@ -2165,14 +2165,19 @@ impl PyAtomGroup {
 
     /// Checks bond lengths, bond angles and aromatic ring planarity against CCD templates.
     ///
-    /// All three thresholds and `include_hydrogens` are required; there are no default values.
+    /// The bond length and bond angle thresholds are ratios of the ideal value
+    /// (|observed - ideal| / ideal); the planarity threshold is in Angstrom.
+    /// `include_hydrogens` is required; it has no default value.
     ///
     /// Args:
     ///     db (Optional[CcdTemplateDb], optional): The CCD template database to use.
     ///         If None, the global default database is used. Defaults to None.
-    ///     max_bond_length_deviation (float): Maximum allowed bond length deviation (Angstrom).
-    ///     max_bond_angle_deviation_deg (float): Maximum allowed bond angle deviation (degrees).
-    ///     max_planarity_deviation (float): Maximum allowed out-of-plane distance (Angstrom).
+    ///     max_bond_length_ratio (float, optional): Maximum allowed relative bond length
+    ///         deviation (0.10 means 10%). Defaults to 0.10.
+    ///     max_bond_angle_ratio (float, optional): Maximum allowed relative bond angle
+    ///         deviation (0.10 means 10%). Defaults to 0.10.
+    ///     max_planarity_deviation (float, optional): Maximum allowed out-of-plane distance
+    ///         (Angstrom). Defaults to 0.10.
     ///     include_hydrogens (bool): If False, bonds and angles involving an atom whose
     ///         name starts with H or D are not checked.
     ///
@@ -2181,13 +2186,13 @@ impl PyAtomGroup {
     ///
     /// Raises:
     ///     ValueError: If a threshold is negative or NaN.
-    #[pyo3(signature = (db=None, *, max_bond_length_deviation, max_bond_angle_deviation_deg, max_planarity_deviation, include_hydrogens))]
+    #[pyo3(signature = (db=None, *, max_bond_length_ratio=0.10, max_bond_angle_ratio=0.10, max_planarity_deviation=0.10, include_hydrogens))]
     pub fn check_geometry(
         &self,
         py: Python<'_>,
         db: Option<&PyCcdTemplateDb>,
-        max_bond_length_deviation: f64,
-        max_bond_angle_deviation_deg: f64,
+        max_bond_length_ratio: f64,
+        max_bond_angle_ratio: f64,
         max_planarity_deviation: f64,
         include_hydrogens: bool,
     ) -> PyResult<PyGeometryReport> {
@@ -2201,15 +2206,10 @@ impl PyAtomGroup {
             other => to_py_err(other),
         };
         let mut report =
-            check_bond_lengths(&core, core_db, max_bond_length_deviation, include_hydrogens)
+            check_bond_lengths(&core, core_db, max_bond_length_ratio, include_hydrogens)
                 .map_err(value_err)?;
-        let angles = check_bond_angles(
-            &core,
-            core_db,
-            max_bond_angle_deviation_deg,
-            include_hydrogens,
-        )
-        .map_err(value_err)?;
+        let angles = check_bond_angles(&core, core_db, max_bond_angle_ratio, include_hydrogens)
+            .map_err(value_err)?;
         let planarity = check_planarity(&core, max_planarity_deviation).map_err(value_err)?;
         report.violations.extend(angles.violations);
         report.violations.extend(planarity.violations);
